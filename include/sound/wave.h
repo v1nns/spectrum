@@ -1,15 +1,16 @@
 /**************************************************************************************************/
 /**
  * \file
- * \brief  Base class used to create Client and its mock.
+ * \brief  Class to read data samples from a WAVE file.
  */
 /**************************************************************************************************/
 
-#ifndef INCLUDE_WAVE_READER_H_
-#define INCLUDE_WAVE_READER_H_
+#ifndef INCLUDE_WAVE_H_
+#define INCLUDE_WAVE_H_
 
 #include <cstdint>
-#include <cstdio>
+
+#include "sound/song.h"
 
 // Based on canonical WAVE format from this link:
 // http://soundfile.sapp.org/doc/WaveFormat
@@ -31,15 +32,19 @@ struct wave_header_t {
   uint16_t bitsPerSample;  // Number of bits per sample
 
   /* "data" sub-chunk */
-  uint8_t Subchunk2ID[4];  // "data"  string
+  uint8_t Subchunk2ID[4];  // "data" string
   uint32_t Subchunk2Size;  // Sampled data length
 };
 
-// Function prototypes
-int GetFileSize(FILE* inFile);
+class WaveFormat : public Song {
+ public:
+  using Song::Song;
 
-void PrintStats(const int length, const wave_header_t& hdr);
+  bool ParseFromFile(const std::string& full_path) override;
+  void PrintStats() override;
 
-int Read();
+ private:
+  wave_header_t header_;
+};
 
-#endif  // INCLUDE_WAVE_READER_H_
+#endif  // INCLUDE_WAVE_H_
