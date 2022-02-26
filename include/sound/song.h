@@ -1,15 +1,14 @@
-/**************************************************************************************************/
 /**
  * \file
  * \brief  Base class for a song
  */
-/**************************************************************************************************/
 
 #ifndef INCLUDE_SONG_H_
 #define INCLUDE_SONG_H_
 
 #include <cstdio>
 #include <string>
+#include <vector>
 
 class Song {
  public:
@@ -17,7 +16,7 @@ class Song {
   Song() : filename_(), file_(nullptr), length_(0){};
 
   // Destructor
-  ~Song() = default;
+  virtual ~Song() = default;
 
   // Remove these operators
   Song(const Song& other) = delete;             // copy constructor
@@ -25,8 +24,8 @@ class Song {
   Song& operator=(const Song& other) = delete;  // copy assignment
   Song& operator=(Song&& other) = delete;       // move assignment
 
-  virtual bool ParseFromFile(const std::string& full_path) = 0;
-  virtual void PrintStats() = 0;
+  virtual int ParseFromFile(const std::string& full_path) = 0;
+  virtual std::vector<std::string> GetFormattedStats() = 0;
 
  protected:
   std::string filename_;

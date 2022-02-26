@@ -20,6 +20,10 @@ ENDIF()
 
 include_directories(include)
 
-ADD_EXECUTABLE(spectrum src/main.cc src/ui/terminal.cc src/sound/wave.cc)
+ADD_EXECUTABLE(spectrum src/main.cc
+                        src/ui/terminal.cc
+                        src/ui/block.cc
+                        src/ui/module/file_info.cc
+                        src/sound/wave.cc)
 
 target_link_libraries(spectrum ${CURSES_LIBRARY})

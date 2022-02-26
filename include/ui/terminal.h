@@ -1,24 +1,27 @@
-/**************************************************************************************************/
 /**
  * \file
- * \brief  Base class for plotting in terminal
+ * \brief  Class representing the whole terminal
  */
-/**************************************************************************************************/
 
-#ifndef INCLUDE_TERMINAL_H_
-#define INCLUDE_TERMINAL_H_
+#ifndef INCLUDE_UI_TERMINAL_H_
+#define INCLUDE_UI_TERMINAL_H_
 
 #include <curses.h>
 
-#define MAIN_WIN_COLOR 1
+#include <memory>
+#include <vector>
+
+#include "ui/block.h"
+
+namespace interface {
 
 class Terminal {
  public:
   // Constructor
-  Terminal() : win_(), exit_(false), max_column_(0), max_row_(0){};
+  Terminal() : win_(), max_column_(0), max_row_(0), blocks_(), exit_(false){};
 
   // Destructor
-  ~Terminal() = default;
+  virtual ~Terminal() { Destroy(); };
 
   // Remove these operators
   Terminal(const Terminal& other) = delete;             // copy constructor
@@ -26,16 +29,26 @@ class Terminal {
   Terminal& operator=(const Terminal& other) = delete;  // copy assignment
   Terminal& operator=(Terminal&& other) = delete;       // move assignment
 
-  bool Init();
-  bool Cleanup();
+  int Init();
+  int Destroy();
+
+  void AppendBlock(std::unique_ptr<Block>& b);
+
+  void PollingInput();
 
   bool Tick();
 
+  bool IsDimensionUpdated();
+  void Draw();
+
  private:
   WINDOW* win_;
-  bool exit_;
-
   short max_column_, max_row_;
+
+  std::vector<std::unique_ptr<Block>> blocks_;
+
+  bool exit_;
 };
 
-#endif  // INCLUDE_TERMINAL_H_
+}  // namespace interface
+#endif  // INCLUDE_UI_TERMINAL_H_

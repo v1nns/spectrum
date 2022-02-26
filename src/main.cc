@@ -1,26 +1,25 @@
+#include <assert.h>
+
+#include <memory>
+
 #include "error_code.h"
-#include "sound/wave.h"
+#include "ui/module/file_info.h"
 #include "ui/terminal.h"
 
-#include <unistd.h>
-
-void testWaveParser() {
-  WaveFormat song;
-  bool result = song.ParseFromFile(
-      "/home/vinicius/projects/music-analyzer/africa-toto.wav");
-  if (result) {
-    song.PrintStats();
-  }
-}
+using Terminal = std::unique_ptr<interface::Terminal>;
 
 int main() {
-  Terminal term;
-  term.Init();
+  Terminal term = std::make_unique<interface::Terminal>();
 
-  while (term.Tick()) {
-    usleep(200);
-  }
+  int result = term->Init();
+  assert(result == ERR_OK);
 
-  term.Cleanup();
+  std::unique_ptr<interface::Block> file{new interface::FileInfo{{1, 1}, {40, 22}}};
+  term->AppendBlock(file);
+
+  while (term->Tick()) {
+    // do nothing in here
+  };
+
   return ERR_OK;
 }

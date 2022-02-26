@@ -1,9 +1,11 @@
 #include "sound/wave.h"
 
+#include <cassert>
 #include <fstream>
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <sstream>
 
 #include "error_code.h"
 
@@ -18,19 +20,19 @@ int GetFileSize(FILE* in_file) {
   return size;
 }
 
-bool WaveFormat::ParseFromFile(const std::string& full_path) {
+int WaveFormat::ParseFromFile(const std::string& full_path) {
   filename_ = full_path;
   file_ = fopen(filename_.c_str(), "r");
 
   if (file_ == nullptr) {
     fprintf(stderr, "Unable to open wave file: %s\n", filename_.c_str());
-    return 1;
+    return ERR_GENERIC;
   }
 
   // Read the header
   int size = sizeof(wave_header_t);
   size_t bytes_read = fread(&header_, 1, size, file_);
-  std::cout << "Header read " << bytes_read << " bytes." << std::endl;
+  assert(bytes_read > 0);
 
   //   if (bytes_read > 0) {
   //     // Read the data
@@ -57,55 +59,68 @@ bool WaveFormat::ParseFromFile(const std::string& full_path) {
   length_ = GetFileSize(file_);
 
   fclose(file_);
-  return true;
+  return ERR_OK;
 }
 
-void WaveFormat::PrintStats() {
-  const uint8_t max_columns = 27;
-  std::cout << std::setw(max_columns) << std::left << "File is";
-  std::cout << ": " << length_ << " bytes." << std::endl;
+std::vector<std::string> WaveFormat::GetFormattedStats() {
+  std::vector<std::string> output{};
+  std::ostringstream s;
 
-  std::cout << std::setw(max_columns) << std::left << "RIFF header";
-  std::cout << ": " << header_.RIFF[0] << header_.RIFF[1] << header_.RIFF[2]
-            << header_.RIFF[3] << std::endl;
+  s << "File is: " << length_ << " bytes." << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "WAVE header";
-  std::cout << ": " << header_.WAVE[0] << header_.WAVE[1] << header_.WAVE[2]
-            << header_.WAVE[3] << std::endl;
+  s.str("");
+  s << "RIFF header: " << header_.RIFF[0] << header_.RIFF[1] << header_.RIFF[2] << header_.RIFF[3]
+    << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "FMT";
-  std::cout << ": " << header_.fmt[0] << header_.fmt[1] << header_.fmt[2]
-            << header_.fmt[3] << std::endl;
+  s.str("");
+  s << "WAVE header: " << header_.WAVE[0] << header_.WAVE[1] << header_.WAVE[2] << header_.WAVE[3]
+    << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Data size";
-  std::cout << ": " << header_.ChunkSize << std::endl;
+  s.str("");
+  s << "FMT: " << header_.fmt[0] << header_.fmt[1] << header_.fmt[2] << header_.fmt[3] << std::endl;
+  output.push_back(s.str());
+
+  s.str("");
+  s << "Data size: " << header_.ChunkSize << std::endl;
+  output.push_back(s.str());
 
   // Display the sampling Rate from the header
-  std::cout << std::setw(max_columns) << std::left << "Sampling Rate";
-  std::cout << ": " << header_.SamplesPerSec << std::endl;
+  s.str("");
+  s << "Sampling Rate: " << header_.SamplesPerSec << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Number of bits used";
-  std::cout << ": " << header_.bitsPerSample << std::endl;
+  s.str("");
+  s << "Number of bits used: " << header_.bitsPerSample << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Number of channels";
-  std::cout << ": " << header_.NumOfChan << std::endl;
+  s.str("");
+  s << "Number of channels: " << header_.NumOfChan << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left
-            << "Number of bytes per second";
-  std::cout << ": " << header_.bytesPerSec << std::endl;
+  s.str("");
+  s << "Number of bytes per second: " << header_.bytesPerSec << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Data length";
-  std::cout << ": " << header_.Subchunk2Size << std::endl;
+  s.str("");
+  s << "Data length: " << header_.Subchunk2Size << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Audio Format";
-  std::cout << ": " << header_.AudioFormat << std::endl;
-  // Audio format 1=PCM,6=mulaw,7=alaw, 257=IBM Mu-Law, 258=IBM A-Law,
-  // 259=ADPCM
+  s.str("");
+  // Audio format 1=PCM,6=mulaw,7=alaw, 257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
+  s << "Audio Format: " << header_.AudioFormat << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Block align";
-  std::cout << ": " << header_.blockAlign << std::endl;
+  s.str("");
+  s << "Block align: " << header_.blockAlign << std::endl;
+  output.push_back(s.str());
 
-  std::cout << std::setw(max_columns) << std::left << "Data string";
-  std::cout << ": " << header_.Subchunk2ID[0] << header_.Subchunk2ID[1]
-            << header_.Subchunk2ID[2] << header_.Subchunk2ID[3] << std::endl;
+  s.str("");
+  s << "Data string: " << header_.Subchunk2ID[0] << header_.Subchunk2ID[1] << header_.Subchunk2ID[2]
+    << header_.Subchunk2ID[3] << std::endl;
+  output.push_back(s.str());
+
+  return output;
 }

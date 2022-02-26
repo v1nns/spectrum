@@ -1,14 +1,14 @@
-/**************************************************************************************************/
 /**
  * \file
  * \brief  Class to read data samples from a WAVE file.
  */
-/**************************************************************************************************/
 
 #ifndef INCLUDE_WAVE_H_
 #define INCLUDE_WAVE_H_
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
 #include "sound/song.h"
 
@@ -40,8 +40,8 @@ class WaveFormat : public Song {
  public:
   using Song::Song;
 
-  bool ParseFromFile(const std::string& full_path) override;
-  void PrintStats() override;
+  int ParseFromFile(const std::string& full_path) override;
+  std::vector<std::string> GetFormattedStats() override;
 
  private:
   wave_header_t header_;
