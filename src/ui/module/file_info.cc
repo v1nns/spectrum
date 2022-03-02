@@ -2,42 +2,56 @@
 
 namespace interface {
 
+// TODO: remove this
 #define SONG_PATH_FOR_DEV "/home/vinicius/projects/music-analyzer/africa-toto.wav"
 
-void FileInfo::Draw(bool rescale) {
-  if (first_draw_) {
-    DrawBorder();
+/* ********************************************************************************************** */
 
-    // Box content
-    mvwprintw(win_, 1, 2, "Hello, press \"SPACE\" to start.");
-    wrefresh(win_);
+FileInfo::FileInfo(point_t init, screen_size_t size)
+    : Block(init, size, "File Information", FileInfo::InitialState::GetInstance()) {}
 
-    first_draw_ = false;
-  }
+/* ********************************************************************************************** */
 
-  // TODO: rescale
+void FileInfo::InitialState::Draw(Block& block) {
+  auto window = block.GetWindow();
+  werase(window);
 
-  //   if (wtf) {
-  //     auto stats = song_.GetFormattedStats();
-  //     int row = 1;
-  //     for (const auto& line : stats) {
-  //       mvwprintw(win_, row, 2, line.c_str());
-  //       ++row;
-  //     }
-  //     // refreshing the window
-  //     wrefresh(win_);
-  //   }
+  // Box content
+  mvwprintw(window, 1, 2, "Hello, press \"SPACE\" to start.");
+
+  wrefresh(window);
 };
 
-void FileInfo::HandleInput(char key) {
+/* ********************************************************************************************** */
+
+void FileInfo::InitialState::HandleInput(Block& block, char key) {
   switch (key) {
     case ' ': {
-      //   song_.ParseFromFile(SONG_PATH_FOR_DEV);
+      ChangeState(block, FileInfo::ShowInfoState::GetInstance());
       break;
     }
     default:
       break;
   }
 }
+
+/* ********************************************************************************************** */
+
+void FileInfo::ShowInfoState::Draw(Block& block) {
+  auto window = block.GetWindow();
+  werase(window);
+
+  // Box content
+  WaveFormat song;
+  song.ParseFromFile(SONG_PATH_FOR_DEV);
+  auto stats = song.GetFormattedStats();
+  int row = 1;
+  for (const auto& line : stats) {
+    mvwprintw(window, row, 2, line.c_str());
+    ++row;
+  }
+
+  wrefresh(window);
+};
 
 }  // namespace interface

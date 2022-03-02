@@ -9,7 +9,7 @@
 
 #include "error_code.h"
 
-// find the file size
+// TODO: remove it from here
 int GetFileSize(FILE* in_file) {
   int size = 0;
   fseek(in_file, 0, SEEK_END);
@@ -19,6 +19,8 @@ int GetFileSize(FILE* in_file) {
   fseek(in_file, 0, SEEK_SET);
   return size;
 }
+
+/* ********************************************************************************************** */
 
 int WaveFormat::ParseFromFile(const std::string& full_path) {
   filename_ = full_path;
@@ -61,6 +63,8 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
   fclose(file_);
   return ERR_OK;
 }
+
+/* ********************************************************************************************** */
 
 std::vector<std::string> WaveFormat::GetFormattedStats() {
   std::vector<std::string> output{};

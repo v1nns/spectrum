@@ -15,16 +15,51 @@
 
 namespace interface {
 
+/**
+ * @brief Class for File Information module
+ */
 class FileInfo : public Block {
  public:
-  explicit FileInfo(point_t init, screen_size_t size) : Block(init, size, "File Information"){};
-  ~FileInfo() = default;
+  /**
+   * @brief Construct a new File Info object
+   *
+   * @param init Initial point(x,y)
+   * @param size Screen size for this block
+   */
+  explicit FileInfo(point_t init, screen_size_t size);
 
-  void Draw(bool rescale) override;
-  void HandleInput(char key) override;
+  /**
+   * @brief Destroy the File Info object
+   *
+   */
+  virtual ~FileInfo() = default;
 
+  /* ******************************************************************************************** */
  private:
-  WaveFormat song_;
+  //! Possible states
+  class InitialState;
+  class ShowInfoState;
+
+  /* ******************************************************************************************** */
+ private:
+  WaveFormat song_;  //!< File information from song in WAVE format
+};
+
+/* ********************************************************************************************** */
+
+class FileInfo::InitialState : public Block::BlockState {
+ public:
+  static FileInfo::InitialState* GetInstance() { return new FileInfo::InitialState; };
+  void Draw(Block& block) override;
+  void HandleInput(Block& block, char key) override;
+};
+
+/* ********************************************************************************************** */
+
+class FileInfo::ShowInfoState : public Block::BlockState {
+ public:
+  static FileInfo::ShowInfoState* GetInstance() { return new FileInfo::ShowInfoState; };
+  void Draw(Block& block) override;
 };
 
 }  // namespace interface

@@ -36,15 +36,31 @@ struct wave_header_t {
   uint32_t Subchunk2Size;  // Sampled data length
 };
 
+/* ********************************************************************************************** */
 class WaveFormat : public Song {
  public:
   using Song::Song;
 
+  /* ******************************************************************************************** */
+
+  /**
+   * @brief Parse a given sound file to get its info
+   *
+   * @param full_path Text containing path where file is located
+   * @return int Error code from operation
+   */
   int ParseFromFile(const std::string& full_path) override;
+
+  /**
+   * @brief Get the Formatted Stats from parsed sound file
+   *
+   * @return std::vector<std::string> Text splitted in lines
+   */
   std::vector<std::string> GetFormattedStats() override;
 
+  /* ******************************************************************************************** */
  private:
-  wave_header_t header_;
+  wave_header_t header_;  //!< Header from WAVE file
 };
 
 #endif  // INCLUDE_WAVE_H_

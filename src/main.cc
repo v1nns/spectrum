@@ -11,10 +11,12 @@ using Terminal = std::unique_ptr<interface::Terminal>;
 int main() {
   Terminal term = std::make_unique<interface::Terminal>();
 
+  // Initialize screen
   int result = term->Init();
   assert(result == ERR_OK);
 
-  std::unique_ptr<interface::Block> file{new interface::FileInfo{{1, 1}, {40, 22}}};
+  // Add a new block
+  std::unique_ptr<interface::Block> file{new interface::FileInfo{{0, 0}, {40, 22}}};
   term->AppendBlock(file);
 
   while (term->Tick()) {

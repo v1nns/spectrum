@@ -14,30 +14,113 @@
 
 namespace interface {
 
+/**
+ * @brief Base class to draw a single block in terminal (based on a Block-design User Interface)
+ */
 class Block {
  protected:
-  // Constructor (cannot instantiate directly, only derived class can use it)
-  explicit Block(const point_t& init, const screen_size_t& size, const std::string& title);
+  //! Forward declaration of inner class
+  class BlockState;
+
+  /* ******************************************************************************************** */
+  /**
+   * @brief Construct a new Block object (cannot instantiate directly, derived class must use it)
+   *
+   * @param init Initial point(x,y)
+   * @param size Screen size for this block
+   * @param title Title to be shown in border
+   * @param state Initial block state
+   */
+  explicit Block(const point_t& init, const screen_size_t& size, const std::string& title,
+                 BlockState* state);
 
  public:
-  void Init(short max_row, short max_column);
-  void Destroy();
-  void RecreateWindow(short max_row, short max_column);
+  /**
+   * @brief Destroy the Block object
+   */
+  virtual ~Block();
 
+  /* ******************************************************************************************** */
+  /**
+   * @brief Initialize Block window
+   *
+   * @param max_size Maximum screen size from terminal
+   */
+  void Init(const screen_size_t& max_size);
+
+  /**
+   * @brief Destroy Block window
+   */
+  void Destroy();
+
+  /**
+   * @brief Resize window TODO: maybe refactor this
+   *
+   * @param max_size Maximum screen size from terminal
+   */
+  void ResizeWindow(const screen_size_t& max_size);
+
+  /**
+   * @brief Get the Window object
+   *
+   * @return WINDOW* Current Window for this block
+   */
+  WINDOW* GetWindow() { return win_; };
+
+  /* ******************************************************************************************** */
+  /**
+   * @brief Draw only border and title
+   */
   void DrawBorder();
 
-  // Implementation must be made by derived class
-  virtual void Draw(bool rescale) = 0;
-  virtual void HandleInput(char key) = 0;
+  /**
+   * @brief Draw user interface, internally it will call implementation from derived-class
+   */
+  void Draw();
 
+  /**
+   * @brief Handle keyboard input, internally it will call implementation from derived-class
+   *
+   * @param key Character corresponding to the key pressed
+   */
+  void HandleInput(char key);
+
+  /* ******************************************************************************************** */
  protected:
-  point_t init_;
-  screen_size_t size_;
+  /**
+   * @brief Inner class to represent a block state
+   */
+  class BlockState {
+   public:
+    virtual ~BlockState() {}
+    virtual void Draw(Block& block){};
+    virtual void HandleInput(Block& block, char key){};
 
-  WINDOW *border_, *win_;
+   protected:
+    void ChangeState(Block& block, BlockState* new_state) { block.ChangeState(new_state); }
+  };
 
-  bool first_draw_;
-  std::string border_title_;
+  /* ******************************************************************************************** */
+  /**
+   * @brief Change current block state
+   *
+   * @param new_state New block state
+   */
+  void ChangeState(BlockState* new_state);
+
+  /* ******************************************************************************************** */
+ protected:
+  point_t init_;        //!< Initial point for this block
+  screen_size_t size_;  //!< Defined screen size for this block
+
+  WINDOW *border_, *win_;  //!< NCURSES GUI windows for border and block content
+
+  std::string border_title_;  //!< Text to be shown as title in border box
+
+  /* ******************************************************************************************** */
+ private:
+  BlockState* state_;  //!< Current block state
+  bool refresh_;       //!< Force block to draw again
 };
 
 }  // namespace interface
