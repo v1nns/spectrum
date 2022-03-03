@@ -24,7 +24,7 @@ class Terminal {
   /**
    * @brief Construct a new Terminal object
    */
-  Terminal() : win_(), max_size_({0, 0}), blocks_(), exit_(false), last_key_{0} {};
+  Terminal() : win_(), max_size_({0, 0}), blocks_(), exit_(false){};
 
   /**
    * @brief Destroy the Terminal object
@@ -55,6 +55,22 @@ class Terminal {
 
   /* ******************************************************************************************** */
   /**
+   * @brief Resize terminal window triggered by a SIGWINCH event from NCURSES
+   */
+  void OnResize();
+
+  /**
+   * @brief Polling for keyboard input event
+   */
+  void OnPolling();
+
+  /**
+   * @brief Draw user interface, internally will trigger every block to draw its content
+   */
+  void OnDraw();
+
+  /* ******************************************************************************************** */
+  /**
    * @brief Append a new block to be shown in screen
    *
    * @param b Pointer to Block-derived class
@@ -63,35 +79,24 @@ class Terminal {
 
   /* ******************************************************************************************** */
   // TODO: document
-  bool Tick();
-
-  /**
-   * @brief Polling for keyboard input
-   */
-  void PollingInput();
+  bool Tick(volatile bool& resize);
 
   /* ******************************************************************************************** */
   /**
-   * @brief Check if screen size from the running terminal has changed
+   * @brief Get current screen size from terminal screen
    *
-   * @return true If size has changed
-   * @return false If size has not changed
+   * @return screen_size_t Current size {column,row}
    */
-  bool IsDimensionUpdated();
-
-  // TODO: document
-  void Draw();
+  screen_size_t GetCurrentScreenSize();
 
   /* ******************************************************************************************** */
  private:
-  WINDOW* win_;             //!< NCURSES GUI windows for screen content
-  screen_size_t max_size_;  //!< Maximum screen size
+  WINDOW* win_;             //!< NCURSES GUI window for screen content
+  screen_size_t max_size_;  //!< Maximum terminal screen size
 
   std::vector<std::unique_ptr<Block>> blocks_;  //!< Vector of blocks shown in screen
 
   bool exit_;  //!< Force application exit
-
-  char last_key_;  //!< Last key pressed on keyboard
 };
 
 }  // namespace interface

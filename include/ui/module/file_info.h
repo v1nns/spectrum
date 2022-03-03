@@ -24,9 +24,9 @@ class FileInfo : public Block {
    * @brief Construct a new File Info object
    *
    * @param init Initial point(x,y)
-   * @param size Screen size for this block
+   * @param size Screen portion size for this block
    */
-  explicit FileInfo(point_t init, screen_size_t size);
+  explicit FileInfo(point_t init, screen_portion_t size);
 
   /**
    * @brief Destroy the File Info object

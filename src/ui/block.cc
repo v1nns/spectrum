@@ -4,7 +4,7 @@
 
 namespace interface {
 
-Block::Block(const point_t& init, const screen_size_t& size, const std::string& title,
+Block::Block(const point_t& init, const screen_portion_t& size, const std::string& title,
              BlockState* state)
     : init_(init),
       size_(size),
@@ -25,17 +25,17 @@ Block::~Block() {
 /* ********************************************************************************************** */
 
 void Block::Init(const screen_size_t& max_size) {
-  //   size_ = max_size;
-  //   size_.column -= 2;
-  //   size_.row -= 2;
+  // Calculate screen proportion
+  short column = size_.column * max_size.column;
+  short row = size_.row * max_size.row;
 
-  assert((init_.y + size_.row) <= max_size.row);
-  assert((init_.x + size_.column) <= max_size.column);
+  assert((init_.x + column) <= max_size.column);
+  assert((init_.y + row) <= max_size.row);
 
-  border_ = newwin(size_.row, size_.column, init_.y, init_.x);
+  border_ = newwin(row, column, init_.y, init_.x);
   assert(border_ != NULL);
 
-  win_ = newwin(size_.row - 2, size_.column - 2, init_.y + 1, init_.x + 1);
+  win_ = newwin(row - 2, column - 2, init_.y + 1, init_.x + 1);
   assert(win_ != NULL);
 }
 
@@ -51,7 +51,19 @@ void Block::Destroy() {
 /* ********************************************************************************************** */
 
 void Block::ResizeWindow(const screen_size_t& max_size) {
-  // TODO: think about it "wresize"
+  // Calculate screen proportion
+  short column = size_.column * max_size.column;
+  short row = size_.row * max_size.row;
+
+  assert((init_.x + column) <= max_size.column);
+  assert((init_.y + row) <= max_size.row);
+
+  // Resize window
+  wresize(border_, row, column);
+  wresize(win_, row - 2, column - 2);
+
+  // Force to refresh UI on next "Draw" calling
+  refresh_ = true;
 }
 
 /* ********************************************************************************************** */

@@ -26,12 +26,12 @@ class Block {
   /**
    * @brief Construct a new Block object (cannot instantiate directly, derived class must use it)
    *
-   * @param init Initial point(x,y)
-   * @param size Screen size for this block
+   * @param init Initial point coordinate {x,y}
+   * @param size Screen portion size for this block
    * @param title Title to be shown in border
    * @param state Initial block state
    */
-  explicit Block(const point_t& init, const screen_size_t& size, const std::string& title,
+  explicit Block(const point_t& init, const screen_portion_t& size, const std::string& title,
                  BlockState* state);
 
  public:
@@ -54,7 +54,7 @@ class Block {
   void Destroy();
 
   /**
-   * @brief Resize window TODO: maybe refactor this
+   * @brief Resize Block window
    *
    * @param max_size Maximum screen size from terminal
    */
@@ -110,8 +110,8 @@ class Block {
 
   /* ******************************************************************************************** */
  protected:
-  point_t init_;        //!< Initial point for this block
-  screen_size_t size_;  //!< Defined screen size for this block
+  point_t init_;           //!< Initial point for this block
+  screen_portion_t size_;  //!< Defined screen size for this block
 
   WINDOW *border_, *win_;  //!< NCURSES GUI windows for border and block content
 
