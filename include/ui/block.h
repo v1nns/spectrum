@@ -92,7 +92,7 @@ class Block {
    */
   class BlockState {
    public:
-    virtual ~BlockState() {}
+    virtual ~BlockState(){};
     virtual void Draw(Block& block){};
     virtual void HandleInput(Block& block, char key){};
 
@@ -119,8 +119,8 @@ class Block {
 
   /* ******************************************************************************************** */
  private:
-  BlockState* state_;  //!< Current block state
-  bool refresh_;       //!< Force block to draw again
+  BlockState* curr_state_;  //!< Current block state
+  bool refresh_;            //!< Force block to draw again
 };
 
 }  // namespace interface

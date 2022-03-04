@@ -11,14 +11,14 @@ Block::Block(const point_t& init, const screen_portion_t& size, const std::strin
       border_(),
       win_(),
       border_title_(title),
-      state_(state),
+      curr_state_(state),
       refresh_(true) {}
 
 /* ********************************************************************************************** */
 
 Block::~Block() {
-  if (state_ != nullptr) {
-    delete state_;
+  if (curr_state_ != nullptr) {
+    delete curr_state_;
   }
 }
 
@@ -84,22 +84,22 @@ void Block::Draw() {
   if (refresh_) {
     DrawBorder();
 
-    state_->Draw(*this);
+    curr_state_->Draw(*this);
     refresh_ = false;
   }
 }
 
 /* ********************************************************************************************** */
 
-void Block::HandleInput(char key) { state_->HandleInput(*this, key); }
+void Block::HandleInput(char key) { curr_state_->HandleInput(*this, key); }
 
 /* ********************************************************************************************** */
 
 void Block::ChangeState(BlockState* new_state) {
-  if (state_ != nullptr) {
-    delete state_;
+  if (curr_state_ != nullptr) {
+    delete curr_state_;
   }
-  state_ = new_state;
+  curr_state_ = new_state;
   refresh_ = true;
 }
 
