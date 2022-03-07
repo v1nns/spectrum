@@ -1,4 +1,4 @@
-#include "ui/terminal.h"
+#include "ui/base/terminal.h"
 
 #include <stdlib.h>
 #include <unistd.h>

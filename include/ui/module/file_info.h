@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "sound/wave.h"
-#include "ui/block.h"
+#include "ui/base/block.h"
 #include "ui/common.h"
 
 namespace interface {
@@ -23,10 +23,10 @@ class FileInfo : public Block {
   /**
    * @brief Construct a new File Info object
    *
-   * @param init Initial point(x,y)
+   * @param init Initial coordinate based on screen portion(x,y)
    * @param size Screen portion size for this block
    */
-  explicit FileInfo(point_t init, screen_portion_t size);
+  explicit FileInfo(screen_portion_t init, screen_portion_t size);
 
   /**
    * @brief Destroy the File Info object
@@ -47,7 +47,7 @@ class FileInfo : public Block {
 
 /* ********************************************************************************************** */
 
-class FileInfo::InitialState : public Block::BlockState {
+class FileInfo::InitialState : public Block::State {
  public:
   static FileInfo::InitialState* GetInstance() { return new FileInfo::InitialState; };
   void Draw(Block& block) override;
@@ -56,7 +56,7 @@ class FileInfo::InitialState : public Block::BlockState {
 
 /* ********************************************************************************************** */
 
-class FileInfo::ShowInfoState : public Block::BlockState {
+class FileInfo::ShowInfoState : public Block::State {
  public:
   static FileInfo::ShowInfoState* GetInstance() { return new FileInfo::ShowInfoState; };
   void Draw(Block& block) override;

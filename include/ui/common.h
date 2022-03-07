@@ -43,8 +43,8 @@ struct screen_portion_t {
    * @param r Row size (in percentage)
    */
   explicit screen_portion_t(float c, float r) : column(c), row(r) {
-    assert(c > 0 && c <= 1);
-    assert(r > 0 && r <= 1);
+    assert(c >= 0 && c <= 1);
+    assert(r >= 0 && r <= 1);
   }
 
   bool operator!=(const screen_portion_t& rhs) const {

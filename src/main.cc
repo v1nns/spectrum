@@ -4,9 +4,9 @@
 #include <memory>
 
 #include "error_code.h"
+#include "ui/base/terminal.h"
 #include "ui/common.h"
 #include "ui/module/file_info.h"
-#include "ui/terminal.h"
 
 using Terminal =
     std::unique_ptr<interface::Terminal>;  //!< Smart pointer to have only one terminal instance
@@ -43,8 +43,8 @@ int main() {
   assert(result == ERR_OK);
 
   // Create new block and add it to terminal
-  using interface::point_t, interface::screen_portion_t;
-  Block file{new interface::FileInfo{point_t{0, 0}, screen_portion_t{1, 1}}};
+  using interface::screen_portion_t;
+  Block file{new interface::FileInfo{screen_portion_t{0, 0}, screen_portion_t{1, 1}}};
   term->AppendBlock(file);
 
   // Register hook to watch for received signals

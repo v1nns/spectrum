@@ -20,19 +20,19 @@ namespace interface {
 class Block {
  protected:
   //! Forward declaration of inner class
-  class BlockState;
+  class State;
 
   /* ******************************************************************************************** */
   /**
    * @brief Construct a new Block object (cannot instantiate directly, derived class must use it)
    *
-   * @param init Initial point coordinate {x,y}
+   * @param init Initial point coordinate {x,y} based on screen portion
    * @param size Screen portion size for this block
    * @param title Title to be shown in border
    * @param state Initial block state
    */
-  explicit Block(const point_t& init, const screen_portion_t& size, const std::string& title,
-                 BlockState* state);
+  explicit Block(const screen_portion_t& init, const screen_portion_t& size,
+                 const std::string& title, State* state);
 
  public:
   /**
@@ -90,14 +90,14 @@ class Block {
   /**
    * @brief Inner class to represent a block state
    */
-  class BlockState {
+  class State {
    public:
-    virtual ~BlockState(){};
+    virtual ~State(){};
     virtual void Draw(Block& block){};
     virtual void HandleInput(Block& block, char key){};
 
    protected:
-    void ChangeState(Block& block, BlockState* new_state) { block.ChangeState(new_state); }
+    void ChangeState(Block& block, State* new_state) { block.ChangeState(new_state); }
   };
 
   /* ******************************************************************************************** */
@@ -106,12 +106,13 @@ class Block {
    *
    * @param new_state New block state
    */
-  void ChangeState(BlockState* new_state);
+  void ChangeState(State* new_state);
 
   /* ******************************************************************************************** */
  protected:
-  point_t init_;           //!< Initial point for this block
-  screen_portion_t size_;  //!< Defined screen size for this block
+  screen_portion_t init_, size_;  //!< Defined screen size for this block
+  point_t calc_init_;  //!< Calculated initial point coordinate using the defined screen portion
+  screen_size_t calc_size_;  //!< Calculated screen size using the defined screen portion
 
   WINDOW *border_, *win_;  //!< NCURSES GUI windows for border and block content
 
@@ -119,8 +120,8 @@ class Block {
 
   /* ******************************************************************************************** */
  private:
-  BlockState* curr_state_;  //!< Current block state
-  bool refresh_;            //!< Force block to draw again
+  State* curr_state_;  //!< Current block state
+  bool refresh_;       //!< Force block to draw again
 };
 
 }  // namespace interface

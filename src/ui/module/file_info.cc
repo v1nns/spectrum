@@ -7,7 +7,7 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo(point_t init, screen_portion_t size)
+FileInfo::FileInfo(screen_portion_t init, screen_portion_t size)
     : Block(init, size, "File Information", FileInfo::InitialState::GetInstance()) {}
 
 /* ********************************************************************************************** */

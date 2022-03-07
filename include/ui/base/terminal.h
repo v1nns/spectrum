@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-#include "ui/block.h"
+#include "ui/base/block.h"
 #include "ui/common.h"
 
 namespace interface {
