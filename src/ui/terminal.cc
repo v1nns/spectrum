@@ -15,34 +15,40 @@ namespace interface {
 
 int Terminal::Init() {
   // Create and initialize window
-  win_ = initscr();
-  if (win_ == nullptr) {
+  auto* window = initscr();
+  if (window == nullptr) {
     // TODO: fix this or use it everywhere
     fputs("Could not initialize screen.\n", stderr);
     return ERR_GENERIC;
   }
 
   // Check color availability
-  if (start_color() == ERR || !has_colors() || !can_change_color()) {
-    delwin(win_);
+  if (!has_colors() || !can_change_color()) {
     endwin();
     refresh();
 
-    fputs("Could not use colors.\n", stderr);
+    fputs("Do not have availability to change colors.\n", stderr);
     return ERR_GENERIC;
   }
 
-  // Initialize colors
-  init_pair(MAIN_WIN_COLOR, COLOR_BLUE, COLOR_BLACK);
-  wbkgd(win_, COLOR_PAIR(MAIN_WIN_COLOR));
+  start_color();
+  use_default_colors();
 
   // Hide cursor, disable echo and remove timeout to execute a non-blocking polling
+  raw();
+  nonl();
   curs_set(FALSE);
   noecho();
   timeout(0);
 
   // Get terminal dimension
   max_size_ = GetCurrentScreenSize();
+
+  // Initialize colors
+  //   init_pair(1, COLOR_BLUE, COLOR_BLACK);
+  //   wbkgd(window, COLOR_PAIR(1));
+  //   box(window, 0, 0);
+  //   wrefresh(window);
 
   return ERR_OK;
 }
@@ -56,7 +62,6 @@ int Terminal::Destroy() {
   }
 
   // Delete terminal window
-  delwin(win_);
   endwin();
   refresh();
 
@@ -81,7 +86,7 @@ void Terminal::OnResize() {
   }
 
   // Force a window refresh
-  wrefresh(win_);
+  refresh();
 }
 
 /* ********************************************************************************************** */

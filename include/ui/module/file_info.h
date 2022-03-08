@@ -39,10 +39,6 @@ class FileInfo : public Block {
   //! Possible states
   class InitialState;
   class ShowInfoState;
-
-  /* ******************************************************************************************** */
- private:
-  WaveFormat song_;  //!< File information from song in WAVE format
 };
 
 /* ********************************************************************************************** */
@@ -59,7 +55,11 @@ class FileInfo::InitialState : public Block::State {
 class FileInfo::ShowInfoState : public Block::State {
  public:
   static FileInfo::ShowInfoState* GetInstance() { return new FileInfo::ShowInfoState; };
+  void Init(Block& block) override;
   void Draw(Block& block) override;
+
+ private:
+  WaveFormat song_;  //!< File information from song in WAVE format
 };
 
 }  // namespace interface

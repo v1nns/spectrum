@@ -37,14 +37,16 @@ void FileInfo::InitialState::HandleInput(Block& block, char key) {
 
 /* ********************************************************************************************** */
 
+void FileInfo::ShowInfoState::Init(Block& block) { song_.ParseFromFile(SONG_PATH_FOR_DEV); }
+
+/* ********************************************************************************************** */
+
 void FileInfo::ShowInfoState::Draw(Block& block) {
   auto window = block.GetWindow();
   werase(window);
 
   // Box content
-  WaveFormat song;
-  song.ParseFromFile(SONG_PATH_FOR_DEV);
-  auto stats = song.GetFormattedStats();
+  auto stats = song_.GetFormattedStats();
   int row = 1;
   for (const auto& line : stats) {
     mvwprintw(window, row, 2, line.c_str());

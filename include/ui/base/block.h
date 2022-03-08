@@ -6,7 +6,7 @@
 #ifndef INCLUDE_UI_BLOCK_H_
 #define INCLUDE_UI_BLOCK_H_
 
-#include <curses.h>
+#include <ncurses.h>
 
 #include <string>
 
@@ -93,8 +93,10 @@ class Block {
   class State {
    public:
     virtual ~State(){};
+    virtual void Init(Block& block){};
     virtual void Draw(Block& block){};
     virtual void HandleInput(Block& block, char key){};
+    virtual void Exit(Block& block){};
 
    protected:
     void ChangeState(Block& block, State* new_state) { block.ChangeState(new_state); }

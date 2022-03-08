@@ -63,7 +63,7 @@ void Block::ResizeWindow(const screen_size_t& max_size) {
 
   // Calculate block size based on a screen portion
   calc_size_.column = size_.column * max_size.column;
-  calc_size_.row = size_.row * max_size.column;
+  calc_size_.row = size_.row * max_size.row;
 
   assert((calc_init_.x + calc_size_.column) <= max_size.column);
   assert((calc_init_.y + calc_size_.row) <= max_size.row);
@@ -107,9 +107,13 @@ void Block::HandleInput(char key) { curr_state_->HandleInput(*this, key); }
 
 void Block::ChangeState(State* new_state) {
   if (curr_state_ != nullptr) {
+    curr_state_->Exit(*this);
     delete curr_state_;
   }
+
   curr_state_ = new_state;
+  curr_state_->Init(*this);
+
   refresh_ = true;
 }
 

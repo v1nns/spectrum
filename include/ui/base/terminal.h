@@ -6,7 +6,7 @@
 #ifndef INCLUDE_UI_TERMINAL_H_
 #define INCLUDE_UI_TERMINAL_H_
 
-#include <curses.h>
+#include <ncurses.h>
 
 #include <memory>
 #include <vector>
@@ -24,7 +24,7 @@ class Terminal {
   /**
    * @brief Construct a new Terminal object
    */
-  Terminal() : win_(), max_size_({0, 0}), blocks_(), exit_(false){};
+  Terminal() : max_size_({0, 0}), blocks_(), exit_(false){};
 
   /**
    * @brief Destroy the Terminal object
@@ -91,7 +91,6 @@ class Terminal {
 
   /* ******************************************************************************************** */
  private:
-  WINDOW* win_;             //!< NCURSES GUI window for screen content
   screen_size_t max_size_;  //!< Maximum terminal screen size
 
   std::vector<std::unique_ptr<Block>> blocks_;  //!< Vector of blocks shown in screen

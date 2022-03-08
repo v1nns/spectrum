@@ -9,17 +9,6 @@
 
 #include "error_code.h"
 
-// TODO: remove it from here
-int GetFileSize(FILE* in_file) {
-  int size = 0;
-  fseek(in_file, 0, SEEK_END);
-
-  size = ftell(in_file);
-
-  fseek(in_file, 0, SEEK_SET);
-  return size;
-}
-
 /* ********************************************************************************************** */
 
 int WaveFormat::ParseFromFile(const std::string& full_path) {
@@ -58,8 +47,6 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
   //     buffer = nullptr;
   //   }
 
-  length_ = GetFileSize(file_);
-
   fclose(file_);
   return ERR_OK;
 }
@@ -70,10 +57,6 @@ std::vector<std::string> WaveFormat::GetFormattedStats() {
   std::vector<std::string> output{};
   std::ostringstream s;
 
-  s << "File is: " << length_ << " bytes." << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
   s << "RIFF header: " << header_.RIFF[0] << header_.RIFF[1] << header_.RIFF[2] << header_.RIFF[3]
     << std::endl;
   output.push_back(s.str());
