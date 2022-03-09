@@ -40,6 +40,7 @@ int Terminal::Init() {
   curs_set(FALSE);
   noecho();
   timeout(0);
+  keypad(window, true);
 
   // Get terminal dimension
   max_size_ = GetCurrentScreenSize();
@@ -92,7 +93,7 @@ void Terminal::OnResize() {
 /* ********************************************************************************************** */
 
 void Terminal::OnPolling() {
-  char key = getch();
+  int key = getch();
 
   // Global commands
   if (key == 'q' || key == 'Q') {

@@ -79,11 +79,16 @@ class Block {
   void Draw();
 
   /**
+   * @brief Force to refresh on next drawing
+   */
+  void ForceRefresh();
+
+  /**
    * @brief Handle keyboard input, internally it will call implementation from derived-class
    *
    * @param key Character corresponding to the key pressed
    */
-  void HandleInput(char key);
+  void HandleInput(int key);
 
   /* ******************************************************************************************** */
  protected:
@@ -95,7 +100,7 @@ class Block {
     virtual ~State(){};
     virtual void Init(Block& block){};
     virtual void Draw(Block& block){};
-    virtual void HandleInput(Block& block, char key){};
+    virtual void HandleInput(Block& block, int key){};
     virtual void Exit(Block& block){};
 
    protected:

@@ -6,9 +6,6 @@
 #ifndef INCLUDE_UI_MODULE_FILE_INFO_H_
 #define INCLUDE_UI_MODULE_FILE_INFO_H_
 
-#include <string>
-#include <vector>
-
 #include "sound/wave.h"
 #include "ui/base/block.h"
 #include "ui/common.h"
@@ -47,7 +44,7 @@ class FileInfo::InitialState : public Block::State {
  public:
   static FileInfo::InitialState* GetInstance() { return new FileInfo::InitialState; };
   void Draw(Block& block) override;
-  void HandleInput(Block& block, char key) override;
+  void HandleInput(Block& block, int key) override;
 };
 
 /* ********************************************************************************************** */

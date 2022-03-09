@@ -43,6 +43,10 @@ void Block::Init(const screen_size_t& max_size) {
 
   win_ = newwin(calc_size_.row - 2, calc_size_.column - 2, calc_init_.y + 1, calc_init_.x + 1);
   assert(win_ != NULL);
+
+  if (curr_state_ != nullptr) {
+    curr_state_->Init(*this);
+  }
 }
 
 /* ********************************************************************************************** */
@@ -84,7 +88,7 @@ void Block::DrawBorder() {
   box(border_, 0, 0);
 
   // Write title overwriting the border and refresh window
-  mvwprintw(border_, 0, 1, border_title_.c_str());
+  mvwprintw(border_, 0, 2, border_title_.c_str());
   wrefresh(border_);
 }
 
@@ -101,7 +105,11 @@ void Block::Draw() {
 
 /* ********************************************************************************************** */
 
-void Block::HandleInput(char key) { curr_state_->HandleInput(*this, key); }
+void Block::ForceRefresh() { refresh_ = true; }
+
+/* ********************************************************************************************** */
+
+void Block::HandleInput(int key) { curr_state_->HandleInput(*this, key); }
 
 /* ********************************************************************************************** */
 

@@ -5,8 +5,9 @@
 
 #include "error_code.h"
 #include "ui/base/terminal.h"
+#include "ui/block/file_info.h"
+#include "ui/block/list_dir.h"
 #include "ui/common.h"
-#include "ui/module/file_info.h"
 
 using Terminal =
     std::unique_ptr<interface::Terminal>;  //!< Smart pointer to have only one terminal instance
@@ -44,8 +45,11 @@ int main() {
 
   // Create new block and add it to terminal
   using interface::screen_portion_t;
-  Block file{new interface::FileInfo{screen_portion_t{0, 0}, screen_portion_t{1, 1}}};
-  term->AppendBlock(file);
+  Block file_list{new interface::ListDir{screen_portion_t{0, 0}, screen_portion_t{1, .7}}};
+  term->AppendBlock(file_list);
+
+  Block file_info{new interface::FileInfo{screen_portion_t{0, .7}, screen_portion_t{1, .3}}};
+  term->AppendBlock(file_info);
 
   // Register hook to watch for received signals
   signal(SIGWINCH, global_signal_hook);
