@@ -3,8 +3,8 @@
  * \brief  Class representing the whole terminal
  */
 
-#ifndef INCLUDE_UI_TERMINAL_H_
-#define INCLUDE_UI_TERMINAL_H_
+#ifndef INCLUDE_UI_BASE_TERMINAL_H_
+#define INCLUDE_UI_BASE_TERMINAL_H_
 
 #include <ncurses.h>
 
@@ -99,4 +99,4 @@ class Terminal {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_TERMINAL_H_
+#endif  // INCLUDE_UI_BASE_TERMINAL_H_

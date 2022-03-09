@@ -3,8 +3,8 @@
  * \brief  Class for block containing file info
  */
 
-#ifndef INCLUDE_UI_MODULE_FILE_INFO_H_
-#define INCLUDE_UI_MODULE_FILE_INFO_H_
+#ifndef INCLUDE_UI_BLOCK_FILE_INFO_H_
+#define INCLUDE_UI_BLOCK_FILE_INFO_H_
 
 #include "sound/wave.h"
 #include "ui/base/block.h"
@@ -13,7 +13,7 @@
 namespace interface {
 
 /**
- * @brief Class for File Information module
+ * @brief Class for File Information block
  */
 class FileInfo : public Block {
  public:
@@ -60,4 +60,4 @@ class FileInfo::ShowInfoState : public Block::State {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_MODULE_FILE_INFO_H_
+#endif  // INCLUDE_UI_BLOCK_FILE_INFO_H_

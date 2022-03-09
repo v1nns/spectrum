@@ -3,10 +3,12 @@
  * \brief  Class for block containing file list
  */
 
-#ifndef INCLUDE_UI_MODULE_FILE_LIST_H_
-#define INCLUDE_UI_MODULE_FILE_LIST_H_
+#ifndef INCLUDE_UI_BLOCK_LIST_DIR_H_
+#define INCLUDE_UI_BLOCK_LIST_DIR_H_
 
+#include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "ui/base/block.h"
@@ -15,7 +17,7 @@
 namespace interface {
 
 /**
- * @brief Class for File List module
+ * @brief Class for List files in directory block
  */
 class ListDir : public Block {
  public:
@@ -48,13 +50,14 @@ class ListDir::InitialState : public Block::State {
   void Draw(Block& block) override;
   void HandleInput(Block& block, int key) override;
 
-  void RefreshList();
+  void RefreshList(const std::filesystem::path& dir_path);
 
  private:
-  std::string curr_dir_;            //!< Current directory
-  std::vector<std::string> files_;  //!< List containing files from current directory
-  int highlighted_;
+  std::filesystem::path curr_dir_;  //!< Current directory
+  int highlighted_;                 //!< Index to highlight current file
+
+  std::vector<std::filesystem::path> list_;  //!< List containing files from current directory
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_MODULE_FILE_LIST_H_
+#endif  // INCLUDE_UI_BLOCK_LIST_DIR_H_

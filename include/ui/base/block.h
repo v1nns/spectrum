@@ -3,8 +3,8 @@
  * \brief  Base class for a block in UI
  */
 
-#ifndef INCLUDE_UI_BLOCK_H_
-#define INCLUDE_UI_BLOCK_H_
+#ifndef INCLUDE_UI_BASE_BLOCK_H_
+#define INCLUDE_UI_BASE_BLOCK_H_
 
 #include <ncurses.h>
 
@@ -132,4 +132,4 @@ class Block {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_BLOCK_H_
+#endif  // INCLUDE_UI_BASE_BLOCK_H_

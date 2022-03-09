@@ -39,8 +39,9 @@ int Terminal::Init() {
   nonl();
   curs_set(FALSE);
   noecho();
+  cbreak();
   timeout(0);
-  keypad(window, true);
+  keypad(stdscr, TRUE);
 
   // Get terminal dimension
   max_size_ = GetCurrentScreenSize();
