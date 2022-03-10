@@ -25,6 +25,7 @@ void ListDir::InitialState::Init(Block& block) {
 // TODO: improve this method for when the block receives a KEY_DOWN/KEY_UP event
 void ListDir::InitialState::Draw(Block& block) {
   auto window = block.GetWindow();
+  int max_rows = getmaxy(window);
   werase(window);
 
   // Show current directory (in bold)
@@ -32,25 +33,36 @@ void ListDir::InitialState::Draw(Block& block) {
   mvwprintw(window, 0, 0, curr_dir_.c_str());
   wattroff(window, A_BOLD);
 
-  // List files
+  // Extract sub-list to be printed
+  const int offset = 0;
+  auto begin = list_.begin() + offset, end = list_.end() + offset;
+  const std::vector<std::filesystem::path> to_print(begin, end);
+
+  // Draw all filenames from this sub-list
   int row = 1;
-  for (const auto& item : list_) {
-    if ((highlighted_ + 1) == row) {
-      wattron(window, A_STANDOUT);
-    }
-
-    if (std::filesystem::is_directory(item)) {
-      wattron(window, COLOR_PAIR(2));
-    }
-
-    mvwprintw(window, row, 1, item.filename().c_str());
-
-    wattroff(window, A_STANDOUT);
-    wattroff(window, COLOR_PAIR(2));
-    ++row;
+  for (const auto& item : to_print) {
+    DrawItem(window, row, item);
+    if (++row == max_rows) break;
   }
 
   wrefresh(window);
+};
+
+/* ********************************************************************************************** */
+
+void ListDir::InitialState::DrawItem(WINDOW* window, int index, const std::filesystem::path& item) {
+  if ((highlighted_ + 1) == index) {
+    wattron(window, A_STANDOUT);
+  }
+
+  if (std::filesystem::is_directory(item)) {
+    wattron(window, COLOR_PAIR(2));
+  }
+
+  mvwprintw(window, index, 1, item.filename().c_str());
+
+  wattroff(window, A_STANDOUT);
+  wattroff(window, COLOR_PAIR(2));
 };
 
 /* ********************************************************************************************** */
@@ -112,23 +124,33 @@ void ListDir::InitialState::RefreshList(const std::filesystem::path& dir_path) {
   highlighted_ = 0;
   list_.clear();
 
-  // Add option to go back one level
-  list_.emplace_back(std::filesystem::path(".."));
-
   // Add all dir/file from the current directory
   for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
     list_.emplace_back(entry);
   }
 
+  // Transform whole string into uppercase
+  auto to_upper = [](char& c) { c = std::toupper(c); };
+
+  // Created a custom file sort
+  auto custom_sort = [&to_upper](const std::filesystem::path& a, const std::filesystem::path& b) {
+    std::string lhs = a.filename(), rhs = b.filename();
+
+    // Don't care if it is hidden (similar to "ls" output)
+    if (lhs.at(0) == '.') lhs.erase(0, 1);
+    if (rhs.at(0) == '.') rhs.erase(0, 1);
+
+    std::for_each(lhs.begin(), lhs.end(), to_upper);
+    std::for_each(rhs.begin(), rhs.end(), to_upper);
+
+    return lhs < rhs;
+  };
+
   // Sort list alphabetically (case insensitive)
-  std::sort(list_.begin(), list_.end(), [](std::filesystem::path a, std::filesystem::path b) {
-    std::string dummy_a = a.filename(), dummy_b = b.filename();
+  std::sort(list_.begin(), list_.end(), custom_sort);
 
-    std::for_each(dummy_a.begin(), dummy_a.end(), [](char& c) { c = ::toupper(c); });
-    std::for_each(dummy_b.begin(), dummy_b.end(), [](char& c) { c = ::toupper(c); });
-
-    return dummy_a < dummy_b;
-  });
+  // Add option to go back one level
+  list_.insert(list_.begin(), std::filesystem::path(".."));
 }
 
 }  // namespace interface

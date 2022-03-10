@@ -53,6 +53,9 @@ class ListDir::InitialState : public Block::State {
   void RefreshList(const std::filesystem::path& dir_path);
 
  private:
+  void DrawItem(WINDOW* window, int index, const std::filesystem::path& item);
+
+ private:
   std::filesystem::path curr_dir_;  //!< Current directory
   int highlighted_;                 //!< Index to highlight current file
 
