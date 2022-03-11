@@ -34,7 +34,7 @@ struct screen_size_t {
  * @brief Screen size using a proportion calculated based on the maximum screen size
  */
 struct screen_portion_t {
-  float column, row;
+  double column, row;
 
   /**
    * @brief Construct a new screen portion object
@@ -42,7 +42,7 @@ struct screen_portion_t {
    * @param c Column size (in percentage)
    * @param r Row size (in percentage)
    */
-  explicit screen_portion_t(float c, float r) : column(c), row(r) {
+  explicit screen_portion_t(double c, double r) : column(c), row(r) {
     assert(c >= 0 && c <= 1);
     assert(r >= 0 && r <= 1);
   }

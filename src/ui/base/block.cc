@@ -10,8 +10,8 @@ Block::Block(const screen_portion_t& init, const screen_portion_t& size, const s
       size_(size),
       calc_init_(),
       calc_size_(),
-      border_(),
-      win_(),
+      border_(nullptr),
+      win_(nullptr),
       border_title_(title),
       curr_state_(state),
       refresh_(true) {}
@@ -39,10 +39,10 @@ void Block::Init(const screen_size_t& max_size) {
   assert((calc_init_.y + calc_size_.row) <= max_size.row);
 
   border_ = newwin(calc_size_.row, calc_size_.column, calc_init_.y, calc_init_.x);
-  assert(border_ != NULL);
+  assert(border_ != nullptr);
 
   win_ = newwin(calc_size_.row - 2, calc_size_.column - 2, calc_init_.y + 1, calc_init_.x + 1);
-  assert(win_ != NULL);
+  assert(win_ != nullptr);
 
   if (curr_state_ != nullptr) {
     curr_state_->Init(*this);
@@ -56,6 +56,9 @@ void Block::Destroy() {
   delwin(win_);
   refresh();
   clear();
+
+  border_ = nullptr;
+  win_ = nullptr;
 }
 
 /* ********************************************************************************************** */
@@ -75,6 +78,10 @@ void Block::ResizeWindow(const screen_size_t& max_size) {
   // Resize window
   wresize(border_, calc_size_.row, calc_size_.column);
   wresize(win_, calc_size_.row - 2, calc_size_.column - 2);
+
+  // Move window
+  mvwin(border_, calc_init_.y, calc_init_.x);
+  mvwin(win_, calc_init_.y + 1, calc_init_.x + 1);
 
   // Force to refresh UI on next "Draw" calling
   refresh_ = true;
