@@ -6,7 +6,7 @@
 #include "error_code.h"
 #include "ui/base/terminal.h"
 #include "ui/block/file_info.h"
-#include "ui/block/list_dir.h"
+#include "ui/block/list_directory.h"
 #include "ui/common.h"
 
 using Terminal =
@@ -45,7 +45,7 @@ int main() {
 
   // Create new block and add it to terminal
   using interface::screen_portion_t;
-  Block file_list{new interface::ListDir{screen_portion_t{0, 0}, screen_portion_t{1, .7}}};
+  Block file_list{new interface::ListDirectory{screen_portion_t{0, 0}, screen_portion_t{1, .7}}};
   term->AppendBlock(file_list);
 
   Block file_info{new interface::FileInfo{screen_portion_t{0, .7}, screen_portion_t{1, .3}}};

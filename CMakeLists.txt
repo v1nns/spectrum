@@ -23,7 +23,7 @@ include_directories(include)
 ADD_EXECUTABLE(spectrum src/main.cc
                         src/ui/base/terminal.cc
                         src/ui/base/block.cc
-                        src/ui/block/list_dir.cc
+                        src/ui/block/list_directory.cc
                         src/ui/block/file_info.cc
                         src/sound/wave.cc)
 
