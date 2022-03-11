@@ -89,7 +89,7 @@ void Block::DrawBorder() {
 
   // Write title overwriting the border and refresh window
   mvwprintw(border_, 0, 2, border_title_.c_str());
-  wrefresh(border_);
+  wnoutrefresh(border_);
 }
 
 /* ********************************************************************************************** */

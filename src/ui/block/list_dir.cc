@@ -26,7 +26,7 @@ void ListDir::InitialState::Init(Block& block) {
 void ListDir::InitialState::Draw(Block& block) {
   auto window = block.GetWindow();
   int max_rows = getmaxy(window);
-  werase(window);
+  //   werase(window);
 
   // Show current directory (in bold)
   wattron(window, A_BOLD);
@@ -39,19 +39,19 @@ void ListDir::InitialState::Draw(Block& block) {
   const std::vector<std::filesystem::path> to_print(begin, end);
 
   // Draw all filenames from this sub-list
-  int row = 1;
+  int row = 0;
   for (const auto& item : to_print) {
     DrawItem(window, row, item);
     if (++row == max_rows) break;
   }
 
-  wrefresh(window);
+  wnoutrefresh(window);
 };
 
 /* ********************************************************************************************** */
 
 void ListDir::InitialState::DrawItem(WINDOW* window, int index, const std::filesystem::path& item) {
-  if ((highlighted_ + 1) == index) {
+  if (highlighted_ == index) {
     wattron(window, A_STANDOUT);
   }
 
@@ -59,7 +59,8 @@ void ListDir::InitialState::DrawItem(WINDOW* window, int index, const std::files
     wattron(window, COLOR_PAIR(2));
   }
 
-  mvwprintw(window, index, 1, item.filename().c_str());
+  int index_offset = index + 1;  // do not override current directory
+  mvwprintw(window, index_offset, 1, item.filename().c_str());
 
   wattroff(window, A_STANDOUT);
   wattroff(window, COLOR_PAIR(2));

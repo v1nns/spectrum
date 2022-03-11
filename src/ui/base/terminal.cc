@@ -9,7 +9,7 @@
 namespace interface {
 
 #define MAIN_WIN_COLOR 1
-#define DELAY_LOOP 2000
+#define DELAY_LOOP 5000
 
 /* ********************************************************************************************** */
 
@@ -82,6 +82,7 @@ void Terminal::OnResize() {
   // Get new terminal dimension
   max_size_ = GetCurrentScreenSize();
 
+  // TODO: fix this, it is not working with multiple blocks
   // Every block must resize its own internal size
   for (auto& block : blocks_) {
     block->ResizeWindow(max_size_);
@@ -115,6 +116,7 @@ void Terminal::OnDraw() {
   for (auto& block : blocks_) {
     block->Draw();
   }
+  doupdate();  // Read: https://linux.die.net/man/3/doupdate
 }
 
 /* ********************************************************************************************** */

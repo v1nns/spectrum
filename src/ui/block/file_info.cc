@@ -19,7 +19,7 @@ void FileInfo::InitialState::Draw(Block& block) {
   // Box content
   mvwprintw(window, 1, 1, "Hello, press \"SPACE\" to start.");
 
-  wrefresh(window);
+  wnoutrefresh(window);
 };
 
 /* ********************************************************************************************** */
@@ -53,7 +53,7 @@ void FileInfo::ShowInfoState::Draw(Block& block) {
     ++row;
   }
 
-  wrefresh(window);
+  wnoutrefresh(window);
 };
 
 }  // namespace interface
