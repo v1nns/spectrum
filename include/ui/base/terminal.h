@@ -54,6 +54,12 @@ class Terminal {
   int Destroy();
 
   /* ******************************************************************************************** */
+ private:
+  /**
+   * @brief Initialize colors used throughout the application
+   */
+  void InitializeColors();
+
   /**
    * @brief Resize terminal window triggered by a SIGWINCH event from NCURSES
    */
@@ -70,6 +76,7 @@ class Terminal {
   void OnDraw();
 
   /* ******************************************************************************************** */
+ public:
   /**
    * @brief Append a new block to be shown in screen
    *
@@ -83,19 +90,17 @@ class Terminal {
 
   /* ******************************************************************************************** */
   /**
-   * @brief Get current screen size from terminal screen
+   * @brief Get maximum screen size for terminal screen
    *
-   * @return screen_size_t Current size {column,row}
+   * @return screen_size_t Size{column,row}
    */
-  screen_size_t GetCurrentScreenSize();
+  screen_size_t GetScreenSize();
 
   /* ******************************************************************************************** */
  private:
-  screen_size_t max_size_;  //!< Maximum terminal screen size
-
+  screen_size_t max_size_;                      //!< Maximum terminal screen size
   std::vector<std::unique_ptr<Block>> blocks_;  //!< Vector of blocks shown in screen
-
-  bool exit_;  //!< Force application exit
+  bool exit_;                                   //!< Force application exit
 };
 
 }  // namespace interface

@@ -6,10 +6,11 @@
 #include <iostream>
 
 #include "error_code.h"
+#include "ui/colors.h"
+
 namespace interface {
 
-#define MAIN_WIN_COLOR 1
-#define DELAY_LOOP 5000
+constexpr int kDelayLoop = 5000;
 
 /* ********************************************************************************************** */
 
@@ -31,26 +32,16 @@ int Terminal::Init() {
     return ERR_GENERIC;
   }
 
-  start_color();
-  use_default_colors();
+  InitializeColors();
 
   // Hide cursor, disable echo and remove timeout to execute a non-blocking polling
-  raw();
-  nonl();
   curs_set(FALSE);
   noecho();
-  cbreak();
   timeout(0);
   keypad(stdscr, TRUE);
 
   // Get terminal dimension
-  max_size_ = GetCurrentScreenSize();
-
-  // Initialize colors
-  //   init_pair(1, COLOR_BLUE, COLOR_BLACK);
-  //   wbkgd(window, COLOR_PAIR(1));
-  //   box(window, 0, 0);
-  //   wrefresh(window);
+  max_size_ = GetScreenSize();
 
   return ERR_OK;
 }
@@ -72,6 +63,17 @@ int Terminal::Destroy() {
 
 /* ********************************************************************************************** */
 
+void Terminal::InitializeColors() {
+  // Default ncurses initialization
+  start_color();
+  use_default_colors();
+
+  // Create custom colors
+  init_pair(kColorTextGreen, COLOR_GREEN, -1);
+}
+
+/* ********************************************************************************************** */
+
 void Terminal::OnResize() {
   // Here it is where the magic happens for window resize:
   // ncurses will re-initialize itself with the new terminal dimensions.
@@ -80,7 +82,7 @@ void Terminal::OnResize() {
   clear();
 
   // Get new terminal dimension
-  max_size_ = GetCurrentScreenSize();
+  max_size_ = GetScreenSize();
 
   // Every block must resize its own internal size
   for (auto& block : blocks_) {
@@ -141,13 +143,13 @@ bool Terminal::Tick(volatile bool& resize) {
 
   OnDraw();
 
-  usleep(DELAY_LOOP);
+  usleep(kDelayLoop);
   return !exit_;
 }
 
 /* ********************************************************************************************** */
 
-screen_size_t Terminal::GetCurrentScreenSize() {
+screen_size_t Terminal::GetScreenSize() {
   screen_size_t size{0, 0};
   getmaxyx(stdscr, size.row, size.column);
 

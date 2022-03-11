@@ -61,12 +61,15 @@ class ListDirectory::InitialState : public Block::State {
     bool is_highlighted;
   };
 
+  //! For better readability
+  using ActiveItem = std::vector<Item>::iterator;
+
   /**
    * @brief Get the Item Highlighted object
    *
-   * @return Pointer to Item highlighted
+   * @return ActiveItem Current item in highlight
    */
-  std::vector<Item>::iterator GetItemHighlighted();
+  ActiveItem GetItemHighlighted();
 
   /**
    * @brief Refresh list with files from new or current directory

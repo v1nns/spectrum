@@ -5,6 +5,8 @@
 #include <iterator>
 #include <utility>
 
+#include "ui/colors.h"
+
 namespace interface {
 
 /* ********************************************************************************************** */
@@ -15,10 +17,6 @@ ListDirectory::ListDirectory(screen_portion_t init, screen_portion_t size)
 /* ********************************************************************************************** */
 
 void ListDirectory::InitialState::Init(Block& block) {
-  // TODO: move from here to something like COLORS header
-  // Initialize color...
-  init_pair(2, COLOR_GREEN, -1);
-
   RefreshList(std::filesystem::current_path());
 }
 
@@ -64,13 +62,13 @@ void ListDirectory::InitialState::DrawItem(WINDOW* window, int row, const Item& 
   }
 
   if (item.is_dir) {
-    wattron(window, COLOR_PAIR(2));
+    wattron(window, COLOR_PAIR(kColorTextGreen));
   }
 
   mvwprintw(window, row, 1, item.path.c_str());
 
   wattroff(window, A_STANDOUT);
-  wattroff(window, COLOR_PAIR(2));
+  wattroff(window, COLOR_PAIR(kColorTextGreen));
 };
 
 /* ********************************************************************************************** */
@@ -203,8 +201,7 @@ void ListDirectory::InitialState::RefreshList(const std::filesystem::path& dir_p
 
 /* ********************************************************************************************** */
 
-std::vector<ListDirectory::InitialState::Item>::iterator
-ListDirectory::InitialState::GetItemHighlighted() {
+ListDirectory::InitialState::ActiveItem ListDirectory::InitialState::GetItemHighlighted() {
   return std::find_if(list_.begin(), list_.end(),
                       [](const Item& obj) { return obj.is_highlighted; });
 }
