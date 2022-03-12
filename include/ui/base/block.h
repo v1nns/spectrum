@@ -68,6 +68,16 @@ class Block {
   WINDOW* GetWindow() { return win_; };
 
   /* ******************************************************************************************** */
+ private:
+  /**
+   * @brief Calculate block screen size based on its portion size and maximum screen size
+   *
+   * @param max_size Maximum screen size from terminal
+   */
+  void CalculateScreenSize(const screen_size_t& max_size);
+
+  /* ******************************************************************************************** */
+ public:
   /**
    * @brief Draw only border and title
    */

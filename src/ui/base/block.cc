@@ -27,20 +27,14 @@ Block::~Block() {
 /* ********************************************************************************************** */
 
 void Block::Init(const screen_size_t& max_size) {
-  // Calculate initial coordinate
-  calc_init_.x = init_.column * max_size.column;
-  calc_init_.y = init_.row * max_size.row;
+  // Calculate its own size based on screen portion and maximum screen size
+  CalculateScreenSize(max_size);
 
-  // Calculate block size based on a screen portion
-  calc_size_.column = size_.column * max_size.column;
-  calc_size_.row = size_.row * max_size.row;
-
-  assert((calc_init_.x + calc_size_.column) <= max_size.column);
-  assert((calc_init_.y + calc_size_.row) <= max_size.row);
-
+  // Create a separated window only for border
   border_ = newwin(calc_size_.row, calc_size_.column, calc_init_.y, calc_init_.x);
   assert(border_ != nullptr);
 
+  // Create a window for block content
   win_ = newwin(calc_size_.row - 2, calc_size_.column - 2, calc_init_.y + 1, calc_init_.x + 1);
   assert(win_ != nullptr);
 
@@ -64,6 +58,24 @@ void Block::Destroy() {
 /* ********************************************************************************************** */
 
 void Block::ResizeWindow(const screen_size_t& max_size) {
+  // Calculate its own size based on screen portion and maximum screen size
+  CalculateScreenSize(max_size);
+
+  // Resize windows
+  wresize(border_, calc_size_.row, calc_size_.column);
+  wresize(win_, calc_size_.row - 2, calc_size_.column - 2);
+
+  // Move windows
+  mvwin(border_, calc_init_.y, calc_init_.x);
+  mvwin(win_, calc_init_.y + 1, calc_init_.x + 1);
+
+  // Force to refresh UI on next "Draw" calling
+  refresh_ = true;
+}
+
+/* ********************************************************************************************** */
+
+void Block::CalculateScreenSize(const screen_size_t& max_size) {
   // Calculate initial coordinate
   calc_init_.x = init_.column * max_size.column;
   calc_init_.y = init_.row * max_size.row;
@@ -72,19 +84,21 @@ void Block::ResizeWindow(const screen_size_t& max_size) {
   calc_size_.column = size_.column * max_size.column;
   calc_size_.row = size_.row * max_size.row;
 
+  // Check if block is near screen edge in the X coordinate, and if true:
+  // update the calculated value to make sure the block is filling the whole screen
+  short sum_column = max_size.column - (calc_init_.x + calc_size_.column);
+  if (sum_column > 0 && sum_column <= 3) {
+    calc_size_.column = max_size.column - calc_init_.x;
+  }
+
+  // Use same logic for the Y coordinate
+  short sum_row = max_size.row - (calc_init_.y + calc_size_.row);
+  if (sum_row > 0 && sum_row <= 5) {
+    calc_size_.row = max_size.row - calc_init_.y;
+  }
+
   assert((calc_init_.x + calc_size_.column) <= max_size.column);
   assert((calc_init_.y + calc_size_.row) <= max_size.row);
-
-  // Resize window
-  wresize(border_, calc_size_.row, calc_size_.column);
-  wresize(win_, calc_size_.row - 2, calc_size_.column - 2);
-
-  // Move window
-  mvwin(border_, calc_init_.y, calc_init_.x);
-  mvwin(win_, calc_init_.y + 1, calc_init_.x + 1);
-
-  // Force to refresh UI on next "Draw" calling
-  refresh_ = true;
 }
 
 /* ********************************************************************************************** */
