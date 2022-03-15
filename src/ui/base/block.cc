@@ -104,23 +104,31 @@ void Block::CalculateScreenSize(const screen_size_t& max_size) {
 /* ********************************************************************************************** */
 
 void Block::DrawBorder() {
-  // Erase content from window and redraw border
-  werase(border_);
+  // Draw border
   box(border_, 0, 0);
 
   // Write title overwriting the border and refresh window
   mvwprintw(border_, 0, 2, border_title_.c_str());
-  wnoutrefresh(border_);
 }
 
 /* ********************************************************************************************** */
 
 void Block::Draw() {
   if (refresh_) {
+    // Erase content from windows
+    werase(border_);
+    werase(win_);
+
+    // Redraw border
     DrawBorder();
 
+    // Redraw content
     curr_state_->Draw(*this);
     refresh_ = false;
+
+    // Print drawings to virtual screen
+    wnoutrefresh(border_);
+    wnoutrefresh(win_);
   }
 }
 

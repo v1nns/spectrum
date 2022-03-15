@@ -36,9 +36,10 @@ int Terminal::Init() {
 
   // Hide cursor, disable echo and remove timeout to execute a non-blocking polling
   curs_set(FALSE);
-  noecho();
   timeout(0);
   keypad(stdscr, TRUE);
+  noecho();
+  raw();
 
   // Get terminal dimension
   max_size_ = GetScreenSize();

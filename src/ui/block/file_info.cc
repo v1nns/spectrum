@@ -14,12 +14,9 @@ FileInfo::FileInfo(screen_portion_t init, screen_portion_t size)
 
 void FileInfo::InitialState::Draw(Block& block) {
   auto window = block.GetWindow();
-  werase(window);
 
   // Box content
   mvwprintw(window, 1, 1, "Hello, press \"SPACE\" to start.");
-
-  wnoutrefresh(window);
 };
 
 /* ********************************************************************************************** */
@@ -43,7 +40,6 @@ void FileInfo::ShowInfoState::Init(Block& block) { song_.ParseFromFile(SONG_PATH
 
 void FileInfo::ShowInfoState::Draw(Block& block) {
   auto window = block.GetWindow();
-  werase(window);
 
   // Box content
   auto stats = song_.GetFormattedStats();
@@ -52,8 +48,6 @@ void FileInfo::ShowInfoState::Draw(Block& block) {
     mvwprintw(window, row, 1, line.c_str());
     ++row;
   }
-
-  wnoutrefresh(window);
 };
 
 }  // namespace interface
