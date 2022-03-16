@@ -8,11 +8,17 @@
 
 #include <ncurses.h>
 
+#include <functional>
 #include <string>
 
 #include "ui/common.h"
 
 namespace interface {
+
+/**
+ * @brief Callback to set focus in the block instead of the global terminal
+ */
+using set_focus_callback = std::function<void(bool)>;
 
 /**
  * @brief Base class to draw a single block in terminal (based on a Block-design User Interface)
@@ -54,6 +60,13 @@ class Block {
   void Destroy();
 
   /**
+   * @brief Register callback to set focus in the current block
+   *
+   * @param cb Terminal function bound to a callback function
+   */
+  void RegisterCallback(set_focus_callback cb);
+
+  /**
    * @brief Resize Block window
    *
    * @param max_size Maximum screen size from terminal
@@ -66,6 +79,13 @@ class Block {
    * @return WINDOW* Current Window for this block
    */
   WINDOW* GetWindow() { return win_; };
+
+  /**
+   * @brief Get focus from the global terminal
+   *
+   * @param focused "true" to get focus, otherwise "false"
+   */
+  void GetFocus(bool focused);
 
   /* ******************************************************************************************** */
  private:
@@ -134,6 +154,8 @@ class Block {
   WINDOW *border_, *win_;  //!< NCURSES GUI windows for border and block content
 
   std::string border_title_;  //!< Text to be shown as title in border box
+
+  set_focus_callback set_focus_;  //!< Callback to "steal" focus from the global terminal
 
   /* ******************************************************************************************** */
  private:

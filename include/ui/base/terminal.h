@@ -24,7 +24,7 @@ class Terminal {
   /**
    * @brief Construct a new Terminal object
    */
-  Terminal() : max_size_({0, 0}), blocks_(), exit_(false){};
+  Terminal() : max_size_({0, 0}), blocks_(), has_focus_(true), exit_(false){};
 
   /**
    * @brief Destroy the Terminal object
@@ -76,6 +76,15 @@ class Terminal {
   void OnDraw();
 
   /* ******************************************************************************************** */
+
+  /**
+   * @brief Handle keyboard input for global commands
+   *
+   * @param key Character corresponding to the key pressed
+   */
+  void HandleInput(int key);
+
+  /* ******************************************************************************************** */
  public:
   /**
    * @brief Append a new block to be shown in screen
@@ -84,7 +93,15 @@ class Terminal {
    */
   void AppendBlock(std::unique_ptr<Block>& b);
 
+  /**
+   * @brief Set/unset focus to the child block
+   *
+   * @param focused Flag indicating if block get focused
+   */
+  void SetFocus(bool focused);
+
   /* ******************************************************************************************** */
+
   // TODO: document
   bool Tick(volatile bool& resize);
 
@@ -100,7 +117,10 @@ class Terminal {
  private:
   screen_size_t max_size_;                      //!< Maximum terminal screen size
   std::vector<std::unique_ptr<Block>> blocks_;  //!< Vector of blocks shown in screen
-  bool exit_;                                   //!< Force application exit
+
+  bool has_focus_;  //!< Flag to control if must execute global commands
+
+  bool exit_;  //!< Force application exit
 };
 
 }  // namespace interface

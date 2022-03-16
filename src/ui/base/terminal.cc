@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <cctype>
+#include <functional>
 #include <iostream>
 
 #include "error_code.h"
@@ -100,8 +102,8 @@ void Terminal::OnPolling() {
   int key = getch();
 
   // Global commands
-  if (key == 'q' || key == 'Q') {
-    exit_ = true;
+  if (has_focus_) {
+    HandleInput(key);
   }
 
   // Send key event to all blocks
@@ -124,11 +126,26 @@ void Terminal::OnDraw() {
 
 /* ********************************************************************************************** */
 
+void Terminal::HandleInput(int key) {
+  switch (std::tolower(key)) {
+    case 'q':
+      exit_ = true;
+      break;
+  }
+}
+
+/* ********************************************************************************************** */
+
 void Terminal::AppendBlock(std::unique_ptr<Block>& b) {
   // TODO: add size control here with assert
   b->Init(max_size_);
+  b->RegisterCallback(std::bind(&Terminal::SetFocus, this, std::placeholders::_1));
   blocks_.push_back(std::move(b));
 }
+
+/* ********************************************************************************************** */
+
+void Terminal::SetFocus(bool focused) { has_focus_ = !focused; }
 
 /* ********************************************************************************************** */
 

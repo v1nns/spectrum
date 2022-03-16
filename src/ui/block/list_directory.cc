@@ -181,6 +181,8 @@ void ListDirectory::InitialState::HandleInput(Block& block, int key) {
     //! Key 'Esc'
     case 27: {
       if (search_mode_) {
+        block.GetFocus(false);
+
         text_to_search_.clear();
         UpdateTextToSearch();
 
@@ -192,6 +194,7 @@ void ListDirectory::InitialState::HandleInput(Block& block, int key) {
     //! Key '/'
     case 47: {
       if (!search_mode_) {
+        block.GetFocus(true);
         search_mode_ = true;
       } else {
         UpdateTextToSearch(key);

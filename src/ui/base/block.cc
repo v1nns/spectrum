@@ -13,6 +13,7 @@ Block::Block(const screen_portion_t& init, const screen_portion_t& size, const s
       border_(nullptr),
       win_(nullptr),
       border_title_(title),
+      set_focus_(nullptr),
       curr_state_(state),
       refresh_(true) {}
 
@@ -54,6 +55,14 @@ void Block::Destroy() {
   border_ = nullptr;
   win_ = nullptr;
 }
+
+/* ********************************************************************************************** */
+
+void Block::RegisterCallback(set_focus_callback cb) { set_focus_ = cb; }
+
+/* ********************************************************************************************** */
+
+void Block::GetFocus(bool focused) { set_focus_(focused); };
 
 /* ********************************************************************************************** */
 
