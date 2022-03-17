@@ -1,13 +1,12 @@
 #include "ui/base/terminal.h"
 
-#include <stdlib.h>
 #include <unistd.h>
 
 #include <cctype>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 
-#include "error_code.h"
 #include "ui/colors.h"
 
 namespace interface {
@@ -16,22 +15,17 @@ constexpr int kDelayLoop = 5000;
 
 /* ********************************************************************************************** */
 
-int Terminal::Init() {
-  // Create and initialize window
-  auto* window = initscr();
-  if (window == nullptr) {
-    // TODO: fix this or use it everywhere
-    fputs("Could not initialize screen.\n", stderr);
-    return ERR_GENERIC;
+void Terminal::Init() {
+  // Initialize terminal window (a.k.a. "stdscr" in ncurses)
+  if (initscr() == nullptr) {
+    SetCriticalError(error::kTerminalInitialization);
+    Exit();
   }
 
   // Check color availability
   if (!has_colors() || !can_change_color()) {
-    endwin();
-    refresh();
-
-    fputs("Do not have availability to change colors.\n", stderr);
-    return ERR_GENERIC;
+    SetCriticalError(error::kTerminalColorsUnavailable);
+    Exit();
   }
 
   InitializeColors();
@@ -45,13 +39,11 @@ int Terminal::Init() {
 
   // Get terminal dimension
   max_size_ = GetScreenSize();
-
-  return ERR_OK;
 }
 
 /* ********************************************************************************************** */
 
-int Terminal::Destroy() {
+void Terminal::Destroy() {
   // Destroy windows from all blocks
   for (auto& block : blocks_) {
     block->Destroy();
@@ -60,8 +52,16 @@ int Terminal::Destroy() {
   // Delete terminal window
   endwin();
   refresh();
+}
 
-  return ERR_OK;
+/* ********************************************************************************************** */
+
+void Terminal::Exit() {
+  if (critical_error_) {
+    std::cerr << "error: " << critical_error_->second << std::endl;
+  }
+
+  std::exit(EXIT_FAILURE);
 }
 
 /* ********************************************************************************************** */
@@ -136,16 +136,28 @@ void Terminal::HandleInput(int key) {
 
 /* ********************************************************************************************** */
 
-void Terminal::AppendBlock(std::unique_ptr<Block>& b) {
-  // TODO: add size control here with assert
-  b->Init(max_size_);
-  b->RegisterCallback(std::bind(&Terminal::SetFocus, this, std::placeholders::_1));
-  blocks_.push_back(std::move(b));
+void Terminal::SetCriticalError(int err_code) {
+  error::ErrorTable table;
+  critical_error_ = table.GetMessage(err_code);
+  exit_ = true;
 }
 
 /* ********************************************************************************************** */
 
 void Terminal::SetFocus(bool focused) { has_focus_ = !focused; }
+
+/* ********************************************************************************************** */
+
+void Terminal::AppendBlock(std::unique_ptr<Block>& b) {
+  // TODO: add size control here with assert
+  b->Init(max_size_);
+
+  Callbacks cbs{.set_error = std::bind(&Terminal::SetCriticalError, this, std::placeholders::_1),
+                .set_focus = std::bind(&Terminal::SetFocus, this, std::placeholders::_1)};
+
+  b->RegisterCallbacks(std::move(cbs));
+  blocks_.push_back(std::move(b));
+}
 
 /* ********************************************************************************************** */
 
@@ -160,6 +172,10 @@ bool Terminal::Tick(volatile bool& resize) {
   }
 
   OnDraw();
+
+  if (critical_error_) {
+    Exit();
+  }
 
   usleep(kDelayLoop);
   return !exit_;

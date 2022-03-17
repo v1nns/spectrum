@@ -9,22 +9,24 @@
 #include <ncurses.h>
 
 #include <memory>
+#include <optional>
 #include <vector>
 
+#include "error/error_table.h"
 #include "ui/base/block.h"
 #include "ui/common.h"
 
 namespace interface {
 
 /**
- * @brief Class that represents the whole screen
+ * @brief Base class that manages the whole screen and hold all blocks
  */
 class Terminal {
  public:
   /**
    * @brief Construct a new Terminal object
    */
-  Terminal() : max_size_({0, 0}), blocks_(), has_focus_(true), exit_(false){};
+  Terminal() : max_size_({0, 0}), blocks_(), has_focus_(true), critical_error_(), exit_(false){};
 
   /**
    * @brief Destroy the Terminal object
@@ -44,14 +46,19 @@ class Terminal {
    *
    * @return int Error code from operation
    */
-  int Init();
+  void Init();
 
   /**
    * @brief Destroy screen used by Terminal object
    *
    * @return int Error code from operation
    */
-  int Destroy();
+  void Destroy();
+
+  /**
+   * @brief Force application to exit
+   */
+  void Exit();
 
   /* ******************************************************************************************** */
  private:
@@ -76,7 +83,6 @@ class Terminal {
   void OnDraw();
 
   /* ******************************************************************************************** */
-
   /**
    * @brief Handle keyboard input for global commands
    *
@@ -87,11 +93,11 @@ class Terminal {
   /* ******************************************************************************************** */
  public:
   /**
-   * @brief Append a new block to be shown in screen
+   * @brief Set a critical error to exit application
    *
-   * @param b Pointer to Block-derived class
+   * @param err_code Unique error code
    */
-  void AppendBlock(std::unique_ptr<Block>& b);
+  void SetCriticalError(int err_code);
 
   /**
    * @brief Set/unset focus to the child block
@@ -100,9 +106,21 @@ class Terminal {
    */
   void SetFocus(bool focused);
 
-  /* ******************************************************************************************** */
+  /**
+   * @brief Append a new block to be shown in screen
+   *
+   * @param b Pointer to Block-derived class
+   */
+  void AppendBlock(std::unique_ptr<Block>& b);
 
-  // TODO: document
+  /* ******************************************************************************************** */
+  /**
+   * @brief Main loop for the graphical interface
+   *
+   * @param resize Flag indicating if received a resize event
+   * @return true To exit from application
+   * @return false To keep running
+   */
   bool Tick(volatile bool& resize);
 
   /* ******************************************************************************************** */
@@ -120,7 +138,8 @@ class Terminal {
 
   bool has_focus_;  //!< Flag to control if must execute global commands
 
-  bool exit_;  //!< Force application exit
+  std::optional<error::message_t> critical_error_;  //!< Critical error that forces application exit
+  bool exit_;  //!< Indicate if application must gracefully exit
 };
 
 }  // namespace interface

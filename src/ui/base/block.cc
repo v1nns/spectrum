@@ -13,7 +13,7 @@ Block::Block(const screen_portion_t& init, const screen_portion_t& size, const s
       border_(nullptr),
       win_(nullptr),
       border_title_(title),
-      set_focus_(nullptr),
+      functions_({}),
       curr_state_(state),
       refresh_(true) {}
 
@@ -58,11 +58,11 @@ void Block::Destroy() {
 
 /* ********************************************************************************************** */
 
-void Block::RegisterCallback(set_focus_callback cb) { set_focus_ = cb; }
+void Block::GetFocus(bool focused) { functions_.set_focus(focused); };
 
 /* ********************************************************************************************** */
 
-void Block::GetFocus(bool focused) { set_focus_(focused); };
+void Block::RegisterCallbacks(Callbacks cbs) { functions_ = cbs; }
 
 /* ********************************************************************************************** */
 
@@ -96,7 +96,7 @@ void Block::CalculateScreenSize(const screen_size_t& max_size) {
   // Check if block is near screen edge in the X coordinate, and if true:
   // update the calculated value to make sure the block is filling the whole screen
   short sum_column = max_size.column - (calc_init_.x + calc_size_.column);
-  if (sum_column > 0 && sum_column <= 3) {
+  if (sum_column > 0 && sum_column <= 5) {
     calc_size_.column = max_size.column - calc_init_.x;
   }
 

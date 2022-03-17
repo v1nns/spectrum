@@ -7,7 +7,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "error_code.h"
+#include "error/error_table.h"
 
 /* ********************************************************************************************** */
 
@@ -16,8 +16,9 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
   file_ = fopen(filename_.c_str(), "r");
 
   if (file_ == nullptr) {
+    // TODO: fix this
     fprintf(stderr, "Unable to open wave file: %s\n", filename_.c_str());
-    return ERR_GENERIC;
+    return error::kSuccess;
   }
 
   // Read the header
@@ -48,7 +49,7 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
   //   }
 
   fclose(file_);
-  return ERR_OK;
+  return error::kSuccess;
 }
 
 /* ********************************************************************************************** */

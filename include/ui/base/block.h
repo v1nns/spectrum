@@ -16,10 +16,23 @@
 namespace interface {
 
 /**
+ * @brief Callback to set critical error and exit application
+ */
+using SetErrorCallback = std::function<void(int)>;
+/**
  * @brief Callback to set focus in the block instead of the global terminal
  */
-using set_focus_callback = std::function<void(bool)>;
+using SetFocusCallback = std::function<void(bool)>;
 
+/**
+ * @brief Group of all callbacks used by a Block
+ */
+struct Callbacks {
+  SetErrorCallback set_error;
+  SetFocusCallback set_focus;
+};
+
+/* ********************************************************************************************** */
 /**
  * @brief Base class to draw a single block in terminal (based on a Block-design User Interface)
  */
@@ -60,13 +73,6 @@ class Block {
   void Destroy();
 
   /**
-   * @brief Register callback to set focus in the current block
-   *
-   * @param cb Terminal function bound to a callback function
-   */
-  void RegisterCallback(set_focus_callback cb);
-
-  /**
    * @brief Resize Block window
    *
    * @param max_size Maximum screen size from terminal
@@ -86,6 +92,14 @@ class Block {
    * @param focused "true" to get focus, otherwise "false"
    */
   void GetFocus(bool focused);
+
+  /* ******************************************************************************************** */
+  /**
+   * @brief Register all callbacks used by block
+   *
+   * @param cbs All terminal functions bound to a callback function
+   */
+  void RegisterCallbacks(Callbacks cbs);
 
   /* ******************************************************************************************** */
  private:
@@ -155,7 +169,7 @@ class Block {
 
   std::string border_title_;  //!< Text to be shown as title in border box
 
-  set_focus_callback set_focus_;  //!< Callback to "steal" focus from the global terminal
+  Callbacks functions_;  //!< All registered callbacks
 
   /* ******************************************************************************************** */
  private:
