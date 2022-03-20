@@ -26,12 +26,12 @@ class Terminal {
   /**
    * @brief Construct a new Terminal object
    */
-  Terminal() : max_size_({0, 0}), blocks_(), has_focus_(true), critical_error_(), exit_(false){};
+  Terminal();
 
   /**
    * @brief Destroy the Terminal object
    */
-  virtual ~Terminal() { Destroy(); };
+  virtual ~Terminal();
 
   /* ******************************************************************************************** */
   //! Remove these constructors/operators
@@ -111,17 +111,16 @@ class Terminal {
    *
    * @param b Pointer to Block-derived class
    */
-  void AppendBlock(std::unique_ptr<Block>& b);
+  void AppendBlock(std::unique_ptr<Block>& block);
 
   /* ******************************************************************************************** */
   /**
    * @brief Main loop for the graphical interface
    *
-   * @param resize Flag indicating if received a resize event
    * @return true To exit from application
    * @return false To keep running
    */
-  bool Tick(volatile bool& resize);
+  bool Tick();
 
   /* ******************************************************************************************** */
   /**
@@ -130,6 +129,17 @@ class Terminal {
    * @return screen_size_t Size{column,row}
    */
   screen_size_t GetScreenSize();
+
+  /* ******************************************************************************************** */
+ private:
+  /**
+   * @brief Global hook to filter received signals
+   *
+   * @param sig Signal event received
+   */
+  static void SignalHook(int sig);
+
+  static bool resize_screen_;  //!< Flag to control if must resize the window
 
   /* ******************************************************************************************** */
  private:

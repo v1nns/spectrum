@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <cctype>
+#include <csignal>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
@@ -11,7 +12,18 @@
 
 namespace interface {
 
-constexpr int kDelayLoop = 5000;
+constexpr int kDelayLoop = 5000;  //!< Delay to handle keyboard input and refresh screen
+
+bool Terminal::resize_screen_ = false;
+
+/* ********************************************************************************************** */
+
+Terminal::Terminal()
+    : max_size_({0, 0}), blocks_(), has_focus_(true), critical_error_(), exit_(false){};
+
+/* ********************************************************************************************** */
+
+Terminal::~Terminal() { Destroy(); };
 
 /* ********************************************************************************************** */
 
@@ -39,6 +51,9 @@ void Terminal::Init() {
 
   // Get terminal dimension
   max_size_ = GetScreenSize();
+
+  // Register hook to watch for received signals
+  signal(SIGWINCH, Terminal::SignalHook);
 }
 
 /* ********************************************************************************************** */
@@ -148,34 +163,31 @@ void Terminal::SetFocus(bool focused) { has_focus_ = !focused; }
 
 /* ********************************************************************************************** */
 
-void Terminal::AppendBlock(std::unique_ptr<Block>& b) {
+void Terminal::AppendBlock(std::unique_ptr<Block>& block) {
   // TODO: add size control here with assert
-  b->Init(max_size_);
+  block->Init(max_size_);
 
   Callbacks cbs{.set_error = std::bind(&Terminal::SetCriticalError, this, std::placeholders::_1),
                 .set_focus = std::bind(&Terminal::SetFocus, this, std::placeholders::_1)};
 
-  b->RegisterCallbacks(std::move(cbs));
-  blocks_.push_back(std::move(b));
+  block->RegisterCallbacks(std::move(cbs));
+  blocks_.push_back(std::move(block));
 }
 
 /* ********************************************************************************************** */
 
-bool Terminal::Tick(volatile bool& resize) {
-  if (resize) {
+bool Terminal::Tick() {
+  if (resize_screen_) {
+    // Resize and reset internal flag
     OnResize();
-
-    // Reset global flag
-    resize = false;
+    resize_screen_ = false;
   } else {
     OnPolling();
   }
 
   OnDraw();
 
-  if (critical_error_) {
-    Exit();
-  }
+  if (critical_error_) Exit();
 
   usleep(kDelayLoop);
   return !exit_;
@@ -188,6 +200,18 @@ screen_size_t Terminal::GetScreenSize() {
   getmaxyx(stdscr, size.row, size.column);
 
   return size;
+}
+
+/* ********************************************************************************************** */
+
+void Terminal::SignalHook(int sig) {
+  // In case it is a resize event, must set related flag
+  if (sig == SIGWINCH) resize_screen_ = true;
+
+#if defined(__sun) && defined(__SVR4)
+  // reinstall the hook each time it's executed
+  signal(sig, global_sig_hook);
+#endif  // __sun && __SVR4
 }
 
 }  // namespace interface
