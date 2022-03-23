@@ -1,43 +1,41 @@
-# ##################################################################################################
-# External dependencies
-# ##################################################################################################
-pkg_check_modules(NCURSES REQUIRED ncurses)
-pkg_check_modules(FFTW REQUIRED fftw3)
-
 # **************************************************************************************************
-# Compile flags for release OR debug
-# IF(RELEASE)
-#     SET(CMAKE_CXX_FLAGS "-Wall -Werror -o2")
-# ELSE()
-#     SET(CMAKE_CXX_FLAGS "-g -Wall -Werror")
-# ENDIF()
+# External dependencies
 
-# # FFTW
-# pkg_search_module(FFTW REQUIRED fftw3 IMPORTED_TARGET)
-# include_directories(PkgConfig::FFTW)
-# link_libraries     (PkgConfig::FFTW)
+FetchContent_Declare(ftxui
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
+  GIT_TAG v2.0.0
+)
 
-# # NCURSES
-# find_package(Curses REQUIRED)
-# include_directories(${CURSES_INCLUDE_DIR})
+FetchContent_GetProperties(ftxui)
+if(NOT ftxui_POPULATED)
+  FetchContent_Populate(ftxui)
+  add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
+
+# pkg_check_modules(FFTW REQUIRED fftw3)
 
 # **************************************************************************************************
 # Create library
+
 add_library(spectrum-lib OBJECT)
 target_sources(spectrum-lib
                PRIVATE
                ui/base/terminal.cc
-               ui/base/block.cc
                ui/block/list_directory.cc
                ui/block/file_info.cc
                sound/wave.cc)
 
-target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>)
 
-target_link_libraries(spectrum-lib PUBLIC ncurses fftw3)
+target_link_libraries(spectrum-lib
+  PRIVATE ftxui::screen
+  PRIVATE ftxui::dom
+  PRIVATE ftxui::component
+)
 
 # **************************************************************************************************
 # Create executable
+
 add_executable(spectrum)
 target_sources(spectrum PRIVATE main.cc)
 target_link_libraries(spectrum PRIVATE spectrum-lib)

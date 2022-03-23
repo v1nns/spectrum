@@ -7,47 +7,6 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo(screen_portion_t init, screen_portion_t size)
-    : Block(init, size, "Information", FileInfo::InitialState::GetInstance()) {}
-
-/* ********************************************************************************************** */
-
-void FileInfo::InitialState::Draw(Block& block) {
-  auto window = block.GetWindow();
-
-  // Box content
-  mvwprintw(window, 1, 1, "Hello, press \"SPACE\" to start.");
-};
-
-/* ********************************************************************************************** */
-
-void FileInfo::InitialState::HandleInput(Block& block, int key) {
-  switch (key) {
-    case ' ': {
-      ChangeState(block, FileInfo::ShowInfoState::GetInstance());
-      break;
-    }
-    default:
-      break;
-  }
-}
-
-/* ********************************************************************************************** */
-
-void FileInfo::ShowInfoState::Init(Block& block) { song_.ParseFromFile(SONG_PATH_FOR_DEV); }
-
-/* ********************************************************************************************** */
-
-void FileInfo::ShowInfoState::Draw(Block& block) {
-  auto window = block.GetWindow();
-
-  // Box content
-  auto stats = song_.GetFormattedStats();
-  int row = 1;
-  for (const auto& line : stats) {
-    mvwprintw(window, row, 1, line.c_str());
-    ++row;
-  }
-};
+FileInfo::FileInfo() {}
 
 }  // namespace interface
