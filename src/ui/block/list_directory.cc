@@ -1,36 +1,37 @@
+
 #include "ui/block/list_directory.h"
 
 #include <ctype.h>  // for tolower
 
-#include <algorithm>   // for for_each, sort
-#include <filesystem>  // for path, directory_ite...
-#include <memory>      // for shared_ptr, allocat...
+#include <algorithm>   // for for_each, search, sort
+#include <filesystem>  // for path, directory_iterator, opera...
+#include <memory>      // for shared_ptr, make_unique, alloca...
 #include <utility>     // for move
 
-#include "ftxui/component/component_options.hpp"  // for MenuEntryOption
-#include "ftxui/component/event.hpp"              // for Event, Event::Arrow...
-#include "ftxui/component/mouse.hpp"              // for Mouse, Mouse::Left
-#include "ftxui/screen/color.hpp"                 // for Color
+#include "ftxui/component/event.hpp"  // for Event, Event::ArrowDown, Event:...
+#include "ftxui/component/mouse.hpp"  // for Mouse, Mouse::Left, Mouse::Whee...
+#include "ftxui/dom/node.hpp"         // for Node
+#include "ftxui/screen/color.hpp"     // for Color, Color::Green, Color::White
 
 namespace interface {
 
 /* ********************************************************************************************** */
 /**
- * @brief Custom colors for Menu Entry
+ * @brief Create a new custom style for Menu Entry
  *
- * @param c Text color
+ * @param c Color
  * @return MenuEntryOption Custom object with the requested color
  */
 MenuEntryOption Colored(ftxui::Color c) {
-  MenuEntryOption special_style;
-  special_style.style_normal = Decorator(color(c));
-  special_style.style_focused = Decorator(color(c)) | inverted;
-  special_style.style_selected = Decorator(color(c));
-  special_style.style_selected_focused = Decorator(color(c)) | inverted;
-  return special_style;
+  return MenuEntryOption{
+      .style_normal = Decorator(color(c)),
+      .style_focused = Decorator(color(c)) | inverted,
+      .style_selected = Decorator(color(c)),
+      .style_selected_focused = Decorator(color(c)) | inverted,
+  };
 }
 
-// Similar to std::clamp, but allow hi to be lower than lo.
+//! Similar to std::clamp, but allow hi to be lower than lo.
 template <class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
   return v < lo ? lo : hi < v ? hi : v;
@@ -39,7 +40,15 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
 /* ********************************************************************************************** */
 
 ListDirectory::ListDirectory()
-    : curr_dir_(std::filesystem::current_path()), entries_({}), selected_(0), focused_(0) {
+    : curr_dir_(std::filesystem::current_path()),
+      entries_(),
+      selected_(0),
+      focused_(0),
+      style_dir_(Colored(Color::Green)),
+      style_file_(Colored(Color::White)),
+      boxes_(),
+      box_(),
+      mode_search_({}) {
   RefreshList(curr_dir_);
 }
 
@@ -49,68 +58,89 @@ Element ListDirectory::Render() {
   Clamp();
   Elements elements;
   bool is_menu_focused = Focused();
-  for (int i = 0; i < size(); ++i) {
-    bool is_focused = (focused_ == i) && is_menu_focused;
-    bool is_selected = (selected_ == i);
 
-    auto entry_option = entries_[i].is_dir ? Colored(Color::Green) : Colored(Color::White);
+  int* selected = GetSelected();
+  int* focused = GetFocused();
 
-    auto style =
-        is_selected
-            ? (is_focused ? entry_option.style_selected_focused : entry_option.style_selected)
-            : (is_focused ? entry_option.style_focused : entry_option.style_normal);
-    // auto focus_management = !is_selected ? nothing : is_menu_focused ? focus : ftxui::select;
+  for (int i = 0; i < Size(); ++i) {
+    bool is_focused = (*focused == i) && is_menu_focused;
+    bool is_selected = (*selected == i);
+
+    auto& entry = GetEntry(i);
+    auto& entry_type = entry.is_dir ? style_dir_ : style_file_;
+
+    auto style = is_selected
+                     ? (is_focused ? entry_type.style_selected_focused : entry_type.style_selected)
+                     : (is_focused ? entry_type.style_focused : entry_type.style_normal);
+
     auto focus_management = is_focused ? ftxui::select : nothing;
 
-    elements.push_back(text(" " + entries_[i].path) | style | focus_management |
-                       reflect(boxes_[i]));
+    elements.push_back(text(" " + entry.path) | style | focus_management | reflect(boxes_[i]));
   }
-  return vbox({text(curr_dir_.c_str()) | bold, vbox(std::move(elements)) | reflect(box_) | frame}) |
-         borderRounded;
+
+  auto search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
+                                 : std::make_unique<Node>();
+
+  auto block = window(text(" Files "), vbox({
+                                           hbox({text(curr_dir_.c_str()) | bold}),
+                                           vbox(std::move(elements)) | reflect(box_) | frame | flex,
+                                           hbox(search_box),
+                                       }));
+
+  return block;
 }
 
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnEvent(Event event) {
   Clamp();
-  if (!CaptureMouse(event)) return false;
 
-  if (event.is_mouse()) return OnMouseEvent(event);
-
-  if (Focused()) {
-    int old_selected = selected_;
-    if (event == Event::ArrowUp || event == Event::Character('k')) (selected_)--;
-    if (event == Event::ArrowDown || event == Event::Character('j')) (selected_)++;
-    if (event == Event::PageUp) (selected_) -= box_.y_max - box_.y_min;
-    if (event == Event::PageDown) (selected_) += box_.y_max - box_.y_min;
-    if (event == Event::Home) (selected_) = 0;
-    if (event == Event::End) (selected_) = size() - 1;
-    if (event == Event::Tab && size()) selected_ = (selected_ + 1) % size();
-    if (event == Event::TabReverse && size()) selected_ = (selected_ + size() - 1) % size();
-
-    selected_ = clamp(selected_, 0, size() - 1);
-
-    if (selected_ != old_selected) {
-      focused_ = selected_;
-      return true;
-    }
+  if (event.is_mouse()) {
+    return OnMouseEvent(event);
   }
 
-  if (event == Event::Return) {
-    std::filesystem::path new_dir;
-    auto& active = entries_.at(selected_);
-
-    if (active.path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
-      // Okay, it really exists, so it should go back one level
-      new_dir = curr_dir_.parent_path();
-    } else if (active.is_dir) {
-      // If active item is a directory, should enter it
-      new_dir = curr_dir_ / active.path;
+  if (Focused()) {
+    if (OnMenuNavigation(event)) {
+      return true;
     }
 
-    if (!new_dir.empty()) {
-      RefreshList(new_dir);
+    if (mode_search_ && OnSearchModeEvent(event)) {
       return true;
+    }
+
+    // Enable search mode
+    if (!mode_search_ && event == Event::Character('/')) {
+      mode_search_ = Search({
+          .text_to_search = "",
+          .entries = entries_,
+          .selected = 0,
+          .focused = 0,
+      });
+      return true;
+    }
+
+    if (event == Event::Return) {
+      // TODO: extract this to another method
+      std::filesystem::path new_dir;
+      auto& active =
+          mode_search_ ? mode_search_->entries.at(mode_search_->selected) : entries_.at(selected_);
+
+      if (active.path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
+        // Okay, it really exists, so it should go back one level
+        new_dir = curr_dir_.parent_path();
+      } else if (active.is_dir) {
+        // If active item is a directory, should enter it
+        new_dir = curr_dir_ / active.path;
+      }
+
+      if (!new_dir.empty()) {
+        RefreshList(new_dir);
+
+        // Exit search mode if enabled
+        if (mode_search_) mode_search_ = std::nullopt;
+
+        return true;
+      }
     }
   }
 
@@ -127,49 +157,137 @@ bool ListDirectory::OnMouseEvent(Event event) {
   if (event.mouse().button != Mouse::None && event.mouse().button != Mouse::Left) {
     return false;
   }
+
   if (!CaptureMouse(event)) return false;
-  for (int i = 0; i < size(); ++i) {
+
+  int* selected = GetSelected();
+  int* focused = GetFocused();
+
+  for (int i = 0; i < Size(); ++i) {
     if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
 
     TakeFocus();
-    focused_ = i;
+    *focused = i;
     if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
-      if (selected_ != i) {
-        selected_ = i;
-      }
+      // Mouse click on menu entry
+      if (*selected != i) *selected = i;
       return true;
     }
   }
+
   return false;
 }
 
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnMouseWheel(Event event) {
-  if (!box_.Contain(event.mouse().x, event.mouse().y)) return false;
-  int old_selected = selected_;
+  if (!box_.Contain(event.mouse().x, event.mouse().y)) {
+    return false;
+  }
+
+  int* selected = GetSelected();
+  int* focused = GetFocused();
+
+  int old_selected = *selected;
 
   if (event.mouse().button == Mouse::WheelUp) {
-    (selected_)--;
-    (focused_)--;
-  }
-  if (event.mouse().button == Mouse::WheelDown) {
-    (selected_)++;
-    (focused_)++;
+    (*selected)--;
+    (*focused)--;
   }
 
-  selected_ = clamp(selected_, 0, size() - 1);
-  focused_ = clamp(focused_, 0, size() - 1);
+  if (event.mouse().button == Mouse::WheelDown) {
+    (*selected)++;
+    (*focused)++;
+  }
+
+  *selected = clamp(*selected, 0, Size() - 1);
+  *focused = clamp(*focused, 0, Size() - 1);
 
   return true;
 }
 
 /* ********************************************************************************************** */
 
+bool ListDirectory::OnMenuNavigation(Event event) {
+  int* selected = GetSelected();
+  int* focused = GetFocused();
+
+  int old_selected = *selected;
+
+  if (event == Event::ArrowUp || event == Event::Character('k')) (*selected)--;
+  if (event == Event::ArrowDown || event == Event::Character('j')) (*selected)++;
+  if (event == Event::PageUp) (*selected) -= box_.y_max - box_.y_min;
+  if (event == Event::PageDown) (*selected) += box_.y_max - box_.y_min;
+  if (event == Event::Home) (*selected) = 0;
+  if (event == Event::End) (*selected) = Size() - 1;
+  if (event == Event::Tab && Size()) *selected = (*selected + 1) % Size();
+  if (event == Event::TabReverse && Size()) *selected = (*selected + Size() - 1) % Size();
+
+  if (*selected != old_selected) {
+    *selected = clamp(*selected, 0, Size() - 1);
+
+    if (*selected != old_selected) {
+      *focused = *selected;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool ListDirectory::OnSearchModeEvent(Event event) {
+  bool mapped_event = false;
+
+  // Any alphabetic character
+  if (event.is_character()) {
+    mode_search_->text_to_search += event.character();
+    mapped_event = true;
+  } /*else {
+      // debug mode
+    std::string out;
+    for (auto& it : event.input()) out += " " + std::to_string((unsigned int)it);
+
+    out = "(" + out + " )";
+    mode_search_->text_to_search = out;
+  }*/
+
+  // Backspace
+  if (event == Event::Backspace && !(mode_search_->text_to_search.empty())) {
+    mode_search_->text_to_search.pop_back();
+    mapped_event = true;
+  }
+
+  // Ctrl + Backspace
+  if (event == Event::Special({8}) || event == Event::Special("\027")) {
+    mode_search_->text_to_search.clear();
+    mapped_event = true;
+  }
+
+  if (mapped_event) {
+    RefreshSearchList();
+  }
+
+  // Quit search mode
+  if (event == Event::Escape) {
+    mode_search_ = std::nullopt;
+    mapped_event = true;
+  }
+
+  return mapped_event;
+}
+
+/* ********************************************************************************************** */
+
 void ListDirectory::Clamp() {
-  boxes_.resize(size());
-  selected_ = clamp(selected_, 0, size() - 1);
-  focused_ = clamp(focused_, 0, size() - 1);
+  boxes_.resize(Size());
+
+  int* selected = GetSelected();
+  int* focused = GetFocused();
+
+  *selected = clamp(*selected, 0, Size() - 1);
+  *focused = clamp(*focused, 0, Size() - 1);
 }
 
 /* ********************************************************************************************** */
@@ -208,10 +326,33 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   std::sort(entries_.begin(), entries_.end(), custom_sort);
 
   // Add option to go back one level
-  entries_.insert(entries_.begin(), File{
-                                        .path = "..",
-                                        .is_dir = true,
-                                    });
+  entries_.insert(entries_.begin(), File{.path = "..", .is_dir = true});
+}
+
+/* ********************************************************************************************** */
+
+void ListDirectory::RefreshSearchList() {
+  mode_search_->selected = 0, mode_search_->focused = 0;
+
+  // Do not even try to find it in the main list
+  if (mode_search_->text_to_search.empty()) {
+    mode_search_->entries = entries_;
+    return;
+  }
+
+  auto compare_string = [](char ch1, char ch2) { return std::tolower(ch1) == std::tolower(ch2); };
+
+  mode_search_->entries.clear();
+  auto& text_to_search = mode_search_->text_to_search;
+
+  for (auto& entry : entries_) {
+    auto it = std::search(entry.path.begin(), entry.path.end(), text_to_search.begin(),
+                          text_to_search.end(), compare_string);
+
+    if (it != entry.path.end()) {
+      mode_search_->entries.push_back(entry);
+    }
+  }
 }
 
 }  // namespace interface
