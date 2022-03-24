@@ -1,13 +1,14 @@
 #include "sound/wave.h"
 
-#include <cassert>
-#include <fstream>
-#include <iomanip>
-#include <ios>
-#include <iostream>
-#include <sstream>
+#include <stdio.h>  // for fclose, fopen, fprintf, fread, size_t
 
-#include "error/error_table.h"
+#include <algorithm>  // for max
+#include <cassert>    // for assert
+#include <fstream>    // for operator<<, basic_ostream, endl, basi...
+#include <sstream>    // for ostringstream
+
+#include "error/error_table.h"  // for kSuccess
+#include "sound/wave.h"
 
 /* ********************************************************************************************** */
 

@@ -1,17 +1,14 @@
+
 #include "ui/base/terminal.h"
 
-#include <unistd.h>
+#include <stdlib.h>  // for exit, EXIT_FAILURE
 
-#include <cctype>
-#include <cstdlib>
-#include <functional>
-#include <iostream>
+#include <functional>  // for function
 
-#include "ftxui/component/captured_mouse.hpp"      // for ftxui
-#include "ftxui/component/component.hpp"           // for Menu
-#include "ftxui/component/component_options.hpp"   // for MenuOption
+#include "ftxui/component/component.hpp"           // for CatchEvent, Make
+#include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "ui/block/list_directory.h"
+#include "ui/block/list_directory.h"               // for ListDirectory
 
 namespace interface {
 
@@ -25,10 +22,7 @@ Terminal::~Terminal(){};
 
 /* ********************************************************************************************** */
 
-void Terminal::Init() {
-  //   container_ = Container::Horizontal({Make<ListDirectory>()});
-  container_ = Make<ListDirectory>();
-}
+void Terminal::Init() { container_ = Make<ListDirectory>(); }
 
 /* ********************************************************************************************** */
 
@@ -45,13 +39,14 @@ void Terminal::Exit() {
 void Terminal::Loop() {
   auto screen = ScreenInteractive::Fullscreen();
 
-  //   container_ = CatchEvent(container_, [&](Event event) {
-  //     if (event == Event::Character('q')) {
-  //       screen.ExitLoopClosure();
-  //       return true;
-  //     }
-  //     return false;
-  //   });
+  // Handle events and run global commands
+  container_ = CatchEvent(container_, [&](Event event) {
+    if (event == Event::Character('q')) {
+      screen.ExitLoopClosure()();
+      return true;
+    }
+    return false;
+  });
 
   screen.Loop(container_);
 }

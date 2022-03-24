@@ -6,15 +6,18 @@
 #ifndef INCLUDE_UI_BLOCK_LIST_DIRECTORY_H_
 #define INCLUDE_UI_BLOCK_LIST_DIRECTORY_H_
 
-#include <filesystem>
-#include <string>
-#include <utility>
-#include <vector>
+#include <filesystem>  // for path
+#include <string>      // for string, basic_string
+#include <vector>      // for vector
 
-#include "ftxui/component/component.hpp"  // for Radiobox, Horizontal, Menu, Renderer, Tab
-#include "ftxui/component/event.hpp"      // for Event
-#include "ftxui/dom/elements.hpp"  // for operator|, Element, reflect, text, nothing, select, vbox, Elements, focus
-#include "ftxui/dom/node.hpp"
+#include "ftxui/component/captured_mouse.hpp"  // for ftxui
+#include "ftxui/component/component_base.hpp"  // for ComponentBase
+#include "ftxui/dom/elements.hpp"              // for Element
+#include "ftxui/screen/box.hpp"                // for Box
+
+namespace ftxui {
+struct Event;
+}
 
 namespace interface {
 
@@ -39,6 +42,7 @@ class ListDirectory : public ComponentBase {
  public:
   ListDirectory();
 
+  // TODO: document
   Element Render() override;
   bool OnEvent(Event event) override;
 
@@ -66,10 +70,10 @@ class ListDirectory : public ComponentBase {
  private:
   std::filesystem::path curr_dir_;  //!< Current directory
   Files entries_;                   //!< List containing files from current directory
-  int selected_, focused_;
+  int selected_, focused_;          //!< Entry indexes in files list
 
-  std::vector<Box> boxes_;
-  Box box_;
+  std::vector<Box> boxes_;  //!< Single box for each entry in files list
+  Box box_;                 //!< Box for whole files list
 };
 
 }  // namespace interface

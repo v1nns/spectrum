@@ -1,9 +1,16 @@
 #include "ui/block/list_directory.h"
 
-#include <algorithm>
-#include <filesystem>
-#include <iterator>
-#include <utility>
+#include <ctype.h>  // for tolower
+
+#include <algorithm>   // for for_each, sort
+#include <filesystem>  // for path, directory_ite...
+#include <memory>      // for shared_ptr, allocat...
+#include <utility>     // for move
+
+#include "ftxui/component/component_options.hpp"  // for MenuEntryOption
+#include "ftxui/component/event.hpp"              // for Event, Event::Arrow...
+#include "ftxui/component/mouse.hpp"              // for Mouse, Mouse::Left
+#include "ftxui/screen/color.hpp"                 // for Color
 
 namespace interface {
 
@@ -170,6 +177,7 @@ void ListDirectory::Clamp() {
 void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   if (curr_dir_ != dir_path) curr_dir_ = dir_path;
   entries_.clear();
+  selected_ = 0, focused_ = 0;
 
   // Add all dir/file from the current directory
   for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {

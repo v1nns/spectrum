@@ -1,8 +1,7 @@
-#include <cstdlib>
-#include <memory>
+#include <cstdlib>  // for EXIT_SUCCESS
+#include <memory>   // for make_unique, unique_ptr
 
-#include "ui/base/terminal.h"
-#include "ui/block/list_directory.h"
+#include "ui/base/terminal.h"  // for Terminal
 
 using Terminal =
     std::unique_ptr<interface::Terminal>;  //!< Smart pointer to have only one terminal instance

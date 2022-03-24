@@ -6,15 +6,9 @@
 #ifndef INCLUDE_UI_BASE_TERMINAL_H_
 #define INCLUDE_UI_BASE_TERMINAL_H_
 
-#include <memory>
-#include <optional>
-#include <vector>
-
-#include "error/error_table.h"
-#include "ftxui/component/component_base.hpp"      // for ComponentBase
-#include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "ftxui/dom/elements.hpp"  // for operator|, separator, Element, Decorator, color, text, hbox, size, bold, frame, inverted, vbox, HEIGHT, LESS_THAN, border
-#include "ui/block/list_directory.h"
+// #include "error/error_table.h"
+#include "ftxui/component/captured_mouse.hpp"  // for ftxui
+#include "ftxui/component/component_base.hpp"  // for Component
 
 namespace interface {
 
