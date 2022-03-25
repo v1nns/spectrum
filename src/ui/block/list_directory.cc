@@ -67,11 +67,10 @@ Element ListDirectory::Render() {
     bool is_selected = (*selected == i);
 
     auto& entry = GetEntry(i);
-    auto& entry_type = entry.is_dir ? style_dir_ : style_file_;
+    auto& type = entry.is_dir ? style_dir_ : style_file_;
 
-    auto style = is_selected
-                     ? (is_focused ? entry_type.style_selected_focused : entry_type.style_selected)
-                     : (is_focused ? entry_type.style_focused : entry_type.style_normal);
+    auto style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
+                             : (is_focused ? type.style_focused : type.style_normal);
 
     auto focus_management = is_focused ? ftxui::select : nothing;
 
@@ -117,30 +116,6 @@ bool ListDirectory::OnEvent(Event event) {
           .focused = 0,
       });
       return true;
-    }
-
-    if (event == Event::Return) {
-      // TODO: extract this to another method
-      std::filesystem::path new_dir;
-      auto& active =
-          mode_search_ ? mode_search_->entries.at(mode_search_->selected) : entries_.at(selected_);
-
-      if (active.path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
-        // Okay, it really exists, so it should go back one level
-        new_dir = curr_dir_.parent_path();
-      } else if (active.is_dir) {
-        // If active item is a directory, should enter it
-        new_dir = curr_dir_ / active.path;
-      }
-
-      if (!new_dir.empty()) {
-        RefreshList(new_dir);
-
-        // Exit search mode if enabled
-        if (mode_search_) mode_search_ = std::nullopt;
-
-        return true;
-      }
     }
   }
 
@@ -209,6 +184,7 @@ bool ListDirectory::OnMouseWheel(Event event) {
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnMenuNavigation(Event event) {
+  bool event_handled = false;
   int* selected = GetSelected();
   int* focused = GetFocused();
 
@@ -228,54 +204,68 @@ bool ListDirectory::OnMenuNavigation(Event event) {
 
     if (*selected != old_selected) {
       *focused = *selected;
-      return true;
+      event_handled = true;
     }
   }
 
-  return false;
+  // Otherwise, user may want to change current directory
+  if (event == Event::Return) {
+    std::filesystem::path new_dir;
+    auto& active = GetActiveEntry();
+
+    if (active.path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
+      new_dir = curr_dir_.parent_path();
+    } else if (active.is_dir) {
+      new_dir = curr_dir_ / active.path;
+    }
+
+    if (!new_dir.empty()) {
+      RefreshList(new_dir);
+
+      // Exit search mode if enabled
+      mode_search_.reset();
+
+      event_handled = true;
+    }
+  }
+
+  return event_handled;
 }
 
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnSearchModeEvent(Event event) {
-  bool mapped_event = false;
+  bool event_handled = false;
 
   // Any alphabetic character
   if (event.is_character()) {
     mode_search_->text_to_search += event.character();
-    mapped_event = true;
-  } /*else {
-      // debug mode
-    std::string out;
-    for (auto& it : event.input()) out += " " + std::to_string((unsigned int)it);
-
-    out = "(" + out + " )";
-    mode_search_->text_to_search = out;
-  }*/
+    event_handled = true;
+  }
 
   // Backspace
   if (event == Event::Backspace && !(mode_search_->text_to_search.empty())) {
     mode_search_->text_to_search.pop_back();
-    mapped_event = true;
+    event_handled = true;
   }
 
   // Ctrl + Backspace
   if (event == Event::Special({8}) || event == Event::Special("\027")) {
     mode_search_->text_to_search.clear();
-    mapped_event = true;
+    event_handled = true;
   }
 
-  if (mapped_event) {
+  if (event_handled) {
     RefreshSearchList();
   }
 
   // Quit search mode
   if (event == Event::Escape) {
-    mode_search_ = std::nullopt;
-    mapped_event = true;
+    mode_search_.reset();
+    event_handled = true;
   }
 
-  return mapped_event;
+  return event_handled;
 }
 
 /* ********************************************************************************************** */
