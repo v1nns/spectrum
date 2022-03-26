@@ -39,8 +39,9 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
 
 /* ********************************************************************************************** */
 
-ListDirectory::ListDirectory()
-    : curr_dir_(std::filesystem::current_path()),
+ListDirectory::ListDirectory(std::string optional_path)
+    : curr_dir_(optional_path == "" ? std::filesystem::current_path()
+                                    : std::filesystem::path(optional_path)),
       entries_(),
       selected_(0),
       focused_(0),
@@ -68,25 +69,24 @@ Element ListDirectory::Render() {
 
     auto& entry = GetEntry(i);
     auto& type = entry.is_dir ? style_dir_ : style_file_;
+    auto icon = is_selected ? "> " : "  ";
 
     auto style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
                              : (is_focused ? type.style_focused : type.style_normal);
 
     auto focus_management = is_focused ? ftxui::select : nothing;
 
-    elements.push_back(text(" " + entry.path) | style | focus_management | reflect(boxes_[i]));
+    elements.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
   }
 
   auto search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
                                  : std::make_unique<Node>();
 
-  auto block = window(text(" Files "), vbox({
-                                           hbox({text(curr_dir_.c_str()) | bold}),
-                                           vbox(std::move(elements)) | reflect(box_) | frame | flex,
-                                           hbox(search_box),
-                                       }));
-
-  return block;
+  return window(text(" Files "), vbox({
+                                     hbox({text(curr_dir_.c_str()) | bold}),
+                                     vbox(std::move(elements)) | reflect(box_) | frame | flex,
+                                     hbox(search_box),
+                                 }));
 }
 
 /* ********************************************************************************************** */

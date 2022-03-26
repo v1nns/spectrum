@@ -53,7 +53,7 @@ class ListDirectory : public ComponentBase {
   /**
    * @brief Construct a new List Directory object
    */
-  ListDirectory();
+  ListDirectory(std::string optional_path = "");
 
   /**
    * @brief Renders the component
