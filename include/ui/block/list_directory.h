@@ -53,7 +53,7 @@ class ListDirectory : public ComponentBase {
   /**
    * @brief Construct a new List Directory object
    */
-  ListDirectory(std::string optional_path = "");
+  ListDirectory(const std::string& optional_path = "");
 
   /**
    * @brief Renders the component
@@ -92,9 +92,15 @@ class ListDirectory : public ComponentBase {
   //! Getter for entry at informed index
   File& GetEntry(int i) { return mode_search_ ? mode_search_->entries.at(i) : entries_.at(i); }
   //! Getter for active entry (focused/selected)
-  File& GetActiveEntry() {
-    return mode_search_ ? mode_search_->entries.at(mode_search_->selected) : entries_.at(selected_);
+  File* GetActiveEntry() {
+    if (Size() > 0) {
+      return mode_search_ ? &mode_search_->entries.at(mode_search_->selected)
+                          : &entries_.at(selected_);
+    }
+
+    return nullptr;
   }
+
   //! Getter for entries size
   int Size() const { return mode_search_ ? mode_search_->entries.size() : entries_.size(); }
 

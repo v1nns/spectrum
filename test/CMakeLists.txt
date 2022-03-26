@@ -25,6 +25,7 @@ target_sources(test
 
 target_link_libraries(test
                       PRIVATE gtest
+                              gmock
                               gtest_main
                               spectrum-lib)
 

@@ -39,7 +39,7 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
 
 /* ********************************************************************************************** */
 
-ListDirectory::ListDirectory(std::string optional_path)
+ListDirectory::ListDirectory(const std::string& optional_path)
     : curr_dir_(optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)),
       entries_(),
@@ -79,13 +79,15 @@ Element ListDirectory::Render() {
     elements.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
   }
 
+  auto curr_dir_title = text(curr_dir_.c_str()) | bold;
+
   auto search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
                                  : std::make_unique<Node>();
 
   return window(text(" Files "), vbox({
-                                     hbox({text(curr_dir_.c_str()) | bold}),
+                                     hbox(std::move(curr_dir_title)),
                                      vbox(std::move(elements)) | reflect(box_) | frame | flex,
-                                     hbox(search_box),
+                                     hbox(std::move(search_box)),
                                  }));
 }
 
@@ -211,21 +213,23 @@ bool ListDirectory::OnMenuNavigation(Event event) {
   // Otherwise, user may want to change current directory
   if (event == Event::Return) {
     std::filesystem::path new_dir;
-    auto& active = GetActiveEntry();
+    auto active = GetActiveEntry();
 
-    if (active.path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
-      new_dir = curr_dir_.parent_path();
-    } else if (active.is_dir) {
-      new_dir = curr_dir_ / active.path;
-    }
+    if (active != nullptr) {
+      if (active->path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
+        new_dir = curr_dir_.parent_path();
+      } else if (active->is_dir) {
+        new_dir = curr_dir_ / active->path;
+      }
 
-    if (!new_dir.empty()) {
-      RefreshList(new_dir);
+      if (!new_dir.empty()) {
+        RefreshList(new_dir);
 
-      // Exit search mode if enabled
-      mode_search_.reset();
+        // Exit search mode if enabled
+        mode_search_.reset();
 
-      event_handled = true;
+        event_handled = true;
+      }
     }
   }
 
