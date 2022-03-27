@@ -1,37 +1,42 @@
 #include "ui/block/list_directory.h"
 
-#include <memory>
-#include <regex>
+#include <gmock/gmock-actions.h>          // for GMOCK_PP_INTERNAL_IF_0
+#include <gmock/gmock-function-mocker.h>  // for GMOCK_INTERNAL_DETECT_...
+#include <gmock/gmock-matchers.h>         // for StrEq, EXPECT_THAT
+#include <gmock/gmock-nice-strict.h>      // for NiceMock
+#include <gmock/gmock-spec-builders.h>    // for FunctionMocker, MockSpec
+#include <gtest/gtest-message.h>          // for Message
+#include <gtest/gtest-test-part.h>        // for TestPartResult
 
-#include "ftxui/component/component.hpp"
-#include "ftxui/component/component_base.hpp"
-#include "ftxui/component/event.hpp"
-#include "ftxui/screen/screen.hpp"
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
+#include <memory>  // for __shared_ptr_access
+
+#include "ftxui/component/component.hpp"       // for Make
+#include "ftxui/component/component_base.hpp"  // for Component, ComponentBase
+#include "ftxui/component/event.hpp"           // for Event, Event::ArrowDown
+#include "ftxui/dom/node.hpp"                  // for Render
+#include "ftxui/screen/screen.hpp"             // for Screen
+#include "gtest/gtest_pred_impl.h"             // for SuiteApiResolver, TEST_F
+#include "utils.h"                             // for FilterAnsiCommands
 
 namespace {
 
+using ::testing::NiceMock;  //!< Using NiceMock to ignore uninteresting calls from "GetTitle"
 using ::testing::StrEq;
 
-//! Filter any ANSI escape code from string
-std::string FilterAnsiCommands(const std::string& screen) {
-  std::stringstream result;
-  const std::regex ansi_command("(\e\\[(\\d+;)*(\\d+)?[ABCDHJKfmsu])|(\\r)");
+//! Implement custom action to show only directory filename instead of the full path
+ACTION_P(ReturnPointee, p) { return p->filename().string(); }
 
-  std::regex_replace(std::ostream_iterator<char>(result), screen.begin(), screen.end(),
-                     ansi_command, "");
+//! Mock class to change default behaviour while rendering the inner element Title
+class MockListDirectory : public interface::ListDirectory {
+ public:
+  MockListDirectory(const std::string& s) : interface::ListDirectory(s) { SetupTitleExpectation(); }
 
-  // For aesthetics, add a newline in the beginning
-  return result.str().insert(0, 1, '\n');
-}
+  MOCK_METHOD(std::string, GetTitle, (), (override));
 
-/* ********************************************************************************************** */
-
-void QueueCharacterEvents(ftxui::ComponentBase& block, const std::string& typed) {
-  std::for_each(typed.begin(), typed.end(),
-                [&block](char const& c) { block.OnEvent(ftxui::Event::Character(c)); });
-}
+  void SetupTitleExpectation() {
+    ON_CALL(*this, GetTitle()).WillByDefault(ReturnPointee(&curr_dir_));
+  }
+};
 
 /* ********************************************************************************************** */
 
@@ -44,10 +49,13 @@ class ListDirectoryTest : public ::testing::Test {
     screen = std::make_unique<ftxui::Screen>(32, 15);
 
     std::string source_dir{std::filesystem::current_path().parent_path()};
-    block = ftxui::Make<interface::ListDirectory>(source_dir);
+    block = ftxui::Make<NiceMock<MockListDirectory>>(source_dir);
   }
 
-  void TearDown() override { block.reset(); }
+  void TearDown() override {
+    screen.reset();
+    block.reset();
+  }
 
  protected:
   std::unique_ptr<ftxui::Screen> screen;
@@ -63,7 +71,7 @@ TEST_F(ListDirectoryTest, InitialRender) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│spectrum                      │
 │> ..                          │
 │  build                       │
 │  .clang-format               │
@@ -94,7 +102,7 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│spectrum                      │
 │  ..                          │
 │  build                       │
 │  .clang-format               │
@@ -125,11 +133,11 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│test                          │
 │> ..                          │
 │  CMakeLists.txt              │
 │  list_directory.cc           │
-│                              │
+│  utils.h                     │
 │                              │
 │                              │
 │                              │
@@ -154,7 +162,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│spectrum                      │
 │> ..                          │
 │  build                       │
 │  .clang-format               │
@@ -184,7 +192,7 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│spectrum                      │
 │> build                       │
 │  CMakeLists.txt              │
 │  .git                        │
@@ -215,11 +223,11 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│test                          │
 │> ..                          │
 │  CMakeLists.txt              │
 │  list_directory.cc           │
-│                              │
+│  utils.h                     │
 │                              │
 │                              │
 │                              │
@@ -246,7 +254,7 @@ TEST_F(ListDirectoryTest, NonExistentTextInSearchMode) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│spectrum                      │
 │                              │
 │                              │
 │                              │
@@ -276,7 +284,7 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 
   std::string expected = R"(
 ╭ Files ───────────────────────╮
-│/home/vinicius/projects/spectr│
+│spectrum                      │
 │> ..                          │
 │  build                       │
 │  .clang-format               │

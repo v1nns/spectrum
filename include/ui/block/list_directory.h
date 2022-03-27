@@ -46,7 +46,7 @@ struct Search {
 /* ********************************************************************************************** */
 
 /**
- * @brief Component to list files in current directory
+ * @brief Component to list files from given directory
  */
 class ListDirectory : public ComponentBase {
  public:
@@ -57,7 +57,7 @@ class ListDirectory : public ComponentBase {
 
   /**
    * @brief Renders the component
-   * @return Element Built element based on the internal state
+   * @return Element Built element based on internal state
    */
   Element Render() override;
 
@@ -85,6 +85,8 @@ class ListDirectory : public ComponentBase {
 
   /* ******************************************************************************************** */
  private:
+  //! Getter for entries size
+  int Size() const { return mode_search_ ? mode_search_->entries.size() : entries_.size(); }
   //! Getter for selected index
   int* GetSelected() { return mode_search_ ? &mode_search_->selected : &selected_; }
   //! Getter for focused index
@@ -93,24 +95,21 @@ class ListDirectory : public ComponentBase {
   File& GetEntry(int i) { return mode_search_ ? mode_search_->entries.at(i) : entries_.at(i); }
   //! Getter for active entry (focused/selected)
   File* GetActiveEntry() {
-    if (Size() > 0) {
-      return mode_search_ ? &mode_search_->entries.at(mode_search_->selected)
-                          : &entries_.at(selected_);
-    }
+    if (Size() == 0) return nullptr;
 
-    return nullptr;
+    return mode_search_ ? &mode_search_->entries.at(mode_search_->selected)
+                        : &entries_.at(selected_);
   }
-
-  //! Getter for entries size
-  int Size() const { return mode_search_ ? mode_search_->entries.size() : entries_.size(); }
 
   //! Clamp both selected and focused indexes
   void Clamp();
 
+  virtual std::string GetTitle() { return curr_dir_.string(); };
+
   /* ******************************************************************************************** */
  private:
   /**
-   * @brief Refresh list with files from new or current directory
+   * @brief Refresh list with files from the given directory path
    * @param dir_path Full path to directory
    */
   void RefreshList(const std::filesystem::path& dir_path);
@@ -121,10 +120,13 @@ class ListDirectory : public ComponentBase {
   void RefreshSearchList();
 
   /* ******************************************************************************************** */
- private:
+ protected:
   std::filesystem::path curr_dir_;  //!< Current directory
-  Files entries_;                   //!< List containing files from current directory
-  int selected_, focused_;          //!< Entry indexes in files list
+
+  /* ******************************************************************************************** */
+ private:
+  Files entries_;           //!< List containing files from current directory
+  int selected_, focused_;  //!< Entry indexes in files list
 
   MenuEntryOption style_dir_, style_file_;  //!< Style for each possible type of entry on menu
 

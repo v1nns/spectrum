@@ -49,7 +49,7 @@ ListDirectory::ListDirectory(const std::string& optional_path)
       style_file_(Colored(Color::White)),
       boxes_(),
       box_(),
-      mode_search_({}) {
+      mode_search_(std::nullopt) {
   RefreshList(curr_dir_);
 }
 
@@ -79,7 +79,7 @@ Element ListDirectory::Render() {
     elements.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
   }
 
-  auto curr_dir_title = text(curr_dir_.c_str()) | bold;
+  auto curr_dir_title = text(GetTitle().c_str()) | bold;
 
   auto search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
                                  : std::make_unique<Node>();
@@ -291,7 +291,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   entries_.clear();
   selected_ = 0, focused_ = 0;
 
-  // Add all dir/file from the current directory
+  // Add all files from the given directory
   for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
     entries_.emplace_back(File{
         .path = entry.path().filename(),
