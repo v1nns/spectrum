@@ -9,4 +9,12 @@ namespace interface {
 
 FileInfo::FileInfo() {}
 
+/* ********************************************************************************************** */
+
+Element FileInfo::Render() { return Element(); }
+
+/* ********************************************************************************************** */
+
+bool OnEvent(Event event) { return false; }
+
 }  // namespace interface

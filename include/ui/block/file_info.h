@@ -6,20 +6,21 @@
 #ifndef INCLUDE_UI_BLOCK_FILE_INFO_H_
 #define INCLUDE_UI_BLOCK_FILE_INFO_H_
 
+#include "ftxui/component/component_base.hpp"  // for ComponentBase
+#include "ftxui/component/event.hpp"
 #include "sound/wave.h"
 
 namespace interface {
 
+using namespace ftxui;
+
 /**
- * @brief Class for File Information block
+ * @brief Component to show detailed information about chosen file (in this case, some music file)
  */
-class FileInfo {
+class FileInfo : public ComponentBase {
  public:
   /**
    * @brief Construct a new File Info object
-   *
-   * @param init Initial coordinate based on screen portion(x,y)
-   * @param size Screen portion size for this block
    */
   explicit FileInfo();
 
@@ -28,6 +29,20 @@ class FileInfo {
    *
    */
   virtual ~FileInfo() = default;
+
+  /**
+   * @brief Renders the component
+   * @return Element Built element based on internal state
+   */
+  Element Render() override;
+
+  /**
+   * @brief Handles an event (from mouse/keyboard)
+   *
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnEvent(Event event) override;
 };
 
 }  // namespace interface

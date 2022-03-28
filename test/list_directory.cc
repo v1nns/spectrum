@@ -93,7 +93,9 @@ TEST_F(ListDirectoryTest, InitialRender) {
 
 TEST_F(ListDirectoryTest, NavigateOnMenu) {
   block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Tab);
   block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::TabReverse);
   block->OnEvent(ftxui::Event::ArrowDown);
 
   ftxui::Render(*screen, block->Render());

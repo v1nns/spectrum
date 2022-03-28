@@ -11,7 +11,6 @@
 #include <string>      // for string, basic_string
 #include <vector>      // for vector
 
-#include "ftxui/component/captured_mouse.hpp"     // for ftxui
 #include "ftxui/component/component_base.hpp"     // for ComponentBase
 #include "ftxui/component/component_options.hpp"  // for MenuEntryOption
 #include "ftxui/dom/elements.hpp"                 // for Element
@@ -54,6 +53,11 @@ class ListDirectory : public ComponentBase {
    * @brief Construct a new List Directory object
    */
   ListDirectory(const std::string& optional_path = "");
+
+  /**
+   * @brief Destroy the List Directory object
+   */
+  virtual ~ListDirectory() = default;
 
   /**
    * @brief Renders the component
@@ -104,6 +108,7 @@ class ListDirectory : public ComponentBase {
   //! Clamp both selected and focused indexes
   void Clamp();
 
+  //! Getter for Title (for testing purposes, may be overriden)
   virtual std::string GetTitle() { return curr_dir_.string(); };
 
   /* ******************************************************************************************** */

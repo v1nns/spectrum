@@ -39,6 +39,19 @@ void Terminal::Exit() {
 void Terminal::Loop() {
   auto screen = ScreenInteractive::Fullscreen();
 
+  // DEBUG (idea of first "final" UI version)
+  //   container_.reset();
+  //   container_ = Renderer([&]() {
+  //     return hflow({
+  //         vflow({
+  //             window(text(" block1 ") | bold, text("dummy") | dim) | flex,
+  //             window(text(" block3 ") | bold, text("dummy3")) | xflex | size(HEIGHT, EQUAL, 15),
+  //         }) | size(WIDTH, GREATER_THAN, 28),
+  //         window(text(" block2 ") | bold, text("dummy2") | center) | flex,
+  //     });
+  //   });
+  // END DEBUG
+
   // Handle events and run global commands
   container_ = CatchEvent(container_, [&](Event event) {
     if (event == Event::Character('q')) {
