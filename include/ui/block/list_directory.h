@@ -109,7 +109,7 @@ class ListDirectory : public ComponentBase {
   void Clamp();
 
   //! Getter for Title (for testing purposes, may be overriden)
-  virtual std::string GetTitle() { return curr_dir_.string(); };
+  virtual std::string GetTitle();
 
   /* ******************************************************************************************** */
  private:

@@ -37,6 +37,8 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
   return v < lo ? lo : hi < v ? hi : v;
 }
 
+constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
+
 /* ********************************************************************************************** */
 
 ListDirectory::ListDirectory(const std::string& optional_path)
@@ -88,7 +90,8 @@ Element ListDirectory::Render() {
                                      hbox(std::move(curr_dir_title)),
                                      vbox(std::move(elements)) | reflect(box_) | frame | flex,
                                      hbox(std::move(search_box)),
-                                 }));
+                                 }) | flex |
+                                     size(WIDTH, EQUAL, kMaxColumns));
 }
 
 /* ********************************************************************************************** */
@@ -282,6 +285,24 @@ void ListDirectory::Clamp() {
 
   *selected = clamp(*selected, 0, Size() - 1);
   *focused = clamp(*focused, 0, Size() - 1);
+}
+
+/* ********************************************************************************************** */
+
+std::string ListDirectory::GetTitle() {
+  const std::string curr_dir = curr_dir_.string();
+
+  // Everything fine, directory does not exceed maximum column length
+  if (curr_dir.size() <= kMaxColumns) {
+    return curr_dir;
+  }
+
+  // Oh no, it does exceed, so we must truncate the surplus text
+  int offset = curr_dir.size() - (kMaxColumns - 5);  // Considering window border(2) + ellipsis(3)
+  const std::string& substr = curr_dir.substr(offset);
+  auto index = substr.find('/');
+
+  return index != std::string::npos ? std::string("..." + substr.substr(index)) : substr;
 }
 
 /* ********************************************************************************************** */

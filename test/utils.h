@@ -27,6 +27,7 @@ std::string FilterAnsiCommands(const std::string& screen) {
 
 /* ********************************************************************************************** */
 
+//! Split string into characters and send each as an event to Component
 void QueueCharacterEvents(ftxui::ComponentBase& block, const std::string& typed) {
   std::for_each(typed.begin(), typed.end(),
                 [&block](char const& c) { block.OnEvent(ftxui::Event::Character(c)); });

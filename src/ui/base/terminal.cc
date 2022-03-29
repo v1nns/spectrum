@@ -8,7 +8,8 @@
 #include "ftxui/component/component.hpp"           // for CatchEvent, Make
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "ui/block/list_directory.h"               // for ListDirectory
+#include "ui/block/file_info.h"
+#include "ui/block/list_directory.h"  // for ListDirectory
 
 namespace interface {
 
@@ -22,7 +23,15 @@ Terminal::~Terminal(){};
 
 /* ********************************************************************************************** */
 
-void Terminal::Init() { container_ = Make<ListDirectory>(); }
+void Terminal::Init() {
+  auto block1 = Make<ListDirectory>();
+  auto block2 = Make<FileInfo>();
+
+  container_ = Container::Vertical({
+      std::move(block1),
+      std::move(block2),
+  });
+}
 
 /* ********************************************************************************************** */
 
