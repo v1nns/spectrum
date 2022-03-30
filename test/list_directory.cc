@@ -176,7 +176,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  src                         │
 │  test                        │
 │  .vscode                     │
-│Text to search:               │
+│Search:                       │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -206,7 +206,7 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │                              │
 │                              │
 │                              │
-│Text to search: i             │
+│Search:i                      │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -268,7 +268,7 @@ TEST_F(ListDirectoryTest, NonExistentTextInSearchMode) {
 │                              │
 │                              │
 │                              │
-│Text to search: inexistentfile│
+│Search:inexistentfilename     │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

@@ -8,6 +8,7 @@
 #include <memory>      // for shared_ptr, make_unique, alloca...
 #include <utility>     // for move
 
+#include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"  // for Event, Event::ArrowDown, Event:...
 #include "ftxui/component/mouse.hpp"  // for Mouse, Mouse::Left, Mouse::Whee...
 #include "ftxui/dom/node.hpp"         // for Node
@@ -47,8 +48,8 @@ ListDirectory::ListDirectory(const std::string& optional_path)
       entries_(),
       selected_(0),
       focused_(0),
-      style_dir_(Colored(Color::Green)),
-      style_file_(Colored(Color::White)),
+      styles_({.directory = std::move(Colored(Color::Green)),
+               .file = std::move(Colored(Color::White))}),
       boxes_(),
       box_(),
       mode_search_(std::nullopt) {
@@ -59,18 +60,22 @@ ListDirectory::ListDirectory(const std::string& optional_path)
 
 Element ListDirectory::Render() {
   Clamp();
-  Elements elements;
+  Elements entries;
   bool is_menu_focused = Focused();
 
   int* selected = GetSelected();
   int* focused = GetFocused();
 
+  // Title
+  Element curr_dir_title = text(GetTitle().c_str()) | bold;
+
+  // Fill list with entries
   for (int i = 0; i < Size(); ++i) {
     bool is_focused = (*focused == i) && is_menu_focused;
     bool is_selected = (*selected == i);
 
     File& entry = GetEntry(i);
-    auto& type = entry.is_dir ? style_dir_ : style_file_;
+    auto& type = entry.is_dir ? styles_.directory : styles_.file;
     const char* icon = is_selected ? "> " : "  ";
 
     Decorator style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
@@ -78,20 +83,27 @@ Element ListDirectory::Render() {
 
     auto focus_management = is_focused ? ftxui::select : nothing;
 
-    elements.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
+    entries.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
   }
 
-  Element curr_dir_title = text(GetTitle().c_str()) | bold;
+  // Build up the content
+  Elements content{
+      hbox(std::move(curr_dir_title)),
+      vbox(std::move(entries)) | reflect(box_) | frame | flex,
+  };
 
-  Element search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
-                                    : std::make_unique<Node>();
+  // Append search box, if enabled
+  if (mode_search_) {
+    InputOption opt{.cursor_position = mode_search_->text_to_search.size()};
+    Element search_box = hbox({
+        text("Search:"),
+        Input(&mode_search_->text_to_search, " ", &opt)->Render() | inverted,
+    });
 
-  return window(text(" Files "), vbox({
-                                     hbox(std::move(curr_dir_title)),
-                                     vbox(std::move(elements)) | reflect(box_) | frame | flex,
-                                     hbox(std::move(search_box)),
-                                 }) | flex |
-                                     size(WIDTH, EQUAL, kMaxColumns));
+    content.push_back(std::move(search_box));
+  }
+
+  return window(text(" Files "), vbox(std::move(content)) | flex | size(WIDTH, EQUAL, kMaxColumns));
 }
 
 /* ********************************************************************************************** */

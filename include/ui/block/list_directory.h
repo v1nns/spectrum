@@ -133,12 +133,18 @@ class ListDirectory : public ComponentBase {
   Files entries_;           //!< List containing files from current directory
   int selected_, focused_;  //!< Entry indexes in files list
 
-  MenuEntryOption style_dir_, style_file_;  //!< Style for each possible type of entry on menu
-
   std::vector<Box> boxes_;  //!< Single box for each entry in files list
   Box box_;                 //!< Box for whole component
 
   std::optional<Search> mode_search_;  //!< Mode to render only files matching the search pattern
+
+  //! Put together all possible styles for an entry in this component
+  struct EntryStyles {
+    MenuEntryOption directory;
+    MenuEntryOption file;
+  };
+
+  EntryStyles styles_;  //!< Style for each possible type of entry on menu
 };
 
 }  // namespace interface

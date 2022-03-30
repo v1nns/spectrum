@@ -9,20 +9,26 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo() { file_ = std::make_unique<WaveFormat>(); }
+FileInfo::FileInfo() : file_(nullptr) {}
 
 /* ********************************************************************************************** */
 
 Element FileInfo::Render() {
-  Elements elements;
+  Elements content;
 
-  const auto lines = file_->GetFormattedStats();
-  for (const auto& line : lines) {
-    elements.push_back(text(line));
+  if (file_) {
+    const auto lines = file_->GetFormattedStats();
+    for (const auto& line : lines) {
+      content.push_back(text(line));
+    }
+  } else {
+    content.push_back(text("No song has been chosen yet...") | dim);
   }
 
   return window(text(" Information "),
-                vbox({vbox(std::move(elements)) | frame | xflex | size(HEIGHT, LESS_THAN, 15)}));
+                vbox({
+                    vbox(std::move(content)) | frame | xflex | size(HEIGHT, EQUAL, 15),
+                }));
 }
 
 /* ********************************************************************************************** */
@@ -31,6 +37,9 @@ bool FileInfo::OnEvent(Event event) { return false; }
 
 /* ********************************************************************************************** */
 
-void FileInfo::ReadMusicFile(std::string path) { file_->ParseFromFile(SONG_PATH_FOR_DEV); }
+void FileInfo::ReadMusicFile(std::string path) {
+  file_ = std::make_unique<WaveFormat>();
+  file_->ParseFromFile(SONG_PATH_FOR_DEV);
+}
 
 }  // namespace interface
