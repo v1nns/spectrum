@@ -1,6 +1,6 @@
 /**
  * \file
- * \briefHeader with utilities to be used within unit tests
+ * \brief  Header with utilities to be used within unit tests
  */
 
 #ifndef INCLUDE_TEST_UTILS_H_

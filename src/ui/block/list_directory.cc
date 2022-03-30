@@ -69,22 +69,22 @@ Element ListDirectory::Render() {
     bool is_focused = (*focused == i) && is_menu_focused;
     bool is_selected = (*selected == i);
 
-    auto& entry = GetEntry(i);
+    File& entry = GetEntry(i);
     auto& type = entry.is_dir ? style_dir_ : style_file_;
-    auto icon = is_selected ? "> " : "  ";
+    const char* icon = is_selected ? "> " : "  ";
 
-    auto style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
-                             : (is_focused ? type.style_focused : type.style_normal);
+    Decorator style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
+                                  : (is_focused ? type.style_focused : type.style_normal);
 
     auto focus_management = is_focused ? ftxui::select : nothing;
 
     elements.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
   }
 
-  auto curr_dir_title = text(GetTitle().c_str()) | bold;
+  Element curr_dir_title = text(GetTitle().c_str()) | bold;
 
-  auto search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
-                                 : std::make_unique<Node>();
+  Element search_box = mode_search_ ? text("Text to search: " + mode_search_->text_to_search)
+                                    : std::make_unique<Node>();
 
   return window(text(" Files "), vbox({
                                      hbox(std::move(curr_dir_title)),

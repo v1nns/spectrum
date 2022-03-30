@@ -21,20 +21,16 @@ Element FileInfo::Render() {
     elements.push_back(text(line));
   }
 
-  return window(text(" Files "), vbox({
-                                     vbox(std::move(elements)) | frame | flex,
-                                 })) |
-         xflex | size(HEIGHT, EQUAL, 15);
+  return window(text(" Information "),
+                vbox({vbox(std::move(elements)) | frame | xflex | size(HEIGHT, LESS_THAN, 15)}));
 }
 
 /* ********************************************************************************************** */
 
-bool FileInfo::OnEvent(Event event) {
-  if (event == Event::Character(' ')) {
-    file_->ParseFromFile(SONG_PATH_FOR_DEV);
-    return true;
-  }
-  return false;
-}
+bool FileInfo::OnEvent(Event event) { return false; }
+
+/* ********************************************************************************************** */
+
+void FileInfo::ReadMusicFile(std::string path) { file_->ParseFromFile(SONG_PATH_FOR_DEV); }
 
 }  // namespace interface

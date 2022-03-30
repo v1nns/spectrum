@@ -46,6 +46,10 @@ class FileInfo : public ComponentBase {
    */
   bool OnEvent(Event event) override;
 
+  /* ******************************************************************************************** */
+ public:
+  void ReadMusicFile(std::string path);
+
   /* ******************************************************************************************* */
  private:
   std::unique_ptr<Song> file_;
