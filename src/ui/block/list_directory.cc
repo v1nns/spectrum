@@ -16,7 +16,6 @@
 
 namespace interface {
 
-/* ********************************************************************************************** */
 /**
  * @brief Create a new custom style for Menu Entry
  *
@@ -42,8 +41,9 @@ constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
 
 /* ********************************************************************************************** */
 
-ListDirectory::ListDirectory(const std::string& optional_path)
-    : curr_dir_(optional_path == "" ? std::filesystem::current_path()
+ListDirectory::ListDirectory(std::shared_ptr<Dispatcher> d, const std::string& optional_path)
+    : Block(d, kBlockListDirectory),
+      curr_dir_(optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)),
       entries_(),
       selected_(0),
@@ -137,6 +137,12 @@ bool ListDirectory::OnEvent(Event event) {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+void ListDirectory::OnBlockEvent(BlockEvent event) {
+  // TODO: do something in the future
 }
 
 /* ********************************************************************************************** */
@@ -235,6 +241,8 @@ bool ListDirectory::OnMenuNavigation(Event event) {
         new_dir = curr_dir_.parent_path();
       } else if (active->is_dir) {
         new_dir = curr_dir_ / active->path;
+      } else {
+        // Send(BlockEvent::FileSelected);
       }
 
       if (!new_dir.empty()) {

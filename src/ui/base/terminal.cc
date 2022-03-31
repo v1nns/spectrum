@@ -15,21 +15,27 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-Terminal::Terminal() : container_(nullptr){};
+Terminal::Terminal() : Dispatcher(), container_(nullptr){};
 
 /* ********************************************************************************************** */
 
-Terminal::~Terminal(){};
+Terminal::~Terminal() {
+  for (auto& block : blocks_) {
+    block.reset();
+  }
+};
 
 /* ********************************************************************************************** */
 
 void Terminal::Init() {
-  auto block1 = Make<ListDirectory>();
-  auto block2 = Make<FileInfo>();
+  auto list_dir = Make<ListDirectory>(shared_from_this());
+  auto file_info = Make<FileInfo>();
+
+  Add(std::static_pointer_cast<Block>(list_dir));
 
   container_ = Container::Vertical({
-      std::move(block1),
-      std::move(block2),
+      list_dir,
+      file_info,
   });
 }
 
@@ -71,6 +77,20 @@ void Terminal::Loop() {
   });
 
   screen.Loop(container_);
+}
+
+/* ********************************************************************************************** */
+
+void Terminal::Add(std::shared_ptr<Block> const b) { blocks_.push_back(b); }
+
+/* ********************************************************************************************** */
+
+void Terminal::Broadcast(std::shared_ptr<Block> const sender, BlockEvent event) {
+  for (auto& block : blocks_) {
+    if (block->GetId() != sender->GetId()) {
+      block->OnBlockEvent(event);
+    }
+  }
 }
 
 }  // namespace interface

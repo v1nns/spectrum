@@ -16,7 +16,8 @@
 #include "ftxui/dom/node.hpp"                  // for Render
 #include "ftxui/screen/screen.hpp"             // for Screen
 #include "gtest/gtest_pred_impl.h"             // for SuiteApiResolver, TEST_F
-#include "utils.h"                             // for FilterAnsiCommands
+#include "ui/base/terminal.h"
+#include "utils.h"  // for FilterAnsiCommands
 
 namespace {
 
@@ -29,7 +30,9 @@ ACTION_P(ReturnPointee, p) { return p->filename().string(); }
 //! Mock class to change default behaviour while rendering the inner element Title
 class MockListDirectory : public interface::ListDirectory {
  public:
-  MockListDirectory(const std::string& s) : interface::ListDirectory(s) { SetupTitleExpectation(); }
+  MockListDirectory(const std::string& s) : interface::ListDirectory(nullptr, s) {
+    SetupTitleExpectation();
+  }
 
   MOCK_METHOD(std::string, GetTitle, (), (override));
 

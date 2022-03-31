@@ -15,6 +15,7 @@
 #include "ftxui/component/component_options.hpp"  // for MenuEntryOption
 #include "ftxui/dom/elements.hpp"                 // for Element
 #include "ftxui/screen/box.hpp"                   // for Box
+#include "ui/base/block.h"
 
 namespace ftxui {
 struct Event;
@@ -47,12 +48,12 @@ struct Search {
 /**
  * @brief Component to list files from given directory
  */
-class ListDirectory : public ComponentBase {
+class ListDirectory : public Block {
  public:
   /**
    * @brief Construct a new List Directory object
    */
-  ListDirectory(const std::string& optional_path = "");
+  ListDirectory(std::shared_ptr<Dispatcher> d, const std::string& optional_path = "");
 
   /**
    * @brief Destroy the List Directory object
@@ -73,8 +74,14 @@ class ListDirectory : public ComponentBase {
    */
   bool OnEvent(Event event) override;
 
-  /* ******************************************************************************************** */
+  /**
+   * @brief Handles an event (from another block)
+   * @param event Received event from dispatcher
+   */
+  void OnBlockEvent(BlockEvent event) override;
 
+  /* ******************************************************************************************** */
+ private:
   //! Handle mouse event
   bool OnMouseEvent(Event event);
 

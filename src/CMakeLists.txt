@@ -21,11 +21,13 @@ add_library(spectrum-lib OBJECT)
 target_sources(spectrum-lib
                PRIVATE
                ui/base/terminal.cc
+               ui/base/block.cc
                ui/block/list_directory.cc
                ui/block/file_info.cc
                sound/wave.cc)
 
-target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>)
+target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include
+                                        $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>)
 
 target_link_libraries(spectrum-lib
   PRIVATE ftxui::screen
