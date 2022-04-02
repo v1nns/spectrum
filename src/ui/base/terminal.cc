@@ -29,14 +29,12 @@ Terminal::~Terminal() {
 
 void Terminal::Init() {
   auto list_dir = Make<ListDirectory>(shared_from_this());
-  auto file_info = Make<FileInfo>();
+  auto file_info = Make<FileInfo>(shared_from_this());
 
-  Add(std::static_pointer_cast<Block>(list_dir));
+  Add(list_dir);
+  Add(file_info);
 
-  container_ = Container::Vertical({
-      list_dir,
-      file_info,
-  });
+  container_ = Container::Vertical({blocks_.at(0), blocks_.at(1)});
 }
 
 /* ********************************************************************************************** */
@@ -81,11 +79,11 @@ void Terminal::Loop() {
 
 /* ********************************************************************************************** */
 
-void Terminal::Add(std::shared_ptr<Block> const b) { blocks_.push_back(b); }
+void Terminal::Add(const std::shared_ptr<Block>& b) { blocks_.push_back(std::move(b)); }
 
 /* ********************************************************************************************** */
 
-void Terminal::Broadcast(std::shared_ptr<Block> const sender, BlockEvent event) {
+void Terminal::Broadcast(Block* sender, BlockEvent event) {
   for (auto& block : blocks_) {
     if (block->GetId() != sender->GetId()) {
       block->OnBlockEvent(event);

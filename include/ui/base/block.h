@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  TODO: Class representing the whole terminal
+ * \brief  Class representing a single UI block
  */
 
 #ifndef INCLUDE_UI_BASE_BLOCK_H_
@@ -19,13 +19,18 @@ constexpr int kBlockFileInfo = 302;
 //! Shared events between blocks
 struct BlockEvent {
   // TODO: implement custom events with content (check event.hpp/cpp from ftxui)
-  // static BlockEvent FileSelected;
+  static BlockEvent Special(std::string);
 
-  bool operator==(const BlockEvent& other) const { return input_ == other.input_; }
+  static BlockEvent FileSelected;
+
+  bool operator==(const BlockEvent& other) const { return type_ == other.type_; }
   bool operator!=(const BlockEvent& other) const { return !operator==(other); }
 
+  void SetContent(const std::string& content) { content_ = std::move(content); }
+
  private:
-  std::string input_;
+  std::string type_;
+  std::string content_;
 };
 
 /* ********************************************************************************************** */
@@ -34,15 +39,19 @@ using namespace ftxui;
 
 class Dispatcher;  //!< Forward declaration
 
+/**
+ * @brief Base class representing a block in UI
+ */
 class Block : std::enable_shared_from_this<Block>, public ComponentBase {
- public:
+ protected:
   /**
    * @brief Construct a new Block object
    * @param d Dispatcher
-   * @param i Unique ID for block
+   * @param id Unique ID for block
    */
-  Block(std::shared_ptr<Dispatcher> const d, const unsigned int i);
+  Block(const std::shared_ptr<Dispatcher>& d, const unsigned int id);
 
+ public:
   /**
    * @brief Destroy the Block object
    */
@@ -59,7 +68,6 @@ class Block : std::enable_shared_from_this<Block>, public ComponentBase {
   //! Send a block event for other blocks
   void Send(BlockEvent);
 
-  /* ******************************************************************************************** */
   //! Unique ID
   unsigned int GetId() { return id_; }
 

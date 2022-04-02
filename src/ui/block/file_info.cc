@@ -1,5 +1,6 @@
 #include "ui/block/file_info.h"
 
+#include "ftxui/component/event.hpp"  // for Event, Event::ArrowDown, Event:...
 #include "sound/wave.h"
 
 namespace interface {
@@ -9,7 +10,8 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo() : file_(nullptr) {}
+FileInfo::FileInfo(const std::shared_ptr<Dispatcher>& d)
+    : Block(d, kBlockFileInfo), file_(nullptr) {}
 
 /* ********************************************************************************************** */
 
@@ -34,6 +36,14 @@ Element FileInfo::Render() {
 /* ********************************************************************************************** */
 
 bool FileInfo::OnEvent(Event event) { return false; }
+
+/* ********************************************************************************************** */
+
+void FileInfo::OnBlockEvent(BlockEvent event) {
+  if (event == BlockEvent::FileSelected) {
+    ReadMusicFile("");  // get content from event
+  }
+}
 
 /* ********************************************************************************************** */
 

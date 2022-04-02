@@ -18,19 +18,22 @@ namespace interface {
 
 using namespace ftxui;
 
+/**
+ * @brief Base class to dispatch events among the different blocks
+ */
 class Dispatcher : public std::enable_shared_from_this<Dispatcher> {
  public:
   virtual ~Dispatcher() = default;
 
-  virtual void Add(std::shared_ptr<Block> const) = 0;
-  virtual void Broadcast(std::shared_ptr<Block> const, BlockEvent) = 0;
+  virtual void Add(const std::shared_ptr<Block>&) = 0;
+  virtual void Broadcast(Block*, BlockEvent) = 0;
 
  protected:
   Dispatcher() = default;
 };
 
 /**
- * @brief Base class that manages the whole screen and contains all blocks
+ * @brief Class that manages the whole screen and contains all blocks
  */
 class Terminal : public Dispatcher {
  public:
@@ -70,14 +73,14 @@ class Terminal : public Dispatcher {
   /* ******************************************************************************************** */
 
   //! Push back new block to internal vector
-  void Add(std::shared_ptr<Block> const b) override;
+  void Add(const std::shared_ptr<Block>& b) override;
 
   //! As a mediator, send a block event for every other block
-  void Broadcast(std::shared_ptr<Block> const sender, BlockEvent event) override;
+  void Broadcast(Block* sender, BlockEvent event) override;
 
   /* ******************************************************************************************** */
  private:
-  std::vector<std::shared_ptr<Block>> blocks_;  //!< List of all blocks that composes the interface
+  std::vector<std::shared_ptr<Block>> blocks_;  //!< List of all blocks composing the interface
   Component container_;                         //!< The glue that holds the blocks together
 };
 

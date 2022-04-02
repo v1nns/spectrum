@@ -8,9 +8,8 @@
 
 #include <memory>
 
-#include "ftxui/component/component_base.hpp"  // for ComponentBase
-#include "ftxui/component/event.hpp"
 #include "sound/wave.h"
+#include "ui/base/block.h"
 
 namespace interface {
 
@@ -19,16 +18,16 @@ using namespace ftxui;
 /**
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
-class FileInfo : public ComponentBase {
+class FileInfo : public Block {
  public:
   /**
    * @brief Construct a new File Info object
+   * @param d Block event dispatcher
    */
-  explicit FileInfo();
+  explicit FileInfo(const std::shared_ptr<Dispatcher>& d);
 
   /**
    * @brief Destroy the File Info object
-   *
    */
   virtual ~FileInfo() = default;
 
@@ -46,8 +45,15 @@ class FileInfo : public ComponentBase {
    */
   bool OnEvent(Event event) override;
 
+  /**
+   * @brief Handles an event (from another block)
+   * @param event Received event from dispatcher
+   */
+  void OnBlockEvent(BlockEvent event) override;
+
   /* ******************************************************************************************** */
- public:
+ private:
+  // TODO: change name and document
   void ReadMusicFile(std::string path);
 
   /* ******************************************************************************************* */

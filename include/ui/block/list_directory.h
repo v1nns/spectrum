@@ -17,10 +17,6 @@
 #include "ftxui/screen/box.hpp"                   // for Box
 #include "ui/base/block.h"
 
-namespace ftxui {
-struct Event;
-}  // namespace ftxui
-
 namespace interface {
 
 using namespace ftxui;
@@ -52,8 +48,11 @@ class ListDirectory : public Block {
  public:
   /**
    * @brief Construct a new List Directory object
+   * @param d Block event dispatcher
+   * @param optional_path List files from custom path instead of the current one
    */
-  ListDirectory(std::shared_ptr<Dispatcher> d, const std::string& optional_path = "");
+  explicit ListDirectory(const std::shared_ptr<Dispatcher>& d,
+                         const std::string& optional_path = "");
 
   /**
    * @brief Destroy the List Directory object
@@ -106,7 +105,7 @@ class ListDirectory : public Block {
   File& GetEntry(int i) { return mode_search_ ? mode_search_->entries.at(i) : entries_.at(i); }
   //! Getter for active entry (focused/selected)
   File* GetActiveEntry() {
-    if (Size() == 0) return nullptr;
+    if (!Size()) return nullptr;
 
     return mode_search_ ? &mode_search_->entries.at(mode_search_->selected)
                         : &entries_.at(selected_);
@@ -121,13 +120,13 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
  private:
   /**
-   * @brief Refresh list with files from the given directory path
+   * @brief Refresh list with all files from the given directory path
    * @param dir_path Full path to directory
    */
   void RefreshList(const std::filesystem::path& dir_path);
 
   /**
-   * @brief Refresh list to contain only files matching pattern from the text to search
+   * @brief Refresh list to keep only files matching pattern from the text to search
    */
   void RefreshSearchList();
 

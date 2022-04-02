@@ -41,7 +41,7 @@ constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
 
 /* ********************************************************************************************** */
 
-ListDirectory::ListDirectory(std::shared_ptr<Dispatcher> d, const std::string& optional_path)
+ListDirectory::ListDirectory(const std::shared_ptr<Dispatcher>& d, const std::string& optional_path)
     : Block(d, kBlockListDirectory),
       curr_dir_(optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)),
@@ -242,7 +242,9 @@ bool ListDirectory::OnMenuNavigation(Event event) {
       } else if (active->is_dir) {
         new_dir = curr_dir_ / active->path;
       } else {
-        // Send(BlockEvent::FileSelected);
+        auto e = BlockEvent::FileSelected;
+        e.SetContent(curr_dir_ / active->path);
+        Send(e);
       }
 
       if (!new_dir.empty()) {

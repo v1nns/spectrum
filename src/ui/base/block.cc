@@ -4,8 +4,21 @@
 
 namespace interface {
 
-Block::Block(std::shared_ptr<Dispatcher> const d, const unsigned int i) : dispatcher_(d), id_(i) {}
+BlockEvent BlockEvent::Special(std::string name) {
+  BlockEvent e;
+  e.type_ = std::move(name);
+  return e;
+}
 
-void Block::Send(BlockEvent event) { dispatcher_->Broadcast(shared_from_this(), event); }
+BlockEvent BlockEvent::FileSelected = BlockEvent::Special("FileSelected");
+
+/* ********************************************************************************************** */
+
+Block::Block(const std::shared_ptr<Dispatcher>& d, const unsigned int id)
+    : dispatcher_(d), id_(id) {}
+
+/* ********************************************************************************************** */
+
+void Block::Send(BlockEvent event) { dispatcher_->Broadcast(this, event); }
 
 }  // namespace interface
