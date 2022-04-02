@@ -3,16 +3,13 @@
 
 #include "ui/base/terminal.h"  // for Terminal
 
-using Terminal =
-    std::shared_ptr<interface::Terminal>;  //!< Smart pointer to have only one terminal instance
-
-/* ********************************************************************************************** */
+using Terminal = std::shared_ptr<interface::Terminal>;  //!< Smart pointer to terminal
 
 int main() {
   // Create a new terminal window
   Terminal term = std::make_shared<interface::Terminal>();
 
-  // Initialize terminal screen
+  // Initialize UI for terminal
   term->Init();
 
   // Start graphical interface loop

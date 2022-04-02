@@ -1,7 +1,10 @@
 #include "ui/block/file_info.h"
 
-#include "ftxui/component/event.hpp"  // for Event, Event::ArrowDown, Event:...
-#include "sound/wave.h"
+#include <utility>  // for move
+#include <vector>   // for vector
+
+#include "ftxui/component/event.hpp"  // for Event
+#include "sound/wave.h"               // for WaveFormat
 
 namespace interface {
 

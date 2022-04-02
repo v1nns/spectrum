@@ -6,10 +6,13 @@
 #ifndef INCLUDE_UI_BLOCK_FILE_INFO_H_
 #define INCLUDE_UI_BLOCK_FILE_INFO_H_
 
-#include <memory>
+#include <memory>  // for shared_ptr, unique_ptr
+#include <string>  // for string
 
-#include "sound/wave.h"
-#include "ui/base/block.h"
+#include "ftxui/component/captured_mouse.hpp"  // for ftxui
+#include "ftxui/dom/elements.hpp"              // for Element
+#include "sound/song.h"                        // for Song
+#include "ui/base/block.h"                     // for Block, BlockEvent (ptr...
 
 namespace interface {
 

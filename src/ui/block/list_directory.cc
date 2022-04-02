@@ -4,17 +4,20 @@
 #include <ctype.h>  // for tolower
 
 #include <algorithm>   // for for_each, search, sort
-#include <filesystem>  // for path, directory_iterator, opera...
-#include <memory>      // for shared_ptr, make_unique, alloca...
+#include <filesystem>  // for path, directory_iterator
+#include <memory>      // for shared_ptr, __shared_p...
 #include <utility>     // for move
 
-#include "ftxui/component/component.hpp"
-#include "ftxui/component/event.hpp"  // for Event, Event::ArrowDown, Event:...
-#include "ftxui/component/mouse.hpp"  // for Mouse, Mouse::Left, Mouse::Whee...
-#include "ftxui/dom/node.hpp"         // for Node
-#include "ftxui/screen/color.hpp"     // for Color, Color::Green, Color::White
+#include "ftxui/component/component.hpp"       // for Input
+#include "ftxui/component/component_base.hpp"  // for Component, ComponentBase
+#include "ftxui/component/event.hpp"           // for Event
+#include "ftxui/component/mouse.hpp"           // for Mouse
+#include "ftxui/screen/color.hpp"              // for Color
+#include "ftxui/util/ref.hpp"                  // for Ref
 
 namespace interface {
+
+class Dispatcher;
 
 /**
  * @brief Create a new custom style for Menu Entry

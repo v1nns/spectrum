@@ -7,15 +7,16 @@
 #define INCLUDE_UI_BLOCK_LIST_DIRECTORY_H_
 
 #include <filesystem>  // for path
+#include <memory>      // for shared_ptr
 #include <optional>    // for optional
-#include <string>      // for string, basic_string
+#include <string>      // for string, allocator
 #include <vector>      // for vector
 
-#include "ftxui/component/component_base.hpp"     // for ComponentBase
+#include "ftxui/component/captured_mouse.hpp"     // for ftxui
 #include "ftxui/component/component_options.hpp"  // for MenuEntryOption
 #include "ftxui/dom/elements.hpp"                 // for Element
 #include "ftxui/screen/box.hpp"                   // for Box
-#include "ui/base/block.h"
+#include "ui/base/block.h"                        // for Block, BlockEvent...
 
 namespace interface {
 

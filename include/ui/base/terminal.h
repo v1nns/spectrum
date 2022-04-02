@@ -12,11 +12,14 @@
 // #include "error/error_table.h"
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
-#include "ui/base/block.h"
 
 namespace interface {
 
 using namespace ftxui;
+
+//! Forward declaration
+class Block;
+struct BlockEvent;
 
 /**
  * @brief Base class to dispatch events among the different blocks

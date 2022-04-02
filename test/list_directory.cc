@@ -1,14 +1,12 @@
-#include "ui/block/list_directory.h"
 
-#include <gmock/gmock-actions.h>          // for GMOCK_PP_INTERNAL_IF_0
-#include <gmock/gmock-function-mocker.h>  // for GMOCK_INTERNAL_DETECT_...
-#include <gmock/gmock-matchers.h>         // for StrEq, EXPECT_THAT
-#include <gmock/gmock-nice-strict.h>      // for NiceMock
-#include <gmock/gmock-spec-builders.h>    // for FunctionMocker, MockSpec
-#include <gtest/gtest-message.h>          // for Message
-#include <gtest/gtest-test-part.h>        // for TestPartResult
+#include "mock/list_directory.h"
 
-#include <memory>  // for __shared_ptr_access
+#include <gmock/gmock-matchers.h>   // for StrEq, EXPECT_THAT
+#include <gtest/gtest-message.h>    // for Message
+#include <gtest/gtest-test-part.h>  // for TestPartResult
+
+#include <filesystem>  // for current_path, path
+#include <memory>      // for __shared_ptr_access
 
 #include "ftxui/component/component.hpp"       // for Make
 #include "ftxui/component/component_base.hpp"  // for Component, ComponentBase
@@ -16,32 +14,11 @@
 #include "ftxui/dom/node.hpp"                  // for Render
 #include "ftxui/screen/screen.hpp"             // for Screen
 #include "gtest/gtest_pred_impl.h"             // for SuiteApiResolver, TEST_F
-#include "ui/base/terminal.h"
-#include "utils.h"  // for FilterAnsiCommands
+#include "utils.h"                             // for FilterAnsiCommands
 
 namespace {
 
-using ::testing::NiceMock;  //!< Using NiceMock to ignore uninteresting calls from "GetTitle"
 using ::testing::StrEq;
-
-//! Implement custom action to show only directory filename instead of the full path
-ACTION_P(ReturnPointee, p) { return p->filename().string(); }
-
-//! Mock class to change default behaviour while rendering the inner element Title
-class MockListDirectory : public interface::ListDirectory {
- public:
-  MockListDirectory(const std::string& s) : interface::ListDirectory(nullptr, s) {
-    SetupTitleExpectation();
-  }
-
-  MOCK_METHOD(std::string, GetTitle, (), (override));
-
-  void SetupTitleExpectation() {
-    ON_CALL(*this, GetTitle()).WillByDefault(ReturnPointee(&curr_dir_));
-  }
-};
-
-/* ********************************************************************************************** */
 
 /**
  * @brief Tests with ListDirectory class
@@ -52,7 +29,7 @@ class ListDirectoryTest : public ::testing::Test {
     screen = std::make_unique<ftxui::Screen>(32, 15);
 
     std::string source_dir{std::filesystem::current_path().parent_path()};
-    block = ftxui::Make<NiceMock<MockListDirectory>>(source_dir);
+    block = ftxui::Make<MockListDirectory>(nullptr, source_dir);
   }
 
   void TearDown() override {
@@ -142,8 +119,8 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 │> ..                          │
 │  CMakeLists.txt              │
 │  list_directory.cc           │
+│  mock                        │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -232,8 +209,8 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 │> ..                          │
 │  CMakeLists.txt              │
 │  list_directory.cc           │
+│  mock                        │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │

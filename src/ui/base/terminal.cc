@@ -4,12 +4,14 @@
 #include <stdlib.h>  // for exit, EXIT_FAILURE
 
 #include <functional>  // for function
+#include <utility>     // for move
 
 #include "ftxui/component/component.hpp"           // for CatchEvent, Make
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "ui/block/file_info.h"
-#include "ui/block/list_directory.h"  // for ListDirectory
+#include "ui/base/block.h"                         // for Block, BlockEvent
+#include "ui/block/file_info.h"                    // for FileInfo
+#include "ui/block/list_directory.h"               // for ListDirectory
 
 namespace interface {
 

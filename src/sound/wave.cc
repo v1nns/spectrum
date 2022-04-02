@@ -8,7 +8,6 @@
 #include <sstream>    // for ostringstream
 
 #include "error/error_table.h"  // for kSuccess
-#include "sound/wave.h"
 
 /* ********************************************************************************************** */
 

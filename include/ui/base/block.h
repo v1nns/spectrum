@@ -6,36 +6,22 @@
 #ifndef INCLUDE_UI_BASE_BLOCK_H_
 #define INCLUDE_UI_BASE_BLOCK_H_
 
-#include <memory>
+#include <memory>   // for shared_ptr, enable_sha...
+#include <string>   // for string, operator==
+#include <utility>  // for move
 
-#include "ftxui/component/component_base.hpp"  // for Component
+#include "ftxui/component/captured_mouse.hpp"  // for ftxui
+#include "ftxui/component/component_base.hpp"  // for ComponentBase
+#include "ftxui/dom/elements.hpp"              // for Element
+#include "ui/base/block_event.h"
 
 namespace interface {
+
+using namespace ftxui;
 
 //! Unique ID for each block
 constexpr int kBlockListDirectory = 301;
 constexpr int kBlockFileInfo = 302;
-
-//! Shared events between blocks
-struct BlockEvent {
-  // TODO: implement custom events with content (check event.hpp/cpp from ftxui)
-  static BlockEvent Special(std::string);
-
-  static BlockEvent FileSelected;
-
-  bool operator==(const BlockEvent& other) const { return type_ == other.type_; }
-  bool operator!=(const BlockEvent& other) const { return !operator==(other); }
-
-  void SetContent(const std::string& content) { content_ = std::move(content); }
-
- private:
-  std::string type_;
-  std::string content_;
-};
-
-/* ********************************************************************************************** */
-
-using namespace ftxui;
 
 class Dispatcher;  //!< Forward declaration
 

@@ -21,6 +21,7 @@ add_library(spectrum-lib OBJECT)
 target_sources(spectrum-lib
                PRIVATE
                ui/base/terminal.cc
+               ui/base/block_event.cc
                ui/base/block.cc
                ui/block/list_directory.cc
                ui/block/file_info.cc
