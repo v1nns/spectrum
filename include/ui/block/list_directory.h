@@ -22,25 +22,9 @@ namespace interface {
 
 using namespace ftxui;
 
-//! Represent a single file entry
-struct File {
-  std::string path;
-  bool is_dir;
-};
-
 //! For better readability
-using Files = std::vector<File>;
-
-/* ********************************************************************************************** */
-
-//! Parameters for when search mode is enabled
-struct Search {
-  std::string text_to_search;  //!< Text to search in file entries
-  Files entries;          //!< List containing only files from current directory matching the text
-  int selected, focused;  //!< Entry indexes in files list
-};
-
-/* ********************************************************************************************** */
+using File = std::filesystem::path;  //!< Single file path
+using Files = std::vector<File>;     //!< List of file paths
 
 /**
  * @brief Component to list files from given directory
@@ -135,6 +119,20 @@ class ListDirectory : public Block {
  protected:
   std::filesystem::path curr_dir_;  //!< Current directory
 
+  //! Parameters for when search mode is enabled
+  struct Search {
+    std::string text_to_search;  //!< Text to search in file entries
+    Files entries;          //!< List containing only files from current directory matching the text
+    int selected, focused;  //!< Entry indexes in files list
+  };
+
+  //! Put together all possible styles for an entry in this component
+  struct EntryStyles {
+    MenuEntryOption directory;
+    MenuEntryOption file;
+    MenuEntryOption playing;
+  };
+
   /* ******************************************************************************************** */
  private:
   Files entries_;           //!< List containing files from current directory
@@ -144,12 +142,6 @@ class ListDirectory : public Block {
   Box box_;                 //!< Box for whole component
 
   std::optional<Search> mode_search_;  //!< Mode to render only files matching the search pattern
-
-  //! Put together all possible styles for an entry in this component
-  struct EntryStyles {
-    MenuEntryOption directory;
-    MenuEntryOption file;
-  };
 
   EntryStyles styles_;  //!< Style for each possible type of entry on menu
 };

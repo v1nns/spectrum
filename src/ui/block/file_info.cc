@@ -44,7 +44,7 @@ bool FileInfo::OnEvent(Event event) { return false; }
 
 void FileInfo::OnBlockEvent(BlockEvent event) {
   if (event == BlockEvent::FileSelected) {
-    ReadMusicFile("");  // get content from event
+    ReadMusicFile(event.Content());  // get content from event
   }
 }
 

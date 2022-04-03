@@ -52,7 +52,8 @@ ListDirectory::ListDirectory(const std::shared_ptr<Dispatcher>& d, const std::st
       selected_(0),
       focused_(0),
       styles_({.directory = std::move(Colored(Color::Green)),
-               .file = std::move(Colored(Color::White))}),
+               .file = std::move(Colored(Color::White)),
+               .playing = std::move(Colored(Color::Aquamarine1))}),
       boxes_(),
       box_(),
       mode_search_(std::nullopt) {
@@ -78,7 +79,7 @@ Element ListDirectory::Render() {
     bool is_selected = (*selected == i);
 
     File& entry = GetEntry(i);
-    auto& type = entry.is_dir ? styles_.directory : styles_.file;
+    auto& type = std::filesystem::is_directory(entry) ? styles_.directory : styles_.file;
     const char* icon = is_selected ? "> " : "  ";
 
     Decorator style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
@@ -86,7 +87,8 @@ Element ListDirectory::Render() {
 
     auto focus_management = is_focused ? ftxui::select : nothing;
 
-    entries.push_back(text(icon + entry.path) | style | focus_management | reflect(boxes_[i]));
+    entries.push_back(text(icon + entry.filename().string()) | style | focus_management |
+                      reflect(boxes_[i]));
   }
 
   // Build up the content
@@ -240,14 +242,18 @@ bool ListDirectory::OnMenuNavigation(Event event) {
     auto active = GetActiveEntry();
 
     if (active != nullptr) {
-      if (active->path == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
+      if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
         new_dir = curr_dir_.parent_path();
-      } else if (active->is_dir) {
-        new_dir = curr_dir_ / active->path;
+      } else if (std::filesystem::is_directory(*active)) {
+        new_dir = curr_dir_ / active->filename();
       } else {
-        auto e = BlockEvent::FileSelected;
-        e.SetContent(curr_dir_ / active->path);
-        Send(e);
+        // TODO: this should be less coupled (this class should not know about supported extensions)
+        // Currently, we only support wav extension
+        if (active->extension() == ".wav") {
+          auto new_event = BlockEvent::FileSelected;
+          new_event.SetContent(active->string());
+          Send(new_event);
+        }
       }
 
       if (!new_dir.empty()) {
@@ -339,10 +345,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
 
   // Add all files from the given directory
   for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
-    entries_.emplace_back(File{
-        .path = entry.path().filename(),
-        .is_dir = entry.is_directory(),
-    });
+    entries_.emplace_back(entry);
   }
 
   // Transform whole string into uppercase
@@ -350,7 +353,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
 
   // Created a custom file sort
   auto custom_sort = [&to_lower](const File& a, const File& b) {
-    std::string lhs{a.path}, rhs{b.path};
+    std::string lhs{a.filename()}, rhs{b.filename()};
 
     // Don't care if it is hidden (tried to make it similar to "ls" output)
     if (lhs.at(0) == '.') lhs.erase(0, 1);
@@ -366,7 +369,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   std::sort(entries_.begin(), entries_.end(), custom_sort);
 
   // Add option to go back one level
-  entries_.insert(entries_.begin(), File{.path = "..", .is_dir = true});
+  entries_.insert(entries_.begin(), File{".."});
 }
 
 /* ********************************************************************************************** */
@@ -386,10 +389,11 @@ void ListDirectory::RefreshSearchList() {
   auto& text_to_search = mode_search_->text_to_search;
 
   for (auto& entry : entries_) {
-    auto it = std::search(entry.path.begin(), entry.path.end(), text_to_search.begin(),
+    const std::string filename = entry.filename().string();
+    auto it = std::search(filename.begin(), filename.end(), text_to_search.begin(),
                           text_to_search.end(), compare_string);
 
-    if (it != entry.path.end()) {
+    if (it != filename.end()) {
       mode_search_->entries.push_back(entry);
     }
   }
