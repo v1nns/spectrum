@@ -5,7 +5,8 @@
 #include <algorithm>  // for max
 #include <cassert>    // for assert
 #include <fstream>    // for operator<<, basic_ostream, endl, basi...
-#include <sstream>    // for ostringstream
+#include <iterator>
+#include <sstream>  // for ostringstream
 
 #include "error/error_table.h"  // for kSuccess
 
@@ -13,42 +14,70 @@
 
 int WaveFormat::ParseFromFile(const std::string& full_path) {
   filename_ = full_path;
-  file_ = fopen(filename_.c_str(), "r");
+  std::ifstream file(full_path, std::ios::binary);
 
-  if (file_ == nullptr) {
-    // TODO: fix this
-    fprintf(stderr, "Unable to open wave file: %s\n", filename_.c_str());
-    return error::kSuccess;
+  if (!file.good()) {
+    // std::cout << "ERROR: this doesn't seem to be a valid .WAV file" << std::endl;
+    return -1;
   }
 
-  // Read the header
-  int size = sizeof(wave_header_t);
-  size_t bytes_read = fread(&header_, 1, size, file_);
-  assert(bytes_read > 0);
+  file.unsetf(std::ios::skipws);
+  file.read((char*)&header_, sizeof(wave_header_t));
 
-  //   if (bytes_read > 0) {
-  //     // Read the data
-  //     uint16_t bytesPerSample =
-  //         wavHeader.bitsPerSample / 8;  // Number of bytes per sample
-  //     uint64_t numSamples =
-  //         wavHeader.ChunkSize /
-  //         bytesPerSample;  // How many samples are in the wav file?
-  //     static const uint16_t BUFFER_SIZE = 4096;
-  //     int8_t* buffer = new int8_t[BUFFER_SIZE];
-  //     std::cout << "WAVE file has " << numSamples << " samples." <<
-  //     std::endl;
+  std::string chunkId(header_.RIFF, header_.RIFF + 4);
+  std::string format(header_.WAVE, header_.WAVE + 4);
+  std::string subchunk1Id(header_.Subchunk1ID, header_.Subchunk1ID + 4);
 
-  //     while ((bytes_read = fread(buffer, sizeof buffer[0],
-  //                               BUFFER_SIZE / (sizeof buffer[0]), wavFile)) >
-  //                               0) {
-  //       /** DO SOMETHING WITH THE WAVE DATA HERE **/
-  //       // std::cout << "Read " << bytes_read << " bytes." << std::endl;
-  //     }
-  //     delete[] buffer;
-  //     buffer = nullptr;
-  //   }
+  if (chunkId != "RIFF" || format != "WAVE" || subchunk1Id != "FMT") {
+    // std::cout << "file not supported" << std:endl;
+    return -1;
+  }
 
-  fclose(file_);
+  if (header_.AudioFormat != 1) {
+    // std::cout << "ERROR: this is a compressed .WAV file and this library does not support
+    // decoding them at present" << std::endl;
+    return -1;
+  }
+
+  if (header_.NumChannels < 1 || header_.NumChannels > 2) {
+    // std::cout << "ERROR: this WAV file seems to be neither mono nor stereo (perhaps multi-track,
+    // or corrupted?)" << std::endl;
+    return -1;
+  }
+
+  if ((header_.ByteRate !=
+       (header_.NumChannels * header_.SampleRate * header_.BitsPerSample) / 8)) {
+    // std::cout << "ERROR: the header data in this WAV file seems to be inconsistent" << std::endl;
+    return -1;
+  }
+
+  file.seekg(sizeof(wave_header_t));
+
+  std::istream_iterator<uint8_t> begin(file), end;
+  std::vector<uint8_t> raw_data(begin, end);
+
+  int num_samples = header_.Subchunk2Size;
+  int num_bytes_per_sample = header_.BitsPerSample / 8;
+
+  std::vector<std::vector<double>> data{num_samples};
+
+  for (int sample = 0; sample < num_samples; sample++) {
+    for (int channel = 0; channel < header_.NumChannels; channel++) {
+      int index = (header_.BlockAlign * sample) + channel * num_bytes_per_sample;
+
+      switch (header_.BitsPerSample) {
+        case 8:
+          break;
+        case 16:
+          break;
+        case 24:
+          break;
+        default:
+          // ERROR!
+      }
+    }
+  }
+
   return error::kSuccess;
 }
 
@@ -58,38 +87,25 @@ std::vector<std::string> WaveFormat::GetFormattedStats() {
   std::vector<std::string> output{};
   std::ostringstream s;
 
-  s << "RIFF header: " << header_.RIFF[0] << header_.RIFF[1] << header_.RIFF[2] << header_.RIFF[3]
-    << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "WAVE header: " << header_.WAVE[0] << header_.WAVE[1] << header_.WAVE[2] << header_.WAVE[3]
-    << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "FMT: " << header_.fmt[0] << header_.fmt[1] << header_.fmt[2] << header_.fmt[3] << std::endl;
-  output.push_back(s.str());
-
   s.str("");
   s << "Data size: " << header_.ChunkSize << std::endl;
   output.push_back(s.str());
 
   // Display the sampling Rate from the header
   s.str("");
-  s << "Sampling Rate: " << header_.SamplesPerSec << std::endl;
+  s << "Sampling Rate: " << header_.SampleRate << std::endl;
   output.push_back(s.str());
 
   s.str("");
-  s << "Number of bits used: " << header_.bitsPerSample << std::endl;
+  s << "Number of bits used: " << header_.BitsPerSample << std::endl;
   output.push_back(s.str());
 
   s.str("");
-  s << "Number of channels: " << header_.NumOfChan << std::endl;
+  s << "Number of channels: " << header_.NumChannels << std::endl;
   output.push_back(s.str());
 
   s.str("");
-  s << "Number of bytes per second: " << header_.bytesPerSec << std::endl;
+  s << "Number of bytes per second: " << header_.ByteRate << std::endl;
   output.push_back(s.str());
 
   s.str("");
@@ -102,12 +118,7 @@ std::vector<std::string> WaveFormat::GetFormattedStats() {
   output.push_back(s.str());
 
   s.str("");
-  s << "Block align: " << header_.blockAlign << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "Data string: " << header_.Subchunk2ID[0] << header_.Subchunk2ID[1] << header_.Subchunk2ID[2]
-    << header_.Subchunk2ID[3] << std::endl;
+  s << "Block align: " << header_.BlockAlign << std::endl;
   output.push_back(s.str());
 
   return output;

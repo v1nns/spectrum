@@ -18,7 +18,7 @@ class Song {
   /**
    * @brief Construct a new Song object
    */
-  Song() : filename_(), file_(nullptr){};
+  Song() : filename_(){};
 
   /**
    * @brief Destroy the Song object
@@ -51,7 +51,6 @@ class Song {
   /* ******************************************************************************************** */
  protected:
   std::string filename_;  //!< Path to sound file
-  FILE* file_;            //!< File descriptor to sound file
 };
 
 #endif  // INCLUDE_SONG_H_
