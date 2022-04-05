@@ -59,21 +59,40 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
   int num_samples = header_.Subchunk2Size;
   int num_bytes_per_sample = header_.BitsPerSample / 8;
 
-  std::vector<std::vector<double>> data{num_samples};
+  std::vector<std::vector<double>> data(header_.NumChannels);
 
   for (int sample = 0; sample < num_samples; sample++) {
     for (int channel = 0; channel < header_.NumChannels; channel++) {
       int index = (header_.BlockAlign * sample) + channel * num_bytes_per_sample;
 
       switch (header_.BitsPerSample) {
-        case 8:
-          break;
-        case 16:
-          break;
-        case 24:
-          break;
+        case 8: {
+          int32_t sampleAsInt = (int32_t)raw_data[index];
+          double sample = (double)(sampleAsInt - 128) / (double)128.;
+
+          data[channel].push_back(sample);
+        } break;
+        case 16: {
+          int16_t sampleAsInt = (raw_data[index + 1] << 8) | raw_data[index];
+          double sample = (double)sampleAsInt / (double)32768.;
+
+          data[channel].push_back(sample);
+        } break;
+        case 24: {
+          int32_t sampleAsInt = 0;
+          sampleAsInt = (raw_data[index + 2] << 16) | (raw_data[index + 1] << 8) | raw_data[index];
+
+          // if the 24th bit is set, this is a negative number in 24-bit world
+          // so make sure sign is extended to the 32 bit float
+          if (sampleAsInt & 0x800000) sampleAsInt = sampleAsInt | ~0xFFFFFF;
+
+          double sample = (double)sampleAsInt / (double)8388608.;
+
+          data[channel].push_back(sample);
+        } break;
         default:
           // ERROR!
+          break;
       }
     }
   }
