@@ -53,6 +53,10 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
 
   file.seekg(sizeof(wave_header_t));
 
+  // calculate audio duration
+  //   const int duration = (header_.ChunkSize - 36) /
+  //    (header_.SampleRate * header_.NumChannels * (header_.BitsPerSample / 8));
+
   std::istream_iterator<uint8_t> begin(file), end;
   std::vector<uint8_t> raw_data(begin, end);
 
