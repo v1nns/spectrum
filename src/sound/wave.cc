@@ -60,14 +60,14 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
   std::istream_iterator<uint8_t> begin(file), end;
   std::vector<uint8_t> raw_data(begin, end);
 
-  int num_samples = header_.Subchunk2Size;
   int num_bytes_per_sample = header_.BitsPerSample / 8;
+  int num_samples = header_.Subchunk2Size / num_bytes_per_sample;
 
   std::vector<std::vector<double>> data(header_.NumChannels);
 
-  for (int sample = 0; sample < num_samples; sample++) {
+  for (int i = 0; i < num_samples; i++) {
     for (int channel = 0; channel < header_.NumChannels; channel++) {
-      int index = (header_.BlockAlign * sample) + channel * num_bytes_per_sample;
+      int index = (header_.BlockAlign * i) + channel * num_bytes_per_sample;
 
       switch (header_.BitsPerSample) {
         case 8: {
