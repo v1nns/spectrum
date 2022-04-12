@@ -12,6 +12,7 @@
 #include "fftw3.h"
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
+#include "ftxui/dom/canvas.hpp"
 
 #define PI 3.1415926535897
 
@@ -129,13 +130,13 @@ std::vector<std::vector<double>> ParseData(wave_header_t &header_) {
 
 class Graph {
  public:
-  explicit Graph(std::vector<double>::iterator y, int num_items)
+  explicit Graph(std::vector<double> *y, int num_items)
       : logspace_(), y_(y), num_items_(num_items), m_bar_heights() {
     logspace_.reserve(500);
   }
 
   void GenLogspace(double width) {
-    const double HZ_MIN = 20, HZ_MAX = 22050;
+    const double HZ_MIN = 20, HZ_MAX = 20000;
 
     // Calculate number of extra bins needed between 0 HZ and HZ_MIN
     const size_t left_bins =
@@ -214,7 +215,7 @@ class Graph {
       while (cur_bin < num_items_ && Bin2Hz(cur_bin) < logspace_[x]) {
         // check left bound if not first index
         if (x == 0 || Bin2Hz(cur_bin) >= logspace_[x - 1]) {
-          bar_height += y_[cur_bin];
+          bar_height += y_->at(cur_bin);
           ++count;
         }
         ++cur_bin;
@@ -256,7 +257,7 @@ class Graph {
   }
 
   std::vector<double> logspace_;
-  std::vector<double>::iterator y_;
+  std::vector<double> *y_;
   int num_items_;
   std::vector<std::pair<size_t, double>> m_bar_heights;
 };
@@ -334,10 +335,10 @@ int main() {
 
   using namespace std::chrono_literals;
 
-  const auto sleep_time = .5s;
+  const auto sleep_time = .4s;
 
   //   std::vector<double> spectrum(result_window);
-  Graph my_graph(mag.begin(), result_window);
+  Graph my_graph(&mag, result_window);
 
   double time_period = 0.5;                               // 500ms
   int max_chunk_size = header_.SampleRate * time_period;  // 22050
@@ -366,10 +367,14 @@ int main() {
 
     print_screen(my_graph, index);
     std::this_thread::sleep_for(sleep_time);
+
+    std::fill(mag.begin(), mag.end(), 0);
+    print_screen(my_graph, index);
+    std::this_thread::sleep_for(sleep_time);
+
     index += window;
   }
 
-  //   fftw_free(fft_in);
   fftw_free(fft_out);
   fftw_destroy_plan(fft);
 
