@@ -12,7 +12,7 @@ if(NOT ftxui_POPULATED)
   add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-# pkg_check_modules(FFTW REQUIRED fftw3)
+pkg_check_modules(FFTW REQUIRED fftw3)
 
 # **************************************************************************************************
 # Create library
@@ -47,3 +47,7 @@ target_compile_options(spectrum
                        PRIVATE -Wall
                                -Werror
                                -Wno-sign-compare)
+
+# **************************************************************************************************
+# For prototyping
+add_subdirectory(prototype)
