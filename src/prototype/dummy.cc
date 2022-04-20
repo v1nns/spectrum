@@ -169,8 +169,7 @@ class Graph {
       dh = (h_next - h_prev) / (x_next - x_prev);
       return h_next - dh * (x_next - x);
     } else if (h_idx < m_bar_heights.size() - 1) {
-      // two data points on both sides, cubic interp
-      // see
+      // two data points on both sides, cubic interp see
       // https://en.wikipedia.org/wiki/Cubic_Hermite_spline#Interpolation_on_an_arbitrary_interval
       const double x_prev2 = m_bar_heights[h_idx - 2].first;
       const double h_prev2 = m_bar_heights[h_idx - 2].second;
@@ -314,7 +313,8 @@ int main() {
   const int num_samples = header_.Subchunk2Size / (header_.NumChannels * header_.BitsPerSample / 8);
 
   // get the nearest power of 2 from sample rate, for example: Fs = 44100, means window = 32768
-  const int window = std::pow(2, std::floor(log(header_.SampleRate) / log(2)));
+  //   const int window = std::pow(2, std::floor(log(header_.SampleRate) / log(2)));
+  const int window = 1024;
   const int result_window = window / 2 + 1;
 
   // fft
@@ -335,7 +335,7 @@ int main() {
 
   using namespace std::chrono_literals;
 
-  const auto sleep_time = .4s;
+  const auto sleep_time = .05s;
 
   //   std::vector<double> spectrum(result_window);
   Graph my_graph(&mag, result_window);
@@ -368,9 +368,9 @@ int main() {
     print_screen(my_graph, index);
     std::this_thread::sleep_for(sleep_time);
 
-    std::fill(mag.begin(), mag.end(), 0);
-    print_screen(my_graph, index);
-    std::this_thread::sleep_for(sleep_time);
+    // std::fill(mag.begin(), mag.end(), 0);
+    // print_screen(my_graph, index);
+    // std::this_thread::sleep_for(sleep_time);
 
     index += window;
   }
