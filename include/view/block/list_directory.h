@@ -16,7 +16,7 @@
 #include "ftxui/component/component_options.hpp"  // for MenuEntryOption
 #include "ftxui/dom/elements.hpp"                 // for Element
 #include "ftxui/screen/box.hpp"                   // for Box
-#include "ui/base/block.h"                        // for Block, BlockEvent...
+#include "view/base/block.h"                      // for Block, BlockEvent...
 
 namespace interface {
 

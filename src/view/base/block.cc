@@ -1,6 +1,6 @@
-#include "ui/base/block.h"
+#include "view/base/block.h"
 
-#include "ui/base/terminal.h"
+#include "view/base/terminal.h"
 
 namespace interface {
 

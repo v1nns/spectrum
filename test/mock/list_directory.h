@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  Class representing a single UI block
+ * \brief  Class representing a single view block
  */
 
 #ifndef INCLUDE_TEST_MOCK_LIST_DIRECTORY_H_
@@ -13,7 +13,7 @@
 #include <memory>  // for shared_ptr
 #include <string>  // for string
 
-#include "ui/block/list_directory.h"  // for ListDirectory
+#include "view/block/list_directory.h"  // for ListDirectory
 
 namespace {
 using interface::Dispatcher;

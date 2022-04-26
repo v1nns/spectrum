@@ -8,56 +8,50 @@
 #include <iterator>
 #include <sstream>  // for ostringstream
 
-#include "error/error_table.h"  // for kSuccess
+#include "error_table.h"  // for Errors
 
 /* ********************************************************************************************** */
 
-int WaveFormat::ParseFromFile(const std::string& full_path) {
+int WaveFormat::ParseHeaderInfo(const std::string& full_path) {
   filename_ = full_path;
-  std::ifstream file(full_path, std::ios::binary);
+  file_ = std::ifstream(full_path, std::ios::binary);
 
-  if (!file.good()) {
-    // std::cout << "ERROR: this doesn't seem to be a valid .WAV file" << std::endl;
-    return -1;
+  if (!file_.good()) {
+    return error::kInvalidFile;
   }
 
-  file.unsetf(std::ios::skipws);
-  file.read((char*)&header_, sizeof(wave_header_t));
+  file_.unsetf(std::ios::skipws);
+  file_.read((char*)&header_, sizeof(wave_header_t));
 
   std::string chunkId(header_.RIFF, header_.RIFF + 4);
   std::string format(header_.WAVE, header_.WAVE + 4);
   std::string subchunk1Id(header_.Subchunk1ID, header_.Subchunk1ID + 4);
 
   if (chunkId != "RIFF" || format != "WAVE" || subchunk1Id != "FMT") {
-    // std::cout << "file not supported" << std:endl;
-    return -1;
+    return error::kFileNotSupported;
   }
 
   if (header_.AudioFormat != 1) {
-    // std::cout << "ERROR: this is a compressed .WAV file and this library does not support
-    // decoding them at present" << std::endl;
-    return -1;
+    return error::kFileCompressionNotSupported;
   }
 
   if (header_.NumChannels < 1 || header_.NumChannels > 2) {
-    // std::cout << "ERROR: this WAV file seems to be neither mono nor stereo (perhaps multi-track,
-    // or corrupted?)" << std::endl;
-    return -1;
+    return error::kUnknownNumOfChannels;
   }
 
   if ((header_.ByteRate !=
        (header_.NumChannels * header_.SampleRate * header_.BitsPerSample) / 8)) {
-    // std::cout << "ERROR: the header data in this WAV file seems to be inconsistent" << std::endl;
-    return -1;
+    return error::kInconsistentHeaderInfo;
   }
 
-  file.seekg(sizeof(wave_header_t));
+  file_.seekg(sizeof(wave_header_t));
+  return error::kSuccess;
+}
 
-  // calculate audio duration
-  //   const int duration = (header_.ChunkSize - 36) /
-  //    (header_.SampleRate * header_.NumChannels * (header_.BitsPerSample / 8));
+/* ********************************************************************************************** */
 
-  std::istream_iterator<uint8_t> begin(file), end;
+int WaveFormat::ParseData() {
+  std::istream_iterator<uint8_t> begin(file_), end;
   std::vector<uint8_t> raw_data(begin, end);
 
   int num_bytes_per_sample = header_.BitsPerSample / 8;
@@ -95,10 +89,12 @@ int WaveFormat::ParseFromFile(const std::string& full_path) {
           data[channel].push_back(sample);
         } break;
         default:
-          // ERROR!
+          // TODO: return error!
           break;
       }
     }
+
+    // TODO: pass this to player, or maybe return a vector from this method
   }
 
   return error::kSuccess;

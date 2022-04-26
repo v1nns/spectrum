@@ -7,18 +7,19 @@
 #define INCLUDE_SONG_H_
 
 #include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 
 /**
- * @brief Base class for a Song
+ * @brief Interface class for a Song
  */
 class Song {
  public:
   /**
    * @brief Construct a new Song object
    */
-  Song() : filename_(){};
+  Song() : filename_(), file_(){};
 
   /**
    * @brief Destroy the Song object
@@ -33,17 +34,23 @@ class Song {
   Song& operator=(Song&& other) = delete;       // move assignment
 
   /* ******************************************************************************************** */
+
   /**
-   * @brief Parse a given sound file to get its info
+   * @brief Parse only the header metadata from a given sound file
    *
-   * @param full_path Text containing path where file is located
+   * @param full_path Path where song is located
    * @return int Error code from operation
    */
-  virtual int ParseFromFile(const std::string& full_path) = 0;
+  virtual int ParseHeaderInfo(const std::string& full_path) = 0;
+
+  /**
+   * @brief Parse raw data from a given sound file (this is only possible after parsing header info)
+   * @return int Error code from operation
+   */
+  virtual int ParseData() = 0;
 
   /**
    * @brief Get the Formatted Stats from parsed sound file
-   *
    * @return std::vector<std::string> Text splitted in lines
    */
   virtual std::vector<std::string> GetFormattedStats() = 0;
@@ -51,6 +58,7 @@ class Song {
   /* ******************************************************************************************** */
  protected:
   std::string filename_;  //!< Path to sound file
+  std::ifstream file_;    //!< File-based streambuffer pointing to sound file
 };
 
 #endif  // INCLUDE_SONG_H_

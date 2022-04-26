@@ -20,6 +20,13 @@ static constexpr int kSuccess = 0;
 static constexpr int kTerminalInitialization = 1;
 static constexpr int kTerminalColorsUnavailable = 2;
 
+//! Song parser errors
+static constexpr int kInvalidFile = 30;
+static constexpr int kFileNotSupported = 31;
+static constexpr int kFileCompressionNotSupported = 32;
+static constexpr int kUnknownNumOfChannels = 33;
+static constexpr int kInconsistentHeaderInfo = 34;
+
 /* ********************************************************************************************** */
 
 //! Single entry for error message <code, message>
@@ -31,9 +38,14 @@ using message_t = std::pair<int, std::string_view>;
 class ErrorTable {
  private:
   //! Map containing all "mapped" errors (pun intended)
-  static constexpr std::array<message_t, 2> kErrorMap{
+  static constexpr std::array<message_t, 6> kErrorMap{
       {{kTerminalInitialization, "Could not initialize screen"},
-       {kTerminalColorsUnavailable, "No support to change colors"}},
+       {kTerminalColorsUnavailable, "No support to change colors"},
+       {kFileNotSupported, "File not supported"},
+       {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
+       {kUnknownNumOfChannels,
+        "File does not seem to be neither mono nor stereo (perhaps multi-track or corrupted)"},
+       {kInconsistentHeaderInfo, "Header data is inconsistent"}},
   };
 
   /* ******************************************************************************************** */

@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  Class representing a single UI block
+ * \brief  Class representing a single view block
  */
 
 #ifndef INCLUDE_UI_BASE_BLOCK_H_
@@ -13,7 +13,7 @@
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for ComponentBase
 #include "ftxui/dom/elements.hpp"              // for Element
-#include "ui/base/block_event.h"
+#include "view/base/block_event.h"
 
 namespace interface {
 
@@ -26,7 +26,7 @@ constexpr int kBlockFileInfo = 302;
 class Dispatcher;  //!< Forward declaration
 
 /**
- * @brief Base class representing a block in UI
+ * @brief Base class representing a block in view
  */
 class Block : std::enable_shared_from_this<Block>, public ComponentBase {
  protected:

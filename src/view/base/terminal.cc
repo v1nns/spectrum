@@ -1,5 +1,5 @@
 
-#include "ui/base/terminal.h"
+#include "view/base/terminal.h"
 
 #include <stdlib.h>  // for exit, EXIT_FAILURE
 
@@ -9,9 +9,9 @@
 #include "ftxui/component/component.hpp"           // for CatchEvent, Make
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "ui/base/block.h"                         // for Block, BlockEvent
-#include "ui/block/file_info.h"                    // for FileInfo
-#include "ui/block/list_directory.h"               // for ListDirectory
+#include "view/base/block.h"                       // for Block, BlockEvent
+#include "view/block/file_info.h"                  // for FileInfo
+#include "view/block/list_directory.h"             // for ListDirectory
 
 namespace interface {
 
@@ -30,7 +30,10 @@ Terminal::~Terminal() {
 /* ********************************************************************************************** */
 
 void Terminal::Init() {
-  auto list_dir = Make<ListDirectory>(shared_from_this());
+  // TODO: remove this after developing
+  std::string custom_path = "/home/vinicius/projects/music-analyzer/";
+
+  auto list_dir = Make<ListDirectory>(shared_from_this(), custom_path);
   auto file_info = Make<FileInfo>(shared_from_this());
 
   Add(list_dir);
@@ -54,7 +57,7 @@ void Terminal::Exit() {
 void Terminal::Loop() {
   auto screen = ScreenInteractive::Fullscreen();
 
-  // DEBUG (idea of first "final" UI version)
+  // DEBUG (idea of first "final" view version)
   //   container_.reset();
   //   container_ = Renderer([&]() {
   //     return hflow({

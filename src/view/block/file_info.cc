@@ -1,4 +1,4 @@
-#include "ui/block/file_info.h"
+#include "view/block/file_info.h"
 
 #include <utility>  // for move
 #include <vector>   // for vector
@@ -20,15 +20,7 @@ FileInfo::FileInfo(const std::shared_ptr<Dispatcher>& d)
 
 Element FileInfo::Render() {
   Elements content;
-
-  if (file_) {
-    const auto lines = file_->GetFormattedStats();
-    for (const auto& line : lines) {
-      content.push_back(text(line));
-    }
-  } else {
-    content.push_back(text("No song has been chosen yet...") | dim);
-  }
+  content.push_back(text("No song has been chosen yet...") | dim);
 
   return window(text(" Information "),
                 vbox({
@@ -44,15 +36,8 @@ bool FileInfo::OnEvent(Event event) { return false; }
 
 void FileInfo::OnBlockEvent(BlockEvent event) {
   if (event == BlockEvent::FileSelected) {
-    ReadMusicFile(event.Content());  // get content from event
+    // send to controller event.Content()
   }
-}
-
-/* ********************************************************************************************** */
-
-void FileInfo::ReadMusicFile(std::string path) {
-  file_ = std::make_unique<WaveFormat>();
-  file_->ParseFromFile(SONG_PATH_FOR_DEV);
 }
 
 }  // namespace interface

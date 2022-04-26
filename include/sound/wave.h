@@ -44,16 +44,21 @@ class WaveFormat : public Song {
   /* ******************************************************************************************** */
 
   /**
-   * @brief Parse a given sound file to get its info
+   * @brief Parse only the header metadata from a given sound file
    *
-   * @param full_path Text containing path where file is located
+   * @param full_path Path where song is located
    * @return int Error code from operation
    */
-  int ParseFromFile(const std::string& full_path) override;
+  int ParseHeaderInfo(const std::string& full_path) override;
+
+  /**
+   * @brief Parse raw data from a given sound file (this is only possible after parsing header info)
+   * @return int Error code from operation
+   */
+  int ParseData() override;
 
   /**
    * @brief Get the Formatted Stats from parsed sound file
-   *
    * @return std::vector<std::string> Text splitted in lines
    */
   std::vector<std::string> GetFormattedStats() override;

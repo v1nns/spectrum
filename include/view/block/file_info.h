@@ -12,7 +12,7 @@
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "sound/song.h"                        // for Song
-#include "ui/base/block.h"                     // for Block, BlockEvent (ptr...
+#include "view/base/block.h"                   // for Block, BlockEvent (ptr...
 
 namespace interface {
 
@@ -53,11 +53,6 @@ class FileInfo : public Block {
    * @param event Received event from dispatcher
    */
   void OnBlockEvent(BlockEvent event) override;
-
-  /* ******************************************************************************************** */
- private:
-  // TODO: change name and document
-  void ReadMusicFile(std::string path);
 
   /* ******************************************************************************************* */
  private:
