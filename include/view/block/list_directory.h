@@ -105,7 +105,8 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
  private:
   /**
-   * @brief Refresh list with all files from the given directory path
+   * @brief Refresh list with all files from the given directory path TODO: move this to a
+   * controller?
    * @param dir_path Full path to directory
    */
   void RefreshList(const std::filesystem::path& dir_path);

@@ -3,8 +3,8 @@
  * \brief  Base class for a song
  */
 
-#ifndef INCLUDE_SONG_H_
-#define INCLUDE_SONG_H_
+#ifndef INCLUDE_MODEL_SONG_H_
+#define INCLUDE_MODEL_SONG_H_
 
 #include <cstdio>
 #include <fstream>
@@ -19,7 +19,7 @@ class Song {
   /**
    * @brief Construct a new Song object
    */
-  Song() : filename_(), file_(){};
+  Song() = default;
 
   /**
    * @brief Destroy the Song object
@@ -61,4 +61,4 @@ class Song {
   std::ifstream file_;    //!< File-based streambuffer pointing to sound file
 };
 
-#endif  // INCLUDE_SONG_H_
+#endif  // INCLUDE_MODEL_SONG_H_

@@ -31,7 +31,7 @@ class Dispatcher;  //!< Forward declaration
 class Block : std::enable_shared_from_this<Block>, public ComponentBase {
  protected:
   /**
-   * @brief Construct a new Block object
+   * @brief Construct a new Block object (only called by derived classes)
    * @param d Dispatcher
    * @param id Unique ID for block
    */

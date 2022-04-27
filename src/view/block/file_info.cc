@@ -4,7 +4,7 @@
 #include <vector>   // for vector
 
 #include "ftxui/component/event.hpp"  // for Event
-#include "sound/wave.h"               // for WaveFormat
+#include "model/wave.h"               // for WaveFormat
 
 namespace interface {
 

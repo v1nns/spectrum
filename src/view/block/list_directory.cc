@@ -247,13 +247,9 @@ bool ListDirectory::OnMenuNavigation(Event event) {
       } else if (std::filesystem::is_directory(*active)) {
         new_dir = curr_dir_ / active->filename();
       } else {
-        // TODO: this should be less coupled (this class should not know about supported extensions)
-        // Currently, we only support wav extension
-        if (active->extension() == ".wav") {
-          auto new_event = BlockEvent::FileSelected;
-          new_event.SetContent(active->string());
-          Send(new_event);
-        }
+        auto new_event = BlockEvent::FileSelected;
+        new_event.SetContent(active->string());
+        Send(new_event);
       }
 
       if (!new_dir.empty()) {

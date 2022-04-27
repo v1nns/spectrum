@@ -3,14 +3,14 @@
  * \brief  Class to read data samples from a WAVE file.
  */
 
-#ifndef INCLUDE_WAVE_H_
-#define INCLUDE_WAVE_H_
+#ifndef INCLUDE_MODEL_WAVE_H_
+#define INCLUDE_MODEL_WAVE_H_
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include "sound/song.h"
+#include "model/song.h"
 
 // Based on canonical WAVE format from this link:
 // http://soundfile.sapp.org/doc/WaveFormat
@@ -37,11 +37,10 @@ struct wave_header_t {
 };
 
 /* ********************************************************************************************** */
+
 class WaveFormat : public Song {
  public:
   using Song::Song;
-
-  /* ******************************************************************************************** */
 
   /**
    * @brief Parse only the header metadata from a given sound file
@@ -68,4 +67,4 @@ class WaveFormat : public Song {
   wave_header_t header_;  //!< Header from WAVE file
 };
 
-#endif  // INCLUDE_WAVE_H_
+#endif  // INCLUDE_MODEL_WAVE_H_

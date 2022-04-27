@@ -11,7 +11,7 @@
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/dom/elements.hpp"              // for Element
-#include "sound/song.h"                        // for Song
+#include "model/song.h"                        // for Song
 #include "view/base/block.h"                   // for Block, BlockEvent (ptr...
 
 namespace interface {

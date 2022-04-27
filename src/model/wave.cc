@@ -1,4 +1,4 @@
-#include "sound/wave.h"
+#include "model/wave.h"
 
 #include <stdio.h>  // for fclose, fopen, fprintf, fread, size_t
 
