@@ -15,7 +15,7 @@
 /**
  * @brief TODO: Listen for Block action, MUST THINK WHERE THIS SHOULD BE LOCATED
  */
-class BlockListener {
+class ActionListener {
  public:
   virtual void UserSelectedFile() = 0;
 };
@@ -23,7 +23,7 @@ class BlockListener {
 /**
  * @brief Player controller
  */
-class Player : BlockListener {
+class Player : ActionListener {
  public:
   /**
    * @brief Construct a new Player object

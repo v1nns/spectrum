@@ -3,8 +3,8 @@
  * \brief  Class for block containing file list
  */
 
-#ifndef INCLUDE_UI_BLOCK_LIST_DIRECTORY_H_
-#define INCLUDE_UI_BLOCK_LIST_DIRECTORY_H_
+#ifndef INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
+#define INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 
 #include <filesystem>  // for path
 #include <memory>      // for shared_ptr
@@ -148,4 +148,4 @@ class ListDirectory : public Block {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_BLOCK_LIST_DIRECTORY_H_
+#endif  // INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
