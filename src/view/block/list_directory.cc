@@ -14,10 +14,9 @@
 #include "ftxui/component/mouse.hpp"           // for Mouse
 #include "ftxui/screen/color.hpp"              // for Color
 #include "ftxui/util/ref.hpp"                  // for Ref
+#include "view/base/event_dispatcher.h"
 
 namespace interface {
-
-class Dispatcher;
 
 /**
  * @brief Create a new custom style for Menu Entry
@@ -44,7 +43,8 @@ constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
 
 /* ********************************************************************************************** */
 
-ListDirectory::ListDirectory(const std::shared_ptr<Dispatcher>& d, const std::string& optional_path)
+ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& d,
+                             const std::string& optional_path)
     : Block(d, kBlockListDirectory),
       curr_dir_(optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)),
@@ -57,6 +57,8 @@ ListDirectory::ListDirectory(const std::shared_ptr<Dispatcher>& d, const std::st
       boxes_(),
       box_(),
       mode_search_(std::nullopt) {
+  // TODO: this is not good, read this below
+  // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
   RefreshList(curr_dir_);
 }
 

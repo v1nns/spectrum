@@ -36,7 +36,7 @@ class ListDirectory : public Block {
    * @param d Block event dispatcher
    * @param optional_path List files from custom path instead of the current one
    */
-  explicit ListDirectory(const std::shared_ptr<Dispatcher>& d,
+  explicit ListDirectory(const std::shared_ptr<EventDispatcher>& d,
                          const std::string& optional_path = "");
 
   /**

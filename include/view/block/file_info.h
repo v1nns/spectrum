@@ -3,8 +3,8 @@
  * \brief  Class for block containing file info
  */
 
-#ifndef INCLUDE_UI_BLOCK_FILE_INFO_H_
-#define INCLUDE_UI_BLOCK_FILE_INFO_H_
+#ifndef INCLUDE_VIEW_BLOCK_FILE_INFO_H_
+#define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
 #include <memory>  // for shared_ptr, unique_ptr
 #include <string>  // for string
@@ -27,7 +27,7 @@ class FileInfo : public Block {
    * @brief Construct a new File Info object
    * @param d Block event dispatcher
    */
-  explicit FileInfo(const std::shared_ptr<Dispatcher>& d);
+  explicit FileInfo(const std::shared_ptr<EventDispatcher>& d);
 
   /**
    * @brief Destroy the File Info object
@@ -60,4 +60,4 @@ class FileInfo : public Block {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_BLOCK_FILE_INFO_H_
+#endif  // INCLUDE_VIEW_BLOCK_FILE_INFO_H_

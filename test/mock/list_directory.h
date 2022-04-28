@@ -16,7 +16,6 @@
 #include "view/block/list_directory.h"  // for ListDirectory
 
 namespace {
-using interface::Dispatcher;
 
 //! Implement custom action to show only directory filename instead of the full path
 ACTION_P(ReturnPointee, p) { return p->filename().string(); }
@@ -24,7 +23,7 @@ ACTION_P(ReturnPointee, p) { return p->filename().string(); }
 //! Mock class to change default behaviour when rendering the inner element corresponding to Title
 class MockListDirectory : public interface::ListDirectory {
  public:
-  MockListDirectory(const std::shared_ptr<interface::Dispatcher>& d, const std::string& s)
+  MockListDirectory(const std::shared_ptr<interface::EventDispatcher>& d, const std::string& s)
       : interface::ListDirectory(d, s) {
     SetupTitleExpectation();
   }

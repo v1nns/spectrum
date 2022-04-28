@@ -4,8 +4,8 @@
 
 #include "error_table.h"
 
-Player::Player(const std::shared_ptr<interface::Dispatcher>& d)
-    : dispatcher_(d), curr_song_(nullptr) {}
+Player::Player(const std::shared_ptr<interface::EventDispatcher>& d)
+    : interface::ActionListener(), dispatcher_(d), curr_song_(nullptr) {}
 
 /* ********************************************************************************************** */
 

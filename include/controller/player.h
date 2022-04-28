@@ -10,25 +10,18 @@
 #include <memory>
 
 #include "model/song.h"
-#include "view/base/terminal.h"
+#include "view/base/action_listener.h"
+#include "view/base/event_dispatcher.h"
 
 /**
- * @brief TODO: Listen for Block action, MUST THINK WHERE THIS SHOULD BE LOCATED
+ * @brief TODO: Player controller
  */
-class ActionListener {
- public:
-  virtual void UserSelectedFile() = 0;
-};
-
-/**
- * @brief Player controller
- */
-class Player : ActionListener {
+class Player : public interface::ActionListener {
  public:
   /**
    * @brief Construct a new Player object
    */
-  Player(const std::shared_ptr<interface::Dispatcher>& d);
+  Player(const std::shared_ptr<interface::EventDispatcher>& d);
 
   /**
    * @brief Destroy the Player object
@@ -48,8 +41,8 @@ class Player : ActionListener {
   int Load(const std::filesystem::path& file);
 
  private:
-  std::weak_ptr<interface::Dispatcher> dispatcher_;
-  std::unique_ptr<Song> curr_song_;
+  std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  std::unique_ptr<Song> curr_song_;                       //! TODO: ...
 };
 
 #endif  // INCLUDE_CONTROLLER_PLAYER_H_

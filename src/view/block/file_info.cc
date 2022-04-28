@@ -13,7 +13,7 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo(const std::shared_ptr<Dispatcher>& d)
+FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& d)
     : Block(d, kBlockFileInfo), file_(nullptr) {}
 
 /* ********************************************************************************************** */

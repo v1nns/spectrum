@@ -3,8 +3,8 @@
  * \brief  Class representing a block event
  */
 
-#ifndef INCLUDE_UI_BASE_BLOCK_EVENT_H_
-#define INCLUDE_UI_BASE_BLOCK_EVENT_H_
+#ifndef INCLUDE_VIEW_BASE_BLOCK_EVENT_H_
+#define INCLUDE_VIEW_BASE_BLOCK_EVENT_H_
 
 #include <string>
 
@@ -15,18 +15,21 @@ struct BlockEvent {
   // TODO: implement custom events with content (check event.hpp/cpp from ftxui)
   static BlockEvent Special(std::string);
 
-  static BlockEvent FileSelected;
-
+  //! Overload operators
   bool operator==(const BlockEvent& other) const { return type_ == other.type_; }
   bool operator!=(const BlockEvent& other) const { return !operator==(other); }
 
+  //! Setter and getter
   void SetContent(const std::string& content) { content_ = std::move(content); }
   const std::string& Content() const { return content_; }
 
+  //! Possible events
+  static BlockEvent FileSelected;
+
  private:
-  std::string type_;
-  std::string content_;
+  std::string type_;     // Event name
+  std::string content_;  // Content to send through event (optional)
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_BASE_BLOCK_EVENT_H_
+#endif  // INCLUDE_VIEW_BASE_BLOCK_EVENT_H_

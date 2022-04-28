@@ -3,42 +3,28 @@
  * \brief  Class representing the whole terminal
  */
 
-#ifndef INCLUDE_UI_BASE_TERMINAL_H_
-#define INCLUDE_UI_BASE_TERMINAL_H_
+#ifndef INCLUDE_VIEW_BASE_TERMINAL_H_
+#define INCLUDE_VIEW_BASE_TERMINAL_H_
 
 #include <memory>
 #include <vector>
 
 // #include "error/error_table.h"
+#include "controller/player.h"
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
+#include "view/base/block.h"
+#include "view/base/block_event.h"
+#include "view/base/event_dispatcher.h"
 
 namespace interface {
 
 using namespace ftxui;
 
-//! Forward declaration
-class Block;
-struct BlockEvent;
-
-/**
- * @brief Base class to dispatch events among the different blocks
- */
-class Dispatcher : public std::enable_shared_from_this<Dispatcher> {
- public:
-  virtual ~Dispatcher() = default;
-
-  virtual void Add(const std::shared_ptr<Block>&) = 0;
-  virtual void Broadcast(Block*, BlockEvent) = 0;
-
- protected:
-  Dispatcher() = default;
-};
-
 /**
  * @brief Class that manages the whole screen and contains all blocks
  */
-class Terminal : public Dispatcher {
+class Terminal : public EventDispatcher {
  public:
   /**
    * @brief Construct a new Terminal object
@@ -83,9 +69,11 @@ class Terminal : public Dispatcher {
 
   /* ******************************************************************************************** */
  private:
+  std::shared_ptr<Player> player_;              //!< Player controller
   std::vector<std::shared_ptr<Block>> blocks_;  //!< List of all blocks composing the interface
-  Component container_;                         //!< The glue that holds the blocks together
+
+  Component container_;  //!< The glue that holds the blocks together
 };
 
 }  // namespace interface
-#endif  // INCLUDE_UI_BASE_TERMINAL_H_
+#endif  // INCLUDE_VIEW_BASE_TERMINAL_H_

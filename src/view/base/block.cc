@@ -4,8 +4,14 @@
 
 namespace interface {
 
-Block::Block(const std::shared_ptr<Dispatcher>& d, const unsigned int id)
-    : dispatcher_(d), id_(id) {}
+Block::Block(const std::shared_ptr<EventDispatcher>& d, const unsigned int id)
+    : ComponentBase(), dispatcher_(d), listener_(nullptr), id_(id) {}
+
+/* ********************************************************************************************** */
+
+void Block::SetActionListener(const std::shared_ptr<ActionListener>& listener) {
+  listener_ = listener;
+}
 
 /* ********************************************************************************************** */
 
