@@ -13,34 +13,38 @@
 
 namespace error {
 
+//! To make life easier in the first versions, error is simple an int
+using Value = int;
+
 //! Everything fine!
-static constexpr int kSuccess = 0;
+static constexpr Value kSuccess = 0;
 
 //! Terminal errors
-static constexpr int kTerminalInitialization = 1;
-static constexpr int kTerminalColorsUnavailable = 2;
+static constexpr Value kTerminalInitialization = 1;
+static constexpr Value kTerminalColorsUnavailable = 2;
 
-//! Song parser errors
-static constexpr int kInvalidFile = 30;
-static constexpr int kFileNotSupported = 31;
-static constexpr int kFileCompressionNotSupported = 32;
-static constexpr int kUnknownNumOfChannels = 33;
-static constexpr int kInconsistentHeaderInfo = 34;
+//! Song errors
+static constexpr Value kInvalidFile = 30;
+static constexpr Value kFileNotSupported = 31;
+static constexpr Value kFileCompressionNotSupported = 32;
+static constexpr Value kUnknownNumOfChannels = 33;
+static constexpr Value kInconsistentHeaderInfo = 34;
 
 /* ********************************************************************************************** */
 
-//! Single entry for error message <code, message>
-using message_t = std::pair<int, std::string_view>;
-
 /**
- * @brief Class containing a map with all possible errors to occur during application lifetime
+ * @brief Class holding the map with all possible errors that may occur during application lifetime
  */
-class ErrorTable {
+class Table {
  private:
-  //! Map containing all "mapped" errors (pun intended)
-  static constexpr std::array<message_t, 6> kErrorMap{
+  //! Single entry for error message <code, message>
+  using Message = std::pair<Value, std::string_view>;
+
+  //! Array similar to a map and contains all "mapped" errors (pun intended)
+  static constexpr std::array<Message, 6> kErrorMap{
       {{kTerminalInitialization, "Could not initialize screen"},
        {kTerminalColorsUnavailable, "No support to change colors"},
+       {kInvalidFile, "Invalid file"},
        {kFileNotSupported, "File not supported"},
        {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
        {kUnknownNumOfChannels,
@@ -54,15 +58,15 @@ class ErrorTable {
    * @brief Get the error associated to the specific code
    *
    * @param code Error code
-   * @return message_t Error detail
+   * @return Message Error detail
    */
-  message_t GetMessage(int code) {
-    auto find_error = [&code](message_t element) { return element.first == code; };
+  const std::string_view GetMessage(Value id) {
+    auto find_error = [&id](Message element) { return element.first == id; };
 
     auto error = std::find_if(kErrorMap.begin(), kErrorMap.end(), find_error);
     assert(error != kErrorMap.end());
 
-    return *error;
+    return error->second;
   }
 };
 

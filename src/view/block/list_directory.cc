@@ -249,9 +249,8 @@ bool ListDirectory::OnMenuNavigation(Event event) {
       } else if (std::filesystem::is_directory(*active)) {
         new_dir = curr_dir_ / active->filename();
       } else {
-        auto new_event = BlockEvent::FileSelected;
-        new_event.SetContent(active->string());
-        Send(new_event);
+        // Send user action to controller
+        listener_->NotifyFileSelection(*active);
       }
 
       if (!new_dir.empty()) {

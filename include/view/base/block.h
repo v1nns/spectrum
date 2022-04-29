@@ -53,10 +53,10 @@ class Block : std::enable_shared_from_this<Block>, public ComponentBase {
   virtual void OnBlockEvent(BlockEvent) = 0;
 
   /* ******************************************************************************************** */
-  //! Set action listener (optional)
-  void SetActionListener(const std::shared_ptr<ActionListener>& listener);
+  //! Attach listener to receive action notifications (optional)
+  void Attach(const std::shared_ptr<ActionListener>& listener);
 
-  //! Send a block event for other blocks
+  //! Send an event for other blocks
   void Send(BlockEvent event);
 
   //! Unique ID

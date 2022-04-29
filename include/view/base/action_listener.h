@@ -5,6 +5,9 @@
 
 #ifndef INCLUDE_VIEW_BASE_ACTION_LISTENER_H_
 #define INCLUDE_VIEW_BASE_ACTION_LISTENER_H_
+
+#include <filesystem>
+
 namespace interface {
 
 /**
@@ -24,7 +27,7 @@ class ActionListener {
   virtual ~ActionListener() = default;
 
   //! Implemented by derived class
-  virtual void UserSelectedFile() = 0;
+  virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
 };
 
 }  // namespace interface

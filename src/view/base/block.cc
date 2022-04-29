@@ -9,9 +9,7 @@ Block::Block(const std::shared_ptr<EventDispatcher>& d, const unsigned int id)
 
 /* ********************************************************************************************** */
 
-void Block::SetActionListener(const std::shared_ptr<ActionListener>& listener) {
-  listener_ = listener;
-}
+void Block::Attach(const std::shared_ptr<ActionListener>& listener) { listener_ = listener; }
 
 /* ********************************************************************************************** */
 

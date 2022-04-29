@@ -23,9 +23,7 @@ Terminal::Terminal() : EventDispatcher(), player_(nullptr), blocks_(), container
 
 Terminal::~Terminal() {
   container_.reset();
-  for (auto& block : blocks_) {
-    block.reset();
-  }
+  blocks_.clear();
   player_.reset();
 }
 
@@ -36,13 +34,14 @@ void Terminal::Init() {
   std::string custom_path = "/home/vinicius/projects/music-analyzer/";
 
   // Create controllers
-  player_ = std::make_shared<Player>(shared_from_this());
+  player_ = std::make_shared<controller::Player>(shared_from_this());
 
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(shared_from_this(), custom_path);
   auto file_info = std::make_shared<FileInfo>(shared_from_this());
 
-  list_dir->SetActionListener(std::static_pointer_cast<ActionListener>(player_));
+  // Attach controller as listener to block actions
+  list_dir->Attach(std::static_pointer_cast<ActionListener>(player_));
 
   Add(list_dir);
   Add(file_info);
