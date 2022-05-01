@@ -24,7 +24,7 @@ struct BlockEvent {
   const std::string& Content() const { return content_; }
 
   //! Possible events
-  static BlockEvent FileSelected;
+  static BlockEvent UpdateFileInfo;
 
  private:
   std::string type_;     // Event name

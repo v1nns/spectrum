@@ -97,7 +97,7 @@ void Terminal::Add(const std::shared_ptr<Block>& b) { blocks_.push_back(std::mov
 
 void Terminal::Broadcast(Block* sender, BlockEvent event) {
   for (auto& block : blocks_) {
-    if (block->GetId() != sender->GetId()) {
+    if (sender == nullptr || block->GetId() != sender->GetId()) {
       block->OnBlockEvent(event);
     }
   }

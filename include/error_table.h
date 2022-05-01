@@ -41,7 +41,7 @@ class Table {
   using Message = std::pair<Value, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 6> kErrorMap{
+  static constexpr std::array<Message, 7> kErrorMap{
       {{kTerminalInitialization, "Could not initialize screen"},
        {kTerminalColorsUnavailable, "No support to change colors"},
        {kInvalidFile, "Invalid file"},

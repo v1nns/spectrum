@@ -5,6 +5,7 @@
 #include <algorithm>  // for max
 #include <cassert>    // for assert
 #include <fstream>    // for operator<<, basic_ostream, endl, basi...
+#include <iostream>
 #include <iterator>
 #include <sstream>  // for ostringstream
 
@@ -27,7 +28,14 @@ int WaveFormat::ParseHeaderInfo(const std::string& full_path) {
   std::string format(header_.WAVE, header_.WAVE + 4);
   std::string subchunk1Id(header_.Subchunk1ID, header_.Subchunk1ID + 4);
 
-  if (chunkId != "RIFF" || format != "WAVE" || subchunk1Id != "FMT") {
+  // Given sub-string is uppercase, search for it in the given text
+  auto find_substr = [](std::string text, std::string to_search) {
+    std::transform(text.begin(), text.end(), text.begin(), ::toupper);
+    return text.find(to_search) != std::string::npos;
+  };
+
+  if (!find_substr(chunkId, "RIFF") || !find_substr(format, "WAVE") ||
+      !find_substr(subchunk1Id, "FMT")) {
     return error::kFileNotSupported;
   }
 
@@ -43,6 +51,15 @@ int WaveFormat::ParseHeaderInfo(const std::string& full_path) {
        (header_.NumChannels * header_.SampleRate * header_.BitsPerSample) / 8)) {
     return error::kInconsistentHeaderInfo;
   }
+
+  // After parsing successfully, fill audio information
+  info_ = AudioData{
+      .file_format = "WAV",
+      .num_channels = header_.NumChannels,
+      .sample_rate = header_.SampleRate,
+      .bit_rate = header_.ByteRate * 8,
+      .bit_depth = header_.BitsPerSample,
+  };
 
   file_.seekg(sizeof(wave_header_t));
   return error::kSuccess;
@@ -102,43 +119,19 @@ int WaveFormat::ParseData() {
 
 /* ********************************************************************************************** */
 
-std::vector<std::string> WaveFormat::GetFormattedStats() {
-  std::vector<std::string> output{};
-  std::ostringstream s;
+// TODO: REMOVE FROM HERE ...
+std::ostream& operator<<(std::ostream& os, const AudioData& arg) {
+  os << "Audio file format: " << arg.file_format << ".";
+  os << "Number of channels: " << arg.num_channels << ".";
+  os << "Sample rate: " << arg.sample_rate << ".";
+  os << "Bit rate: " << arg.bit_rate << ".";
+  os << "Bits per sample: " << arg.bit_depth << ".";
+  return os;
+}
 
-  s.str("");
-  s << "Data size: " << header_.ChunkSize << std::endl;
-  output.push_back(s.str());
-
-  // Display the sampling Rate from the header
-  s.str("");
-  s << "Sampling Rate: " << header_.SampleRate << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "Number of bits used: " << header_.BitsPerSample << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "Number of channels: " << header_.NumChannels << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "Number of bytes per second: " << header_.ByteRate << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "Data length: " << header_.Subchunk2Size << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  // Audio format 1=PCM,6=mulaw,7=alaw, 257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
-  s << "Audio Format: " << header_.AudioFormat << std::endl;
-  output.push_back(s.str());
-
-  s.str("");
-  s << "Block align: " << header_.BlockAlign << std::endl;
-  output.push_back(s.str());
-
-  return output;
+// TODO: ...
+std::string to_string(const AudioData& arg) {
+  std::ostringstream ss;
+  ss << arg;
+  return std::move(ss).str();
 }

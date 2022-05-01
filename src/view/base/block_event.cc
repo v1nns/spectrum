@@ -1,5 +1,7 @@
 #include "view/base/block_event.h"
 
+#include "model/song.h"
+
 namespace interface {
 
 BlockEvent BlockEvent::Special(std::string name) {
@@ -8,6 +10,6 @@ BlockEvent BlockEvent::Special(std::string name) {
   return e;
 }
 
-BlockEvent BlockEvent::FileSelected = BlockEvent::Special("FileSelected");
+BlockEvent BlockEvent::UpdateFileInfo = BlockEvent::Special("UpdateFileInfo");
 
 }  // namespace interface

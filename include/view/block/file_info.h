@@ -56,7 +56,7 @@ class FileInfo : public Block {
 
   /* ******************************************************************************************* */
  private:
-  std::unique_ptr<Song> file_;
+  std::string audio_info_;  //!< Audio information from current song
 };
 
 }  // namespace interface

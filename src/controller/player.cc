@@ -4,6 +4,7 @@
 
 #include "error_table.h"
 #include "model/wave.h"
+#include "view/base/block_event.h"
 
 namespace controller {
 
@@ -16,8 +17,18 @@ void Player::NotifyFileSelection(const std::filesystem::path& file) {
   auto result = Load(file);
   if (result == error::kSuccess) {
     // TODO: steps
-    // notify blocks
-    // send to alsa
+    // notify blocks [X]
+    // send to alsa  [ ]
+
+    // Create a block event
+    auto event = interface::BlockEvent::UpdateFileInfo;
+    std::string audio_info = to_string(curr_song_->GetAudioInformation());
+    event.SetContent(audio_info);
+
+    // Notify all blocks with this event
+    if (auto d = dispatcher_.lock()) {
+      d->Broadcast(nullptr, event);
+    }  // TODO: or else?
   }
 }
 
