@@ -24,8 +24,9 @@ namespace interface {
  * @param c Color
  * @return MenuEntryOption Custom object with the requested color
  */
-MenuEntryOption Colored(ftxui::Color c) {
-  return MenuEntryOption{
+ftxui::MenuEntryOption Colored(ftxui::Color c) {
+  using ftxui::Decorator, ftxui::color, ftxui::inverted;
+  return ftxui::MenuEntryOption{
       .style_normal = Decorator(color(c)),
       .style_focused = Decorator(color(c)) | inverted,
       .style_selected = Decorator(color(c)),
@@ -51,9 +52,9 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& d,
       entries_(),
       selected_(0),
       focused_(0),
-      styles_({.directory = std::move(Colored(Color::Green)),
-               .file = std::move(Colored(Color::White)),
-               .playing = std::move(Colored(Color::Aquamarine1))}),
+      styles_({.directory = std::move(Colored(ftxui::Color::Green)),
+               .file = std::move(Colored(ftxui::Color::White)),
+               .playing = std::move(Colored(ftxui::Color::Aquamarine1))}),
       boxes_(),
       box_(),
       mode_search_(std::nullopt) {
@@ -64,16 +65,16 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& d,
 
 /* ********************************************************************************************** */
 
-Element ListDirectory::Render() {
+ftxui::Element ListDirectory::Render() {
   Clamp();
-  Elements entries;
+  ftxui::Elements entries;
   bool is_menu_focused = Focused();
 
   int* selected = GetSelected();
   int* focused = GetFocused();
 
   // Title
-  Element curr_dir_title = text(GetTitle().c_str()) | bold;
+  ftxui::Element curr_dir_title = ftxui::text(GetTitle().c_str()) | ftxui::bold;
 
   // Fill list with entries
   for (int i = 0; i < Size(); ++i) {
@@ -84,38 +85,40 @@ Element ListDirectory::Render() {
     auto& type = std::filesystem::is_directory(entry) ? styles_.directory : styles_.file;
     const char* icon = is_selected ? "> " : "  ";
 
-    Decorator style = is_selected ? (is_focused ? type.style_selected_focused : type.style_selected)
-                                  : (is_focused ? type.style_focused : type.style_normal);
+    ftxui::Decorator style = is_selected
+                                 ? (is_focused ? type.style_selected_focused : type.style_selected)
+                                 : (is_focused ? type.style_focused : type.style_normal);
 
-    auto focus_management = is_focused ? ftxui::select : nothing;
+    auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
-    entries.push_back(text(icon + entry.filename().string()) | style | focus_management |
-                      reflect(boxes_[i]));
+    entries.push_back(ftxui::text(icon + entry.filename().string()) | style | focus_management |
+                      ftxui::reflect(boxes_[i]));
   }
 
   // Build up the content
-  Elements content{
-      hbox(std::move(curr_dir_title)),
-      vbox(std::move(entries)) | reflect(box_) | frame | flex,
+  ftxui::Elements content{
+      ftxui::hbox(std::move(curr_dir_title)),
+      ftxui::vbox(std::move(entries)) | ftxui::reflect(box_) | ftxui::frame | ftxui::flex,
   };
 
   // Append search box, if enabled
   if (mode_search_) {
-    InputOption opt{.cursor_position = mode_search_->text_to_search.size()};
-    Element search_box = hbox({
-        text("Search:"),
-        Input(&mode_search_->text_to_search, " ", &opt)->Render() | inverted,
+    ftxui::InputOption opt{.cursor_position = mode_search_->text_to_search.size()};
+    ftxui::Element search_box = ftxui::hbox({
+        ftxui::text("Search:"),
+        ftxui::Input(&mode_search_->text_to_search, " ", &opt)->Render() | ftxui::inverted,
     });
 
     content.push_back(std::move(search_box));
   }
-
-  return window(text(" Files "), vbox(std::move(content)) | flex | size(WIDTH, EQUAL, kMaxColumns));
+  using ftxui::WIDTH, ftxui::EQUAL;
+  return ftxui::window(ftxui::text(" Files "), ftxui::vbox(std::move(content)) | ftxui::flex |
+                                                   ftxui::size(WIDTH, EQUAL, kMaxColumns));
 }
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnEvent(Event event) {
+bool ListDirectory::OnEvent(ftxui::Event event) {
   Clamp();
 
   if (event.is_mouse()) {
@@ -132,7 +135,7 @@ bool ListDirectory::OnEvent(Event event) {
     }
 
     // Enable search mode
-    if (!mode_search_ && event == Event::Character('/')) {
+    if (!mode_search_ && event == ftxui::Event::Character('/')) {
       mode_search_ = Search({
           .text_to_search = "",
           .entries = entries_,
@@ -154,12 +157,13 @@ void ListDirectory::OnBlockEvent(BlockEvent event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnMouseEvent(Event event) {
-  if (event.mouse().button == Mouse::WheelDown || event.mouse().button == Mouse::WheelUp) {
+bool ListDirectory::OnMouseEvent(ftxui::Event event) {
+  if (event.mouse().button == ftxui::Mouse::WheelDown ||
+      event.mouse().button == ftxui::Mouse::WheelUp) {
     return OnMouseWheel(event);
   }
 
-  if (event.mouse().button != Mouse::None && event.mouse().button != Mouse::Left) {
+  if (event.mouse().button != ftxui::Mouse::None && event.mouse().button != ftxui::Mouse::Left) {
     return false;
   }
 
@@ -173,7 +177,8 @@ bool ListDirectory::OnMouseEvent(Event event) {
 
     TakeFocus();
     *focused = i;
-    if (event.mouse().button == Mouse::Left && event.mouse().motion == Mouse::Released) {
+    if (event.mouse().button == ftxui::Mouse::Left &&
+        event.mouse().motion == ftxui::Mouse::Released) {
       // Mouse click on menu entry
       if (*selected != i) *selected = i;
       return true;
@@ -185,7 +190,7 @@ bool ListDirectory::OnMouseEvent(Event event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnMouseWheel(Event event) {
+bool ListDirectory::OnMouseWheel(ftxui::Event event) {
   if (!box_.Contain(event.mouse().x, event.mouse().y)) {
     return false;
   }
@@ -195,12 +200,12 @@ bool ListDirectory::OnMouseWheel(Event event) {
 
   int old_selected = *selected;
 
-  if (event.mouse().button == Mouse::WheelUp) {
+  if (event.mouse().button == ftxui::Mouse::WheelUp) {
     (*selected)--;
     (*focused)--;
   }
 
-  if (event.mouse().button == Mouse::WheelDown) {
+  if (event.mouse().button == ftxui::Mouse::WheelDown) {
     (*selected)++;
     (*focused)++;
   }
@@ -213,21 +218,21 @@ bool ListDirectory::OnMouseWheel(Event event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnMenuNavigation(Event event) {
+bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
   bool event_handled = false;
   int* selected = GetSelected();
   int* focused = GetFocused();
 
   int old_selected = *selected;
 
-  if (event == Event::ArrowUp || event == Event::Character('k')) (*selected)--;
-  if (event == Event::ArrowDown || event == Event::Character('j')) (*selected)++;
-  if (event == Event::PageUp) (*selected) -= box_.y_max - box_.y_min;
-  if (event == Event::PageDown) (*selected) += box_.y_max - box_.y_min;
-  if (event == Event::Home) (*selected) = 0;
-  if (event == Event::End) (*selected) = Size() - 1;
-  if (event == Event::Tab && Size()) *selected = (*selected + 1) % Size();
-  if (event == Event::TabReverse && Size()) *selected = (*selected + Size() - 1) % Size();
+  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) (*selected)--;
+  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) (*selected)++;
+  if (event == ftxui::Event::PageUp) (*selected) -= box_.y_max - box_.y_min;
+  if (event == ftxui::Event::PageDown) (*selected) += box_.y_max - box_.y_min;
+  if (event == ftxui::Event::Home) (*selected) = 0;
+  if (event == ftxui::Event::End) (*selected) = Size() - 1;
+  if (event == ftxui::Event::Tab && Size()) *selected = (*selected + 1) % Size();
+  if (event == ftxui::Event::TabReverse && Size()) *selected = (*selected + Size() - 1) % Size();
 
   if (*selected != old_selected) {
     *selected = clamp(*selected, 0, Size() - 1);
@@ -239,7 +244,7 @@ bool ListDirectory::OnMenuNavigation(Event event) {
   }
 
   // Otherwise, user may want to change current directory
-  if (event == Event::Return) {
+  if (event == ftxui::Event::Return) {
     std::filesystem::path new_dir;
     auto active = GetActiveEntry();
 
@@ -269,7 +274,7 @@ bool ListDirectory::OnMenuNavigation(Event event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnSearchModeEvent(Event event) {
+bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
   bool event_handled = false;
 
   // Any alphabetic character
@@ -279,13 +284,13 @@ bool ListDirectory::OnSearchModeEvent(Event event) {
   }
 
   // Backspace
-  if (event == Event::Backspace && !(mode_search_->text_to_search.empty())) {
+  if (event == ftxui::Event::Backspace && !(mode_search_->text_to_search.empty())) {
     mode_search_->text_to_search.pop_back();
     event_handled = true;
   }
 
   // Ctrl + Backspace
-  if (event == Event::Special({8}) || event == Event::Special("\027")) {
+  if (event == ftxui::Event::Special({8}) || event == ftxui::Event::Special("\027")) {
     mode_search_->text_to_search.clear();
     event_handled = true;
   }
@@ -295,7 +300,7 @@ bool ListDirectory::OnSearchModeEvent(Event event) {
   }
 
   // Quit search mode
-  if (event == Event::Escape) {
+  if (event == ftxui::Event::Escape) {
     mode_search_.reset();
     event_handled = true;
   }

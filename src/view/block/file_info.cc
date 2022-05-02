@@ -18,11 +18,11 @@ FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& d)
 
 /* ********************************************************************************************** */
 
-Element FileInfo::Render() {
-  Elements content;
+ftxui::Element FileInfo::Render() {
+  ftxui::Elements content;
 
   if (audio_info_.empty()) {
-    content.push_back(text("No song has been chosen yet...") | dim);
+    content.push_back(ftxui::text("No song has been chosen yet...") | ftxui::dim);
   } else {
     // TODO: improve this... This will split the string into multiple lines using "." as delimiter
     std::string::size_type prev_pos = 0, pos = 0;
@@ -33,9 +33,10 @@ Element FileInfo::Render() {
 
       // split into two strings to apply styles in the first one
       std::string::size_type token_index = substring.find(":");
-      Element line = hbox({
-          text(substring.substr(0, token_index)) | bold | color(Color::CadetBlue),
-          text(substring.substr(token_index)),
+      ftxui::Element line = ftxui::hbox({
+          ftxui::text(substring.substr(0, token_index)) | ftxui::bold |
+              ftxui::color(ftxui::Color::CadetBlue),
+          ftxui::text(substring.substr(token_index)),
       });
 
       content.push_back(line);
@@ -43,15 +44,17 @@ Element FileInfo::Render() {
     }
   }
 
-  return window(text(" Information "),
-                vbox({
-                    vbox(std::move(content)) | frame | xflex | size(HEIGHT, EQUAL, 15),
-                }));
+  using ftxui::HEIGHT, ftxui::EQUAL;
+  return ftxui::window(ftxui::text(" Information "),
+                       ftxui::vbox({
+                           ftxui::vbox(std::move(content)) | ftxui::frame | ftxui::xflex |
+                               ftxui::size(HEIGHT, EQUAL, 15),
+                       }));
 }
 
 /* ********************************************************************************************** */
 
-bool FileInfo::OnEvent(Event event) { return false; }
+bool FileInfo::OnEvent(ftxui::Event event) { return false; }
 
 /* ********************************************************************************************** */
 

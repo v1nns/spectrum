@@ -46,7 +46,7 @@ void Terminal::Init() {
   Add(list_dir);
   Add(file_info);
 
-  container_ = Container::Vertical({blocks_.at(0), blocks_.at(1)});
+  container_ = ftxui::Container::Vertical({blocks_.at(0), blocks_.at(1)});
 }
 
 /* ********************************************************************************************** */
@@ -62,7 +62,7 @@ void Terminal::Exit() {
 /* ********************************************************************************************** */
 
 void Terminal::Loop() {
-  auto screen = ScreenInteractive::Fullscreen();
+  auto screen = ftxui::ScreenInteractive::Fullscreen();
 
   // DEBUG (idea of first "final" view version)
   //   container_.reset();
@@ -78,8 +78,8 @@ void Terminal::Loop() {
   // END DEBUG
 
   // Handle events and run global commands
-  container_ = CatchEvent(container_, [&](Event event) {
-    if (event == Event::Character('q')) {
+  container_ = ftxui::CatchEvent(container_, [&](ftxui::Event event) {
+    if (event == ftxui::Event::Character('q')) {
       screen.ExitLoopClosure()();
       return true;
     }

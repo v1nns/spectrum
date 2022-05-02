@@ -20,8 +20,6 @@
 
 namespace interface {
 
-using namespace ftxui;
-
 //! For better readability
 using File = std::filesystem::path;  //!< Single file path
 using Files = std::vector<File>;     //!< List of file paths
@@ -48,7 +46,7 @@ class ListDirectory : public Block {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  Element Render() override;
+  ftxui::Element Render() override;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -56,7 +54,7 @@ class ListDirectory : public Block {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(Event event) override;
+  bool OnEvent(ftxui::Event event) override;
 
   /**
    * @brief Handles an event (from another block)
@@ -67,16 +65,16 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
  private:
   //! Handle mouse event
-  bool OnMouseEvent(Event event);
+  bool OnMouseEvent(ftxui::Event event);
 
   //! Handle mouse wheel event
-  bool OnMouseWheel(Event event);
+  bool OnMouseWheel(ftxui::Event event);
 
   //! Handle keyboard event mapped to a menu navigation command
-  bool OnMenuNavigation(Event event);
+  bool OnMenuNavigation(ftxui::Event event);
 
   //! Handle keyboard event when search mode is enabled
-  bool OnSearchModeEvent(Event event);
+  bool OnSearchModeEvent(ftxui::Event event);
 
   /* ******************************************************************************************** */
  private:
@@ -129,9 +127,9 @@ class ListDirectory : public Block {
 
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
-    MenuEntryOption directory;
-    MenuEntryOption file;
-    MenuEntryOption playing;
+    ftxui::MenuEntryOption directory;
+    ftxui::MenuEntryOption file;
+    ftxui::MenuEntryOption playing;
   };
 
   /* ******************************************************************************************** */
@@ -139,8 +137,8 @@ class ListDirectory : public Block {
   Files entries_;           //!< List containing files from current directory
   int selected_, focused_;  //!< Entry indexes in files list
 
-  std::vector<Box> boxes_;  //!< Single box for each entry in files list
-  Box box_;                 //!< Box for whole component
+  std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
+  ftxui::Box box_;                 //!< Box for whole component
 
   std::optional<Search> mode_search_;  //!< Mode to render only files matching the search pattern
 

@@ -21,8 +21,6 @@ class ActionListener;
 
 namespace interface {
 
-using namespace ftxui;
-
 //! Unique ID for each block
 constexpr int kBlockListDirectory = 301;
 constexpr int kBlockFileInfo = 302;
@@ -30,7 +28,7 @@ constexpr int kBlockFileInfo = 302;
 /**
  * @brief Base class representing a block in view
  */
-class Block : std::enable_shared_from_this<Block>, public ComponentBase {
+class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  protected:
   /**
    * @brief Construct a new Block object (only called by derived classes)
@@ -48,8 +46,8 @@ class Block : std::enable_shared_from_this<Block>, public ComponentBase {
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
 
-  virtual Element Render() = 0;
-  virtual bool OnEvent(Event) = 0;
+  virtual ftxui::Element Render() = 0;
+  virtual bool OnEvent(ftxui::Event) = 0;
   virtual void OnBlockEvent(BlockEvent) = 0;
 
   /* ******************************************************************************************** */

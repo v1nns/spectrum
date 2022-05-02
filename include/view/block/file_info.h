@@ -16,8 +16,6 @@
 
 namespace interface {
 
-using namespace ftxui;
-
 /**
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
@@ -38,7 +36,7 @@ class FileInfo : public Block {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  Element Render() override;
+  ftxui::Element Render() override;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -46,7 +44,7 @@ class FileInfo : public Block {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(Event event) override;
+  bool OnEvent(ftxui::Event event) override;
 
   /**
    * @brief Handles an event (from another block)

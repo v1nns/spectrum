@@ -19,8 +19,6 @@
 
 namespace interface {
 
-using namespace ftxui;
-
 /**
  * @brief Class that manages the whole screen and contains all blocks
  */
@@ -72,7 +70,7 @@ class Terminal : public EventDispatcher {
   std::shared_ptr<controller::Player> player_;  //!< Player controller
   std::vector<std::shared_ptr<Block>> blocks_;  //!< List of all blocks composing the interface
 
-  Component container_;  //!< The glue that holds the blocks together
+  ftxui::Component container_;  //!< The glue that holds the blocks together
 };
 
 }  // namespace interface
