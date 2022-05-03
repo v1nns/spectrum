@@ -11,7 +11,7 @@
 
 #include "error_table.h"  // for Errors
 
-/* ********************************************************************************************** */
+namespace model {
 
 int WaveFormat::ParseHeaderInfo(const std::string& full_path) {
   filename_ = full_path;
@@ -106,7 +106,7 @@ int WaveFormat::ParseData() {
           data[channel].push_back(sample);
         } break;
         default:
-          // TODO: return error!
+          return error::kCorruptedData;
           break;
       }
     }
@@ -117,21 +117,4 @@ int WaveFormat::ParseData() {
   return error::kSuccess;
 }
 
-/* ********************************************************************************************** */
-
-// TODO: REMOVE FROM HERE ...
-std::ostream& operator<<(std::ostream& os, const AudioData& arg) {
-  os << "Audio file format: " << arg.file_format << ".";
-  os << "Number of channels: " << arg.num_channels << ".";
-  os << "Sample rate: " << arg.sample_rate << ".";
-  os << "Bit rate: " << arg.bit_rate << ".";
-  os << "Bits per sample: " << arg.bit_depth << ".";
-  return os;
-}
-
-// TODO: ...
-std::string to_string(const AudioData& arg) {
-  std::ostringstream ss;
-  ss << arg;
-  return std::move(ss).str();
 }

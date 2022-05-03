@@ -11,6 +11,8 @@
 #include "error_table.h"
 #include "model/song.h"
 
+namespace model {
+
 class WaveFormat : public Song {
  public:
   using Song::Song;
@@ -54,8 +56,10 @@ class WaveFormat : public Song {
     uint32_t Subchunk2Size;  // Sampled data length
   };
 
+  /* ******************************************************************************************** */
  private:
   wave_header_t header_;  //!< Header from WAVE file
 };
 
+}  // namespace model
 #endif  // INCLUDE_MODEL_WAVE_H_

@@ -21,6 +21,7 @@ add_library(spectrum-lib OBJECT)
 target_sources(spectrum-lib
                PRIVATE
                controller/player.cc
+               model/song.cc
                model/wave.cc
                view/base/terminal.cc
                view/base/block_event.cc

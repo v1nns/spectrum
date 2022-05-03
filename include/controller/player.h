@@ -50,7 +50,7 @@ class Player : public interface::ActionListener {
   /* ******************************************************************************************** */
  private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-  std::unique_ptr<Song> curr_song_;                       //!< Current song playing
+  std::unique_ptr<model::Song> curr_song_;                //!< Current song playing
 };
 
 }  // namespace controller

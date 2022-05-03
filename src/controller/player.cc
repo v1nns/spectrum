@@ -3,6 +3,7 @@
 #include <string>
 
 #include "error_table.h"
+#include "model/song.h"
 #include "model/wave.h"
 #include "view/base/block_event.h"
 
@@ -49,7 +50,7 @@ bool Player::IsExtensionSupported(const std::filesystem::path& file) {
 
 error::Value Player::Load(const std::filesystem::path& file) {
   if (IsExtensionSupported(file)) {
-    curr_song_ = std::make_unique<WaveFormat>();
+    curr_song_ = std::make_unique<model::WaveFormat>();
     return curr_song_->ParseHeaderInfo(file.string());
   }
 

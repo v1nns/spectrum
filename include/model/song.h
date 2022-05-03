@@ -15,6 +15,8 @@
 
 #include "error_table.h"
 
+namespace model {
+
 //! Song data information
 struct AudioData {
   std::string_view file_format;  //!< Audio file format (currently supports only "WAV")
@@ -81,4 +83,5 @@ class Song {
 std::ostream& operator<<(std::ostream& os, const AudioData& arg);
 std::string to_string(const AudioData& arg);
 
+}  // namespace model
 #endif  // INCLUDE_MODEL_SONG_H_

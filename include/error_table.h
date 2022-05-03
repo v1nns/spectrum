@@ -29,6 +29,7 @@ static constexpr Value kFileNotSupported = 31;
 static constexpr Value kFileCompressionNotSupported = 32;
 static constexpr Value kUnknownNumOfChannels = 33;
 static constexpr Value kInconsistentHeaderInfo = 34;
+static constexpr Value kCorruptedData = 35;
 
 /* ********************************************************************************************** */
 
@@ -41,7 +42,7 @@ class Table {
   using Message = std::pair<Value, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 7> kErrorMap{
+  static constexpr std::array<Message, 8> kErrorMap{
       {{kTerminalInitialization, "Could not initialize screen"},
        {kTerminalColorsUnavailable, "No support to change colors"},
        {kInvalidFile, "Invalid file"},
@@ -49,7 +50,8 @@ class Table {
        {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
        {kUnknownNumOfChannels,
         "File does not seem to be neither mono nor stereo (perhaps multi-track or corrupted)"},
-       {kInconsistentHeaderInfo, "Header data is inconsistent"}},
+       {kInconsistentHeaderInfo, "Header data is inconsistent"},
+       {kCorruptedData, "File is corrupted"}},
   };
 
   /* ******************************************************************************************** */
