@@ -22,8 +22,9 @@ class ActionListener;
 namespace interface {
 
 //! Unique ID for each block
-constexpr int kBlockListDirectory = 301;
-constexpr int kBlockFileInfo = 302;
+static constexpr int kBlockListDirectory = 301;
+static constexpr int kBlockFileInfo = 302;
+static constexpr int kBlockAudioPlayer = 303;
 
 /**
  * @brief Base class representing a block in view

@@ -22,7 +22,7 @@ namespace interface {
 /**
  * @brief Class that manages the whole screen and contains all blocks
  */
-class Terminal : public EventDispatcher {
+class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  public:
   /**
    * @brief Construct a new Terminal object
@@ -52,15 +52,32 @@ class Terminal : public EventDispatcher {
    */
   void Exit();
 
+ private:
+  //! Using-declaration for a simple callback function
+  using Callback = std::function<void()>;
+
+ public:
   /**
-   * @brief Main loop for the graphical interface
+   * @brief Bind an external exit function to an internal function
+   * @param cb Callback function to exit graphical application
    */
-  void Loop();
+  void RegisterExitCallback(Callback cb);
+
+  /**
+   * @brief Renders the component
+   * @return Element Built element based on internal state
+   */
+  ftxui::Element Render() override;
+
+  /**
+   * @brief Handles an event (from mouse/keyboard)
+   *
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnEvent(ftxui::Event event) override;
 
   /* ******************************************************************************************** */
-
-  //! Push back new block to internal vector
-  void Add(const std::shared_ptr<Block>& b) override;
 
   //! As a mediator, send a block event for every other block
   void Broadcast(Block* sender, BlockEvent event) override;
@@ -68,9 +85,7 @@ class Terminal : public EventDispatcher {
   /* ******************************************************************************************** */
  private:
   std::shared_ptr<controller::Player> player_;  //!< Player controller
-  std::vector<std::shared_ptr<Block>> blocks_;  //!< List of all blocks composing the interface
-
-  ftxui::Component container_;  //!< The glue that holds the blocks together
+  Callback cb_exit_;                            //!< Function to exit from graphical interface
 };
 
 }  // namespace interface

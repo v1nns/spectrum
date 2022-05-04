@@ -8,8 +8,7 @@
 
 namespace interface {
 
-// TODO: remove this
-#define SONG_PATH_FOR_DEV "/home/vinicius/projects/music-analyzer/africa-toto.wav"
+constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
 
 /* ********************************************************************************************** */
 
@@ -45,11 +44,9 @@ ftxui::Element FileInfo::Render() {
   }
 
   using ftxui::HEIGHT, ftxui::EQUAL;
-  return ftxui::window(ftxui::text(" Information "),
-                       ftxui::vbox({
-                           ftxui::vbox(std::move(content)) | ftxui::frame | ftxui::xflex |
-                               ftxui::size(HEIGHT, EQUAL, 15),
-                       }));
+  return ftxui::window(ftxui::text(" information "), ftxui::vbox(std::move(content)) |
+                                                         ftxui::frame | ftxui::xflex |
+                                                         ftxui::size(HEIGHT, EQUAL, kMaxRows));
 }
 
 /* ********************************************************************************************** */

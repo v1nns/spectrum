@@ -50,7 +50,7 @@ TEST_F(ListDirectoryTest, InitialRender) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │spectrum                      │
 │> ..                          │
 │  build                       │
@@ -83,7 +83,7 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │spectrum                      │
 │  ..                          │
 │  build                       │
@@ -114,7 +114,7 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
 │  CMakeLists.txt              │
@@ -143,7 +143,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │spectrum                      │
 │> ..                          │
 │  build                       │
@@ -173,7 +173,7 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │spectrum                      │
 │> build                       │
 │  CMakeLists.txt              │
@@ -204,7 +204,7 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
 │  CMakeLists.txt              │
@@ -235,7 +235,7 @@ TEST_F(ListDirectoryTest, NonExistentTextInSearchMode) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │spectrum                      │
 │                              │
 │                              │
@@ -265,7 +265,7 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
   std::string rendered = FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ Files ───────────────────────╮
+╭ files ───────────────────────╮
 │spectrum                      │
 │> ..                          │
 │  build                       │

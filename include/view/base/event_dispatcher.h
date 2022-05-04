@@ -39,7 +39,6 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
   EventDispatcher& operator=(EventDispatcher&& other) = delete;       // move assignment
 
   //! Implemented by derived class
-  virtual void Add(const std::shared_ptr<Block>&) = 0;
   virtual void Broadcast(Block*, BlockEvent) = 0;
 };
 

@@ -112,7 +112,7 @@ ftxui::Element ListDirectory::Render() {
     content.push_back(std::move(search_box));
   }
   using ftxui::WIDTH, ftxui::EQUAL;
-  return ftxui::window(ftxui::text(" Files "), ftxui::vbox(std::move(content)) | ftxui::flex |
+  return ftxui::window(ftxui::text(" files "), ftxui::vbox(std::move(content)) | ftxui::flex |
                                                    ftxui::size(WIDTH, EQUAL, kMaxColumns));
 }
 
