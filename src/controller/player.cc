@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "error_table.h"
+#include "model/application_error.h"
 #include "model/song.h"
 #include "model/wave.h"
 #include "view/base/block_event.h"
@@ -16,11 +16,11 @@ Player::Player(const std::shared_ptr<interface::EventDispatcher>& d)
 
 void Player::NotifyFileSelection(const std::filesystem::path& file) {
   auto result = Load(file);
-  if (result == error::kSuccess) {
-    // TODO: steps
-    // notify blocks [X]
-    // send to alsa  [ ]
 
+  // TODO: steps
+  // notify blocks [X]
+  // send to alsa  [ ]
+  if (result == error::kSuccess) {
     // Create a block event
     auto event = interface::BlockEvent::UpdateFileInfo;
     std::string audio_info = to_string(curr_song_->GetAudioInformation());
@@ -30,6 +30,12 @@ void Player::NotifyFileSelection(const std::filesystem::path& file) {
     if (auto d = dispatcher_.lock()) {
       d->Broadcast(nullptr, event);
     }  // TODO: or else?
+  } else {
+    // TODO: improve this if-else
+    // Show error to user
+    if (auto d = dispatcher_.lock()) {
+      d->SetApplicationError(result);
+    }
   }
 }
 

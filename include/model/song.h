@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "error_table.h"
+#include "model/application_error.h"
 
 namespace model {
 

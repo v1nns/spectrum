@@ -9,12 +9,16 @@
 
 #include <memory>
 
+#include "model/application_error.h"
 #include "view/base/block_event.h"
 
 namespace interface {
 
 //! Forward declaration
 class Block;
+
+//! Using-declaration for every possible callback function
+using Callback = std::function<void()>;
 
 /**
  * @brief Interface class to dispatch events among the different blocks
@@ -40,6 +44,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
 
   //! Implemented by derived class
   virtual void Broadcast(Block*, BlockEvent) = 0;
+  virtual void SetApplicationError(error::Value) = 0;
 };
 
 }  // namespace interface

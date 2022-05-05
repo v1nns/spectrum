@@ -9,7 +9,7 @@
 #include <iterator>
 #include <sstream>  // for ostringstream
 
-#include "error_table.h"  // for Errors
+#include "model/application_error.h"  // for Errors
 
 namespace model {
 

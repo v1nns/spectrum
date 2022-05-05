@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include "error_table.h"
+#include "model/application_error.h"
 #include "model/song.h"
 
 namespace model {

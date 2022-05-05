@@ -25,6 +25,7 @@ namespace interface {
 static constexpr int kBlockListDirectory = 301;
 static constexpr int kBlockFileInfo = 302;
 static constexpr int kBlockAudioPlayer = 303;
+static constexpr int kBlockErrorDialog = 304;
 
 /**
  * @brief Base class representing a block in view

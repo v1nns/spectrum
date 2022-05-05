@@ -27,15 +27,17 @@ ftxui::Element FileInfo::Render() {
     std::string::size_type prev_pos = 0, pos = 0;
 
     while ((pos = audio_info_.find(".", pos)) != std::string::npos) {
-      // get substring to print into a whole line
+      // Get substring to print into a whole line
       std::string substring(audio_info_.substr(prev_pos, pos - prev_pos));
 
-      // split into two strings to apply styles in the first one
+      // Split into two strings to apply styles in the first one
       std::string::size_type token_index = substring.find(":");
+      std::string title = substring.substr(0, token_index), value = substring.substr(token_index);
+
+      // Create element
       ftxui::Element line = ftxui::hbox({
-          ftxui::text(substring.substr(0, token_index)) | ftxui::bold |
-              ftxui::color(ftxui::Color::CadetBlue),
-          ftxui::text(substring.substr(token_index)),
+          ftxui::text(title) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
+          ftxui::text(value),
       });
 
       content.push_back(line);

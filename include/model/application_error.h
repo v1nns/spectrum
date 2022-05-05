@@ -3,8 +3,8 @@
  * \brief  All error codes from application in a single map
  */
 
-#ifndef INCLUDE_ERROR_TABLE_H_
-#define INCLUDE_ERROR_TABLE_H_
+#ifndef INCLUDE_MODEL_APPLICATION_ERROR_H_
+#define INCLUDE_MODEL_APPLICATION_ERROR_H_
 
 #include <algorithm>
 #include <array>
@@ -14,6 +14,7 @@
 namespace error {
 
 //! To make life easier in the first versions, error is simple an int
+// TODO: next step is to add a level (like critical or non-critical, warning, ...)
 using Value = int;
 
 //! Everything fine!
@@ -36,7 +37,7 @@ static constexpr Value kCorruptedData = 35;
 /**
  * @brief Class holding the map with all possible errors that may occur during application lifetime
  */
-class Table {
+class ApplicationError {
  private:
   //! Single entry for error message <code, message>
   using Message = std::pair<Value, std::string_view>;
@@ -62,7 +63,7 @@ class Table {
    * @param code Error code
    * @return Message Error detail
    */
-  const std::string_view GetMessage(Value id) {
+  static const std::string_view GetMessage(Value id) {
     auto find_error = [&id](Message element) { return element.first == id; };
 
     auto error = std::find_if(kErrorMap.begin(), kErrorMap.end(), find_error);
@@ -73,4 +74,4 @@ class Table {
 };
 
 }  // namespace error
-#endif  // INCLUDE_ERROR_TABLE_H_
+#endif  // INCLUDE_MODEL_APPLICATION_ERROR_H_

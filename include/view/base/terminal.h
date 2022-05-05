@@ -9,10 +9,10 @@
 #include <memory>
 #include <vector>
 
-// #include "error/error_table.h"
 #include "controller/player.h"
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
+#include "model/application_error.h"
 #include "view/base/block.h"
 #include "view/base/block_event.h"
 #include "view/base/event_dispatcher.h"
@@ -35,6 +35,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   virtual ~Terminal();
 
   /* ******************************************************************************************** */
+
   //! Remove these
   Terminal(const Terminal& other) = delete;             // copy constructor
   Terminal(Terminal&& other) = delete;                  // move constructor
@@ -42,6 +43,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   Terminal& operator=(Terminal&& other) = delete;       // move assignment
 
   /* ******************************************************************************************** */
+
   /**
    * @brief Initialize screen for Terminal object
    */
@@ -52,11 +54,6 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   void Exit();
 
- private:
-  //! Using-declaration for a simple callback function
-  using Callback = std::function<void()>;
-
- public:
   /**
    * @brief Bind an external exit function to an internal function
    * @param cb Callback function to exit graphical application
@@ -77,15 +74,37 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   bool OnEvent(ftxui::Event event) override;
 
-  /* ******************************************************************************************** */
+ private:
+  /**
+   * @brief Handles a event when no internal mode has been set
+   *
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnGlobalModeEvent(ftxui::Event event);
 
+  /**
+   * @brief Handles a event while on error mode (it means someone informed an error)
+   *
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnErrorModeEvent(ftxui::Event event);
+
+  /* ******************************************************************************************** */
+ public:
   //! As a mediator, send a block event for every other block
   void Broadcast(Block* sender, BlockEvent event) override;
+
+  //! Set application error (can be originated from controller or interface::block)
+  void SetApplicationError(error::Value id) override;
 
   /* ******************************************************************************************** */
  private:
   std::shared_ptr<controller::Player> player_;  //!< Player controller
-  Callback cb_exit_;                            //!< Function to exit from graphical interface
+  std::optional<error::Value> last_error_;      //!< Last application error that has occurred
+
+  Callback cb_exit_;  //!< Function to exit from graphical interface
 };
 
 }  // namespace interface

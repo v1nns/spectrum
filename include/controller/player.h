@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <memory>
 
-#include "error_table.h"
+#include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/action_listener.h"
 #include "view/base/event_dispatcher.h"
@@ -32,6 +32,7 @@ class Player : public interface::ActionListener {
   virtual ~Player() = default;
 
   /* ******************************************************************************************** */
+
   /**
    * @brief Receive a notification from view that a file has been selected. In other words, user may
    * want to play a music.
