@@ -163,6 +163,6 @@ void Terminal::Broadcast(Block* sender, BlockEvent event) {
 
 /* ********************************************************************************************** */
 
-void Terminal::SetApplicationError(error::Value id) { last_error_ = id; }
+void Terminal::SetApplicationError(error::Code id) { last_error_ = id; }
 
 }  // namespace interface

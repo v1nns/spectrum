@@ -2,6 +2,11 @@
 
 namespace model {
 
+Song::Song(const std::string& full_path)
+    : filename_(full_path), file_(filename_, std::ios::binary) {}
+
+/* ********************************************************************************************** */
+
 std::ostream& operator<<(std::ostream& os, const AudioData& arg) {
   // TODO: improve this
   std::string bit_rate;

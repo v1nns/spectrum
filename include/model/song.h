@@ -33,8 +33,9 @@ class Song {
  public:
   /**
    * @brief Construct a new Song object
+   * @param full_path Path where song is located
    */
-  Song() = default;
+  explicit Song(const std::string& full_path);
 
   /**
    * @brief Destroy the Song object
@@ -42,6 +43,7 @@ class Song {
   virtual ~Song() = default;
 
   // Remove these constructors/operators
+  Song() = delete;                              // default constructor
   Song(const Song& other) = delete;             // copy constructor
   Song(Song&& other) = delete;                  // move constructor
   Song& operator=(const Song& other) = delete;  // copy assignment
@@ -51,22 +53,18 @@ class Song {
 
   /**
    * @brief Parse only the header metadata from a given sound file
-   *
-   * @param full_path Path where song is located
    * @return Value Error code from operation
    */
-  virtual error::Value ParseHeaderInfo(const std::string& full_path) = 0;
+  virtual error::Code ParseHeaderInfo() = 0;
 
   /**
    * @brief Parse raw data from a given sound file (this is only possible after parsing header info)
    * @return Value Error code from operation
    */
-  virtual error::Value ParseData() = 0;
-
-  /* ******************************************************************************************** */
+  virtual error::Code ParseData() = 0;
 
   /**
-   * @brief Get the Audio Information object
+   * @brief Get the detailed audio information
    * @return AudioData Audio information
    */
   AudioData GetAudioInformation() { return info_; }

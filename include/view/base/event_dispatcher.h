@@ -44,7 +44,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
 
   //! Implemented by derived class
   virtual void Broadcast(Block*, BlockEvent) = 0;
-  virtual void SetApplicationError(error::Value) = 0;
+  virtual void SetApplicationError(error::Code) = 0;
 };
 
 }  // namespace interface

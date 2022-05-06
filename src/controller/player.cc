@@ -15,52 +15,46 @@ Player::Player(const std::shared_ptr<interface::EventDispatcher>& d)
 /* ********************************************************************************************** */
 
 void Player::NotifyFileSelection(const std::filesystem::path& file) {
-  auto result = Load(file);
+  error::Code result = Load(file);
+  auto dispatcher = dispatcher_.lock();
+
+  // TODO: do something?
+  if (!dispatcher) return;
 
   // TODO: steps
   // notify blocks [X]
   // send to alsa  [ ]
-  if (result == error::kSuccess) {
+  if (curr_song_ && result == error::kSuccess) {
     // Create a block event
     auto event = interface::BlockEvent::UpdateFileInfo;
     std::string audio_info = to_string(curr_song_->GetAudioInformation());
     event.SetContent(audio_info);
 
     // Notify all blocks with this event
-    if (auto d = dispatcher_.lock()) {
-      d->Broadcast(nullptr, event);
-    }  // TODO: or else?
+    dispatcher->Broadcast(nullptr, event);
+
   } else {
-    // TODO: improve this if-else
     // Show error to user
-    if (auto d = dispatcher_.lock()) {
-      d->SetApplicationError(result);
-    }
+    dispatcher->SetApplicationError(result);
   }
 }
 
 /* ********************************************************************************************** */
 
-bool Player::IsExtensionSupported(const std::filesystem::path& file) {
-  bool supported = false;
+error::Code Player::Load(const std::filesystem::path& file) {
+  auto result = error::kFileNotSupported;
+  std::unique_ptr<model::Song> song;
 
-  // TODO: in the future, create a map or some other type of structure to hold supported extensions
+  // supported file extensions
   if (file.extension() == ".wav") {
-    supported = true;
+    song = std::make_unique<model::WaveFormat>(file.string());
+    result = song->ParseHeaderInfo();
   }
 
-  return supported;
-}
+  // release resources if got any error while trying to loading or do nothing?
+  if (result == error::kSuccess) curr_song_.reset(song.release());
 
-/* ********************************************************************************************** */
-
-error::Value Player::Load(const std::filesystem::path& file) {
-  if (IsExtensionSupported(file)) {
-    curr_song_ = std::make_unique<model::WaveFormat>();
-    return curr_song_->ParseHeaderInfo(file.string());
-  }
-
-  return error::kFileNotSupported;
+  return result;
 }
 
 }  // namespace controller

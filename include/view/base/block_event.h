@@ -23,6 +23,8 @@ struct BlockEvent {
   void SetContent(const std::string& content) { content_ = std::move(content); }
   const std::string& Content() const { return content_; }
 
+  const bool IsEmpty() const { return content_.size() == 0; }
+
   //! Possible events
   static BlockEvent UpdateFileInfo;
 

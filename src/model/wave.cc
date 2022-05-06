@@ -13,10 +13,11 @@
 
 namespace model {
 
-int WaveFormat::ParseHeaderInfo(const std::string& full_path) {
-  filename_ = full_path;
-  file_ = std::ifstream(full_path, std::ios::binary);
+WaveFormat::WaveFormat(const std::string& full_path) : Song(full_path) {}
 
+/* ********************************************************************************************** */
+
+error::Code WaveFormat::ParseHeaderInfo() {
   if (!file_.good()) {
     return error::kInvalidFile;
   }
@@ -67,7 +68,7 @@ int WaveFormat::ParseHeaderInfo(const std::string& full_path) {
 
 /* ********************************************************************************************** */
 
-int WaveFormat::ParseData() {
+error::Code WaveFormat::ParseData() {
   std::istream_iterator<uint8_t> begin(file_), end;
   std::vector<uint8_t> raw_data(begin, end);
 
@@ -117,4 +118,4 @@ int WaveFormat::ParseData() {
   return error::kSuccess;
 }
 
-}
+}  // namespace model

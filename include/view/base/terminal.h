@@ -97,12 +97,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   void Broadcast(Block* sender, BlockEvent event) override;
 
   //! Set application error (can be originated from controller or interface::block)
-  void SetApplicationError(error::Value id) override;
+  void SetApplicationError(error::Code id) override;
 
   /* ******************************************************************************************** */
  private:
   std::shared_ptr<controller::Player> player_;  //!< Player controller
-  std::optional<error::Value> last_error_;      //!< Last application error that has occurred
+  std::optional<error::Code> last_error_;       //!< Last application error that has occurred
 
   Callback cb_exit_;  //!< Function to exit from graphical interface
 };

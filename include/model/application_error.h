@@ -15,22 +15,22 @@ namespace error {
 
 //! To make life easier in the first versions, error is simple an int
 // TODO: next step is to add a level (like critical or non-critical, warning, ...)
-using Value = int;
+using Code = int;
 
 //! Everything fine!
-static constexpr Value kSuccess = 0;
+static constexpr Code kSuccess = 0;
 
 //! Terminal errors
-static constexpr Value kTerminalInitialization = 1;
-static constexpr Value kTerminalColorsUnavailable = 2;
+static constexpr Code kTerminalInitialization = 1;
+static constexpr Code kTerminalColorsUnavailable = 2;
 
 //! Song errors
-static constexpr Value kInvalidFile = 30;
-static constexpr Value kFileNotSupported = 31;
-static constexpr Value kFileCompressionNotSupported = 32;
-static constexpr Value kUnknownNumOfChannels = 33;
-static constexpr Value kInconsistentHeaderInfo = 34;
-static constexpr Value kCorruptedData = 35;
+static constexpr Code kInvalidFile = 30;
+static constexpr Code kFileNotSupported = 31;
+static constexpr Code kFileCompressionNotSupported = 32;
+static constexpr Code kUnknownNumOfChannels = 33;
+static constexpr Code kInconsistentHeaderInfo = 34;
+static constexpr Code kCorruptedData = 35;
 
 /* ********************************************************************************************** */
 
@@ -40,7 +40,7 @@ static constexpr Value kCorruptedData = 35;
 class ApplicationError {
  private:
   //! Single entry for error message <code, message>
-  using Message = std::pair<Value, std::string_view>;
+  using Message = std::pair<Code, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
   static constexpr std::array<Message, 8> kErrorMap{
@@ -63,7 +63,7 @@ class ApplicationError {
    * @param code Error code
    * @return Message Error detail
    */
-  static const std::string_view GetMessage(Value id) {
+  static const std::string_view GetMessage(Code id) {
     auto find_error = [&id](Message element) { return element.first == id; };
 
     auto error = std::find_if(kErrorMap.begin(), kErrorMap.end(), find_error);

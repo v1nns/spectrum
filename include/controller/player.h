@@ -42,11 +42,12 @@ class Player : public interface::ActionListener {
 
   /* ******************************************************************************************** */
  private:
-  //! Auxiliary method to check if file extension is supported
-  bool IsExtensionSupported(const std::filesystem::path& file);
-
-  //! Parse a file into .
-  error::Value Load(const std::filesystem::path& file);
+  /**
+   * @brief Try to load given file to song object
+   * @param file Complete filepath to file entry
+   * @return error::Code Error identification
+   */
+  error::Code Load(const std::filesystem::path& file);
 
   /* ******************************************************************************************** */
  private:

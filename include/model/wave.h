@@ -15,21 +15,19 @@ namespace model {
 
 class WaveFormat : public Song {
  public:
-  using Song::Song;
+  explicit WaveFormat(const std::string& full_path);
 
   /**
    * @brief Parse only the header metadata from a given sound file
-   *
-   * @param full_path Path where song is located
    * @return Value Error code from operation
    */
-  error::Value ParseHeaderInfo(const std::string& full_path) override;
+  error::Code ParseHeaderInfo() override;
 
   /**
    * @brief Parse raw data from a given sound file (this is only possible after parsing header info)
    * @return Value Error code from operation
    */
-  error::Value ParseData() override;
+  error::Code ParseData() override;
 
   /* ******************************************************************************************** */
  private:

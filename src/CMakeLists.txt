@@ -31,7 +31,8 @@ target_sources(spectrum-lib
                view/block/audio_player.cc)
 
 target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include
-                                        $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>)
+                                        $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
+                                        $<BUILD_INTERFACE:${expected_SOURCE_DIR}/include>)
 
 target_link_libraries(spectrum-lib
   PRIVATE ftxui::screen
