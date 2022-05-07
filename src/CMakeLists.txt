@@ -28,7 +28,8 @@ target_sources(spectrum-lib
                view/base/block.cc
                view/block/list_directory.cc
                view/block/file_info.cc
-               view/block/audio_player.cc)
+               view/block/audio_player.cc
+               view/element/button.cc)
 
 target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include
                                         $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>

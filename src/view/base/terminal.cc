@@ -34,8 +34,8 @@ void Terminal::Init() {
   // TODO: remove this after developing
   std::string custom_path = "/home/vinicius/projects/music-analyzer/";
 
-  // As this terminal holds all these interface blocks, there is nothing better than use it as a
-  // mediator to send events between them
+  // As this terminal will hold all these interface blocks, there is nothing better than
+  // use it as a mediator to send events between them
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create controllers
@@ -102,8 +102,8 @@ ftxui::Element Terminal::Render() {
                 ftxui::text(""),
                 ftxui::paragraph(message) | ftxui::center | ftxui::bold,
             }) |
-            ftxui::size(HEIGHT, EQUAL, 5) | ftxui::size(WIDTH, EQUAL, 35) |
-            ftxui::bgcolor(ftxui::Color::DarkRedBis) | ftxui::borderDouble |
+            ftxui::bgcolor(ftxui::Color::DarkRedBis) | ftxui::size(HEIGHT, EQUAL, 5) |
+            ftxui::size(WIDTH, EQUAL, 35) | ftxui::borderDouble |
             ftxui::color(ftxui::Color::Grey93) | ftxui::center;
   }
 

@@ -3,6 +3,8 @@
 #include <utility>  // for move
 #include <vector>   // for vector
 
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/component_options.hpp"
 #include "ftxui/component/event.hpp"  // for Event
 #include "model/wave.h"               // for WaveFormat
 
@@ -12,27 +14,67 @@ constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
 
 /* ********************************************************************************************** */
 
-AudioPlayer::AudioPlayer(const std::shared_ptr<EventDispatcher>& d) : Block(d, kBlockAudioPlayer) {}
+AudioPlayer::AudioPlayer(const std::shared_ptr<EventDispatcher>& d)
+    : Block(d, kBlockAudioPlayer),
+      btn_play_(Button::make_button_play(ftxui::Color::SpringGreen2, ftxui::Color::Black, nullptr)),
+      btn_stop_(Button::make_button_stop(ftxui::Color::Red, ftxui::Color::Black, nullptr)) {}
 
 /* ********************************************************************************************** */
 
 ftxui::Element AudioPlayer::Render() {
-  ftxui::Elements content;
+  // Duration
+  ftxui::Element bar_duration = ftxui::gauge(0.9) | ftxui::xflex_grow |
+                                ftxui::bgcolor(ftxui::Color::DarkKhaki) |
+                                ftxui::color(ftxui::Color::DarkVioletBis);
+
+  ftxui::Element bar_margin = ftxui::text("  ");
+
+  ftxui::Element content = ftxui::vbox({ftxui::hbox({
+                                            std::move(btn_play_->Render()),
+                                            std::move(btn_stop_->Render()),
+                                        }) | ftxui::center,
+                                        ftxui::text(""),
+                                        ftxui::hbox({
+                                            bar_margin,
+                                            std::move(bar_duration),
+                                            bar_margin,
+                                        }),
+                                        ftxui::hbox({
+                                            bar_margin,
+                                            ftxui::text("1:38") | ftxui::bold,
+                                            ftxui::filler(),
+                                            ftxui::text("1:58") | ftxui::bold,
+                                            bar_margin,
+                                        })});
 
   using ftxui::HEIGHT, ftxui::EQUAL;
-  return ftxui::window(ftxui::text(" player "), ftxui::vbox(std::move(content)) | ftxui::frame |
-                                                    ftxui::xflex |
+  return ftxui::window(ftxui::text(" player "), content | ftxui::vcenter | ftxui::flex |
                                                     ftxui::size(HEIGHT, EQUAL, kMaxRows));
 }
 
 /* ********************************************************************************************** */
 
-bool AudioPlayer::OnEvent(ftxui::Event event) { return false; }
+bool AudioPlayer::OnEvent(ftxui::Event event) {
+  if (event.is_mouse()) return OnMouseEvent(event);
+
+  // if(Focusable()){}
+
+  return false;
+}
 
 /* ********************************************************************************************** */
 
 void AudioPlayer::OnBlockEvent(BlockEvent event) {
   // TODO: ...
+}
+/* ********************************************************************************************** */
+
+bool AudioPlayer::OnMouseEvent(ftxui::Event event) {
+  if (btn_play_->OnEvent(event)) return true;
+
+  if (btn_stop_->OnEvent(event)) return true;
+
+  return false;
 }
 
 }  // namespace interface

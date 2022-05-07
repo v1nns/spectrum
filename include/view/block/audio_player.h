@@ -12,8 +12,11 @@
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "model/song.h"                        // for Song
 #include "view/base/block.h"                   // for Block, BlockEvent (ptr...
+#include "view/element/button.h"
 
 namespace interface {
+
+using MediaButton = std::shared_ptr<Button>;
 
 /**
  * @brief Component with detailed information about the chosen file (in this case, some music file)
@@ -50,6 +53,15 @@ class AudioPlayer : public Block {
    * @param event Received event from dispatcher
    */
   void OnBlockEvent(BlockEvent event) override;
+
+  /* ******************************************************************************************** */
+ private:
+  //! Handle mouse event
+  bool OnMouseEvent(ftxui::Event event);
+
+  /* ******************************************************************************************** */
+ private:
+  MediaButton btn_play_, btn_stop_;  //!< Media player buttons
 };
 
 }  // namespace interface
