@@ -15,9 +15,11 @@ constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 AudioPlayer::AudioPlayer(const std::shared_ptr<EventDispatcher>& d)
-    : Block(d, kBlockAudioPlayer),
-      btn_play_(Button::make_button_play(ftxui::Color::SpringGreen2, ftxui::Color::Black, nullptr)),
-      btn_stop_(Button::make_button_stop(ftxui::Color::Red, ftxui::Color::Black, nullptr)) {}
+    : Block(d, kBlockAudioPlayer), btn_play_(nullptr), btn_stop_(nullptr) {
+  // TODO: bind methods for on_click
+  btn_play_ = Button::make_button_play(nullptr);
+  btn_stop_ = Button::make_button_stop(nullptr);
+}
 
 /* ********************************************************************************************** */
 
