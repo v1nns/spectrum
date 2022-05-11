@@ -40,6 +40,11 @@ class Player : public interface::ActionListener {
    */
   void NotifyFileSelection(const std::filesystem::path& file) override;
 
+  /**
+   * @brief Clear any information about the current song (and then notify the UI)
+   */
+  void ClearCurrentSong() override;
+
   /* ******************************************************************************************** */
  private:
   /**
@@ -48,6 +53,17 @@ class Player : public interface::ActionListener {
    * @return error::Code Error identification
    */
   error::Code Load(const std::filesystem::path& file);
+
+  /**
+   * @brief Start playing the recently loaded song
+   * @return error::Code Error identification
+   */
+  error::Code PlaySong();
+
+  // TODO: implement this
+  //  error::Code StopSong();
+
+  error::Code ClearSong();
 
   /* ******************************************************************************************** */
  private:

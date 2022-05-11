@@ -28,6 +28,7 @@ class ActionListener {
 
   //! Implemented by derived class
   virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
+  virtual void ClearCurrentSong() = 0;
 };
 
 }  // namespace interface

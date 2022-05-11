@@ -16,6 +16,7 @@ namespace interface {
 
 //! Forward declaration
 class Block;
+using BlockIdentifier = uint8_t;  // TODO: This is not good, gotta fix it...
 
 //! Using-declaration for every possible callback function
 using Callback = std::function<void()>;
@@ -44,6 +45,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
 
   //! Implemented by derived class
   virtual void Broadcast(Block*, BlockEvent) = 0;
+  virtual void SendTo(BlockIdentifier, BlockEvent) = 0;
   virtual void SetApplicationError(error::Code) = 0;
 };
 

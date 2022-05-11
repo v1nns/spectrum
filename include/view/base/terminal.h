@@ -34,8 +34,6 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   virtual ~Terminal();
 
-  /* ******************************************************************************************** */
-
   //! Remove these
   Terminal(const Terminal& other) = delete;             // copy constructor
   Terminal(Terminal&& other) = delete;                  // move constructor
@@ -96,7 +94,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! As a mediator, send a block event for every other block
   void Broadcast(Block* sender, BlockEvent event) override;
 
-  //! Set application error (can be originated from controller or interface::block)
+  //! Send block event to specified block
+  void SendTo(BlockIdentifier id, BlockEvent event) override;
+
+  //! Set application error (can be originated from controller or any interface::block)
   void SetApplicationError(error::Code id) override;
 
   /* ******************************************************************************************** */

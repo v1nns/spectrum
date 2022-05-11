@@ -21,11 +21,13 @@ class ActionListener;
 
 namespace interface {
 
+using BlockIdentifier = uint8_t;
+
 //! Unique ID for each block
-static constexpr int kBlockListDirectory = 301;
-static constexpr int kBlockFileInfo = 302;
-static constexpr int kBlockAudioPlayer = 303;
-static constexpr int kBlockErrorDialog = 304;
+static constexpr BlockIdentifier kBlockListDirectory = 201;
+static constexpr BlockIdentifier kBlockFileInfo = 202;
+static constexpr BlockIdentifier kBlockAudioPlayer = 203;
+static constexpr BlockIdentifier kBlockErrorDialog = 204;
 
 /**
  * @brief Base class representing a block in view
@@ -37,7 +39,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
    * @param d Dispatcher
    * @param id Unique ID for block
    */
-  Block(const std::shared_ptr<EventDispatcher>& d, const unsigned int id);
+  Block(const std::shared_ptr<EventDispatcher>& d, const BlockIdentifier id);
 
  public:
   /**
@@ -56,17 +58,18 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   //! Attach listener to receive action notifications (optional)
   void Attach(const std::shared_ptr<ActionListener>& listener);
 
+  // TODO: evaluate if must exclude this method...
   //! Send an event for other blocks
   void Send(BlockEvent event);
 
   //! Unique ID
-  unsigned int GetId() { return id_; }
+  BlockIdentifier GetId() { return id_; }
 
   /* ******************************************************************************************** */
  protected:
+  BlockIdentifier id_;                           //!< Block identification
   std::shared_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   std::shared_ptr<ActionListener> listener_;     //!< Inform actions to outside listener
-  unsigned int id_;                              //!< Block identification
 };
 
 }  // namespace interface

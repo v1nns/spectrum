@@ -133,7 +133,11 @@ bool Terminal::OnGlobalModeEvent(ftxui::Event event) {
     return true;
   }
 
-  // TODO: Tab event change focus between blocks
+  // Clear current song from player controller
+  if (event == ftxui::Event::Character('c')) {
+    player_->ClearCurrentSong();
+    return true;
+  }
 
   return false;
 }
@@ -157,6 +161,18 @@ void Terminal::Broadcast(Block* sender, BlockEvent event) {
     auto block = std::static_pointer_cast<Block>(child);
     if (sender == nullptr || block->GetId() != sender->GetId()) {
       block->OnBlockEvent(event);
+    }
+  }
+}
+
+/* ********************************************************************************************** */
+
+void Terminal::SendTo(BlockIdentifier id, BlockEvent event) {
+  for (auto& child : children_) {
+    auto block = std::static_pointer_cast<Block>(child);
+    if (block->GetId() == id) {
+      block->OnBlockEvent(event);
+      break;
     }
   }
 }
