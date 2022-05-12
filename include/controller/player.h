@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <memory>
 
+#include "driver/alsa.h"  // TODO: replace by generic interface
 #include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/action_listener.h"
@@ -67,6 +68,7 @@ class Player : public interface::ActionListener {
 
   /* ******************************************************************************************** */
  private:
+  std::unique_ptr<driver::AlsaSound> driver_;             //!< Interface between spectrum and ALSA
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   std::unique_ptr<model::Song> curr_song_;                //!< Current song playing
 };

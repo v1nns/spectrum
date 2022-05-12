@@ -11,7 +11,7 @@
 namespace controller {
 
 Player::Player(const std::shared_ptr<interface::EventDispatcher>& d)
-    : interface::ActionListener(), dispatcher_(d), curr_song_(nullptr) {}
+    : interface::ActionListener(), driver_(), dispatcher_(d), curr_song_(nullptr) {}
 
 /* ********************************************************************************************** */
 
