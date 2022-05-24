@@ -16,6 +16,18 @@
 
 namespace interface {
 
+std::shared_ptr<Terminal> Terminal::Create() {
+  // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
+  // do we want to use std::make_shared explicitly calling operator new()
+  struct MakeSharedEnabler : public Terminal {};
+  auto terminal = std::make_shared<MakeSharedEnabler>();
+
+  // Initialize internal components
+  terminal->Init();
+
+  return terminal;
+}
+
 /* ********************************************************************************************** */
 
 Terminal::Terminal()
@@ -24,6 +36,7 @@ Terminal::Terminal()
 /* ********************************************************************************************** */
 
 Terminal::~Terminal() {
+  // Base class will release resources by detaching all blocks (also known as children)
   cb_exit_ = nullptr;
   player_.reset();
 }

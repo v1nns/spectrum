@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BASE_TERMINAL_H_
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "controller/player.h"
@@ -23,11 +24,18 @@ namespace interface {
  * @brief Class that manages the whole screen and contains all blocks
  */
 class Terminal : public EventDispatcher, public ftxui::ComponentBase {
- public:
+ private:
   /**
    * @brief Construct a new Terminal object
    */
   Terminal();
+
+ public:
+  /**
+   * @brief Factory method: Create, initialize internal components and return Terminal object
+   * @return std::shared_ptr<Terminal> Terminal instance
+   */
+  static std::shared_ptr<Terminal> Create();
 
   /**
    * @brief Destroy the Terminal object
@@ -41,9 +49,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   Terminal& operator=(Terminal&& other) = delete;       // move assignment
 
   /* ******************************************************************************************** */
-
+ private:
   /**
-   * @brief Initialize screen for Terminal object
+   * @brief Initialize internal components for Terminal object
    */
   void Init();
 
@@ -52,6 +60,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   void Exit();
 
+ public:
   /**
    * @brief Bind an external exit function to an internal function
    * @param cb Callback function to exit graphical application
@@ -103,7 +112,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
  private:
   std::shared_ptr<controller::Player> player_;  //!< Player controller
-  std::optional<error::Code> last_error_;       //!< Last application error that has occurred
+  std::optional<error::Code> last_error_;       //!< Last application error
 
   Callback cb_exit_;  //!< Function to exit from graphical interface
 };

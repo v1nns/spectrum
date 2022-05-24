@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  Class representing a single view block
+ * \brief  Base class for any content block displayed in the UI
  */
 
 #ifndef INCLUDE_VIEW_BASE_BLOCK_H_
@@ -15,15 +15,16 @@
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "view/base/action_listener.h"
 #include "view/base/block_event.h"
-#include "view/base/event_dispatcher.h"
-
-class ActionListener;
 
 namespace interface {
 
-using BlockIdentifier = uint8_t;
+//! Forward declaration
+class EventDispatcher;
 
 //! Unique ID for each block
+using BlockIdentifier = uint8_t;
+
+//! List of Block IDs
 static constexpr BlockIdentifier kBlockListDirectory = 201;
 static constexpr BlockIdentifier kBlockFileInfo = 202;
 static constexpr BlockIdentifier kBlockAudioPlayer = 203;
@@ -55,21 +56,20 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   virtual void OnBlockEvent(BlockEvent) = 0;
 
   /* ******************************************************************************************** */
-  //! Attach listener to receive action notifications (optional)
-  void Attach(const std::shared_ptr<ActionListener>& listener);
 
-  // TODO: evaluate if must exclude this method...
-  //! Send an event for other blocks
-  void Send(BlockEvent event);
+  //! Attach listener to notify actions (optional)
+  void Attach(const std::shared_ptr<ActionListener>& listener);
 
   //! Unique ID
   BlockIdentifier GetId() { return id_; }
 
   /* ******************************************************************************************** */
  protected:
-  BlockIdentifier id_;                           //!< Block identification
-  std::shared_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-  std::shared_ptr<ActionListener> listener_;     //!< Inform actions to outside listener
+  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  std::weak_ptr<ActionListener> listener_;     //!< Inform actions to outside listener
+
+ private:
+  BlockIdentifier id_;  //!< Block identification
 };
 
 }  // namespace interface

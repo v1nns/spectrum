@@ -10,13 +10,10 @@
 #include <memory>
 
 #include "model/application_error.h"
+#include "view/base/block.h"
 #include "view/base/block_event.h"
 
 namespace interface {
-
-//! Forward declaration
-class Block;
-using BlockIdentifier = uint8_t;  // TODO: This is not good, gotta fix it...
 
 //! Using-declaration for every possible callback function
 using Callback = std::function<void()>;

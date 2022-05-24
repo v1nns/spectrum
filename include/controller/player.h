@@ -68,8 +68,8 @@ class Player : public interface::ActionListener {
 
   /* ******************************************************************************************** */
  private:
-  std::unique_ptr<driver::AlsaSound> driver_;             //!< Interface between spectrum and ALSA
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  std::unique_ptr<driver::AlsaSound> driver_;             //!< Interface between spectrum and ALSA
   std::unique_ptr<model::Song> curr_song_;                //!< Current song playing
 };
 

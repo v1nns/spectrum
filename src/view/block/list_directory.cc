@@ -255,7 +255,10 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
         new_dir = curr_dir_ / active->filename();
       } else {
         // Send user action to controller
-        listener_->NotifyFileSelection(*active);
+        auto listener = listener_.lock();
+
+        // TODO: do something on else?
+        if (listener) listener->NotifyFileSelection(*active);
       }
 
       if (!new_dir.empty()) {

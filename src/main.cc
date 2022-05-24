@@ -4,21 +4,16 @@
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "view/base/terminal.h"                    // for Terminal
 
-using Terminal = std::shared_ptr<interface::Terminal>;  //!< Smart pointer to terminal
-
 int main() {
-  // Create a new terminal window
-  Terminal term = std::make_shared<interface::Terminal>();
-
-  // Initialize terminal view
-  term->Init();
+  // Create and initialize a new terminal window
+  auto terminal = interface::Terminal::Create();
 
   // Create a full-size screen and register exit callback
   auto screen = ftxui::ScreenInteractive::Fullscreen();
-  term->RegisterExitCallback(screen.ExitLoopClosure());
+  terminal->RegisterExitCallback(screen.ExitLoopClosure());
 
-  // start graphical interface loop
-  screen.Loop(term);
+  // Start graphical interface loop
+  screen.Loop(terminal);
 
   return EXIT_SUCCESS;
 }

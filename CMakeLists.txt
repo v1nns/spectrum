@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Use pkg-config and FetchContent modules for CMake build
-include(FindPkgConfig)
+find_package(PkgConfig REQUIRED)
 include(FetchContent)
 
 # Subdirectories

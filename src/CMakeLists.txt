@@ -12,6 +12,8 @@ if(NOT ftxui_POPULATED)
   add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
+pkg_check_modules(ALSA REQUIRED alsa)
+
 # pkg_check_modules(FFTW REQUIRED fftw3)
 
 # **************************************************************************************************
@@ -21,6 +23,7 @@ add_library(spectrum-lib OBJECT)
 target_sources(spectrum-lib
                PRIVATE
                controller/player.cc
+               driver/alsa.cc
                model/song.cc
                model/wave.cc
                view/base/terminal.cc
@@ -33,12 +36,14 @@ target_sources(spectrum-lib
 
 target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include
                                         $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
-                                        $<BUILD_INTERFACE:${expected_SOURCE_DIR}/include>)
+                                        $<BUILD_INTERFACE:${expected_SOURCE_DIR}/include>
+                                        ${ALSA_INCLUDE_DIRS})
 
 target_link_libraries(spectrum-lib
   PRIVATE ftxui::screen
   PRIVATE ftxui::dom
   PRIVATE ftxui::component
+  PRIVATE ${ALSA_LIBRARIES}
 )
 
 # **************************************************************************************************
