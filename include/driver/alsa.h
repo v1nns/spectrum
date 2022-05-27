@@ -10,7 +10,12 @@
 
 #include <memory>
 
+#include "model/application_error.h"
+
 namespace driver {
+
+//! Callback to provide data for ALSA to playback
+using PlaybackDataCallback = std::function<int(long)>;
 
 /**
  * @brief TODO:...
@@ -27,7 +32,17 @@ class AlsaSound {
    */
   virtual ~AlsaSound() = default;
 
+  // TODO: document
+  error::Code Initialize();
+
+  void RegisterDataCallback(PlaybackDataCallback cb);
+
+  /* ******************************************************************************************** */
+ private:
+  // TODO: document
   void CreatePlaybackStream();
+  void ConfigureHardwareParams();
+  void ConfigureSoftwareParams();
 
   /* ******************************************************************************************** */
  private:
@@ -35,7 +50,8 @@ class AlsaSound {
     void operator()(snd_pcm_t* p) const { snd_pcm_close(p); }
   };
 
-  std::unique_ptr<snd_pcm_t, Closer> pcm_handle_;
+  std::unique_ptr<snd_pcm_t, Closer> playback_handle_;
+  PlaybackDataCallback cb_data_;
 };
 
 }  // namespace driver

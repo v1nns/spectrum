@@ -14,7 +14,10 @@ Player::Player(const std::shared_ptr<interface::EventDispatcher>& d)
     : interface::ActionListener(),
       dispatcher_(d),
       driver_(std::make_unique<driver::AlsaSound>()),
-      curr_song_(nullptr) {}
+      curr_song_(nullptr) {
+  // TODO: handle errors
+  driver_->Initialize();
+}
 
 /* ********************************************************************************************** */
 
