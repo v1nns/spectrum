@@ -9,15 +9,21 @@ AlsaSound::AlsaSound() : playback_handle_(nullptr), cb_data_(nullptr) {}
 error::Code AlsaSound::Initialize() {
   CreatePlaybackStream();
 
-  ConfigureHardwareParams();
-
-  ConfigureSoftwareParams();
-
   // Start and Stop
   //   snd_pcm_drop();
   //   snd_pcm_prepare();
 
   return error::kSuccess;
+}
+/* ********************************************************************************************** */
+
+error::Code AlsaSound::SetupAudioParameters(const model::AudioData& audio_info) {
+  error::Code result = error::kSetupAudioParamsFailed;
+
+  //   auto hw_err = ConfigureHardwareParams(audio_info);
+  //   auto sw_err = ConfigureSoftwareParams(audio_info);
+
+  return result;
 }
 
 /* ********************************************************************************************** */
@@ -40,7 +46,7 @@ void AlsaSound::CreatePlaybackStream() {
 
 /* ********************************************************************************************** */
 
-void AlsaSound::ConfigureHardwareParams() {
+void AlsaSound::ConfigureHardwareParams(const model::AudioData& audio_info) {
   int err;
   snd_pcm_hw_params_t* hw_params;
   if ((err = snd_pcm_hw_params_malloc(&hw_params)) < 0) {
@@ -65,12 +71,14 @@ void AlsaSound::ConfigureHardwareParams() {
     exit(1);
   }
 
-  if ((err = snd_pcm_hw_params_set_rate(playback_handle_.get(), hw_params, 44100, 0)) < 0) {
+  if ((err = snd_pcm_hw_params_set_rate(playback_handle_.get(), hw_params, audio_info.sample_rate,
+                                        0)) < 0) {
     fprintf(stderr, "cannot set sample rate (%s)\n", snd_strerror(err));
     exit(1);
   }
 
-  if ((err = snd_pcm_hw_params_set_channels(playback_handle_.get(), hw_params, 2)) < 0) {
+  if ((err = snd_pcm_hw_params_set_channels(playback_handle_.get(), hw_params,
+                                            audio_info.num_channels)) < 0) {
     fprintf(stderr, "cannot set channel count (%s)\n", snd_strerror(err));
     exit(1);
   }
@@ -101,7 +109,7 @@ void AlsaSound::ConfigureSoftwareParams() {
     exit(1);
   }
 
-  if ((err = snd_pcm_sw_params_set_avail_min(playback_handle_.get(), sw_params, 4096)) < 0) {
+  if ((err = snd_pcm_sw_params_set_avail_min(playback_handle_.get(), sw_params, kBufferSize)) < 0) {
     fprintf(stderr, "cannot set minimum available count (%s)\n", snd_strerror(err));
     exit(1);
   }

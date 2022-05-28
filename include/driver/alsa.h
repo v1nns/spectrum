@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "model/application_error.h"
+#include "model/song.h"
 
 namespace driver {
 
@@ -34,14 +35,18 @@ class AlsaSound {
 
   // TODO: document
   error::Code Initialize();
+  error::Code SetupAudioParameters(const model::AudioData& audio_info);
 
   void RegisterDataCallback(PlaybackDataCallback cb);
 
   /* ******************************************************************************************** */
  private:
+  static constexpr uint16_t kBufferSize = 4096;
+
   // TODO: document
   void CreatePlaybackStream();
-  void ConfigureHardwareParams();
+
+  void ConfigureHardwareParams(const model::AudioData& audio_info);
   void ConfigureSoftwareParams();
 
   /* ******************************************************************************************** */

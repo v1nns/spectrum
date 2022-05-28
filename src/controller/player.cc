@@ -70,16 +70,22 @@ void Player::ClearCurrentSong() {
 
 error::Code Player::Load(const std::filesystem::path& file) {
   auto result = error::kFileNotSupported;
-  std::unique_ptr<model::Song> song;
 
   // supported file extensions
-  if (file.extension() == ".wav") {
-    song = std::make_unique<model::WaveFormat>(file.string());
-    result = song->ParseHeaderInfo();
+  if (file.extension() != ".wav") {
+    return result;
   }
 
+  std::unique_ptr<model::Song> song = std::make_unique<model::WaveFormat>(file.string());
+  result = song->ParseHeaderInfo();
+
   // release resources if got any error while trying to loading or do nothing?
-  if (result == error::kSuccess) curr_song_.reset(song.release());
+  if (result == error::kSuccess) {
+    // Alright, got a working header info, now load the whole data samples from song
+    // curr_song_.reset(song.release());
+    curr_song_ = std::move(song);
+    // result = curr_song_->ParseData();  // TODO: improve this
+  }
 
   return result;
 }

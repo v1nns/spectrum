@@ -32,6 +32,9 @@ static constexpr Code kUnknownNumOfChannels = 33;
 static constexpr Code kInconsistentHeaderInfo = 34;
 static constexpr Code kCorruptedData = 35;
 
+//! Driver errors
+static constexpr Code kSetupAudioParamsFailed = 50;
+
 /* ********************************************************************************************** */
 
 /**
