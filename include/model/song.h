@@ -22,7 +22,7 @@ struct AudioData {
   std::string_view file_format;  //!< Audio file format (currently supports only "WAV")
   uint16_t num_channels;         //!< Number of channels (1=Mono 2=Stereo)
   uint32_t sample_rate;  //!< Number of samples (of signal amplitude or “sound”) per second
-  uint32_t bit_rate;     //!< Bits process per second
+  uint32_t bit_rate;     //!< Bits per second
   uint32_t bit_depth;    //!< Number of bits per sample
 };
 
@@ -61,7 +61,7 @@ class Song {
    * @brief Parse raw data from a given sound file (this is only possible after parsing header info)
    * @return Value Error code from operation
    */
-  virtual error::Code ParseData() = 0;
+  virtual std::vector<double> ParseData() = 0;
 
   /**
    * @brief Get the detailed audio information

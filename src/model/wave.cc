@@ -68,18 +68,19 @@ error::Code WaveFormat::ParseHeaderInfo() {
 
 /* ********************************************************************************************** */
 
-error::Code WaveFormat::ParseData() {
+std::vector<double> WaveFormat::ParseData() {
   std::istream_iterator<uint8_t> begin(file_), end;
   std::vector<uint8_t> raw_data(begin, end);
 
-  int num_bytes_per_sample = header_.BitsPerSample / 8;
-  int num_samples = header_.Subchunk2Size / num_bytes_per_sample;
+  int bytes_per_sample = header_.BitsPerSample / 8;
+  int bytes_per_block = (header_.NumChannels * bytes_per_sample);
+  int num_samples = header_.Subchunk2Size / bytes_per_block;
 
   std::vector<std::vector<double>> data(header_.NumChannels);
 
   for (int i = 0; i < num_samples; i++) {
     for (int channel = 0; channel < header_.NumChannels; channel++) {
-      int index = (header_.BlockAlign * i) + channel * num_bytes_per_sample;
+      int index = (bytes_per_block * i) + channel * bytes_per_sample;
 
       switch (header_.BitsPerSample) {
         case 8: {
@@ -107,15 +108,20 @@ error::Code WaveFormat::ParseData() {
           data[channel].push_back(sample);
         } break;
         default:
-          return error::kCorruptedData;
+          //   return error::kCorruptedData;
+          return {};
           break;
       }
     }
-
     // TODO: pass this to player, or maybe return a vector from this method
   }
 
-  return error::kSuccess;
+  if (header_.NumChannels == 1) return data[0];
+
+  std::vector<double> merged(num_samples);
+  std::merge(data[0].begin(), data[0].end(), data[1].begin(), data[1].end(), merged.begin());
+
+  return merged;
 }
 
 }  // namespace model

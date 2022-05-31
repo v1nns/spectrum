@@ -15,9 +15,6 @@
 
 namespace driver {
 
-//! Callback to provide data for ALSA to playback
-using PlaybackDataCallback = std::function<int(long)>;
-
 /**
  * @brief TODO:...
  */
@@ -37,17 +34,24 @@ class AlsaSound {
   error::Code Initialize();
   error::Code SetupAudioParameters(const model::AudioData& audio_info);
 
-  void RegisterDataCallback(PlaybackDataCallback cb);
+  // TODO: media control
+  error::Code Prepare();
+  error::Code Play(const std::vector<double>& data);
+  error::Code Stop();
 
   /* ******************************************************************************************** */
  private:
+  static constexpr const char kDevice[] = "default";
   static constexpr uint16_t kBufferSize = 4096;
 
   // TODO: document
   void CreatePlaybackStream();
 
-  void ConfigureHardwareParams(const model::AudioData& audio_info);
-  void ConfigureSoftwareParams();
+  error::Code ConfigureHardwareParams(const model::AudioData& audio_info);
+  error::Code ConfigureSoftwareParams();
+
+  // TODO: util (and this is considering a WAV file, where it is always in little-endian)
+  snd_pcm_format_t GetPcmFormat(uint32_t bit_depth);
 
   /* ******************************************************************************************** */
  private:
@@ -56,7 +60,7 @@ class AlsaSound {
   };
 
   std::unique_ptr<snd_pcm_t, Closer> playback_handle_;
-  PlaybackDataCallback cb_data_;
+  long buffer_index_;
 };
 
 }  // namespace driver

@@ -16,6 +16,9 @@ pkg_check_modules(ALSA REQUIRED alsa)
 
 # pkg_check_modules(FFTW REQUIRED fftw3)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 # **************************************************************************************************
 # Create library
 
@@ -44,6 +47,7 @@ target_link_libraries(spectrum-lib
   PRIVATE ftxui::dom
   PRIVATE ftxui::component
   PRIVATE ${ALSA_LIBRARIES}
+  PRIVATE Threads::Threads
 )
 
 # **************************************************************************************************

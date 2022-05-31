@@ -27,7 +27,7 @@ class WaveFormat : public Song {
    * @brief Parse raw data from a given sound file (this is only possible after parsing header info)
    * @return Value Error code from operation
    */
-  error::Code ParseData() override;
+  std::vector<double> ParseData() override;
 
   /* ******************************************************************************************** */
  private:

@@ -34,6 +34,7 @@ static constexpr Code kCorruptedData = 35;
 
 //! Driver errors
 static constexpr Code kSetupAudioParamsFailed = 50;
+static constexpr Code kUnknownError = 99;
 
 /* ********************************************************************************************** */
 

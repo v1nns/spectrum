@@ -6,8 +6,11 @@
 #ifndef INCLUDE_CONTROLLER_PLAYER_H_
 #define INCLUDE_CONTROLLER_PLAYER_H_
 
+#include <atomic>
 #include <filesystem>
 #include <memory>
+#include <mutex>
+#include <thread>
 
 #include "driver/alsa.h"  // TODO: replace by generic interface
 #include "model/application_error.h"
@@ -30,7 +33,7 @@ class Player : public interface::ActionListener {
   /**
    * @brief Destroy the Player object
    */
-  virtual ~Player() = default;
+  virtual ~Player();
 
   /* ******************************************************************************************** */
 
@@ -57,20 +60,25 @@ class Player : public interface::ActionListener {
 
   /**
    * @brief Start playing the recently loaded song
-   * @return error::Code Error identification
    */
-  error::Code PlaySong();
+  void PlaySong();
 
   // TODO: implement this
   //  error::Code StopSong();
 
-  error::Code ClearSong();
+  // * @return error::Code Error identification
+  error::Code Clear();
 
   /* ******************************************************************************************** */
  private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-  std::unique_ptr<driver::AlsaSound> driver_;             //!< Interface between spectrum and ALSA
-  std::unique_ptr<model::Song> curr_song_;                //!< Current song playing
+
+  std::mutex mutex_;       //!< TODO:...
+  std::atomic_bool stop_;  //!< TODO: ...
+                           //   std::thread loop_;       //!< TODO:...
+
+  std::unique_ptr<driver::AlsaSound> driver_;  //!< Interface between spectrum and ALSA
+  std::unique_ptr<model::Song> curr_song_;     //!< Current song playing
 };
 
 }  // namespace controller

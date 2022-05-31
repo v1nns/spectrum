@@ -13,10 +13,21 @@ namespace controller {
 Player::Player(const std::shared_ptr<interface::EventDispatcher>& d)
     : interface::ActionListener(),
       dispatcher_(d),
+      mutex_(),
+      stop_(false),
+      //   loop_(),
       driver_(std::make_unique<driver::AlsaSound>()),
       curr_song_(nullptr) {
   // TODO: handle errors
   driver_->Initialize();
+}
+
+/* ********************************************************************************************** */
+
+Player::~Player() {
+  //   if (loop_.joinable()) {
+  //     loop_.join();
+  //   }
 }
 
 /* ********************************************************************************************** */
@@ -40,6 +51,17 @@ void Player::NotifyFileSelection(const std::filesystem::path& file) {
     // Notify File Info block with information about the recently loaded song
     dispatcher->SendTo(interface::kBlockFileInfo, event);
 
+    // TODO: Still not working, need to think about it
+    // // Clear previous song
+    // if (loop_.joinable()) {
+    //   stop_.store(true);
+    //   loop_.join();
+    //   stop_.store(false);
+    // }
+
+    // // Start thread to play song
+    // loop_ = std::thread([&]() { this->PlaySong(); });
+
   } else {
     // Show error to user
     dispatcher->SetApplicationError(result);
@@ -49,7 +71,7 @@ void Player::NotifyFileSelection(const std::filesystem::path& file) {
 /* ********************************************************************************************** */
 
 void Player::ClearCurrentSong() {
-  error::Code result = ClearSong();
+  error::Code result = Clear();
   auto dispatcher = dispatcher_.lock();
 
   // TODO: do something?
@@ -82,9 +104,7 @@ error::Code Player::Load(const std::filesystem::path& file) {
   // release resources if got any error while trying to loading or do nothing?
   if (result == error::kSuccess) {
     // Alright, got a working header info, now load the whole data samples from song
-    // curr_song_.reset(song.release());
     curr_song_ = std::move(song);
-    // result = curr_song_->ParseData();  // TODO: improve this
   }
 
   return result;
@@ -93,15 +113,35 @@ error::Code Player::Load(const std::filesystem::path& file) {
 /* ********************************************************************************************** */
 
 // TODO: implement
-error::Code Player::PlaySong() {
-  auto result = error::kCorruptedData;
+void Player::PlaySong() {
+  error::Code result = error::kSuccess;
+  model::AudioData audio_info;
 
-  return result;
+  {
+    std::scoped_lock lk{mutex_};
+    audio_info = curr_song_->GetAudioInformation();
+    result = driver_->SetupAudioParameters(audio_info);
+  }
+
+  if (result != error::kSuccess) return;
+
+  const std::vector<double> song_data(curr_song_->ParseData());
+
+  result = driver_->Prepare();
+  if (result != error::kSuccess) return;
+
+  while (!stop_.load()) {
+    result = driver_->Play(song_data);
+    if (result != error::kSuccess) {
+      driver_->Stop();
+      return;
+    }
+  }
 }
 
 /* ********************************************************************************************** */
 
-error::Code Player::ClearSong() {
+error::Code Player::Clear() {
   auto result = error::kSuccess;
 
   if (curr_song_) {
