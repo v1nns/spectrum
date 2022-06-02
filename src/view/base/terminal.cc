@@ -16,14 +16,14 @@
 
 namespace interface {
 
-std::shared_ptr<Terminal> Terminal::Create() {
+std::shared_ptr<Terminal> Terminal::Create(std::shared_ptr<model::GlobalResource> shared) {
   // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
   // do we want to use std::make_shared explicitly calling operator new()
   struct MakeSharedEnabler : public Terminal {};
   auto terminal = std::make_shared<MakeSharedEnabler>();
 
   // Initialize internal components
-  terminal->Init();
+  terminal->Init(shared);
 
   return terminal;
 }
@@ -31,28 +31,28 @@ std::shared_ptr<Terminal> Terminal::Create() {
 /* ********************************************************************************************** */
 
 Terminal::Terminal()
-    : EventDispatcher(), ftxui::ComponentBase(), player_(nullptr), cb_exit_(nullptr) {}
+    : EventDispatcher{}, ftxui::ComponentBase{}, media_ctl_{}, cb_exit_{}, shared_data_{} {}
 
 /* ********************************************************************************************** */
 
 Terminal::~Terminal() {
-  // Base class will release resources by detaching all blocks (also known as children)
-  cb_exit_ = nullptr;
-  player_.reset();
+  // Base class will do the rest (release resources by detaching all blocks, a.k.a. children)
 }
 
 /* ********************************************************************************************** */
 
-void Terminal::Init() {
+void Terminal::Init(std::shared_ptr<model::GlobalResource> shared) {
   // TODO: remove this after developing
   std::string custom_path = "/home/vinicius/projects/music-analyzer/";
 
+  shared_data_ = std::move(shared);
+
   // As this terminal will hold all these interface blocks, there is nothing better than
-  // use it as a mediator to send events between them
+  // use itself as a mediator to send events between them
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create controllers
-  player_ = std::make_shared<controller::Player>(dispatcher);
+  media_ctl_ = std::make_shared<controller::Media>(dispatcher);
 
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
@@ -60,7 +60,7 @@ void Terminal::Init() {
   auto audio_player = std::make_shared<AudioPlayer>(dispatcher);
 
   // Attach controller as listener to block actions
-  list_dir->Attach(std::static_pointer_cast<ActionListener>(player_));
+  list_dir->Attach(std::static_pointer_cast<ActionListener>(media_ctl_));
 
   // Make every block as a child of this terminal
   Add(list_dir);
@@ -76,9 +76,13 @@ void Terminal::Exit() {
   //     std::exit(EXIT_FAILURE);
   //   }
 
+  // Trigger exit callback
   if (cb_exit_ != nullptr) {
     cb_exit_();
   }
+
+  // Notify other threads that user has exited from graphical interface
+  shared_data_->NotifyToExit();
 }
 
 /* ********************************************************************************************** */
@@ -148,7 +152,7 @@ bool Terminal::OnGlobalModeEvent(ftxui::Event event) {
 
   // Clear current song from player controller
   if (event == ftxui::Event::Character('c')) {
-    player_->ClearCurrentSong();
+    media_ctl_->ClearCurrentSong();
     return true;
   }
 

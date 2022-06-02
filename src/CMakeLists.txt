@@ -25,10 +25,15 @@ find_package(Threads REQUIRED)
 add_library(spectrum-lib OBJECT)
 target_sources(spectrum-lib
                PRIVATE
-               controller/player.cc
-               driver/alsa.cc
+               # audio
+               audio/player.cc
+               audio/driver/alsa.cc
+               # controller
+               controller/media.cc
+               # model
                model/song.cc
                model/wave.cc
+               # view
                view/base/terminal.cc
                view/base/block_event.cc
                view/base/block.cc

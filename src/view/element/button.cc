@@ -3,7 +3,7 @@
 namespace interface {
 
 Button::Button(ButtonStyles style, Callback on_click)
-    : box_(), focused_(false), clicked_(false), style_(style), on_click_(on_click) {}
+    : box_{}, focused_{false}, clicked_{false}, style_{style}, on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 

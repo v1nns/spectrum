@@ -15,9 +15,6 @@
 
 namespace interface {
 
-//! Using-declaration for every possible callback function
-using Callback = std::function<void()>;
-
 /**
  * @brief Interface class to dispatch events among the different blocks
  */

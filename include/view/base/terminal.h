@@ -10,18 +10,22 @@
 #include <optional>
 #include <vector>
 
-#include "controller/player.h"
+#include "controller/media.h"
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
 #include "model/application_error.h"
+#include "model/global_resource.h"
 #include "view/base/block.h"
 #include "view/base/block_event.h"
 #include "view/base/event_dispatcher.h"
 
 namespace interface {
 
+//! Using-declaration for every possible callback function
+using Callback = std::function<void()>;
+
 /**
- * @brief Class that manages the whole screen and contains all blocks
+ * @brief Manages the whole screen and contains all block views
  */
 class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  private:
@@ -33,9 +37,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  public:
   /**
    * @brief Factory method: Create, initialize internal components and return Terminal object
+   * @param shared Global data used by the whole application
    * @return std::shared_ptr<Terminal> Terminal instance
    */
-  static std::shared_ptr<Terminal> Create();
+  static std::shared_ptr<Terminal> Create(std::shared_ptr<model::GlobalResource> shared);
 
   /**
    * @brief Destroy the Terminal object
@@ -53,7 +58,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Initialize internal components for Terminal object
    */
-  void Init();
+  void Init(std::shared_ptr<model::GlobalResource> shared);
 
   /**
    * @brief Force application to exit
@@ -111,8 +116,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /* ******************************************************************************************** */
  private:
-  std::shared_ptr<controller::Player> player_;  //!< Player controller
-  std::optional<error::Code> last_error_;       //!< Last application error
+  std::shared_ptr<controller::Media> media_ctl_;  //!< Media controller
+  std::optional<error::Code> last_error_;         //!< Last application error
+
+  std::shared_ptr<model::GlobalResource> shared_data_;
 
   Callback cb_exit_;  //!< Function to exit from graphical interface
 };

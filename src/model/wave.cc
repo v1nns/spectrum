@@ -13,7 +13,7 @@
 
 namespace model {
 
-WaveFormat::WaveFormat(const std::string& full_path) : Song(full_path) {}
+WaveFormat::WaveFormat(const std::string& full_path) : Song{full_path} {}
 
 /* ********************************************************************************************** */
 

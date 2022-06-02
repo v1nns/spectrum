@@ -46,18 +46,18 @@ constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
 
 ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& d,
                              const std::string& optional_path)
-    : Block(d, kBlockListDirectory),
-      curr_dir_(optional_path == "" ? std::filesystem::current_path()
-                                    : std::filesystem::path(optional_path)),
-      entries_(),
-      selected_(0),
-      focused_(0),
-      styles_({.directory = std::move(Colored(ftxui::Color::Green)),
-               .file = std::move(Colored(ftxui::Color::White)),
-               .playing = std::move(Colored(ftxui::Color::Aquamarine1))}),
-      boxes_(),
-      box_(),
-      mode_search_(std::nullopt) {
+    : Block{d, kBlockListDirectory},
+      curr_dir_{optional_path == "" ? std::filesystem::current_path()
+                                    : std::filesystem::path(optional_path)},
+      entries_{},
+      selected_{},
+      focused_{},
+      styles_{EntryStyles{.directory = std::move(Colored(ftxui::Color::Green)),
+                          .file = std::move(Colored(ftxui::Color::White)),
+                          .playing = std::move(Colored(ftxui::Color::Aquamarine1))}},
+      boxes_{},
+      box_{},
+      mode_search_{std::nullopt} {
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
   RefreshList(curr_dir_);

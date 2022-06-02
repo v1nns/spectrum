@@ -1,18 +1,13 @@
 /**
  * \file
- * \brief  Class for player
+ * \brief  Class for media controller
  */
 
-#ifndef INCLUDE_CONTROLLER_PLAYER_H_
-#define INCLUDE_CONTROLLER_PLAYER_H_
+#ifndef INCLUDE_CONTROLLER_MEDIA_H_
+#define INCLUDE_CONTROLLER_MEDIA_H_
 
-#include <atomic>
-#include <filesystem>
 #include <memory>
-#include <mutex>
-#include <thread>
 
-#include "driver/alsa.h"  // TODO: replace by generic interface
 #include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/action_listener.h"
@@ -21,19 +16,20 @@
 namespace controller {
 
 /**
- * @brief TODO: Player controller
+ * @brief Receives notifications from user events and take action upon these events, like for
+ * example, play/pause the highlighted song
  */
-class Player : public interface::ActionListener {
+class Media : public interface::ActionListener {
  public:
   /**
-   * @brief Construct a new Player object
+   * @brief Construct a new Media object
    */
-  Player(const std::shared_ptr<interface::EventDispatcher>& d);
+  Media(const std::shared_ptr<interface::EventDispatcher>& d);
 
   /**
-   * @brief Destroy the Player object
+   * @brief Destroy the Media object
    */
-  virtual ~Player();
+  virtual ~Media() = default;
 
   /* ******************************************************************************************** */
 
@@ -58,28 +54,13 @@ class Player : public interface::ActionListener {
    */
   error::Code Load(const std::filesystem::path& file);
 
-  /**
-   * @brief Start playing the recently loaded song
-   */
-  void PlaySong();
-
-  // TODO: implement this
-  //  error::Code StopSong();
-
-  // * @return error::Code Error identification
+  // TODO: * @return error::Code Error identification
   error::Code Clear();
 
   /* ******************************************************************************************** */
  private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-
-  std::mutex mutex_;       //!< TODO:...
-  std::atomic_bool stop_;  //!< TODO: ...
-                           //   std::thread loop_;       //!< TODO:...
-
-  std::unique_ptr<driver::AlsaSound> driver_;  //!< Interface between spectrum and ALSA
-  std::unique_ptr<model::Song> curr_song_;     //!< Current song playing
 };
 
 }  // namespace controller
-#endif  // INCLUDE_CONTROLLER_PLAYER_H_
+#endif  // INCLUDE_CONTROLLER_MEDIA_H_

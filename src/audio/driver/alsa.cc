@@ -1,21 +1,21 @@
-#include "driver/alsa.h"
+#include "audio/driver/alsa.h"
 
 #include <algorithm>
 
 namespace driver {
 
-AlsaSound::AlsaSound() : playback_handle_(nullptr), buffer_index_(0) {}
+Alsa::Alsa() : playback_handle_{}, buffer_index_{} {}
 
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::Initialize() {
+error::Code Alsa::Initialize() {
   CreatePlaybackStream();
 
   return error::kSuccess;
 }
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::SetupAudioParameters(const model::AudioData& audio_info) {
+error::Code Alsa::SetupAudioParameters(const model::AudioData& audio_info) {
   error::Code result = error::kSetupAudioParamsFailed;
 
   result = ConfigureHardwareParams(audio_info);
@@ -27,7 +27,7 @@ error::Code AlsaSound::SetupAudioParameters(const model::AudioData& audio_info) 
 
 /* ********************************************************************************************** */
 
-void AlsaSound::CreatePlaybackStream() {
+void Alsa::CreatePlaybackStream() {
   snd_pcm_t* handle;
   int result = snd_pcm_open(&handle, kDevice, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
 
@@ -41,7 +41,7 @@ void AlsaSound::CreatePlaybackStream() {
 
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::ConfigureHardwareParams(const model::AudioData& audio_info) {
+error::Code Alsa::ConfigureHardwareParams(const model::AudioData& audio_info) {
   error::Code result = error::kSuccess;
   int err = 0;
   snd_pcm_hw_params_t* hw_params;
@@ -97,7 +97,7 @@ error::Code AlsaSound::ConfigureHardwareParams(const model::AudioData& audio_inf
 
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::ConfigureSoftwareParams() {
+error::Code Alsa::ConfigureSoftwareParams() {
   error::Code result = error::kSuccess;
   snd_pcm_sw_params_t* sw_params;
   int err = 0;
@@ -136,7 +136,7 @@ error::Code AlsaSound::ConfigureSoftwareParams() {
 
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::Prepare() {
+error::Code Alsa::Prepare() {
   int err = 0;
 
   if ((err = snd_pcm_prepare(playback_handle_.get())) < 0) {
@@ -148,7 +148,7 @@ error::Code AlsaSound::Prepare() {
 
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::Play(const std::vector<double>& data) {
+error::Code Alsa::Play(const std::vector<double>& data) {
   int err = 0;
   snd_pcm_sframes_t frame_size;
 
@@ -190,7 +190,7 @@ error::Code AlsaSound::Play(const std::vector<double>& data) {
 
 /* ********************************************************************************************** */
 
-error::Code AlsaSound::Stop() {
+error::Code Alsa::Stop() {
   snd_pcm_drop(playback_handle_.get());
   buffer_index_ = 0;
   return error::kSuccess;
@@ -198,7 +198,7 @@ error::Code AlsaSound::Stop() {
 
 /* ********************************************************************************************** */
 
-snd_pcm_format_t AlsaSound::GetPcmFormat(uint32_t bit_depth) {
+snd_pcm_format_t Alsa::GetPcmFormat(uint32_t bit_depth) {
   switch (bit_depth) {
     case 8:
       return SND_PCM_FORMAT_U8;

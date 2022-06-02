@@ -19,6 +19,7 @@ using Code = int;
 
 //! Everything fine!
 static constexpr Code kSuccess = 0;
+static constexpr Code kUnknownError = 99;
 
 //! Terminal errors
 static constexpr Code kTerminalInitialization = 1;
@@ -34,7 +35,6 @@ static constexpr Code kCorruptedData = 35;
 
 //! Driver errors
 static constexpr Code kSetupAudioParamsFailed = 50;
-static constexpr Code kUnknownError = 99;
 
 /* ********************************************************************************************** */
 
@@ -47,17 +47,19 @@ class ApplicationError {
   using Message = std::pair<Code, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 8> kErrorMap{
-      {{kTerminalInitialization, "Could not initialize screen"},
-       {kTerminalColorsUnavailable, "No support to change colors"},
-       {kInvalidFile, "Invalid file"},
-       {kFileNotSupported, "File not supported"},
-       {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
-       {kUnknownNumOfChannels,
-        "File does not seem to be neither mono nor stereo (perhaps multi-track or corrupted)"},
-       {kInconsistentHeaderInfo, "Header data is inconsistent"},
-       {kCorruptedData, "File is corrupted"}},
-  };
+  static constexpr std::array<Message, 10> kErrorMap{{
+      {kTerminalInitialization, "Could not initialize screen"},
+      {kTerminalColorsUnavailable, "No support to change colors"},
+      {kInvalidFile, "Invalid file"},
+      {kFileNotSupported, "File not supported"},
+      {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
+      {kUnknownNumOfChannels,
+       "File does not seem to be neither mono nor stereo (perhaps multi-track or corrupted)"},
+      {kInconsistentHeaderInfo, "Header data is inconsistent"},
+      {kCorruptedData, "File is corrupted"},
+      {kSetupAudioParamsFailed, "Could not set audio parameters"},
+      {kUnknownError, "Unknown error used for almost everything during development =)"},
+  }};
 
   /* ******************************************************************************************** */
  public:

@@ -16,19 +16,19 @@
 namespace driver {
 
 /**
- * @brief TODO:...
+ * @brief Provides an interface to use ALSA library for handling audio with hardware
  */
-class AlsaSound {
+class Alsa {
  public:
   /**
-   * @brief Construct a new AlsaSound object
+   * @brief Construct a new Alsa object
    */
-  AlsaSound();
+  Alsa();
 
   /**
-   * @brief Destroy the AlsaSound object
+   * @brief Destroy the Alsa object
    */
-  virtual ~AlsaSound() = default;
+  virtual ~Alsa() = default;
 
   // TODO: document
   error::Code Initialize();
@@ -55,11 +55,11 @@ class AlsaSound {
 
   /* ******************************************************************************************** */
  private:
-  struct Closer {
+  struct Deleter {
     void operator()(snd_pcm_t* p) const { snd_pcm_close(p); }
   };
 
-  std::unique_ptr<snd_pcm_t, Closer> playback_handle_;
+  std::unique_ptr<snd_pcm_t, Deleter> playback_handle_;
   long buffer_index_;
 };
 

@@ -3,7 +3,7 @@
 namespace model {
 
 Song::Song(const std::string& full_path)
-    : filename_(full_path), file_(filename_, std::ios::binary) {}
+    : filename_{full_path}, file_{filename_, std::ios::binary} {}
 
 /* ********************************************************************************************** */
 

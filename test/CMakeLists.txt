@@ -21,7 +21,8 @@ endif()
 add_executable(test)
 target_sources(test
                PRIVATE
-               list_directory.cc)
+               list_directory.cc
+               player.cc)
 
 target_link_libraries(test
                       PRIVATE gtest
