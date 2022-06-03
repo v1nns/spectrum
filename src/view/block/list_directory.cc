@@ -44,9 +44,9 @@ constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
 
 /* ********************************************************************************************** */
 
-ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& d,
+ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                              const std::string& optional_path)
-    : Block{d, kBlockListDirectory},
+    : Block{dispatcher, kBlockListDirectory},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)},
       entries_{},

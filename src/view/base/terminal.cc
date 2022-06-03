@@ -52,7 +52,7 @@ void Terminal::Init(std::shared_ptr<model::GlobalResource> shared) {
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create controllers
-  media_ctl_ = std::make_shared<controller::Media>(dispatcher);
+  media_ctl_ = std::make_shared<controller::Media>(dispatcher, shared_data_);
 
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);

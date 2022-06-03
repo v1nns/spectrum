@@ -119,7 +119,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::shared_ptr<controller::Media> media_ctl_;  //!< Media controller
   std::optional<error::Code> last_error_;         //!< Last application error
 
-  std::shared_ptr<model::GlobalResource> shared_data_;
+  std::shared_ptr<model::GlobalResource> shared_data_;  //!< Data shared between threads
 
   Callback cb_exit_;  //!< Function to exit from graphical interface
 };

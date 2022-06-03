@@ -23,9 +23,9 @@ class FileInfo : public Block {
  public:
   /**
    * @brief Construct a new File Info object
-   * @param d Block event dispatcher
+   * @param dispatcher Block event dispatcher
    */
-  explicit FileInfo(const std::shared_ptr<EventDispatcher>& d);
+  explicit FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the File Info object

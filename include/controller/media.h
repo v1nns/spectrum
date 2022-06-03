@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "model/application_error.h"
+#include "model/global_resource.h"
 #include "model/song.h"
 #include "view/base/action_listener.h"
 #include "view/base/event_dispatcher.h"
@@ -23,8 +24,11 @@ class Media : public interface::ActionListener {
  public:
   /**
    * @brief Construct a new Media object
+   * @param dispatcher Event dispatcher
+   * @param resource Global data
    */
-  Media(const std::shared_ptr<interface::EventDispatcher>& d);
+  Media(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
+        const std::shared_ptr<model::GlobalResource>& resource);
 
   /**
    * @brief Destroy the Media object
@@ -48,18 +52,23 @@ class Media : public interface::ActionListener {
   /* ******************************************************************************************** */
  private:
   /**
-   * @brief Try to load given file to song object
-   * @param file Complete filepath to file entry
+   * @brief Try to load given file as a song object and save it in global resources
+   * @param file Full path to file
+   * @param info [out] In case of success, struct is filled with song information
    * @return error::Code Error identification
    */
-  error::Code Load(const std::filesystem::path& file);
+  error::Code ReadFile(const std::filesystem::path& filepath, model::AudioData& info);
 
-  // TODO: * @return error::Code Error identification
+  /**
+   * @brief Clear song from global resource and reset media flags
+   * @return error::Code Error identification
+   */
   error::Code Clear();
 
   /* ******************************************************************************************** */
  private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  std::weak_ptr<model::GlobalResource> shared_data_;      //!< Data shared between threads
 };
 
 }  // namespace controller

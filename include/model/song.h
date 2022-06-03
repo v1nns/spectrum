@@ -65,9 +65,9 @@ class Song {
 
   /**
    * @brief Get the detailed audio information
-   * @return AudioData Audio information
+   * @return AudioData Struct containing information about audio
    */
-  AudioData GetAudioInformation() { return info_; }
+  AudioData GetAudioInformation() const { return info_; }
 
   /* ******************************************************************************************** */
  protected:

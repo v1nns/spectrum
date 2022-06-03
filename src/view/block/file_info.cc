@@ -12,8 +12,8 @@ constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& d)
-    : Block{d, kBlockFileInfo}, audio_info_{} {}
+FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
+    : Block{dispatcher, kBlockFileInfo}, audio_info_{} {}
 
 /* ********************************************************************************************** */
 

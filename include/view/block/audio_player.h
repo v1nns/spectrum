@@ -25,9 +25,9 @@ class AudioPlayer : public Block {
  public:
   /**
    * @brief Construct a new Audio Player object
-   * @param d Block event dispatcher
+   * @param dispatcher Block event dispatcher
    */
-  explicit AudioPlayer(const std::shared_ptr<EventDispatcher>& d);
+  explicit AudioPlayer(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the Audio Player object

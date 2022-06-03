@@ -120,8 +120,8 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 │  CMakeLists.txt              │
 │  list_directory.cc           │
 │  mock                        │
+│  player.cc                   │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -210,8 +210,8 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 │  CMakeLists.txt              │
 │  list_directory.cc           │
 │  mock                        │
+│  player.cc                   │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │

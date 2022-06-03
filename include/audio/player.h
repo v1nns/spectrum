@@ -52,6 +52,9 @@ class Player {
    */
   void Init(std::shared_ptr<model::GlobalResource> shared);
 
+  /**
+   * @brief Main-loop function to interact with driver and control the media execution
+   */
   void AudioHandler();
 
   /* ******************************************************************************************** */
@@ -63,10 +66,10 @@ class Player {
 
   /* ******************************************************************************************** */
  private:
-  std::unique_ptr<driver::Alsa> driver_;  //!< Interface between spectrum and ALSA
-  std::shared_ptr<model::GlobalResource> shared_data_;
+  std::unique_ptr<driver::Alsa> driver_;                //!< Interface to interact with ALSA
+  std::shared_ptr<model::GlobalResource> shared_data_;  //!< Data shared between threads
 
-  std::thread audio_loop_;  //!< TODO:...
+  std::thread audio_loop_;  //!< Thread to execute main-loop function
 };
 
 }  // namespace audio

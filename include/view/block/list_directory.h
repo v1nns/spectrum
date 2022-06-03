@@ -31,10 +31,10 @@ class ListDirectory : public Block {
  public:
   /**
    * @brief Construct a new List Directory object
-   * @param d Block event dispatcher
+   * @param dispatcher Block event dispatcher
    * @param optional_path List files from custom path instead of the current one
    */
-  explicit ListDirectory(const std::shared_ptr<EventDispatcher>& d,
+  explicit ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                          const std::string& optional_path = "");
 
   /**

@@ -37,10 +37,10 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  protected:
   /**
    * @brief Construct a new Block object (only called by derived classes)
-   * @param d Dispatcher
+   * @param dispatcher Event dispatcher
    * @param id Unique ID for block
    */
-  Block(const std::shared_ptr<EventDispatcher>& d, const BlockIdentifier id);
+  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const BlockIdentifier id);
 
  public:
   /**
