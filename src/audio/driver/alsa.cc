@@ -36,7 +36,7 @@ void Alsa::CreatePlaybackStream() {
     exit(1);
   }
 
-  playback_handle_.reset(std::move(handle));
+  playback_handle_ = std::move(handle);
 }
 
 /* ********************************************************************************************** */
@@ -69,8 +69,8 @@ error::Code Alsa::ConfigureHardwareParams(const model::AudioData& audio_info) {
     exit(1);
   }
 
-  if ((err = snd_pcm_hw_params_set_rate(playback_handle_.get(), hw_params, audio_info.sample_rate,
-                                        0)) < 0) {
+  unsigned int rate = audio_info.sample_rate;
+  if ((err = snd_pcm_hw_params_set_rate_near(playback_handle_.get(), hw_params, &rate, 0)) < 0) {
     fprintf(stderr, "cannot set sample rate (%s)\n", snd_strerror(err));
     exit(1);
   }

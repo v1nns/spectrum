@@ -83,9 +83,11 @@ error::Code Media::ReadFile(const std::filesystem::path& file, model::AudioData&
     info = song->GetAudioInformation();
 
     {
-      // Save song in shared data
+      // Save song in shared data and signal to start playing it
       std::scoped_lock<std::mutex> lock{resource->mutex};
       resource->curr_song = std::move(song);
+      resource->play.store(true);
+      resource->cond_var.notify_one();
     }
   }
 

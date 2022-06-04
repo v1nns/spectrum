@@ -30,9 +30,11 @@ class Player {
   /**
    * @brief Factory method: Create, initialize internal components and return Player object
    * @param shared Global data used by the whole application
+   * @param synchronous 'false' to run in a thread, otherwise 'true' and manually call audio loop
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::unique_ptr<Player> Create(std::shared_ptr<model::GlobalResource> shared);
+  static std::unique_ptr<Player> Create(std::shared_ptr<model::GlobalResource> shared,
+                                        bool synchronous = false);
 
   /**
    * @brief Destroy the Player object
@@ -50,7 +52,7 @@ class Player {
   /**
    * @brief Initialize internal components for Terminal object
    */
-  void Init(std::shared_ptr<model::GlobalResource> shared);
+  void Init(std::shared_ptr<model::GlobalResource> shared, bool synchronous);
 
   /**
    * @brief Main-loop function to interact with driver and control the media execution
