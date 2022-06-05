@@ -54,6 +54,7 @@ class Player {
    */
   void Init(std::shared_ptr<model::GlobalResource> shared, bool synchronous);
 
+ public:  // TODO: remove
   /**
    * @brief Main-loop function to interact with driver and control the media execution
    */

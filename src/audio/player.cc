@@ -21,7 +21,7 @@ Player::Player() : driver_{}, shared_data_{}, audio_loop_{} {}
 /* ********************************************************************************************** */
 
 Player::~Player() {
-  if (audio_loop_ && audio_loop_.joinable()) {
+  if (audio_loop_.joinable()) {
     audio_loop_.join();
   }
 }
@@ -74,9 +74,10 @@ void Player::AudioHandler() {
 
       auto samples = shared_data_->curr_song->ParseData();
       driver_->Play(samples);
+
+      return;
     }
   }
-}
 }
 
 }  // namespace audio

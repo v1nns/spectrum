@@ -1,6 +1,7 @@
 #include "audio/driver/alsa.h"
 
 #include <algorithm>
+#include <iostream>
 
 namespace driver {
 
@@ -36,7 +37,7 @@ void Alsa::CreatePlaybackStream() {
     exit(1);
   }
 
-  playback_handle_ = std::move(handle);
+  playback_handle_.reset(std::move(handle));
 }
 
 /* ********************************************************************************************** */
@@ -62,9 +63,9 @@ error::Code Alsa::ConfigureHardwareParams(const model::AudioData& audio_info) {
     exit(1);
   }
 
-  //   const auto pcm_format = GetPcmFormat(audio_info.bit_depth);
-  if ((err = snd_pcm_hw_params_set_format(playback_handle_.get(), hw_params,
-                                          SND_PCM_FORMAT_S16_LE)) < 0) {
+  // SND_PCM_FORMAT_S16_LE
+  const auto pcm_format = GetPcmFormat(audio_info.bit_depth);
+  if ((err = snd_pcm_hw_params_set_format(playback_handle_.get(), hw_params, pcm_format)) < 0) {
     fprintf(stderr, "cannot set sample format (%s)\n", snd_strerror(err));
     exit(1);
   }
@@ -152,39 +153,45 @@ error::Code Alsa::Play(const std::vector<double>& data) {
   int err = 0;
   snd_pcm_sframes_t frame_size;
 
-  // wait till the interface is ready for data, or 1 second has elapsed.
-  if ((err = snd_pcm_wait(playback_handle_.get(), 1000)) < 0) {
-    fprintf(stderr, "poll failed (%s)\n", strerror(errno));
-    return error::kUnknownError;
-  }
+  std::cout << "vou comecar a tocar, samples: " << data.size() << std::endl;
 
-  // find out how much space is available for playback data
-  if ((frame_size = snd_pcm_avail_update(playback_handle_.get())) < 0) {
-    if (frame_size == -EPIPE) {
-      fprintf(stderr, "an xrun occured\n");
+  buffer_index_ = 0;
+  while (buffer_index_ <= data.size()) {
+    // wait till the interface is ready for data, or 1 second has elapsed.
+    if ((err = snd_pcm_wait(playback_handle_.get(), 1000)) < 0) {
+      std::cout << "poll failed " << strerror(errno) << std::endl;
       return error::kUnknownError;
-    } else {
-      fprintf(stderr, "unknown ALSA avail update return value (%ld)\n", frame_size);
+    }
+
+    // find out how much space is available for playback data
+    if ((frame_size = snd_pcm_avail_update(playback_handle_.get())) < 0) {
+      if (frame_size == -EPIPE) {
+        std::cout << "an xrun occured" << std::endl;
+        return error::kUnknownError;
+      } else {
+        std::cout << "unknown ALSA avail update return value: " << frame_size << std::endl;
+        return error::kUnknownError;
+      }
+    }
+
+    frame_size = frame_size > kBufferSize ? kBufferSize : frame_size;
+
+    // deliver the data
+    auto first = data.begin() + buffer_index_;
+    auto last = first + frame_size;
+
+    std::vector<double> buf(first, last);
+    buffer_index_ += frame_size;
+
+    //   for (size_t i = buffer_index_; i < (buffer_index_ + frame_size); i += 2) {}
+
+    if ((err = snd_pcm_writei(playback_handle_.get(), &buf[0], frame_size)) < 0) {
+      std::cout << "write failed: " << snd_strerror(err) << std::endl;
       return error::kUnknownError;
     }
   }
 
-  frame_size = frame_size > kBufferSize ? kBufferSize : frame_size;
-
-  // deliver the data
-  auto first = data.begin() + buffer_index_;
-  auto last = first + frame_size;
-
-  std::vector<short> buf(first, last);
-  buffer_index_ += frame_size;
-
-  //   for (size_t i = buffer_index_; i < (buffer_index_ + frame_size); i += 2) {}
-
-  if ((err = snd_pcm_writei(playback_handle_.get(), &buf[0], frame_size)) < 0) {
-    fprintf(stderr, "write failed (%s)\n", snd_strerror(err));
-    return error::kUnknownError;
-  }
-
+  std::cout << "ue, cheguei ao final" << std::endl;
   return error::kSuccess;
 }
 
