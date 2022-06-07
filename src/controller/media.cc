@@ -5,7 +5,6 @@
 
 #include "model/application_error.h"
 #include "model/song.h"
-#include "model/wave.h"
 #include "view/base/block.h"
 #include "view/base/block_event.h"
 
@@ -22,33 +21,31 @@ Media::Media(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
 void Media::NotifyFileSelection(const std::filesystem::path& filepath) {
   model::AudioData audio_info{};
   error::Code result = ReadFile(filepath, audio_info);
-  auto dispatcher = dispatcher_.lock();
 
-  // TODO: do something?
-  if (!dispatcher) return;
+  //   auto dispatcher = dispatcher_.lock();
+  //   if (!dispatcher) return;
 
-  if (result == error::kSuccess) {
-    // Create a block event
-    auto event = interface::BlockEvent::UpdateFileInfo;
-    std::string text = to_string(audio_info);
-    event.SetContent(text);
+  //   if (result == error::kSuccess) {
+  //     // Create a block event
+  //     auto event = interface::BlockEvent::UpdateFileInfo;
+  //     std::string text = to_string(audio_info);
+  //     event.SetContent(text);
 
-    // Notify File Info block with information about the recently loaded song
-    dispatcher->SendTo(interface::kBlockFileInfo, event);
+  //     // Notify File Info block with information about the recently loaded song
+  //     dispatcher->SendTo(interface::kBlockFileInfo, event);
 
-  } else {
-    // Show error to user
-    dispatcher->SetApplicationError(result);
-  }
+  //   } else {
+  //     // Show error to user
+  //     dispatcher->SetApplicationError(result);
+  //   }
 }
 
 /* ********************************************************************************************** */
 
 void Media::ClearCurrentSong() {
   error::Code result = Clear();
-  auto dispatcher = dispatcher_.lock();
 
-  // TODO: do something?
+  auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
   // Notify File Info block to reset its interface
@@ -65,31 +62,26 @@ void Media::ClearCurrentSong() {
 error::Code Media::ReadFile(const std::filesystem::path& file, model::AudioData& info) {
   auto result = error::kFileNotSupported;
 
-  // Supported file extensions
-  if (file.extension() != ".wav") {
-    return result;
-  }
-
-  std::unique_ptr<model::Song> song = std::make_unique<model::WaveFormat>(file.string());
-  result = song->ParseHeaderInfo();
+  // TODO: read
+  return result;
 
   // Alright, got a working header info, save it to global resources
-  if (result == error::kSuccess) {
-    // Get pointer to shared resources
-    auto resource = shared_data_.lock();
-    if (!resource) return error::kUnknownError;
+  //   if (result == error::kSuccess) {
+  //     // Get pointer to shared resources
+  //     auto resource = shared_data_.lock();
+  //     if (!resource) return error::kUnknownError;
 
-    // Fill auxiliary struct from function parameters
-    info = song->GetAudioInformation();
+  //     // Fill auxiliary struct from function parameters
+  //     // info = song->GetAudioInformation();
 
-    {
-      // Save song in shared data and signal to start playing it
-      std::scoped_lock<std::mutex> lock{resource->mutex};
-      resource->curr_song = std::move(song);
-      resource->play.store(true);
-      resource->cond_var.notify_one();
-    }
-  }
+  //     {
+  //       // Save song in shared data and signal to start playing it
+  //       std::scoped_lock<std::mutex> lock{resource->mutex};
+  //       //   resource->curr_song = std::move(song);
+  //       resource->play.store(true);
+  //       resource->cond_var.notify_one();
+  //     }
+  //   }
 
   return result;
 }

@@ -1,44 +1,47 @@
-#include <chrono>   // remove
+
+
 #include <cstdlib>  // for EXIT_SUCCESS
 #include <memory>   // for make_unique, unique_ptr
-#include <thread>   // remove
 
+#include "audio/driver/alsa.h"                     // remove
+#include "audio/driver/decoder.h"                  // remove
 #include "audio/player.h"                          // for Player
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "model/global_resource.h"
-#include "model/wave.h"          // remove
+#include "model/song.h"          // remove
 #include "view/base/terminal.h"  // for Terminal
 
 int main() {
-  auto shared_data = std::make_shared<model::GlobalResource>();
+  std::string path = "/home/vinicius/projects/music-analyzer/soulbreeder.wav";
 
-  // Create and initialize a new player
-  auto player = audio::Player::Create(shared_data, true);
+  driver::Decoder decoder;
+  auto result = decoder.OpenFile(path);
 
-  auto producer = [shared_data]() {
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(1s);
+  std::cout << "decoder.OpenFile() retornou isso aqui: " << result << std::endl;
+  if (result != error::kSuccess) return EXIT_FAILURE;
 
-    std::string path = "/home/vinicius/projects/music-analyzer/africa-toto.wav";
-    std::unique_ptr<model::Song> song = std::make_unique<model::WaveFormat>(path);
-    song->ParseHeaderInfo();
+  driver::Alsa playback;
+  result = playback.CreatePlaybackStream();
 
-    {
-      std::scoped_lock<std::mutex> lock{shared_data->mutex};
-      shared_data->curr_song = std::move(song);
-      shared_data->play.store(true);
-      shared_data->cond_var.notify_one();
-    }
-  };
+  std::cout << "playback.CreatePlaybackStream() retornou isso aqui: " << result << std::endl;
+  if (result != error::kSuccess) return EXIT_FAILURE;
 
-  auto thread = std::thread(producer);
+  int samples;
+  playback.ConfigureParameters(samples);
 
-  player->AudioHandler();
+  std::cout << "playback.ConfigureParameters() retornou isso aqui: " << result << std::endl;
+  if (result != error::kSuccess) return EXIT_FAILURE;
 
-  thread.join();
+  result = decoder.Decode(samples, [&](void *buffer, int buffer_size, int out_samples) {
+    playback.AudioCallback(buffer, buffer_size, out_samples);
+  });
+
+  std::cout << "decoder.Decode() retornou isso aqui: " << result << std::endl;
 
   return EXIT_SUCCESS;
 }
+
+/* ********************************************************************************************** */
 
 // int main() {
 //   auto shared_data = std::make_shared<model::GlobalResource>();

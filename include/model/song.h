@@ -24,6 +24,7 @@ struct AudioData {
   uint32_t sample_rate;  //!< Number of samples (of signal amplitude or “sound”) per second
   uint32_t bit_rate;     //!< Bits per second
   uint32_t bit_depth;    //!< Number of bits per sample
+  uint32_t duration;     //!< Audio duration (in seconds)
 };
 
 /**

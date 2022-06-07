@@ -16,7 +16,7 @@ std::unique_ptr<Player> Player::Create(std::shared_ptr<model::GlobalResource> sh
 
 /* ********************************************************************************************** */
 
-Player::Player() : driver_{}, shared_data_{}, audio_loop_{} {}
+Player::Player() : playback_{}, shared_data_{}, audio_loop_{} {}
 
 /* ********************************************************************************************** */
 
@@ -28,15 +28,15 @@ Player::~Player() {
 
 /* ********************************************************************************************** */
 
-void Player::Init(std::shared_ptr<model::GlobalResource> shared, bool synchronous) {
+void Player::Init(const std::shared_ptr<model::GlobalResource>& shared, bool synchronous) {
   shared_data_ = std::move(shared);
 
-  driver_ = std::make_unique<driver::Alsa>();
-  error::Code result = driver_->Initialize();
+  playback_ = std::make_unique<driver::Alsa>();
+  error::Code result = playback_->CreatePlaybackStream();
 
   if (result != error::kSuccess) {
     shared_data_->exit.store(true);
-    return;  // TODO: improve this
+    return;
   }
 
   if (!synchronous) {
@@ -61,21 +61,7 @@ void Player::AudioHandler() {
     shared_data_->cond_var.wait(lock, stop_waiting_if);
 
     if (shared_data_->play.load()) {
-      model::AudioData audio_info = shared_data_->curr_song->GetAudioInformation();
-      error::Code result = driver_->SetupAudioParameters(audio_info);
-
-      if (result != error::kSuccess) {
-      }
-
-      result = driver_->Prepare();
-
-      if (result != error::kSuccess) {
-      }
-
-      auto samples = shared_data_->curr_song->ParseData();
-      driver_->Play(samples);
-
-      return;
+      driver::Decoder decoder;
     }
   }
 }

@@ -30,37 +30,39 @@ class Alsa {
    */
   virtual ~Alsa() = default;
 
+  /* ******************************************************************************************** */
+ public:
   // TODO: document
-  error::Code Initialize();
-  error::Code SetupAudioParameters(const model::AudioData& audio_info);
+  error::Code CreatePlaybackStream();
 
-  // TODO: media control
-  error::Code Prepare();
-  error::Code Play(const std::vector<double>& data);
-  error::Code Stop();
+  error::Code ConfigureParameters(int& period_size);
+
+  error::Code AudioCallback(void* buffer, int buffer_size, int out_samples);
 
   /* ******************************************************************************************** */
+  //! Default Constants
  private:
   static constexpr const char kDevice[] = "default";
-  static constexpr uint16_t kBufferSize = 4096;
-
-  // TODO: document
-  void CreatePlaybackStream();
-
-  error::Code ConfigureHardwareParams(const model::AudioData& audio_info);
-  error::Code ConfigureSoftwareParams();
-
-  // TODO: util (and this is considering a WAV file, where it is always in little-endian)
-  snd_pcm_format_t GetPcmFormat(uint32_t bit_depth);
+  static constexpr int kChannels = 2;
+  static constexpr int kSampleRate = 44100;
+  static constexpr snd_pcm_format_t kSampleFormat = SND_PCM_FORMAT_S16_LE;
 
   /* ******************************************************************************************** */
+  //! Custom declarations with deleters
  private:
-  struct Deleter {
-    void operator()(snd_pcm_t* p) const { snd_pcm_close(p); }
+  struct PcmDeleter {
+    void operator()(snd_pcm_t* p) const {
+      snd_pcm_drain(p);
+      snd_pcm_close(p);
+    }
   };
 
-  std::unique_ptr<snd_pcm_t, Deleter> playback_handle_;
-  long buffer_index_;
+  using PcmPlayback = std::unique_ptr<snd_pcm_t, PcmDeleter>;
+
+  /* ******************************************************************************************** */
+  //! Variables
+  PcmPlayback playback_handle_;
+  snd_pcm_uframes_t period_size_;
 };
 
 }  // namespace driver

@@ -6,7 +6,6 @@
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_options.hpp"
 #include "ftxui/component/event.hpp"  // for Event
-#include "model/wave.h"               // for WaveFormat
 
 namespace interface {
 

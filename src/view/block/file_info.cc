@@ -4,7 +4,6 @@
 #include <vector>   // for vector
 
 #include "ftxui/component/event.hpp"  // for Event
-#include "model/wave.h"               // for WaveFormat
 
 namespace interface {
 

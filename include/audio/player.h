@@ -10,7 +10,8 @@
 #include <memory>
 #include <thread>
 
-#include "driver/alsa.h"  // TODO: replace by generic interface
+#include "driver/alsa.h"
+#include "driver/decoder.h"
 #include "model/application_error.h"
 #include "model/global_resource.h"
 
@@ -52,11 +53,10 @@ class Player {
   /**
    * @brief Initialize internal components for Terminal object
    */
-  void Init(std::shared_ptr<model::GlobalResource> shared, bool synchronous);
+  void Init(const std::shared_ptr<model::GlobalResource>& shared, bool synchronous);
 
- public:  // TODO: remove
   /**
-   * @brief Main-loop function to interact with driver and control the media execution
+   * @brief Main-loop function to decode input stream and write to playback stream
    */
   void AudioHandler();
 
@@ -69,7 +69,8 @@ class Player {
 
   /* ******************************************************************************************** */
  private:
-  std::unique_ptr<driver::Alsa> driver_;                //!< Interface to interact with ALSA
+  std::unique_ptr<driver::Alsa> playback_;              //!< Handle playback stream
+  std::unique_ptr<driver::Decoder> decoder_;            //!< Decode input stream from file
   std::shared_ptr<model::GlobalResource> shared_data_;  //!< Data shared between threads
 
   std::thread audio_loop_;  //!< Thread to execute main-loop function
