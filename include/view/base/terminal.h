@@ -15,7 +15,6 @@
 #include "ftxui/component/component_base.hpp"  // for Component
 #include "model/application_error.h"
 #include "view/base/block.h"
-#include "view/base/block_event.h"
 #include "view/base/event_dispatcher.h"
 
 //! Forward declaration
@@ -26,6 +25,7 @@ class PlayerControl;
 namespace interface {
 
 //! Using-declaration for every possible callback function
+using EventCallback = std::function<void(ftxui::Event)>;
 using Callback = std::function<void()>;
 
 /**
@@ -79,10 +79,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   void RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player);
 
   /**
-   * @brief Bind an external force update function to an internal function
-   * @param cb Callback function to force update on terminal user interface
+   * @brief Bind an external send event function to an internal function
+   * @param cb Callback function to send custom events to terminal user interface
    */
-  void RegisterForceUpdateCallback(Callback cb);
+  void RegisterEventSenderCallback(EventCallback cb);
 
   /**
    * @brief Bind an external exit function to an internal function
@@ -92,6 +92,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /* ******************************************************************************************** */
   //! UI Interface API
+
   /**
    * @brief Renders the component
    * @return Element Built element based on internal state
@@ -133,11 +134,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
   //! UI Event dispatching
  public:
-  //! As a mediator, send a block event for every other block
-  void Broadcast(Block* sender, BlockEvent event) override;
-
-  //! Send block event to specified block
-  void SendTo(BlockIdentifier id, BlockEvent event) override;
+  //! Send event to blocks
+  void SendEvent(ftxui::Event event) override;
 
   //! Set application error (can be originated from controller or any interface::block)
   void SetApplicationError(error::Code id) override;
@@ -148,8 +146,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::shared_ptr<controller::Media> media_ctl_;  //!< Media controller
   std::optional<error::Code> last_error_;         //!< Last application error
 
-  Callback cb_update_;  //!< Function to force udpate on terminal interface
-  Callback cb_exit_;    //!< Function to exit from graphical interface
+  EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
+  Callback cb_exit_;             //!< Function to exit from graphical interface
 };
 
 }  // namespace interface

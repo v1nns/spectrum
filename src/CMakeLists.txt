@@ -43,9 +43,8 @@ target_sources(
             # model
             model/song.cc
             # view
-            view/base/terminal.cc
-            view/base/block_event.cc
             view/base/block.cc
+            view/base/terminal.cc
             view/block/list_directory.cc
             view/block/file_info.cc
             view/block/audio_player.cc

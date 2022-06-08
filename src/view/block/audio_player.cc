@@ -65,11 +65,6 @@ bool AudioPlayer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void AudioPlayer::OnBlockEvent(BlockEvent event) {
-  // TODO: ...
-}
-/* ********************************************************************************************** */
-
 bool AudioPlayer::OnMouseEvent(ftxui::Event event) {
   if (btn_play_->OnEvent(event)) return true;
 

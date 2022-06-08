@@ -9,14 +9,14 @@
 
 #include <memory>
 
+#include "ftxui/component/event.hpp"
 #include "model/application_error.h"
 #include "view/base/block.h"
-#include "view/base/block_event.h"
 
 namespace interface {
 
 /**
- * @brief Interface class to dispatch events among the different blocks
+ * @brief Interface class to dispatch events among blocks
  */
 class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
  protected:
@@ -38,8 +38,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
   EventDispatcher& operator=(EventDispatcher&& other) = delete;       // move assignment
 
   //! Implemented by derived class
-  virtual void Broadcast(Block*, BlockEvent) = 0;
-  virtual void SendTo(BlockIdentifier, BlockEvent) = 0;
+  virtual void SendEvent(ftxui::Event) = 0;
   virtual void SetApplicationError(error::Code) = 0;
 };
 

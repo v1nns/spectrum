@@ -11,9 +11,6 @@
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <vector>
-
-#include "model/application_error.h"
 
 namespace model {
 
@@ -34,7 +31,9 @@ struct Song {
 
 /* ------------------------------------ Overloaded Operators ------------------------------------ */
 
-std::ostream& operator<<(std::ostream& os, const Song& arg);
+std::ostream& operator<<(std::ostream& os, const Song& entry);
+std::istream& operator>>(std::istream& is, Song& entry);
+
 std::string to_string(const Song& arg);
 
 }  // namespace model

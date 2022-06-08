@@ -14,7 +14,6 @@
 #include "ftxui/component/component_base.hpp"  // for ComponentBase
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "view/base/action_listener.h"
-#include "view/base/block_event.h"
 
 namespace interface {
 
@@ -53,7 +52,6 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
 
   virtual ftxui::Element Render() = 0;
   virtual bool OnEvent(ftxui::Event) = 0;
-  virtual void OnBlockEvent(BlockEvent) = 0;
 
   /* ******************************************************************************************** */
 

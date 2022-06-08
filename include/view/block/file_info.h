@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
 #include <memory>  // for shared_ptr, unique_ptr
+#include <optional>
 #include <string>  // for string
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
@@ -46,15 +47,9 @@ class FileInfo : public Block {
    */
   bool OnEvent(ftxui::Event event) override;
 
-  /**
-   * @brief Handles an event (from another block)
-   * @param event Received event from dispatcher
-   */
-  void OnBlockEvent(BlockEvent event) override;
-
   /* ******************************************************************************************* */
  private:
-  std::string audio_info_;  //!< Audio information from current song
+  std::optional<model::Song> audio_info_;  //!< Audio information from current song
 };
 
 }  // namespace interface

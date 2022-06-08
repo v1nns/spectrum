@@ -3,10 +3,10 @@
 #include <string>
 #include <thread>
 
+#include "ftxui/component/event.hpp"
 #include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/block.h"
-#include "view/base/block_event.h"
 
 namespace controller {
 
@@ -61,13 +61,10 @@ void Media::NotifySongInformation(const model::Song& info) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
-  // Create a block event
-  auto event = interface::BlockEvent::UpdateFileInfo;
-  std::string text = to_string(info);
-  event.SetContent(text);
+  auto event = ftxui::Event::Special("evento|" + model::to_string(info));
 
   // Notify File Info block with information about the recently loaded song
-  dispatcher->SendTo(interface::kBlockFileInfo, event);
+  dispatcher->SendEvent(event);
 }
 
 }  // namespace controller

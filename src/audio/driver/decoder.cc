@@ -86,16 +86,13 @@ error::Code Decoder::ConfigureResampler() {
 /* ********************************************************************************************** */
 
 void Decoder::FillAudioInformation(model::Song *audio_info) {
-  *audio_info = model::Song{
-      .filepath = audio_info->filepath,
-      .artist = "",
-      .title = "",
-      .num_channels = (uint16_t)decoder_->channels,
-      .sample_rate = (uint32_t)decoder_->sample_rate,
-      .bit_rate = (uint32_t)input_stream_->bit_rate,
-      .bit_depth = (uint32_t)decoder_->bits_per_raw_sample,
-      .duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE),
-  };
+  //   .artist = "",
+  //   .title = "",
+  audio_info->num_channels = (uint16_t)decoder_->channels,
+  audio_info->sample_rate = (uint32_t)decoder_->sample_rate,
+  audio_info->bit_rate = (uint32_t)input_stream_->bit_rate,
+  audio_info->bit_depth = (uint32_t)decoder_->bits_per_raw_sample,
+  audio_info->duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
 }
 
 /* ********************************************************************************************** */

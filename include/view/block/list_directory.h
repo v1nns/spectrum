@@ -56,12 +56,6 @@ class ListDirectory : public Block {
    */
   bool OnEvent(ftxui::Event event) override;
 
-  /**
-   * @brief Handles an event (from another block)
-   * @param event Received event from dispatcher
-   */
-  void OnBlockEvent(BlockEvent event) override;
-
   /* ******************************************************************************************** */
  private:
   //! Handle mouse event

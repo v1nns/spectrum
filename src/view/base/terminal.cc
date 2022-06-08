@@ -31,7 +31,7 @@ std::shared_ptr<Terminal> Terminal::Create() {
 /* ********************************************************************************************** */
 
 Terminal::Terminal()
-    : EventDispatcher{}, ftxui::ComponentBase{}, media_ctl_{}, cb_update_{}, cb_exit_{} {}
+    : EventDispatcher{}, ftxui::ComponentBase{}, media_ctl_{}, cb_send_event_{}, cb_exit_{} {}
 
 /* ********************************************************************************************** */
 
@@ -88,7 +88,7 @@ void Terminal::RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>
 
 /* ********************************************************************************************** */
 
-void Terminal::RegisterForceUpdateCallback(Callback cb) { cb_update_ = cb; }
+void Terminal::RegisterEventSenderCallback(EventCallback cb) { cb_send_event_ = cb; }
 
 /* ********************************************************************************************** */
 
@@ -167,7 +167,7 @@ bool Terminal::OnGlobalModeEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool Terminal::OnErrorModeEvent(ftxui::Event event) {
-  if (event == ftxui::Event::Return | event == ftxui::Event::Escape |
+  if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
       event == ftxui::Event::Character('q')) {
     last_error_.reset();
   }
@@ -178,27 +178,7 @@ bool Terminal::OnErrorModeEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void Terminal::Broadcast(Block* sender, BlockEvent event) {
-  for (auto& child : children_) {
-    auto block = std::static_pointer_cast<Block>(child);
-    if (sender == nullptr || block->GetId() != sender->GetId()) {
-      block->OnBlockEvent(event);
-    }
-  }
-}
-
-/* ********************************************************************************************** */
-
-void Terminal::SendTo(BlockIdentifier id, BlockEvent event) {
-  for (auto& child : children_) {
-    auto block = std::static_pointer_cast<Block>(child);
-    if (block->GetId() == id) {
-      block->OnBlockEvent(event);
-      cb_update_();
-      break;
-    }
-  }
-}
+void Terminal::SendEvent(ftxui::Event event) { cb_send_event_(event); }
 
 /* ********************************************************************************************** */
 

@@ -13,18 +13,21 @@ int main() {
   // Create and initialize a new terminal window
   auto terminal = interface::Terminal::Create();
 
-  // Register interfaces to each other
-  terminal->RegisterPlayerControl(player);
-  // TODO: fix this
-  //   player->RegisterInterfaceNotifier(terminal->GetMediaController());
-
   // Create a full-size screen and register exit callback
   ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
+
+  // Register callbacks to Terminal
+  terminal->RegisterPlayerControl(player);
+
+  terminal->RegisterEventSenderCallback([&](ftxui::Event e) { screen.PostEvent(e); });
 
   terminal->RegisterExitCallback([&]() {
     player->Exit();
     screen.ExitLoopClosure()();
   });
+
+  // Register callbacks to Player
+  player->RegisterInterfaceNotifier(terminal->GetMediaController());
 
   // Start graphical interface loop
   screen.Loop(terminal);

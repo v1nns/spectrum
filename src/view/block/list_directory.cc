@@ -151,12 +151,6 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void ListDirectory::OnBlockEvent(BlockEvent event) {
-  // TODO: do something in the future
-}
-
-/* ********************************************************************************************** */
-
 bool ListDirectory::OnMouseEvent(ftxui::Event event) {
   if (event.mouse().button == ftxui::Mouse::WheelDown ||
       event.mouse().button == ftxui::Mouse::WheelUp) {
@@ -256,8 +250,6 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
       } else {
         // Send user action to controller
         auto listener = listener_.lock();
-
-        // TODO: do something on else?
         if (listener) listener->NotifyFileSelection(*active);
       }
 

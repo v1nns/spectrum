@@ -1,5 +1,6 @@
 #include "view/block/file_info.h"
 
+#include <string>
 #include <utility>  // for move
 #include <vector>   // for vector
 
@@ -12,41 +13,32 @@ constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, kBlockFileInfo}, audio_info_{} {}
+    : Block{dispatcher, kBlockFileInfo}, audio_info_{std::nullopt} {}
 
 /* ********************************************************************************************** */
 
 ftxui::Element FileInfo::Render() {
   ftxui::Elements lines;
 
-  if (audio_info_.empty()) {
+  if (!audio_info_) {
     lines.push_back(ftxui::text("Choose a song to play...") | ftxui::dim);
   } else {
-    // TODO: improve this... This will split the string into multiple lines using "." as delimiter
-    std::string::size_type prev_pos = 0, pos = 0;
+    std::istringstream input{model::to_string(audio_info_.value())};
 
-    while ((pos = audio_info_.find(".", pos)) != std::string::npos) {
-      // Get substring to print into a whole line
-      std::string substring(audio_info_.substr(prev_pos, pos - prev_pos));
-
-      // Split into two strings to apply styles in the first one
-      std::string::size_type token_index = substring.find(":");
-      std::string title = substring.substr(0, token_index),
-                  value = substring.substr(token_index + 1);
+    for (std::string line; std::getline(input, line);) {
+      //   ftxui::Element line = ftxui::hbox({
+      //       ftxui::text(title) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
+      //       ftxui::filler(),
+      //       ftxui::text(value) | ftxui::align_right,
+      //   });
 
       // Create element
-      ftxui::Element line = ftxui::hbox({
-          ftxui::text(title) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
-          ftxui::filler(),
-          ftxui::text(value) | ftxui::align_right,
-      });
-
-      lines.push_back(line);
-      prev_pos = ++pos;
+      ftxui::Element item = ftxui::text(line);
+      lines.push_back(item);
     }
   }
 
-  ftxui::Element content = ftxui::vbox(lines);
+  ftxui::Element content = ftxui::vbox(std::move(lines));
   if (lines.size() == 1) content = content | ftxui::center;
 
   using ftxui::HEIGHT, ftxui::EQUAL;
@@ -56,15 +48,19 @@ ftxui::Element FileInfo::Render() {
 
 /* ********************************************************************************************** */
 
-bool FileInfo::OnEvent(ftxui::Event event) { return false; }
+bool FileInfo::OnEvent(ftxui::Event event) {
+  std::string parse = event.input();
 
-/* ********************************************************************************************** */
-
-void FileInfo::OnBlockEvent(BlockEvent event) {
-  if (event == BlockEvent::UpdateFileInfo) {
-    // fill inner data
-    audio_info_ = event.Content();
+  if (parse.find("evento|") != std::string::npos) {
+    parse.erase(0, 7);
+    std::stringstream ss(parse);
+    model::Song teste;
+    ss >> teste;
+    audio_info_ = std::move(teste);
+    return true;
   }
+
+  return false;
 }
 
 }  // namespace interface
