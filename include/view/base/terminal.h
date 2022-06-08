@@ -14,10 +14,14 @@
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
 #include "model/application_error.h"
-#include "model/global_resource.h"
 #include "view/base/block.h"
 #include "view/base/block_event.h"
 #include "view/base/event_dispatcher.h"
+
+//! Forward declaration
+namespace audio {
+class PlayerControl;
+}
 
 namespace interface {
 
@@ -37,10 +41,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  public:
   /**
    * @brief Factory method: Create, initialize internal components and return Terminal object
-   * @param shared Global data used by the whole application
    * @return std::shared_ptr<Terminal> Terminal instance
    */
-  static std::shared_ptr<Terminal> Create(std::shared_ptr<model::GlobalResource> shared);
+  static std::shared_ptr<Terminal> Create();
 
   /**
    * @brief Destroy the Terminal object
@@ -54,24 +57,41 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   Terminal& operator=(Terminal&& other) = delete;       // move assignment
 
   /* ******************************************************************************************** */
+  //! Internal operations
  private:
   /**
    * @brief Initialize internal components for Terminal object
    */
-  void Init(std::shared_ptr<model::GlobalResource> shared);
+  void Init();
 
   /**
    * @brief Force application to exit
    */
   void Exit();
 
+  /* ******************************************************************************************** */
+  //! Binds and registrations
  public:
+  /**
+   * @brief Pass external player interface to internal UI controller
+   * @param player Audio player control interface
+   */
+  void RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player);
+
+  /**
+   * @brief Bind an external force update function to an internal function
+   * @param cb Callback function to force update on terminal user interface
+   */
+  void RegisterForceUpdateCallback(Callback cb);
+
   /**
    * @brief Bind an external exit function to an internal function
    * @param cb Callback function to exit graphical application
    */
   void RegisterExitCallback(Callback cb);
 
+  /* ******************************************************************************************** */
+  //! UI Interface API
   /**
    * @brief Renders the component
    * @return Element Built element based on internal state
@@ -80,16 +100,24 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /**
    * @brief Handles an event (from mouse/keyboard)
-   *
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
   bool OnEvent(ftxui::Event event) override;
 
+  /* ******************************************************************************************** */
+
+  /**
+   * @brief Get the Media Controller object
+   * @return std::shared_ptr<controller::Media> UI Media controller
+   */
+  std::shared_ptr<controller::Media> GetMediaController() const { return media_ctl_; }
+
+  /* ******************************************************************************************** */
+  //! Internal event handling
  private:
   /**
    * @brief Handles a event when no internal mode has been set
-   *
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
@@ -97,13 +125,13 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /**
    * @brief Handles a event while on error mode (it means someone informed an error)
-   *
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
   bool OnErrorModeEvent(ftxui::Event event);
 
   /* ******************************************************************************************** */
+  //! UI Event dispatching
  public:
   //! As a mediator, send a block event for every other block
   void Broadcast(Block* sender, BlockEvent event) override;
@@ -115,13 +143,13 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   void SetApplicationError(error::Code id) override;
 
   /* ******************************************************************************************** */
+  //! Variables
  private:
   std::shared_ptr<controller::Media> media_ctl_;  //!< Media controller
   std::optional<error::Code> last_error_;         //!< Last application error
 
-  std::shared_ptr<model::GlobalResource> shared_data_;  //!< Data shared between threads
-
-  Callback cb_exit_;  //!< Function to exit from graphical interface
+  Callback cb_update_;  //!< Function to force udpate on terminal interface
+  Callback cb_exit_;    //!< Function to exit from graphical interface
 };
 
 }  // namespace interface

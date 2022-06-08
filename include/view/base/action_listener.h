@@ -8,27 +8,28 @@
 
 #include <filesystem>
 
+//! Forward declaration
+namespace model {
+class Song;
+}
+
 namespace interface {
 
 /**
  * @brief Interface class to receive an interface action
  */
 class ActionListener {
- protected:
-  /**
-   * @brief Construct a new ActionListener object
-   */
-  ActionListener() = default;
-
  public:
-  /**
-   * @brief Destroy the ActionListener object
-   */
-  virtual ~ActionListener() = default;
+  /* ******************************************************************************************** */
+  //! Originated from UI
 
-  //! Implemented by derived class
   virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
   virtual void ClearCurrentSong() = 0;
+
+  /* ******************************************************************************************** */
+  //! Originated from Audio Player
+
+  virtual void NotifySongInformation(const model::Song& info) = 0;
 };
 
 }  // namespace interface

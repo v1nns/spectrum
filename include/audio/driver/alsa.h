@@ -61,6 +61,7 @@ class Alsa {
 
   /* ******************************************************************************************** */
   //! Variables
+
   PcmPlayback playback_handle_;
   snd_pcm_uframes_t period_size_;
 };

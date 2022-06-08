@@ -16,14 +16,14 @@
 
 namespace interface {
 
-std::shared_ptr<Terminal> Terminal::Create(std::shared_ptr<model::GlobalResource> shared) {
+std::shared_ptr<Terminal> Terminal::Create() {
   // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
   // do we want to use std::make_shared explicitly calling operator new()
   struct MakeSharedEnabler : public Terminal {};
   auto terminal = std::make_shared<MakeSharedEnabler>();
 
   // Initialize internal components
-  terminal->Init(shared);
+  terminal->Init();
 
   return terminal;
 }
@@ -31,7 +31,7 @@ std::shared_ptr<Terminal> Terminal::Create(std::shared_ptr<model::GlobalResource
 /* ********************************************************************************************** */
 
 Terminal::Terminal()
-    : EventDispatcher{}, ftxui::ComponentBase{}, media_ctl_{}, cb_exit_{}, shared_data_{} {}
+    : EventDispatcher{}, ftxui::ComponentBase{}, media_ctl_{}, cb_update_{}, cb_exit_{} {}
 
 /* ********************************************************************************************** */
 
@@ -41,18 +41,16 @@ Terminal::~Terminal() {
 
 /* ********************************************************************************************** */
 
-void Terminal::Init(std::shared_ptr<model::GlobalResource> shared) {
+void Terminal::Init() {
   // TODO: remove this after developing
   std::string custom_path = "/home/vinicius/projects/music-analyzer/";
-
-  shared_data_ = std::move(shared);
 
   // As this terminal will hold all these interface blocks, there is nothing better than
   // use itself as a mediator to send events between them
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create controllers
-  media_ctl_ = std::make_shared<controller::Media>(dispatcher, shared_data_);
+  media_ctl_ = std::make_shared<controller::Media>(dispatcher);
 
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
@@ -80,10 +78,17 @@ void Terminal::Exit() {
   if (cb_exit_ != nullptr) {
     cb_exit_();
   }
-
-  // Notify other threads that user has exited from graphical interface
-  shared_data_->NotifyToExit();
 }
+
+/* ********************************************************************************************** */
+
+void Terminal::RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player) {
+  media_ctl_->RegisterPlayerControl(player);
+}
+
+/* ********************************************************************************************** */
+
+void Terminal::RegisterForceUpdateCallback(Callback cb) { cb_update_ = cb; }
 
 /* ********************************************************************************************** */
 
@@ -189,6 +194,7 @@ void Terminal::SendTo(BlockIdentifier id, BlockEvent event) {
     auto block = std::static_pointer_cast<Block>(child);
     if (block->GetId() == id) {
       block->OnBlockEvent(event);
+      cb_update_();
       break;
     }
   }

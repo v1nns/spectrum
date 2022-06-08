@@ -2,12 +2,7 @@
 
 namespace model {
 
-Song::Song(const std::string& full_path)
-    : filename_{full_path}, file_{filename_, std::ios::binary} {}
-
-/* ********************************************************************************************** */
-
-std::ostream& operator<<(std::ostream& os, const AudioData& arg) {
+std::ostream& operator<<(std::ostream& os, const Song& arg) {
   // TODO: improve this
   std::string bit_rate;
   if (arg.bit_rate > 1000) {
@@ -16,7 +11,8 @@ std::ostream& operator<<(std::ostream& os, const AudioData& arg) {
     bit_rate = std::to_string(arg.bit_rate) + " bps";
   }
 
-  os << "File format: " << arg.file_format << ".";
+  os << "Artist: " << arg.artist << ".";
+  os << "Title: " << arg.title << ".";
   os << "Channels: " << arg.num_channels << ".";
   os << "Sample rate: " << arg.sample_rate << ".";
   os << "Bit rate: " << bit_rate << ".";
@@ -26,7 +22,7 @@ std::ostream& operator<<(std::ostream& os, const AudioData& arg) {
 
 /* ********************************************************************************************** */
 
-std::string to_string(const AudioData& arg) {
+std::string to_string(const Song& arg) {
   std::ostringstream ss;
   ss << arg;
   return std::move(ss).str();

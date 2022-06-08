@@ -49,16 +49,17 @@ error::Code Decoder::ConfigureDecoder() {
   }
 
   if (decoder_->channel_layout == 0) {
-    switch (decoder_->channels) {
-      case 1:
-        decoder_->channel_layout = AV_CH_LAYOUT_MONO;
-        break;
-      case 2:
-        decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-        break;
-      default:
-        return error::kUnknownError;
-    }
+    decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
+    // switch (decoder_->channels) {
+    //   case 1:
+    //     decoder_->channel_layout = AV_CH_LAYOUT_MONO;
+    //     break;
+    //   case 2:
+    //     decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
+    //     break;
+    //   default:
+    //     return error::kUnknownError;
+    // }
   }
 
   if (avcodec_open2(decoder_.get(), codec, nullptr) < 0) {
@@ -75,11 +76,7 @@ error::Code Decoder::ConfigureResampler() {
       nullptr, kChannelLayout, kSampleFormat, kSampleRate, decoder_->channel_layout,
       decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr)};
 
-  if (!resampler_) {
-    return error::kUnknownError;
-  }
-
-  if (swr_init(resampler_.get()) < 0) {
+  if (!resampler_ || swr_init(resampler_.get()) < 0) {
     return error::kUnknownError;
   }
 
@@ -88,10 +85,25 @@ error::Code Decoder::ConfigureResampler() {
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::OpenFile(const std::string &filepath) {
+void Decoder::FillAudioInformation(model::Song *audio_info) {
+  *audio_info = model::Song{
+      .filepath = audio_info->filepath,
+      .artist = "",
+      .title = "",
+      .num_channels = (uint16_t)decoder_->channels,
+      .sample_rate = (uint32_t)decoder_->sample_rate,
+      .bit_rate = (uint32_t)input_stream_->bit_rate,
+      .bit_depth = (uint32_t)decoder_->bits_per_raw_sample,
+      .duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE),
+  };
+}
+
+/* ********************************************************************************************** */
+
+error::Code Decoder::OpenFile(model::Song *audio_info) {
   error::Code result;
 
-  if (result = OpenInputStream(filepath) != error::kSuccess) {
+  if (result = OpenInputStream(audio_info->filepath) != error::kSuccess) {
     return result;
   }
 
@@ -100,25 +112,34 @@ error::Code Decoder::OpenFile(const std::string &filepath) {
   }
 
   result = ConfigureResampler();
+
+  if (result == error::kSuccess) {
+    // At this point, we can get the whole information about the song
+    FillAudioInformation(audio_info);
+  }
+
   return result;
 }
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::Decode(int samples, std::function<void(void *, int, int)> callback) {
+error::Code Decoder::Decode(int samples, std::function<bool(void *, int, int)> callback) {
   int max_buffer_size =
       av_samples_get_buffer_size(nullptr, decoder_->channels, samples, decoder_->sample_fmt, 1);
 
   Packet packet = Packet{av_packet_alloc()};
   Frame frame = Frame{av_frame_alloc()};
 
-  if (packet == nullptr || frame == nullptr) {
+  if (!packet || !frame) {
     return error::kUnknownError;
   }
 
-  uint8_t *buffer = (uint8_t *)av_malloc(max_buffer_size);
+  DataBuffer allocated_buffer = DataBuffer{(uint8_t *)av_malloc(max_buffer_size)};
+  uint8_t *buffer = allocated_buffer.get();
 
-  while (av_read_frame(input_stream_.get(), packet.get()) >= 0) {
+  bool continue_decoding = true;
+
+  while (av_read_frame(input_stream_.get(), packet.get()) >= 0 && continue_decoding) {
     if (packet->stream_index != stream_index_) {
       continue;
     }
@@ -127,12 +148,12 @@ error::Code Decoder::Decode(int samples, std::function<void(void *, int, int)> c
       return error::kUnknownError;
     }
 
-    while (avcodec_receive_frame(decoder_.get(), frame.get()) >= 0) {
+    while (avcodec_receive_frame(decoder_.get(), frame.get()) >= 0 && continue_decoding) {
       int out_samples = swr_convert(resampler_.get(), &buffer, samples,
                                     (const uint8_t **)(frame->data), frame->nb_samples);
 
-      while (out_samples > 0) {
-        callback(buffer, max_buffer_size, out_samples);
+      while (out_samples > 0 && continue_decoding) {
+        continue_decoding = callback(buffer, max_buffer_size, out_samples);
         out_samples = swr_convert(resampler_.get(), &buffer, samples, nullptr, 0);
       }
 
@@ -142,7 +163,6 @@ error::Code Decoder::Decode(int samples, std::function<void(void *, int, int)> c
     av_packet_unref(packet.get());
   }
 
-  free(buffer);
   return error::kSuccess;
 }
 

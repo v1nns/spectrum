@@ -1,7 +1,5 @@
 #include "view/base/block_event.h"
 
-#include "model/song.h"
-
 namespace interface {
 
 BlockEvent BlockEvent::Special(std::string name) {

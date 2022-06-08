@@ -8,8 +8,6 @@
 #include <iostream>
 #include <thread>
 
-#include "model/global_resource.h"
-
 namespace {
 
 /**
@@ -17,32 +15,29 @@ namespace {
  */
 class PlayerTest : public ::testing::Test {
  protected:
-  void SetUp() override { resources_ = std::make_shared<model::GlobalResource>(); }
-  void TearDown() override { resources_.reset(); }
-
- protected:
-  std::shared_ptr<model::GlobalResource> resources_;
+  void SetUp() override {}
+  void TearDown() override {}
 };
 
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, CreateDummyPlayer) {
-  auto player = audio::Player::Create(resources_);
+  auto player = audio::Player::Create();
   std::cout << "thread should not start playing yet" << std::endl;
 
-  resources_->NotifyToExit();
+  player->Exit();
 }
 
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
-  auto player = audio::Player::Create(resources_);
+  auto player = audio::Player::Create();
   std::cout << "thread should not start playing yet" << std::endl;
 
-  resources_->play.store(true);
+  player->Play("dummy");
   std::cout << "alright, thread should have started now" << std::endl;
 
-  resources_->NotifyToExit();
+  player->Exit();
 }
 
 }  // namespace

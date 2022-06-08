@@ -17,11 +17,12 @@ extern "C" {
 #include <string>
 
 #include "model/application_error.h"
+#include "model/song.h"
 
 namespace driver {
 
 /**
- * @brief TODO:...
+ * @brief Decode and resample audio samples using FFMPEG libraries
  */
 class Decoder {
  public:
@@ -42,16 +43,24 @@ class Decoder {
   error::Code ConfigureDecoder();
   error::Code ConfigureResampler();
 
+  void FillAudioInformation(model::Song* audio_info);
+
   /* ******************************************************************************************** */
  public:
   /**
-   * @brief Open a file as input stream to parse it and check for codec compatibility for decoding
-   * @param filepath Full path to file
+   * @brief Open file as input stream and check for codec compatibility for decoding
+   * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  error::Code OpenFile(const std::string& filepath);
+  error::Code OpenFile(model::Song* audio_info);
 
-  error::Code Decode(int samples, std::function<void(void*, int, int)> callback);
+  /**
+   * @brief Decode and resample input stream to desired sample format/rate
+   * @param samples Maximum value of samples
+   * @param callback Pass resamples to this callback
+   * @return error::Code Application error code
+   */
+  error::Code Decode(int samples, std::function<bool(void*, int, int)> callback);
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -76,12 +85,18 @@ class Decoder {
     void operator()(AVFrame* p) const { av_frame_free(&p); }
   };
 
+  struct DataBufferDeleter {
+    void operator()(uint8_t* p) const { free(p); }
+  };
+
   using FormatContext = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
   using CodecContext = std::unique_ptr<AVCodecContext, CodecContextDeleter>;
   using CustomSwrContext = std::unique_ptr<SwrContext, SwrContextDeleter>;
 
   using Packet = std::unique_ptr<AVPacket, PacketDeleter>;
   using Frame = std::unique_ptr<AVFrame, FrameDeleter>;
+
+  using DataBuffer = std::unique_ptr<uint8_t, DataBufferDeleter>;
 
   /* ******************************************************************************************** */
   //! Default Constants
@@ -94,11 +109,11 @@ class Decoder {
   /* ******************************************************************************************** */
   //! Variables
 
-  FormatContext input_stream_;
-  CodecContext decoder_;
-  CustomSwrContext resampler_;
+  FormatContext input_stream_;  //!< Input stream from file
+  CodecContext decoder_;        //!< Specific codec compatible with the input stream
+  CustomSwrContext resampler_;  //!< Resample audio data to desired sample format and rate
 
-  int stream_index_;
+  int stream_index_;  //!< Audio stream index read in input stream
 };
 
 }  // namespace driver
