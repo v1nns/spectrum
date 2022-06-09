@@ -9,9 +9,9 @@
 
 #include <memory>
 
-#include "ftxui/component/event.hpp"
 #include "model/application_error.h"
 #include "view/base/block.h"
+#include "view/base/custom_event.h"
 
 namespace interface {
 
@@ -38,7 +38,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
   EventDispatcher& operator=(EventDispatcher&& other) = delete;       // move assignment
 
   //! Implemented by derived class
-  virtual void SendEvent(ftxui::Event) = 0;
+  virtual void SendEvent(const CustomEvent&) = 0;
   virtual void SetApplicationError(error::Code) = 0;
 };
 

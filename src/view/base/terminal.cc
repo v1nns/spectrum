@@ -31,7 +31,13 @@ std::shared_ptr<Terminal> Terminal::Create() {
 /* ********************************************************************************************** */
 
 Terminal::Terminal()
-    : EventDispatcher{}, ftxui::ComponentBase{}, media_ctl_{}, cb_send_event_{}, cb_exit_{} {}
+    : EventDispatcher{},
+      ftxui::ComponentBase{},
+      media_ctl_{},
+      receiver_{ftxui::MakeReceiver<CustomEvent>()},
+      sender_{receiver_->MakeSender()},
+      cb_send_event_{},
+      cb_exit_{} {}
 
 /* ********************************************************************************************** */
 
@@ -137,6 +143,8 @@ ftxui::Element Terminal::Render() {
 bool Terminal::OnEvent(ftxui::Event event) {
   if (last_error_ && OnErrorModeEvent(event)) return true;
 
+  if (OnCustomEvent()) return true;
+
   if (OnGlobalModeEvent(event)) return true;
 
   for (auto& child : children_) {
@@ -148,7 +156,27 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool Terminal::OnGlobalModeEvent(ftxui::Event event) {
+bool Terminal::OnCustomEvent() {
+  if (!receiver_->HasPending()) {
+    return false;
+  }
+
+  CustomEvent event;
+  if (!receiver_->Receive(&event)) return false;
+
+  for (auto& child : children_) {
+    auto block = std::static_pointer_cast<Block>(child);
+    if (block->OnCustomEvent(event)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
   if (event == ftxui::Event::Character('q')) {
     Exit();
@@ -166,7 +194,7 @@ bool Terminal::OnGlobalModeEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool Terminal::OnErrorModeEvent(ftxui::Event event) {
+bool Terminal::OnErrorModeEvent(const ftxui::Event& event) {
   if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
       event == ftxui::Event::Character('q')) {
     last_error_.reset();
@@ -178,7 +206,10 @@ bool Terminal::OnErrorModeEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void Terminal::SendEvent(ftxui::Event event) { cb_send_event_(event); }
+void Terminal::SendEvent(const CustomEvent& event) {
+  sender_->Send(event);
+  cb_send_event_(ftxui::Event::Custom);  // force a refresh
+}
 
 /* ********************************************************************************************** */
 

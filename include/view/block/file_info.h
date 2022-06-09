@@ -41,11 +41,17 @@ class FileInfo : public Block {
 
   /**
    * @brief Handles an event (from mouse/keyboard)
-   *
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
   bool OnEvent(ftxui::Event event) override;
+
+  /**
+   * @brief Handles a custom event
+   * @param event Received event (probably sent by Audio thread)
+   * @return true if event was handled, otherwise false
+   */
+  bool OnCustomEvent(const CustomEvent& event) override;
 
   /* ******************************************************************************************* */
  private:

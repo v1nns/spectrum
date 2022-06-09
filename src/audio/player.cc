@@ -45,7 +45,13 @@ void Player::Init(bool synchronous) {
   error::Code result = playback_->CreatePlaybackStream();
 
   if (result != error::kSuccess) {
-    throw std::runtime_error("Could not initialize player");
+    throw std::runtime_error("Could not initialize playback stream in player");
+  }
+
+  result = playback_->ConfigureParameters();
+
+  if (result != error::kSuccess) {
+    throw std::runtime_error("Could not set parameters in player");
   }
 
   if (!synchronous) {
@@ -71,18 +77,15 @@ void Player::AudioHandler() {
         continue;
       }
 
-      int period_size;
-      result = playback_->ConfigureParameters(period_size);
-
-      if (result != error::kSuccess) {
-        ResetMediaControl();
-        continue;
+      {
+        auto media_notifier = notifier_.lock();
+        if (media_notifier) {
+          media_notifier->NotifySongInformation(*curr_song_);
+        }
       }
 
-      auto media_notifier = notifier_.lock();
-      if (media_notifier) {
-        media_notifier->NotifySongInformation(*curr_song_);
-      }
+      int period_size = playback_->GetPeriodSize();
+      playback_->Prepare();
 
       result = decoder.Decode(period_size, [&](void* buffer, int buffer_size, int out_samples) {
         if (exit_.load() || stop_.load()) return false;
@@ -93,7 +96,11 @@ void Player::AudioHandler() {
 
       // do something with result
 
-      play_.store(false);
+      if (stop_.load()) {
+        playback_->Stop();
+      }
+
+      ResetMediaControl();
     }
   }
 }
@@ -104,6 +111,11 @@ void Player::ResetMediaControl() {
   curr_song_.reset();
   play_.store(false);
   stop_.store(false);
+
+  auto media_notifier = notifier_.lock();
+  if (media_notifier) {
+    media_notifier->ClearSongInformation();
+  }
 }
 
 /* ********************************************************************************************** */

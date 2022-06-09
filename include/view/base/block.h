@@ -14,26 +14,27 @@
 #include "ftxui/component/component_base.hpp"  // for ComponentBase
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "view/base/action_listener.h"
+#include "view/base/custom_event.h"
 
 namespace interface {
 
 //! Forward declaration
 class EventDispatcher;
 
-//! Unique ID for each block
-using BlockIdentifier = uint8_t;
-
-//! List of Block IDs
-static constexpr BlockIdentifier kBlockListDirectory = 201;
-static constexpr BlockIdentifier kBlockFileInfo = 202;
-static constexpr BlockIdentifier kBlockAudioPlayer = 203;
-static constexpr BlockIdentifier kBlockErrorDialog = 204;
-
 /**
  * @brief Base class representing a block in view
  */
 class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  protected:
+  //! Unique ID for each block
+  using BlockIdentifier = uint8_t;
+
+  //! List of Block IDs
+  static constexpr BlockIdentifier ListDirectory = 201;
+  static constexpr BlockIdentifier FileInfo = 202;
+  static constexpr BlockIdentifier AudioPlayer = 203;
+  static constexpr BlockIdentifier ErrorDialog = 204;
+
   /**
    * @brief Construct a new Block object (only called by derived classes)
    * @param dispatcher Event dispatcher
@@ -52,6 +53,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
 
   virtual ftxui::Element Render() = 0;
   virtual bool OnEvent(ftxui::Event) = 0;
+  virtual bool OnCustomEvent(const CustomEvent&) = 0;
 
   /* ******************************************************************************************** */
 

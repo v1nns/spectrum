@@ -13,8 +13,10 @@
 #include "controller/media.h"
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
+#include "ftxui/component/receiver.hpp"
 #include "model/application_error.h"
 #include "view/base/block.h"
+#include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
 
 //! Forward declaration
@@ -118,24 +120,30 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Internal event handling
  private:
   /**
+   * @brief When it has any custom event, handles to broadcast it to children
+   * @return true if event was handled, otherwise false
+   */
+  bool OnCustomEvent();
+
+  /**
    * @brief Handles a event when no internal mode has been set
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnGlobalModeEvent(ftxui::Event event);
+  bool OnGlobalModeEvent(const ftxui::Event& event);
 
   /**
    * @brief Handles a event while on error mode (it means someone informed an error)
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnErrorModeEvent(ftxui::Event event);
+  bool OnErrorModeEvent(const ftxui::Event& event);
 
   /* ******************************************************************************************** */
   //! UI Event dispatching
  public:
   //! Send event to blocks
-  void SendEvent(ftxui::Event event) override;
+  void SendEvent(const CustomEvent& event) override;
 
   //! Set application error (can be originated from controller or any interface::block)
   void SetApplicationError(error::Code id) override;
@@ -145,6 +153,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  private:
   std::shared_ptr<controller::Media> media_ctl_;  //!< Media controller
   std::optional<error::Code> last_error_;         //!< Last application error
+
+  ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
+  ftxui::Sender<CustomEvent> sender_;      //! Custom event sender
 
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
   Callback cb_exit_;             //!< Function to exit from graphical interface

@@ -42,17 +42,6 @@ void Media::ClearCurrentSong() {
   if (!player) return;
 
   player->Stop();
-
-  //   auto dispatcher = dispatcher_.lock();
-  //   if (!dispatcher) return;
-
-  //   // Notify File Info block to reset its interface
-  //   auto event = interface::BlockEvent::UpdateFileInfo;
-  //   dispatcher->SendTo(interface::kBlockFileInfo, event);
-
-  //   if (result != error::kSuccess) {
-  //     dispatcher->SetApplicationError(result);
-  //   }
 }
 
 /* ********************************************************************************************** */
@@ -61,9 +50,21 @@ void Media::NotifySongInformation(const model::Song& info) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
-  auto event = ftxui::Event::Special("evento|" + model::to_string(info));
+  auto event = interface::CustomEvent::UpdateFileInfo(info);
 
   // Notify File Info block with information about the recently loaded song
+  dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+void Media::ClearSongInformation() {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) return;
+
+  auto event = interface::CustomEvent::ClearFileInfo();
+
+  // Notify File Info block with to clear info about song
   dispatcher->SendEvent(event);
 }
 

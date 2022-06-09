@@ -46,7 +46,7 @@ constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
 
 ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                              const std::string& optional_path)
-    : Block{dispatcher, kBlockListDirectory},
+    : Block{dispatcher, Block::ListDirectory},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)},
       entries_{},
@@ -148,6 +148,10 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
   return false;
 }
+
+/* ********************************************************************************************** */
+
+bool ListDirectory::OnCustomEvent(const CustomEvent& event) { return false; }
 
 /* ********************************************************************************************** */
 

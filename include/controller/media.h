@@ -58,10 +58,15 @@ class Media : public interface::ActionListener {
   //! Actions received from Player
 
   /**
-   * @brief Inform to UI that Audio player loaded song with success by sending its information
+   * @brief Inform UI that Audio player loaded song with success by sending its information
    * @param info Detailed information about audio data from the current song
    */
   void NotifySongInformation(const model::Song& info) override;
+
+  /**
+   * @brief Inform UI to clear song information
+   */
+  void ClearSongInformation() override;
 
   /* ******************************************************************************************** */
   //! Variables

@@ -2,7 +2,10 @@
 
 namespace driver {
 
-Decoder::Decoder() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {}
+Decoder::Decoder() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
+  // Control this with a parameter
+  av_log_set_level(AV_LOG_QUIET);
+}
 
 /* ********************************************************************************************** */
 
@@ -91,7 +94,7 @@ void Decoder::FillAudioInformation(model::Song *audio_info) {
   audio_info->num_channels = (uint16_t)decoder_->channels,
   audio_info->sample_rate = (uint32_t)decoder_->sample_rate,
   audio_info->bit_rate = (uint32_t)input_stream_->bit_rate,
-  audio_info->bit_depth = (uint32_t)decoder_->bits_per_raw_sample,
+  audio_info->bit_depth = (uint32_t)decoder_->bits_per_coded_sample,
   audio_info->duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
 }
 

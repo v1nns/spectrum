@@ -13,7 +13,7 @@ constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, kBlockFileInfo}, audio_info_{std::nullopt} {}
+    : Block{dispatcher, Block::FileInfo}, audio_info_{std::nullopt} {}
 
 /* ********************************************************************************************** */
 
@@ -24,16 +24,19 @@ ftxui::Element FileInfo::Render() {
     lines.push_back(ftxui::text("Choose a song to play...") | ftxui::dim);
   } else {
     std::istringstream input{model::to_string(audio_info_.value())};
+    size_t pos;
 
     for (std::string line; std::getline(input, line);) {
-      //   ftxui::Element line = ftxui::hbox({
-      //       ftxui::text(title) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
-      //       ftxui::filler(),
-      //       ftxui::text(value) | ftxui::align_right,
-      //   });
+      pos = line.find_first_of(':');
+      std::string field = line.substr(0, pos), value = line.substr(pos + 1);
 
       // Create element
-      ftxui::Element item = ftxui::text(line);
+      ftxui::Element item = ftxui::hbox({
+          ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
+          ftxui::filler(),
+          ftxui::text(value) | ftxui::align_right,
+      });
+
       lines.push_back(item);
     }
   }
@@ -48,15 +51,18 @@ ftxui::Element FileInfo::Render() {
 
 /* ********************************************************************************************** */
 
-bool FileInfo::OnEvent(ftxui::Event event) {
-  std::string parse = event.input();
+bool FileInfo::OnEvent(ftxui::Event event) { return false; }
 
-  if (parse.find("evento|") != std::string::npos) {
-    parse.erase(0, 7);
-    std::stringstream ss(parse);
-    model::Song teste;
-    ss >> teste;
-    audio_info_ = std::move(teste);
+/* ********************************************************************************************** */
+
+bool FileInfo::OnCustomEvent(const CustomEvent& event) {
+  if (event == CustomEvent::kUpdateFileInfo) {
+    audio_info_ = event.GetContent();
+    return true;
+  }
+
+  if (event == CustomEvent::kClearFileInfo) {
+    audio_info_.reset();
     return true;
   }
 

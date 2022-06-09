@@ -56,6 +56,13 @@ class ListDirectory : public Block {
    */
   bool OnEvent(ftxui::Event event) override;
 
+  /**
+   * @brief Handles a custom event
+   * @param event Received event (probably sent by Audio thread)
+   * @return true if event was handled, otherwise false
+   */
+  bool OnCustomEvent(const CustomEvent& event) override;
+
   /* ******************************************************************************************** */
  private:
   //! Handle mouse event

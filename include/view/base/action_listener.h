@@ -27,9 +27,10 @@ class ActionListener {
   virtual void ClearCurrentSong() = 0;
 
   /* ******************************************************************************************** */
-  //! Originated from Audio Player
+  //! Originated from Audio Player (TODO: split to another class)
 
   virtual void NotifySongInformation(const model::Song& info) = 0;
+  virtual void ClearSongInformation() = 0;
 };
 
 }  // namespace interface

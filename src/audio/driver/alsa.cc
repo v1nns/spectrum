@@ -19,7 +19,7 @@ error::Code Alsa::CreatePlaybackStream() {
 
 /* ********************************************************************************************** */
 
-error::Code Alsa::ConfigureParameters(int& period_size) {
+error::Code Alsa::ConfigureParameters() {
   if (snd_pcm_set_params(playback_handle_.get(), kSampleFormat, SND_PCM_ACCESS_RW_INTERLEAVED,
                          kChannels, kSampleRate, 0, kSampleRate / 4) < 0) {
     return error::kUnknownError;
@@ -30,11 +30,26 @@ error::Code Alsa::ConfigureParameters(int& period_size) {
     return error::kUnknownError;
   }
 
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code Alsa::Prepare() {
   if (snd_pcm_prepare(playback_handle_.get()) < 0) {
     return error::kUnknownError;
   }
 
-  period_size = period_size_;
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code Alsa::Stop() {
+  if (snd_pcm_drain(playback_handle_.get()) < 0) {
+    return error::kUnknownError;
+  }
+
   return error::kSuccess;
 }
 
@@ -45,6 +60,7 @@ error::Code Alsa::AudioCallback(void* buffer, int buffer_size, int out_samples) 
 
   if (ret < 0) {
     if ((ret = snd_pcm_recover(playback_handle_.get(), ret, 1)) == 0) {
+      // TODO: do something?
       // std::cout << "AlsaPlayer: recovered after xrun (overrun/underrun)" << std::endl;
     }
   }
