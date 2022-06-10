@@ -109,6 +109,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   bool OnEvent(ftxui::Event event) override;
 
   /* ******************************************************************************************** */
+  //! Expose Media Controller
 
   /**
    * @brief Get the Media Controller object

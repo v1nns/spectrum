@@ -11,9 +11,10 @@
 namespace controller {
 
 Media::Media(const std::shared_ptr<interface::EventDispatcher>& dispatcher)
-    : interface::ActionListener {
-}, dispatcher_{dispatcher}, player_ctl_{} {
-}
+    : interface::ActionListener(),
+      interface::InterfaceNotifier(),
+      dispatcher_{dispatcher},
+      player_ctl_{} {}
 
 /* ********************************************************************************************** */
 
@@ -28,11 +29,6 @@ void Media::NotifyFileSelection(const std::filesystem::path& filepath) {
   if (!player) return;
 
   player->Play(filepath);
-
-  //   } else {
-  //     // Show error to user
-  //     dispatcher->SetApplicationError(result);
-  //   }
 }
 
 /* ********************************************************************************************** */

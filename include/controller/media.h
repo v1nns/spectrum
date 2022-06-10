@@ -13,14 +13,19 @@
 #include "model/song.h"
 #include "view/base/action_listener.h"
 #include "view/base/event_dispatcher.h"
+#include "view/base/interface_notifier.h"
 
 namespace controller {
 
 /**
  * @brief Receives notifications from user events and take action upon these events, like for
- * example, play/pause the highlighted song
+ * example, play/pause the highlighted song.
+ *
+ * It is important to highlight that this class is like a middleware to send/receive stuff between
+ * UI and Audio thread. And for that, it was decided to split these functionalities into
+ * ActionListener (UI->AudioThread) and InterfaceNotifier (AudioThread->UI).
  */
-class Media : public interface::ActionListener {
+class Media : public interface::ActionListener, public interface::InterfaceNotifier {
  public:
   /**
    * @brief Construct a new Media object
@@ -40,7 +45,7 @@ class Media : public interface::ActionListener {
   void RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player);
 
   /* ******************************************************************************************** */
-  //! Actions received from UI
+  //! Actions received from UI and sent to Audio thread
 
   /**
    * @brief Receive a notification from view that a file has been selected. In other words, user may
@@ -55,7 +60,7 @@ class Media : public interface::ActionListener {
   void ClearCurrentSong() override;
 
   /* ******************************************************************************************** */
-  //! Actions received from Player
+  //! Actions received from Player and sent to UI
 
   /**
    * @brief Inform UI that Audio player loaded song with success by sending its information
@@ -71,7 +76,7 @@ class Media : public interface::ActionListener {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for UI blocks
   std::weak_ptr<audio::PlayerControl> player_ctl_;        //!< Send events to control Audio Player
 };
 

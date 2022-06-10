@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-#include "view/base/action_listener.h"
+#include "view/base/interface_notifier.h"
 
 namespace audio {
 
@@ -120,7 +120,8 @@ void Player::ResetMediaControl() {
 
 /* ********************************************************************************************** */
 
-void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::ActionListener>& notifier) {
+void Player::RegisterInterfaceNotifier(
+    const std::shared_ptr<interface::InterfaceNotifier>& notifier) {
   notifier_ = notifier;
 }
 

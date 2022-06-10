@@ -20,7 +20,7 @@
 
 //! Forward declaration
 namespace interface {
-class ActionListener;
+class InterfaceNotifier;
 }
 
 namespace audio {
@@ -89,7 +89,7 @@ class Player : public PlayerControl {
    * @brief
    * @param player Audio player control interface
    */
-  void RegisterInterfaceNotifier(const std::shared_ptr<interface::ActionListener>& notifier);
+  void RegisterInterfaceNotifier(const std::shared_ptr<interface::InterfaceNotifier>& notifier);
 
   /* ******************************************************************************************** */
   //! Media Control
@@ -128,7 +128,7 @@ class Player : public PlayerControl {
 
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
 
-  std::weak_ptr<interface::ActionListener> notifier_;
+  std::weak_ptr<interface::InterfaceNotifier> notifier_;  //!< Send notifications to interface
 };
 
 }  // namespace audio
