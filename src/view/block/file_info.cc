@@ -13,7 +13,7 @@ constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Block::FileInfo}, audio_info_{std::nullopt} {}
+    : Block{dispatcher, Identifier::FileInfo}, audio_info_{std::nullopt} {}
 
 /* ********************************************************************************************** */
 
@@ -56,12 +56,12 @@ bool FileInfo::OnEvent(ftxui::Event event) { return false; }
 /* ********************************************************************************************** */
 
 bool FileInfo::OnCustomEvent(const CustomEvent& event) {
-  if (event == CustomEvent::kUpdateFileInfo) {
-    audio_info_ = event.GetContent();
+  if (event == CustomEvent::Type::UpdateFileInfo) {
+    audio_info_ = event.GetContent<model::Song>();
     return true;
   }
 
-  if (event == CustomEvent::kClearFileInfo) {
+  if (event == CustomEvent::Type::ClearFileInfo) {
     audio_info_.reset();
     return true;
   }

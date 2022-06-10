@@ -4,7 +4,7 @@
 
 namespace interface {
 
-Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const BlockIdentifier id)
+Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id)
     : ftxui::ComponentBase{}, id_{id}, dispatcher_{dispatcher}, listener_{} {}
 
 /* ********************************************************************************************** */

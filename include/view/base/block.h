@@ -27,20 +27,19 @@ class EventDispatcher;
 class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  protected:
   //! Unique ID for each block
-  using BlockIdentifier = uint8_t;
-
-  //! List of Block IDs
-  static constexpr BlockIdentifier ListDirectory = 201;
-  static constexpr BlockIdentifier FileInfo = 202;
-  static constexpr BlockIdentifier AudioPlayer = 203;
-  static constexpr BlockIdentifier ErrorDialog = 204;
+  enum class Identifier {
+    ListDirectory = 201,
+    FileInfo = 202,
+    AudioPlayer = 203,
+    ErrorDialog = 204,
+  };
 
   /**
    * @brief Construct a new Block object (only called by derived classes)
    * @param dispatcher Event dispatcher
    * @param id Unique ID for block
    */
-  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const BlockIdentifier id);
+  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id);
 
  public:
   /**
@@ -61,7 +60,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   void Attach(const std::shared_ptr<ActionListener>& listener);
 
   //! Unique ID
-  BlockIdentifier GetId() { return id_; }
+  Identifier GetId() { return id_; }
 
   /* ******************************************************************************************** */
  protected:
@@ -69,7 +68,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   std::weak_ptr<ActionListener> listener_;     //!< Inform actions to outside listener
 
  private:
-  BlockIdentifier id_;  //!< Block identification
+  Identifier id_;  //!< Block identification
 };
 
 }  // namespace interface
