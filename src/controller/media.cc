@@ -42,6 +42,15 @@ void Media::ClearCurrentSong() {
 
 /* ********************************************************************************************** */
 
+void Media::PauseOrResume() {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->PauseOrResume();
+}
+
+/* ********************************************************************************************** */
+
 void Media::NotifySongInformation(const model::Song& info) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;

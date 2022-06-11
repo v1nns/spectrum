@@ -31,6 +31,7 @@ namespace audio {
 class PlayerControl {
  public:
   virtual void Play(const std::string& filepath) = 0;
+  virtual void PauseOrResume() = 0;
   virtual void Stop() = 0;
   virtual void Exit() = 0;
 };
@@ -101,6 +102,11 @@ class Player : public PlayerControl {
   void Play(const std::string& filepath) override;
 
   /**
+   * @brief Inform Audio loop to pause/resume song
+   */
+  void PauseOrResume() override;
+
+  /**
    * @brief Inform Audio loop to stop decoding and sending song to playback
    */
   void Stop() override;
@@ -111,20 +117,55 @@ class Player : public PlayerControl {
   void Exit() override;
 
   /* ******************************************************************************************** */
-  //! Variables
+  //! Custom class for blocking actions
  private:
+  /**
+   * @brief A simple structure for synchronization with external events (currently used in two
+   * situations: to block thread while waiting to start playing and also for resuming audio when it
+   * is paused)
+   */
+  struct SynchronizedValue {
+    std::mutex mutex;                  //!< Control access for internal resources
+    std::condition_variable cond_var;  //!< Conditional variable to block thread
+    std::function<bool()> wait_until;  //!< Predicate must be satisfied to unblock thread
+    std::atomic<bool> value;           //!< Actual value (in this case, used for Media controls)
+
+    //! Overloaded operators
+    explicit operator bool() const { return value.load(); }
+
+    SynchronizedValue& operator=(const bool a) {
+      value.store(a);
+      return *this;
+    }
+
+    /**
+     * @brief Notify thread to unblock (when it is blocked by condition variable)
+     */
+    void Notify() { cond_var.notify_one(); }
+
+    /**
+     * @brief Block thread until predicate from function is satisfied (in other words, wait until
+     * user interface sends events)
+     * @return true when value is set as true, otherwise false
+     */
+    bool WaitForValue() {
+      std::unique_lock<std::mutex> lock(mutex);
+      cond_var.wait(lock, wait_until);
+      return value.load();
+    }
+  };
+
+  /* ******************************************************************************************** */
+  //! Variables
+
   std::unique_ptr<driver::Alsa> playback_;  //!< Handle playback stream
+  std::thread audio_loop_;                  //!< Thread to execute main-loop function
 
-  std::thread audio_loop_;  //!< Thread to execute main-loop function
+  SynchronizedValue play_;   // Controls when should play the song
+  SynchronizedValue pause_;  // Controls to pause the song when asked by UI
 
-  std::mutex mutex_;                  //!< Control access for internal resources
-  std::condition_variable cond_var_;  //!< Control Audio thread execution
-
-  //! These are flags used to notify Audio thread
-  std::atomic<bool> play_;  //!< Start playing song
-  std::atomic<bool> stop_;  //!< Stop playing song
-
-  std::atomic<bool> exit_;  //!< Exit from application
+  std::atomic<bool> stop_;  //!< Flag to stop playing song
+  std::atomic<bool> exit_;  //!< Flag to force to exit from application (usually, exit from thread)
 
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
 

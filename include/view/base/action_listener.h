@@ -38,6 +38,11 @@ class ActionListener {
    * @brief Notify Audio thread to stop playing the current song
    */
   virtual void ClearCurrentSong() = 0;
+
+  /**
+   * @brief Notify Audio thread to pause/resume the current song
+   */
+  virtual void PauseOrResume() = 0;
 };
 
 }  // namespace interface

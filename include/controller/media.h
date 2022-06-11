@@ -55,6 +55,11 @@ class Media : public interface::ActionListener, public interface::InterfaceNotif
   void NotifyFileSelection(const std::filesystem::path& file) override;
 
   /**
+   * @brief Notify Audio Player to pause/resume current song
+   */
+  void PauseOrResume() override;
+
+  /**
    * @brief Clear any information about the current song (and then notify the UI)
    */
   void ClearCurrentSong() override;

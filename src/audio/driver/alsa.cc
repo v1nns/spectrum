@@ -45,6 +45,16 @@ error::Code Alsa::Prepare() {
 
 /* ********************************************************************************************** */
 
+error::Code Alsa::Pause() {
+  if (snd_pcm_drop(playback_handle_.get()) < 0) {
+    return error::kUnknownError;
+  }
+
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
 error::Code Alsa::Stop() {
   if (snd_pcm_drain(playback_handle_.get()) < 0) {
     return error::kUnknownError;

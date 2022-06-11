@@ -189,6 +189,11 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
+  // TODO: Move this to audio player block
+  if (event == ftxui::Event::Character('p')) {
+    media_ctl_->PauseOrResume();
+  }
+
   return false;
 }
 

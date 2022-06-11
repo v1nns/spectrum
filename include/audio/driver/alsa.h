@@ -51,6 +51,12 @@ class Alsa {
   error::Code Prepare();
 
   /**
+   * @brief Pause current song on playback stream
+   * @return error::Code Playback error converted to application error code
+   */
+  error::Code Pause();
+
+  /**
    * @brief Stop playing song on playback stream
    * @return error::Code Playback error converted to application error code
    */
