@@ -3,7 +3,7 @@
 namespace driver {
 
 Decoder::Decoder() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
-  // Control this with a parameter
+  // TODO: Control this with a parameter
   av_log_set_level(AV_LOG_QUIET);
 }
 
@@ -101,22 +101,22 @@ void Decoder::FillAudioInformation(model::Song *audio_info) {
 /* ********************************************************************************************** */
 
 error::Code Decoder::OpenFile(model::Song *audio_info) {
-  error::Code result;
+  auto clean_up_and_return = [&](error::Code error_code) {
+    ClearCache();
+    return error_code;
+  };
 
-  if (result = OpenInputStream(audio_info->filepath) != error::kSuccess) {
-    return result;
-  }
+  error::Code result = OpenInputStream(audio_info->filepath);
+  if (result != error::kSuccess) return clean_up_and_return(result);
 
-  if (result = ConfigureDecoder() != error::kSuccess) {
-    return result;
-  }
+  result = ConfigureDecoder();
+  if (result != error::kSuccess) return clean_up_and_return(result);
 
   result = ConfigureResampler();
+  if (result != error::kSuccess) return clean_up_and_return(result);
 
-  if (result == error::kSuccess) {
-    // At this point, we can get the whole information about the song
-    FillAudioInformation(audio_info);
-  }
+  // At this point, we can get detailed information about the song
+  FillAudioInformation(audio_info);
 
   return result;
 }
@@ -164,6 +164,16 @@ error::Code Decoder::Decode(int samples, std::function<bool(void *, int, int)> c
   }
 
   return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+void Decoder::ClearCache() {
+  input_stream_.reset();
+  decoder_.reset();
+  resampler_.reset();
+
+  stream_index_ = 0;
 }
 
 }  // namespace driver

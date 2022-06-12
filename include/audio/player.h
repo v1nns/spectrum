@@ -49,10 +49,12 @@ class Player : public PlayerControl {
  public:
   /**
    * @brief Factory method: Create, initialize internal components and return Player object
-   * @param synchronous 'false' to run in a thread, otherwise 'true' and manually call audio loop
+   * @param playback Pass playback to be used within Audio thread (optional)
+   * @param decoder Pass decoder to be used within Audio thread (optional)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(bool synchronous = false);
+  static std::shared_ptr<Player> Create(driver::Alsa* playback = nullptr,
+                                        driver::Decoder* decoder = nullptr);
 
   /**
    * @brief Destroy the Player object
@@ -70,8 +72,10 @@ class Player : public PlayerControl {
  private:
   /**
    * @brief Initialize internal components for Terminal object
+   * @param playback Pointer to playback interface
+   * @param decoder Pointer to decoder interface
    */
-  void Init(bool synchronous);
+  void Init(driver::Alsa* playback, driver::Decoder* decoder);
 
   /**
    * @brief Reset all media controls to default value
@@ -148,7 +152,7 @@ class Player : public PlayerControl {
      * user interface sends events)
      * @return true when value is set as true, otherwise false
      */
-    bool WaitForValue() {
+    bool WaitForSync() {
       std::unique_lock<std::mutex> lock(mutex);
       cond_var.wait(lock, wait_until);
       return value.load();
@@ -158,8 +162,10 @@ class Player : public PlayerControl {
   /* ******************************************************************************************** */
   //! Variables
 
-  std::unique_ptr<driver::Alsa> playback_;  //!< Handle playback stream
-  std::thread audio_loop_;                  //!< Thread to execute main-loop function
+  std::unique_ptr<driver::Alsa> playback_;    //!< Handle playback stream
+  std::unique_ptr<driver::Decoder> decoder_;  //!< Open file as input stream and parse samples
+
+  std::thread audio_loop_;  //!< Thread to execute main-loop function
 
   SynchronizedValue play_;   // Controls when should play the song
   SynchronizedValue pause_;  // Controls to pause the song when asked by UI

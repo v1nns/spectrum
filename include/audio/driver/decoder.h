@@ -62,6 +62,11 @@ class Decoder {
    */
   error::Code Decode(int samples, std::function<bool(void*, int, int)> callback);
 
+  /**
+   * @brief After file is opened and decoded, or when some error occurs, always clear internal cache
+   */
+  void ClearCache();
+
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
  private:

@@ -5,7 +5,7 @@
 #include <gtest/gtest-test-part.h>  // for TestPartResult
 
 #include <chrono>
-#include <iostream>
+#include <memory>
 #include <thread>
 
 namespace {
@@ -15,29 +15,29 @@ namespace {
  */
 class PlayerTest : public ::testing::Test {
  protected:
-  void SetUp() override {}
-  void TearDown() override {}
+  void SetUp() override { audio_player = audio::Player::Create(); }
+  void TearDown() override { audio_player.reset(); }
+
+ private:
+  using Player = std::shared_ptr<audio::Player>;
+
+ protected:
+  Player audio_player;
 };
 
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, CreateDummyPlayer) {
-  auto player = audio::Player::Create();
-  std::cout << "thread should not start playing yet" << std::endl;
-
-  player->Exit();
+  //
+  audio_player->Exit();
 }
 
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
-  auto player = audio::Player::Create();
-  std::cout << "thread should not start playing yet" << std::endl;
+  audio_player->Play("dummy");
 
-  player->Play("dummy");
-  std::cout << "alright, thread should have started now" << std::endl;
-
-  player->Exit();
+  audio_player->Exit();
 }
 
 }  // namespace

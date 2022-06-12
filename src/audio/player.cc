@@ -6,13 +6,13 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(bool synchronous) {
+std::shared_ptr<Player> Player::Create(driver::Alsa* playback, driver::Decoder* decoder) {
   // Do something similar as to what was done with Terminal class
   struct MakeSharedEnabler : public Player {};
-  auto player = std::make_unique<MakeSharedEnabler>();
+  auto player = std::make_shared<MakeSharedEnabler>();
 
   // Initialize internal components
-  player->Init(synchronous);
+  player->Init(playback, decoder);
 
   return player;
 }
@@ -20,7 +20,15 @@ std::shared_ptr<Player> Player::Create(bool synchronous) {
 /* ********************************************************************************************** */
 
 Player::Player()
-    : playback_{}, audio_loop_{}, play_{}, pause_{}, stop_{}, exit_{}, curr_song_{}, notifier_{} {
+    : playback_{},
+      decoder_{},
+      audio_loop_{},
+      play_{},
+      pause_{},
+      stop_{},
+      exit_{},
+      curr_song_{},
+      notifier_{} {
   play_.wait_until = [&] { return play_ || exit_; };
   pause_.wait_until = [&] { return !pause_ || exit_; };
 }
@@ -35,9 +43,16 @@ Player::~Player() {
 
 /* ********************************************************************************************** */
 
-void Player::Init(bool synchronous) {
-  // Create playback stream on ALSA
-  playback_ = std::make_unique<driver::Alsa>();
+void Player::Init(driver::Alsa* playback, driver::Decoder* decoder) {
+  // Initialize playback
+  playback_ = playback != nullptr ? std::unique_ptr<driver::Alsa>(std::move(playback))
+                                  : std::make_unique<driver::Alsa>();
+
+  // Initialize decoder
+  decoder_ = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
+                                : std::make_unique<driver::Decoder>();
+
+  // Open playback stream using default device
   error::Code result = playback_->CreatePlaybackStream();
 
   if (result != error::kSuccess) {
@@ -52,9 +67,7 @@ void Player::Init(bool synchronous) {
   }
 
   // Spawn thread for Audio player
-  if (!synchronous) {
-    audio_loop_ = std::thread(&Player::AudioHandler, this);
-  }
+  audio_loop_ = std::thread(&Player::AudioHandler, this);
 }
 
 /* ********************************************************************************************** */
@@ -64,10 +77,9 @@ void Player::AudioHandler() {
 
   while (!exit_) {
     // Block thread until UI informs us a song to play
-    if (play_.WaitForValue()) {
+    if (play_.WaitForSync()) {
       // First, try to parse file (it may be or not a support file extension to decode)
-      driver::Decoder decoder;
-      error::Code result = decoder.OpenFile(curr_song_.get());
+      error::Code result = decoder_->OpenFile(curr_song_.get());
 
       // In case of error, reset media controls
       // TODO: and should inform UI about this with an application error
@@ -88,14 +100,14 @@ void Player::AudioHandler() {
       playback_->Prepare();
 
       // To keep decoding audio, return true in lambda function
-      result = decoder.Decode(period_size, [&](void* buffer, int buffer_size, int out_samples) {
+      result = decoder_->Decode(period_size, [&](void* buffer, int buffer_size, int out_samples) {
         if (exit_ || stop_) {
           return false;
         }
 
         if (pause_) {
           playback_->Pause();
-          pause_.WaitForValue();
+          pause_.WaitForSync();
           playback_->Prepare();
         }
 
