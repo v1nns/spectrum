@@ -13,8 +13,10 @@
 #include <string>
 #include <thread>
 
+#include "audio/base/decoder.h"
+#include "audio/base/playback.h"
 #include "driver/alsa.h"
-#include "driver/decoder.h"
+#include "driver/ffmpeg.h"
 #include "model/application_error.h"
 #include "model/song.h"
 
@@ -43,8 +45,11 @@ class Player : public PlayerControl {
  private:
   /**
    * @brief Construct a new Player object
+   * @param playback Pointer to playback interface
+   * @param decoder Pointer to decoder interface
    */
-  Player();
+  explicit Player(std::unique_ptr<driver::Playback>&& playback,
+                  std::unique_ptr<driver::Decoder>&& decoder);
 
  public:
   /**
@@ -53,7 +58,7 @@ class Player : public PlayerControl {
    * @param decoder Pass decoder to be used within Audio thread (optional)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(driver::Alsa* playback = nullptr,
+  static std::shared_ptr<Player> Create(driver::Playback* playback = nullptr,
                                         driver::Decoder* decoder = nullptr);
 
   /**
@@ -72,10 +77,8 @@ class Player : public PlayerControl {
  private:
   /**
    * @brief Initialize internal components for Terminal object
-   * @param playback Pointer to playback interface
-   * @param decoder Pointer to decoder interface
    */
-  void Init(driver::Alsa* playback, driver::Decoder* decoder);
+  void Init();
 
   /**
    * @brief Reset all media controls to default value
@@ -91,7 +94,7 @@ class Player : public PlayerControl {
   //! Binds and registrations
  public:
   /**
-   * @brief
+   * @brief Register notifier to send events to interface
    * @param player Audio player control interface
    */
   void RegisterInterfaceNotifier(const std::shared_ptr<interface::InterfaceNotifier>& notifier);
@@ -162,8 +165,8 @@ class Player : public PlayerControl {
   /* ******************************************************************************************** */
   //! Variables
 
-  std::unique_ptr<driver::Alsa> playback_;    //!< Handle playback stream
-  std::unique_ptr<driver::Decoder> decoder_;  //!< Open file as input stream and parse samples
+  std::unique_ptr<driver::Playback> playback_;  //!< Handle playback stream
+  std::unique_ptr<driver::Decoder> decoder_;    //!< Open file as input stream and parse samples
 
   std::thread audio_loop_;  //!< Thread to execute main-loop function
 
@@ -176,6 +179,8 @@ class Player : public PlayerControl {
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
 
   std::weak_ptr<interface::InterfaceNotifier> notifier_;  //!< Send notifications to interface
+
+  friend class PlayerTest;
 };
 
 }  // namespace audio

@@ -36,7 +36,7 @@ target_sources(
     spectrum-lib
     PRIVATE # audio
             audio/driver/alsa.cc
-            audio/driver/decoder.cc
+            audio/driver/ffmpeg.cc
             audio/player.cc
             # controller
             controller/media.cc

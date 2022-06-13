@@ -2,26 +2,36 @@
 
 #include <stdexcept>
 
+#include "audio/driver/alsa.h"
+#include "audio/driver/ffmpeg.h"
 #include "view/base/interface_notifier.h"
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(driver::Alsa* playback, driver::Decoder* decoder) {
-  // Do something similar as to what was done with Terminal class
-  struct MakeSharedEnabler : public Player {};
-  auto player = std::make_shared<MakeSharedEnabler>();
+std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decoder* decoder) {
+  // Create playback object
+  auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
+                                : std::make_unique<driver::Alsa>();
+
+  // Create decoder object
+  auto dec = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
+                                : std::make_unique<driver::FFmpeg>();
+
+  // Instantiate Player
+  auto player = std::shared_ptr<Player>(new Player(std::move(pb), std::move(dec)));
 
   // Initialize internal components
-  player->Init(playback, decoder);
+  player->Init();
 
   return player;
 }
 
 /* ********************************************************************************************** */
 
-Player::Player()
-    : playback_{},
-      decoder_{},
+Player::Player(std::unique_ptr<driver::Playback>&& playback,
+               std::unique_ptr<driver::Decoder>&& decoder)
+    : playback_{std::move(playback)},
+      decoder_{std::move(decoder)},
       audio_loop_{},
       play_{},
       pause_{},
@@ -43,15 +53,7 @@ Player::~Player() {
 
 /* ********************************************************************************************** */
 
-void Player::Init(driver::Alsa* playback, driver::Decoder* decoder) {
-  // Initialize playback
-  playback_ = playback != nullptr ? std::unique_ptr<driver::Alsa>(std::move(playback))
-                                  : std::make_unique<driver::Alsa>();
-
-  // Initialize decoder
-  decoder_ = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
-                                : std::make_unique<driver::Decoder>();
-
+void Player::Init() {
   // Open playback stream using default device
   error::Code result = playback_->CreatePlaybackStream();
 

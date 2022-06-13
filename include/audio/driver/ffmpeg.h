@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief  Class for decoding audio using FFMPEG libraries
+ * \brief  Class for decoding audio using FFmpeg libraries
  */
 
-#ifndef INCLUDE_AUDIO_DRIVER_DECODER_H_
-#define INCLUDE_AUDIO_DRIVER_DECODER_H_
+#ifndef INCLUDE_AUDIO_DRIVER_FFMPEG_H_
+#define INCLUDE_AUDIO_DRIVER_FFMPEG_H_
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -16,25 +16,26 @@ extern "C" {
 #include <memory>
 #include <string>
 
+#include "audio/base/decoder.h"
 #include "model/application_error.h"
 #include "model/song.h"
 
 namespace driver {
 
 /**
- * @brief Decode and resample audio samples using FFMPEG libraries
+ * @brief Decode and resample audio samples using FFmpeg libraries
  */
-class Decoder {
+class FFmpeg : public Decoder {
  public:
   /**
-   * @brief Construct a new Decoder object
+   * @brief Construct a new FFmpeg object
    */
-  Decoder();
+  FFmpeg();
 
   /**
-   * @brief Destroy the Decoder object
+   * @brief Destroy the FFmpeg object
    */
-  virtual ~Decoder() = default;
+  virtual ~FFmpeg() = default;
 
   /* ******************************************************************************************** */
   //! Internal operations
@@ -52,7 +53,7 @@ class Decoder {
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  error::Code OpenFile(model::Song* audio_info);
+  error::Code OpenFile(model::Song* audio_info) override;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
@@ -60,12 +61,12 @@ class Decoder {
    * @param callback Pass resamples to this callback
    * @return error::Code Application error code
    */
-  error::Code Decode(int samples, std::function<bool(void*, int, int)> callback);
+  error::Code Decode(int samples, std::function<bool(void*, int, int)> callback) override;
 
   /**
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache
    */
-  void ClearCache();
+  void ClearCache() override;
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -122,4 +123,4 @@ class Decoder {
 };
 
 }  // namespace driver
-#endif  // INCLUDE_AUDIO_DRIVER_DECODER_H_
+#endif  // INCLUDE_AUDIO_DRIVER_FFMPEG_H_

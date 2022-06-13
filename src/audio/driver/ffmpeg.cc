@@ -1,15 +1,15 @@
-#include "audio/driver/decoder.h"
+#include "audio/driver/ffmpeg.h"
 
 namespace driver {
 
-Decoder::Decoder() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
+FFmpeg::FFmpeg() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
   // TODO: Control this with a parameter
   av_log_set_level(AV_LOG_QUIET);
 }
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::OpenInputStream(const std::string &filepath) {
+error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
   AVFormatContext *ptr = nullptr;
 
   if (avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr) < 0) {
@@ -27,7 +27,7 @@ error::Code Decoder::OpenInputStream(const std::string &filepath) {
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::ConfigureDecoder() {
+error::Code FFmpeg::ConfigureDecoder() {
   AVCodec *codec = nullptr;
   AVCodecParameters *parameters = nullptr;
 
@@ -74,7 +74,7 @@ error::Code Decoder::ConfigureDecoder() {
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::ConfigureResampler() {
+error::Code FFmpeg::ConfigureResampler() {
   resampler_ = CustomSwrContext{swr_alloc_set_opts(
       nullptr, kChannelLayout, kSampleFormat, kSampleRate, decoder_->channel_layout,
       decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr)};
@@ -88,7 +88,7 @@ error::Code Decoder::ConfigureResampler() {
 
 /* ********************************************************************************************** */
 
-void Decoder::FillAudioInformation(model::Song *audio_info) {
+void FFmpeg::FillAudioInformation(model::Song *audio_info) {
   //   .artist = "",
   //   .title = "",
   audio_info->num_channels = (uint16_t)decoder_->channels,
@@ -100,7 +100,7 @@ void Decoder::FillAudioInformation(model::Song *audio_info) {
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::OpenFile(model::Song *audio_info) {
+error::Code FFmpeg::OpenFile(model::Song *audio_info) {
   auto clean_up_and_return = [&](error::Code error_code) {
     ClearCache();
     return error_code;
@@ -123,7 +123,7 @@ error::Code Decoder::OpenFile(model::Song *audio_info) {
 
 /* ********************************************************************************************** */
 
-error::Code Decoder::Decode(int samples, std::function<bool(void *, int, int)> callback) {
+error::Code FFmpeg::Decode(int samples, std::function<bool(void *, int, int)> callback) {
   int max_buffer_size =
       av_samples_get_buffer_size(nullptr, decoder_->channels, samples, decoder_->sample_fmt, 1);
 
@@ -168,7 +168,7 @@ error::Code Decoder::Decode(int samples, std::function<bool(void *, int, int)> c
 
 /* ********************************************************************************************** */
 
-void Decoder::ClearCache() {
+void FFmpeg::ClearCache() {
   input_stream_.reset();
   decoder_.reset();
   resampler_.reset();
