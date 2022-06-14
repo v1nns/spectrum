@@ -63,10 +63,10 @@ class Playback {
    *
    * @param buffer Audio data buffer
    * @param buffer_size Maximum size for buffer
-   * @param out_samples Actual size for buffer
+   * @param actual_size Actual size for buffer
    * @return error::Code Playback error converted to application error code
    */
-  virtual error::Code AudioCallback(void* buffer, int buffer_size, int out_samples) = 0;
+  virtual error::Code AudioCallback(void* buffer, int buffer_size, int actual_size) = 0;
 
   /**
    * @brief Get period size
