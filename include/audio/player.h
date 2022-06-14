@@ -25,6 +25,10 @@ namespace interface {
 class InterfaceNotifier;
 }
 
+namespace {
+class PlayerTest;
+}
+
 namespace audio {
 
 /**
@@ -180,7 +184,9 @@ class Player : public PlayerControl {
 
   std::weak_ptr<interface::InterfaceNotifier> notifier_;  //!< Send notifications to interface
 
-  friend class PlayerTest;
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+  friend class ::PlayerTest;
 };
 
 }  // namespace audio

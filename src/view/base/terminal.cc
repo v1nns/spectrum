@@ -10,9 +10,9 @@
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "view/base/block.h"                       // for Block, BlockEvent
-#include "view/block/audio_player.h"
-#include "view/block/file_info.h"       // for FileInfo
-#include "view/block/list_directory.h"  // for ListDirectory
+#include "view/block/file_info.h"                  // for FileInfo
+#include "view/block/list_directory.h"             // for ListDirectory
+#include "view/block/media_player.h"
 
 namespace interface {
 
@@ -61,7 +61,7 @@ void Terminal::Init() {
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
-  auto audio_player = std::make_shared<AudioPlayer>(dispatcher);
+  auto media_player = std::make_shared<MediaPlayer>(dispatcher);
 
   // Attach controller as listener to block actions
   list_dir->Attach(std::static_pointer_cast<ActionListener>(media_ctl_));
@@ -69,7 +69,7 @@ void Terminal::Init() {
   // Make every block as a child of this terminal
   Add(list_dir);
   Add(file_info);
-  Add(audio_player);
+  Add(media_player);
 }
 
 /* ********************************************************************************************** */

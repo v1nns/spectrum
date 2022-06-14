@@ -21,7 +21,7 @@ endif()
 # Create executable
 
 add_executable(test)
-target_sources(test PRIVATE list_directory.cc player.cc)
+target_sources(test PRIVATE block_list_directory.cc audio_player.cc)
 
 target_link_libraries(test PRIVATE gtest gmock gtest_main spectrum-lib)
 

@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief  Class representing a single view block
+ * \brief  Mock class for List Directory block
  */
 
-#ifndef INCLUDE_TEST_MOCK_LIST_DIRECTORY_H_
-#define INCLUDE_TEST_MOCK_LIST_DIRECTORY_H_
+#ifndef INCLUDE_TEST_LIST_DIRECTORY_MOCK_H_
+#define INCLUDE_TEST_LIST_DIRECTORY_MOCK_H_
 
 #include <gmock/gmock-actions.h>          // for GMOCK_PP_INTERNAL_IF_0, GMO...
 #include <gmock/gmock-function-mocker.h>  // for GMOCK_INTERNAL_DETECT_OVERR...
@@ -21,9 +21,9 @@ namespace {
 ACTION_P(ReturnPointee, p) { return p->filename().string(); }
 
 //! Mock class to change default behaviour when rendering the inner element corresponding to Title
-class MockListDirectory : public interface::ListDirectory {
+class ListDirectoryMock final : public interface::ListDirectory {
  public:
-  MockListDirectory(const std::shared_ptr<interface::EventDispatcher>& d, const std::string& s)
+  ListDirectoryMock(const std::shared_ptr<interface::EventDispatcher>& d, const std::string& s)
       : interface::ListDirectory(d, s) {
     SetupTitleExpectation();
   }
@@ -40,4 +40,4 @@ class MockListDirectory : public interface::ListDirectory {
 };
 
 }  // namespace
-#endif  // INCLUDE_TEST_MOCK_LIST_DIRECTORY_H_
+#endif  // INCLUDE_TEST_LIST_DIRECTORY_MOCK_H_

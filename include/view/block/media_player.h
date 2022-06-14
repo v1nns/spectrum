@@ -21,18 +21,18 @@ using MediaButton = std::shared_ptr<Button>;
 /**
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
-class AudioPlayer : public Block {
+class MediaPlayer : public Block {
  public:
   /**
    * @brief Construct a new Audio Player object
    * @param dispatcher Block event dispatcher
    */
-  explicit AudioPlayer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the Audio Player object
    */
-  virtual ~AudioPlayer() = default;
+  virtual ~MediaPlayer() = default;
 
   /**
    * @brief Renders the component

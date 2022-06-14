@@ -1,4 +1,4 @@
-#include "view/block/audio_player.h"
+#include "view/block/media_player.h"
 
 #include <utility>  // for move
 #include <vector>   // for vector
@@ -13,8 +13,8 @@ constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
 
 /* ********************************************************************************************** */
 
-AudioPlayer::AudioPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::AudioPlayer}, btn_play_{nullptr}, btn_stop_{nullptr} {
+MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
+    : Block{dispatcher, Identifier::MediaPlayer}, btn_play_{nullptr}, btn_stop_{nullptr} {
   // TODO: bind methods for on_click
   btn_play_ = Button::make_button_play(nullptr);
   btn_stop_ = Button::make_button_stop(nullptr);
@@ -22,7 +22,7 @@ AudioPlayer::AudioPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
 
 /* ********************************************************************************************** */
 
-ftxui::Element AudioPlayer::Render() {
+ftxui::Element MediaPlayer::Render() {
   // Duration
   ftxui::Element bar_duration = ftxui::gauge(0.9) | ftxui::xflex_grow |
                                 ftxui::bgcolor(ftxui::Color::DarkKhaki) |
@@ -55,7 +55,7 @@ ftxui::Element AudioPlayer::Render() {
 
 /* ********************************************************************************************** */
 
-bool AudioPlayer::OnEvent(ftxui::Event event) {
+bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event.is_mouse()) return OnMouseEvent(event);
 
   // if(Focusable()){}
@@ -65,11 +65,11 @@ bool AudioPlayer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool AudioPlayer::OnCustomEvent(const CustomEvent& event) { return false; }
+bool MediaPlayer::OnCustomEvent(const CustomEvent& event) { return false; }
 
 /* ********************************************************************************************** */
 
-bool AudioPlayer::OnMouseEvent(ftxui::Event event) {
+bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   if (btn_play_->OnEvent(event)) return true;
 
   if (btn_stop_->OnEvent(event)) return true;

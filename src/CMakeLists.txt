@@ -48,7 +48,7 @@ target_sources(
             view/base/terminal.cc
             view/block/list_directory.cc
             view/block/file_info.cc
-            view/block/audio_player.cc
+            view/block/media_player.cc
             view/element/button.cc)
 
 target_include_directories(

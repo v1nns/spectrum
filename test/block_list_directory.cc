@@ -1,6 +1,4 @@
 
-#include "mock/list_directory.h"
-
 #include <gmock/gmock-matchers.h>   // for StrEq, EXPECT_THAT
 #include <gtest/gtest-message.h>    // for Message
 #include <gtest/gtest-test-part.h>  // for TestPartResult
@@ -14,7 +12,8 @@
 #include "ftxui/dom/node.hpp"                  // for Render
 #include "ftxui/screen/screen.hpp"             // for Screen
 #include "gtest/gtest_pred_impl.h"             // for SuiteApiResolver, TEST_F
-#include "utils.h"                             // for FilterAnsiCommands
+#include "mock/list_directory_mock.h"
+#include "utils.h"  // for FilterAnsiCommands
 
 namespace {
 
@@ -29,7 +28,7 @@ class ListDirectoryTest : public ::testing::Test {
     screen = std::make_unique<ftxui::Screen>(32, 15);
 
     std::string source_dir{std::filesystem::current_path().parent_path()};
-    block = ftxui::Make<MockListDirectory>(nullptr, source_dir);
+    block = ftxui::Make<ListDirectoryMock>(nullptr, source_dir);
   }
 
   void TearDown() override {
@@ -117,10 +116,10 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 ╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
+│  audio_player.cc             │
+│  block_list_directory.cc     │
 │  CMakeLists.txt              │
-│  list_directory.cc           │
 │  mock                        │
-│  player.cc                   │
 │  utils.h                     │
 │                              │
 │                              │
@@ -207,10 +206,10 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 ╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
+│  audio_player.cc             │
+│  block_list_directory.cc     │
 │  CMakeLists.txt              │
-│  list_directory.cc           │
 │  mock                        │
-│  player.cc                   │
 │  utils.h                     │
 │                              │
 │                              │
