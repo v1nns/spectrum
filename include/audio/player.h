@@ -60,10 +60,12 @@ class Player : public PlayerControl {
    * @brief Factory method: Create, initialize internal components and return Player object
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
+   * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
   static std::shared_ptr<Player> Create(driver::Playback* playback = nullptr,
-                                        driver::Decoder* decoder = nullptr);
+                                        driver::Decoder* decoder = nullptr,
+                                        bool asynchronous = true);
 
   /**
    * @brief Destroy the Player object
@@ -81,8 +83,9 @@ class Player : public PlayerControl {
  private:
   /**
    * @brief Initialize internal components for Terminal object
+   * @param asynchronous Run Audio Player as a thread
    */
-  void Init();
+  void Init(bool asynchronous);
 
   /**
    * @brief Reset all media controls to default value

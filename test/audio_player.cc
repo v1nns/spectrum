@@ -33,7 +33,14 @@ class PlayerTest : public ::testing::Test {
   using NotifierMock = std::shared_ptr<InterfaceNotifierMock>;
 
  protected:
-  void SetUp() override {
+  void SetUp() override { Init(); }
+
+  void TearDown() override {
+    audio_player.reset();
+    notifier.reset();
+  }
+
+  void Init(bool asynchronous = false) {
     // Create mocks
     PlaybackMock* pb_mock = new PlaybackMock();
     DecoderMock* dc_mock = new DecoderMock();
@@ -45,30 +52,29 @@ class PlayerTest : public ::testing::Test {
     EXPECT_CALL(*pb_mock, ConfigureParameters());
     EXPECT_CALL(*pb_mock, GetPeriodSize());
 
-    // Create Player
-    audio_player = audio::Player::Create(pb_mock, dc_mock);
+    // Create Player without thread
+    audio_player = audio::Player::Create(pb_mock, dc_mock, asynchronous);
 
     // Register interface notifier to Audio Player
     notifier = std::make_shared<InterfaceNotifierMock>();
     audio_player->RegisterInterfaceNotifier(notifier);
   }
 
-  void TearDown() override {
-    audio_player.reset();
-    notifier.reset();
-  }
-
-  //! Getter for Playback
+  //! Getter for Playback (necessary as inner variable is an unique_ptr)
   auto GetPlayback() -> PlaybackMock* {
     return reinterpret_cast<PlaybackMock*>(audio_player->playback_.get());
   }
 
-  //! Getter for Decoder
+  //! Getter for Decoder (necessary as inner variable is an unique_ptr)
   auto GetDecoder() -> DecoderMock* {
     return reinterpret_cast<DecoderMock*>(audio_player->decoder_.get());
   }
 
-  bool HasExited() { return audio_player->exit_; }
+  //! Getter for Public API for Player media control
+  auto GetPlayerControl() -> std::shared_ptr<audio::PlayerControl> { return audio_player; }
+
+  //! Run audio loop (same one executed as a thread in the real-life)
+  void RunAudioLoop() { audio_player->AudioHandler(); }
 
  protected:
   Player audio_player;    //!< Audio player responsible for playing songs
@@ -77,7 +83,12 @@ class PlayerTest : public ::testing::Test {
 
 /* ********************************************************************************************** */
 
-TEST_F(PlayerTest, CreateDummyPlayer) {
+class PlayerTestThread : public PlayerTest {
+ protected:
+  void SetUp() override { Init(true); }
+};
+
+TEST_F(PlayerTestThread, CreateDummyPlayer) {
   // Dummy testing to check setup expectation, and then, exit
   audio_player->Exit();
 }
@@ -107,30 +118,33 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, std::function<bool(void*, int, int)> callback) {
-          callback(0, 0, 0);
-          return false;
+          return callback(0, 0, 0);
         }));
 
     EXPECT_CALL(*playback, AudioCallback(_, _, _));
 
     EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
 
+    // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
+    RunAudioLoop();
   };
 
   auto client = [&](SyncTesting& syncer) {
+    auto player_ctl = GetPlayerControl();
     syncer.WaitForStep(1);
+
     const std::string filename{"dummy"};
 
     // Ask Audio Player to play file
-    audio_player->Play(filename);
+    player_ctl->Play(filename);
 
     // Wait for Player to finish playing song before client asks to exit
     syncer.WaitForStep(2);
-    audio_player->Exit();
+    player_ctl->Exit();
   };
 
-  testing::RunSyncTest({player, client});
+  testing::RunAsyncTest({player, client});
 }
 
 /* ********************************************************************************************** */
@@ -156,8 +170,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, std::function<bool(void*, int, int)> callback) {
           syncer.NotifyStep(2);
-          callback(0, 0, 0);
-          return false;
+          return callback(0, 0, 0);
         }));
 
     EXPECT_CALL(*playback, Pause());
@@ -166,27 +179,88 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
 
     EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(3); }));
 
+    // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
+    RunAudioLoop();
   };
 
   auto client = [&](SyncTesting& syncer) {
+    auto player_ctl = GetPlayerControl();
     syncer.WaitForStep(1);
     const std::string filename{"Blinding Lights"};
 
     // Ask Audio Player to play file and instantly pause it
-    audio_player->Play(filename);
-    audio_player->PauseOrResume();
+    player_ctl->Play(filename);
+    player_ctl->PauseOrResume();
 
     // Wait until Player starts decoding before client asks to resume
     syncer.WaitForStep(2);
-    audio_player->PauseOrResume();
+    player_ctl->PauseOrResume();
 
     // Wait for Player to finish playing song before client asks to exit
     syncer.WaitForStep(3);
-    audio_player->Exit();
+    player_ctl->Exit();
   };
 
-  testing::RunSyncTest({player, client});
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingAndStop) {
+  auto player = [&](SyncTesting& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Received filepath to play
+    const std::string expected_name{"Innerbloom (What So Not Remix)"};
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)));
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).WillOnce(Invoke([&] {
+      // Notify step here to give enough time for client to ask for stop
+      syncer.NotifyStep(2);
+    }));
+
+    // Prepare is called again right after Pause was called
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, std::function<bool(void*, int, int)> callback) {
+          return callback(0, 0, 0);
+        }));
+
+    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
+    EXPECT_CALL(*playback, Stop());
+
+    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(3); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](SyncTesting& syncer) {
+    auto player_ctl = GetPlayerControl();
+    syncer.WaitForStep(1);
+    const std::string filename{"Innerbloom (What So Not Remix)"};
+
+    // Ask Audio Player to play file
+    player_ctl->Play(filename);
+
+    // Wait for Player to prepare for playing
+    syncer.WaitForStep(2);
+    player_ctl->Stop();
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
 }
 
 }  // namespace

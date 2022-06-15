@@ -59,7 +59,7 @@ using SyncThread = std::function<void(SyncTesting&)>;
  * @brief Run multiple functions, each one as an unique thread
  * @param functions List of functions informed by test
  */
-static inline void RunSyncTest(std::vector<SyncThread> functions) {
+static inline void RunAsyncTest(std::vector<SyncThread> functions) {
   SyncTesting sync;
   std::vector<std::thread> threads{};
 

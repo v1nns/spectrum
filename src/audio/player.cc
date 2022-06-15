@@ -8,7 +8,8 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decoder* decoder) {
+std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decoder* decoder,
+                                       bool asynchronous) {
   // Create playback object
   auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
                                 : std::make_unique<driver::Alsa>();
@@ -21,7 +22,7 @@ std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decod
   auto player = std::shared_ptr<Player>(new Player(std::move(pb), std::move(dec)));
 
   // Initialize internal components
-  player->Init();
+  player->Init(asynchronous);
 
   return player;
 }
@@ -53,7 +54,7 @@ Player::~Player() {
 
 /* ********************************************************************************************** */
 
-void Player::Init() {
+void Player::Init(bool asynchronous) {
   // Open playback stream using default device
   error::Code result = playback_->CreatePlaybackStream();
 
@@ -68,8 +69,10 @@ void Player::Init() {
     throw std::runtime_error("Could not set parameters in player");
   }
 
-  // Spawn thread for Audio player
-  audio_loop_ = std::thread(&Player::AudioHandler, this);
+  if (asynchronous) {
+    // Spawn thread for Audio player
+    audio_loop_ = std::thread(&Player::AudioHandler, this);
+  }
 }
 
 /* ********************************************************************************************** */
