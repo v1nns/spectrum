@@ -13,6 +13,8 @@
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
 
+namespace utils {
+
 //! Filter any ANSI escape code from string
 std::string FilterAnsiCommands(const std::string& screen) {
   std::stringstream result;
@@ -33,4 +35,5 @@ void QueueCharacterEvents(ftxui::ComponentBase& block, const std::string& typed)
                 [&block](char const& c) { block.OnEvent(ftxui::Event::Character(c)); });
 }
 
+}  // namespace utils
 #endif  // INCLUDE_TEST_UTILS_H_

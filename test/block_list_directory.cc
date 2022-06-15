@@ -46,7 +46,7 @@ class ListDirectoryTest : public ::testing::Test {
 TEST_F(ListDirectoryTest, InitialRender) {
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -79,7 +79,7 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -110,7 +110,7 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -120,8 +120,8 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
+│  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -139,7 +139,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -165,11 +165,11 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 
 TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
   std::string typed{"/i"};
-  QueueCharacterEvents(*block, typed);
+  utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -195,12 +195,12 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 
 TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
   std::string typed{"/test"};
-  QueueCharacterEvents(*block, typed);
+  utils::QueueCharacterEvents(*block, typed);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -210,8 +210,8 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
+│  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -226,12 +226,12 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 
 TEST_F(ListDirectoryTest, NonExistentTextInSearchMode) {
   std::string typed{"/inexistentfilename"};
-  QueueCharacterEvents(*block, typed);
+  utils::QueueCharacterEvents(*block, typed);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
@@ -261,7 +261,7 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = FilterAnsiCommands(screen->ToString());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
