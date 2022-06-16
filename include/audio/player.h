@@ -89,8 +89,9 @@ class Player : public PlayerControl {
 
   /**
    * @brief Reset all media controls to default value
+   * @param err_code Application error code from internal operation
    */
-  void ResetMediaControl();
+  void ResetMediaControl(error::Code err_code = error::kSuccess);
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream
@@ -134,22 +135,23 @@ class Player : public PlayerControl {
   //! Custom class for blocking actions
  private:
   /**
-   * @brief A simple structure for synchronization with external events (currently used in two
-   * situations: to block thread while waiting to start playing and also for resuming audio when it
-   * is paused)
+   * @brief A simple structure for data synchronization considering external events (currently used
+   * in two situations: to block thread while waiting to start playing and also for resuming audio
+   * when it is paused)
    */
-  struct SynchronizedValue {
-    std::mutex mutex;                  //!< Control access for internal resources
-    std::condition_variable cond_var;  //!< Conditional variable to block thread
-    std::function<bool()> wait_until;  //!< Predicate must be satisfied to unblock thread
-    std::atomic<bool> value;           //!< Actual value (in this case, used for Media controls)
+  struct MediaControlSynced {
+    std::mutex mutex;                     //!< Control access for internal resources
+    std::condition_variable cond_var;     //!< Conditional variable to block thread
+    std::atomic<bool> play, pause, stop;  //!< Media control
+    std::atomic<bool> exit;               //!< Flag to force to exit from application
 
-    //! Overloaded operators
-    explicit operator bool() const { return value.load(); }
-
-    SynchronizedValue& operator=(const bool a) {
-      value.store(a);
-      return *this;
+    /**
+     * @brief Reset media controls
+     */
+    void Reset() {
+      play = false;
+      pause = false;
+      stop = false;
     }
 
     /**
@@ -158,14 +160,34 @@ class Player : public PlayerControl {
     void Notify() { cond_var.notify_one(); }
 
     /**
+     * @brief Wait until interface notifies to play song
+     * @return true Start playing
+     * @return false Do nothing
+     */
+    bool WaitForPlay() {
+      WaitForSync([&] { return play || exit; });
+      return play.load();
+    }
+
+    /**
+     * @brief Wait until interface notifies to resume song
+     * @return true Resume song
+     * @return false Do nothing
+     */
+    bool WaitForResume() {
+      WaitForSync([&] { return !pause || exit; });
+      return !pause.load();
+    }
+
+   private:
+    /**
      * @brief Block thread until predicate from function is satisfied (in other words, wait until
      * user interface sends events)
-     * @return true when value is set as true, otherwise false
+     * @param wait_until Function with predicates to evaluate when it is possible to release mutex
      */
-    bool WaitForSync() {
+    void WaitForSync(std::function<bool()> wait_until) {
       std::unique_lock<std::mutex> lock(mutex);
       cond_var.wait(lock, wait_until);
-      return value.load();
     }
   };
 
@@ -177,11 +199,7 @@ class Player : public PlayerControl {
 
   std::thread audio_loop_;  //!< Thread to execute main-loop function
 
-  SynchronizedValue play_;   // Controls when should play the song
-  SynchronizedValue pause_;  // Controls to pause the song when asked by UI
-
-  std::atomic<bool> stop_;  //!< Flag to stop playing song
-  std::atomic<bool> exit_;  //!< Flag to force to exit from application (usually, exit from thread)
+  MediaControlSynced media_control_;  // Controls the media (play, pause/resume and stop)
 
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
 

@@ -17,12 +17,13 @@
 namespace {
 
 using ::testing::_;
+using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::Return;
 
-using testing::SyncTesting;
+using testing::TestSyncer;
 
 /**
  * @brief Tests with Player class
@@ -96,12 +97,12 @@ TEST_F(PlayerTestThread, CreateDummyPlayer) {
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
-  auto player = [&](SyncTesting& syncer) {
+  auto player = [&](TestSyncer& syncer) {
     auto playback = GetPlayback();
     auto decoder = GetDecoder();
 
     // Received filepath to play
-    const std::string expected_name{"dummy"};
+    const std::string expected_name{"The Police - Roxanne"};
 
     // Setup all expectations
     InSequence seq;
@@ -130,11 +131,11 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     RunAudioLoop();
   };
 
-  auto client = [&](SyncTesting& syncer) {
+  auto client = [&](TestSyncer& syncer) {
     auto player_ctl = GetPlayerControl();
     syncer.WaitForStep(1);
 
-    const std::string filename{"dummy"};
+    const std::string filename{"The Police - Roxanne"};
 
     // Ask Audio Player to play file
     player_ctl->Play(filename);
@@ -150,12 +151,12 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, StartPlayingAndPause) {
-  auto player = [&](SyncTesting& syncer) {
+  auto player = [&](TestSyncer& syncer) {
     auto playback = GetPlayback();
     auto decoder = GetDecoder();
 
     // Received filepath to play
-    const std::string expected_name{"Blinding Lights"};
+    const std::string expected_name{"The Weeknd - Blinding Lights"};
 
     // Setup all expectations
     EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)));
@@ -184,10 +185,10 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     RunAudioLoop();
   };
 
-  auto client = [&](SyncTesting& syncer) {
+  auto client = [&](TestSyncer& syncer) {
     auto player_ctl = GetPlayerControl();
     syncer.WaitForStep(1);
-    const std::string filename{"Blinding Lights"};
+    const std::string filename{"The Weeknd - Blinding Lights"};
 
     // Ask Audio Player to play file and instantly pause it
     player_ctl->Play(filename);
@@ -208,12 +209,12 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, StartPlayingAndStop) {
-  auto player = [&](SyncTesting& syncer) {
+  auto player = [&](TestSyncer& syncer) {
     auto playback = GetPlayback();
     auto decoder = GetDecoder();
 
     // Received filepath to play
-    const std::string expected_name{"Innerbloom (What So Not Remix)"};
+    const std::string expected_name{"RÜFÜS - Innerbloom (What So Not Remix)"};
 
     // Setup all expectations
     EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)));
@@ -243,10 +244,10 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     RunAudioLoop();
   };
 
-  auto client = [&](SyncTesting& syncer) {
+  auto client = [&](TestSyncer& syncer) {
     auto player_ctl = GetPlayerControl();
     syncer.WaitForStep(1);
-    const std::string filename{"Innerbloom (What So Not Remix)"};
+    const std::string filename{"RÜFÜS - Innerbloom (What So Not Remix)"};
 
     // Ask Audio Player to play file
     player_ctl->Play(filename);
@@ -257,6 +258,53 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
 
     // Wait for Player to finish playing song before client asks to exit
     syncer.WaitForStep(3);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorDecodingFile) {
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Received filepath to play
+    const std::string expected_name{"Cannons - Round and Round"};
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+        .WillOnce(Return(error::kFileNotSupported));
+
+    // None of these should be called in this situation
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(0);
+    EXPECT_CALL(*playback, Prepare()).Times(0);
+    EXPECT_CALL(*decoder, Decode(_, _)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
+
+    // Only these should be called
+    EXPECT_CALL(*notifier, ClearSongInformation());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported))).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetPlayerControl();
+    syncer.WaitForStep(1);
+    const std::string filename{"Cannons - Round and Round"};
+
+    // Ask Audio Player to play file
+    player_ctl->Play(filename);
+
+    // Wait for Player to notify error before client asks to exit
+    syncer.WaitForStep(2);
     player_ctl->Exit();
   };
 

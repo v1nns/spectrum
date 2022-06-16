@@ -6,10 +6,8 @@
 #ifndef INCLUDE_VIEW_BASE_INTERFACE_NOTIFIER_H_
 #define INCLUDE_VIEW_BASE_INTERFACE_NOTIFIER_H_
 
-//! Forward declaration
-namespace model {
-class Song;
-}
+#include "model/application_error.h"
+#include "model/song.h"
 
 namespace interface {
 
@@ -41,6 +39,12 @@ class InterfaceNotifier {
    * @brief Notify UI to clear any info about the previously song that was playing
    */
   virtual void ClearSongInformation() = 0;
+
+  /**
+   * @brief Notify UI with error code from some background operation
+   * @param code Application error code
+   */
+  virtual void NotifyError(error::Code code) = 0;
 };
 
 }  // namespace interface

@@ -73,4 +73,14 @@ void Media::ClearSongInformation() {
   dispatcher->SendEvent(event);
 }
 
+/* ********************************************************************************************** */
+
+void Media::NotifyError(error::Code code) {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) return;
+
+  // Notify Terminal about error that has occurred in Audio thread
+  dispatcher->SetApplicationError(code);
+}
+
 }  // namespace controller

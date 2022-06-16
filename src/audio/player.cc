@@ -34,15 +34,9 @@ Player::Player(std::unique_ptr<driver::Playback>&& playback,
     : playback_{std::move(playback)},
       decoder_{std::move(decoder)},
       audio_loop_{},
-      play_{},
-      pause_{},
-      stop_{},
-      exit_{},
+      media_control_{},
       curr_song_{},
-      notifier_{} {
-  play_.wait_until = [&] { return play_ || exit_; };
-  pause_.wait_until = [&] { return !pause_ || exit_; };
-}
+      notifier_{} {}
 
 /* ********************************************************************************************** */
 
@@ -78,41 +72,39 @@ void Player::Init(bool asynchronous) {
 /* ********************************************************************************************** */
 
 void Player::AudioHandler() {
+  // This value is used to decide buffer size for the step that starts decoding song
   int period_size = playback_->GetPeriodSize();
 
-  while (!exit_) {
-    // Block thread until UI informs us a song to play
-    if (play_.WaitForSync()) {
+  while (!media_control_.exit) {
+    // Block this thread until UI informs us a song to play
+    if (media_control_.WaitForPlay()) {
       // First, try to parse file (it may be or not a support file extension to decode)
       error::Code result = decoder_->OpenFile(curr_song_.get());
 
-      // In case of error, reset media controls
-      // TODO: and should inform UI about this with an application error
+      // In case of error, reset media controls and notify terminal UI with error
       if (result != error::kSuccess) {
-        ResetMediaControl();
-        continue;
+        ResetMediaControl(result);
+        continue;  // we don't wanna keep in this loop anymore, so wait for next song!
       }
 
       {
         // Otherwise, it is a supported audio extension, send detailed audio information to UI
         auto media_notifier = notifier_.lock();
-        if (media_notifier) {
-          media_notifier->NotifySongInformation(*curr_song_);
-        }
+        if (media_notifier) media_notifier->NotifySongInformation(*curr_song_);
       }
 
-      // Inform ALSA to be ready to play
+      // Inform playback driver to be ready to play
       playback_->Prepare();
 
       // To keep decoding audio, return true in lambda function
       result = decoder_->Decode(period_size, [&](void* buffer, int buffer_size, int out_samples) {
-        if (exit_ || stop_) {
+        if (media_control_.stop || media_control_.exit) {
           return false;
         }
 
-        if (pause_) {
+        if (media_control_.pause) {
           playback_->Pause();
-          pause_.WaitForSync();
+          media_control_.WaitForResume();
           playback_->Prepare();
         }
 
@@ -122,11 +114,11 @@ void Player::AudioHandler() {
 
       // TODO: do something with result
 
-      if (stop_) {
+      if (media_control_.stop) {
         playback_->Stop();
       }
 
-      // Reached the end of song (naturally or forced by user)
+      // Reached the end of song (naturally or forced to stop by user)
       ResetMediaControl();
     }
   }
@@ -134,15 +126,18 @@ void Player::AudioHandler() {
 
 /* ********************************************************************************************** */
 
-void Player::ResetMediaControl() {
+void Player::ResetMediaControl(error::Code err_code) {
+  media_control_.Reset();
   curr_song_.reset();
-  play_ = false;
-  stop_ = false;
 
   auto media_notifier = notifier_.lock();
-  if (media_notifier) {
-    media_notifier->ClearSongInformation();
-  }
+  if (!media_notifier) return;
+
+  // Clear any song information from UI
+  media_notifier->ClearSongInformation();
+
+  // And in case of error, notify about it
+  if (err_code != error::kSuccess) media_notifier->NotifyError(err_code);
 }
 
 /* ********************************************************************************************** */
@@ -156,44 +151,44 @@ void Player::RegisterInterfaceNotifier(
 
 void Player::Play(const std::string& filepath) {
   curr_song_ = std::make_unique<model::Song>(model::Song{.filepath = filepath});
-  play_ = true;
-  play_.Notify();
+  media_control_.play = true;
+  media_control_.Notify();
 }
 
 /* ********************************************************************************************** */
 
 void Player::PauseOrResume() {
-  if (!play_) {
+  if (!media_control_.play) {
     return;
   }
 
-  if (!pause_) {
-    pause_ = true;
-  } else {
-    pause_ = false;
-    pause_.Notify();
-  }
+  bool curr_value = media_control_.pause;
+
+  media_control_.pause = !curr_value;
+
+  if (curr_value) media_control_.Notify();
 }
 
 /* ********************************************************************************************** */
 
 void Player::Stop() {
-  if (pause_) {
-    pause_ = false;
-    pause_.Notify();
+  if (!media_control_.play) {
+    return;
   }
 
+  media_control_.play = false;
+  media_control_.pause = false;
+  media_control_.stop = true;
+  media_control_.Notify();
+
   curr_song_.reset();
-  play_ = false;
-  stop_ = true;
 }
 
 /* ********************************************************************************************** */
 
 void Player::Exit() {
-  exit_ = true;
-  play_.Notify();
-  pause_.Notify();
+  media_control_.exit = true;
+  media_control_.Notify();
 }
 
 }  // namespace audio

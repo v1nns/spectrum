@@ -16,13 +16,19 @@
 namespace testing {
 
 /**
- * @brief Shared class to manage threads from testing
+ * @brief Shared class to syncronize steps between multiple threads used for testing
  */
-class SyncTesting {
+class TestSyncer {
  public:
   //! Default constructor/destructor
-  SyncTesting() = default;
-  virtual ~SyncTesting() = default;
+  TestSyncer() = default;
+  virtual ~TestSyncer() = default;
+
+  //! Remove these
+  TestSyncer(const TestSyncer& other) = delete;             // copy constructor
+  TestSyncer(TestSyncer&& other) = delete;                  // move constructor
+  TestSyncer& operator=(const TestSyncer& other) = delete;  // copy assignment
+  TestSyncer& operator=(TestSyncer&& other) = delete;       // move assignment
 
   //! Keep blocked until receives desired step
   void WaitForStep(int step) {
@@ -41,30 +47,25 @@ class SyncTesting {
     cond_var_.notify_one();
   }
 
-  //! Remove these
-  SyncTesting(const SyncTesting& other) = delete;             // copy constructor
-  SyncTesting(SyncTesting&& other) = delete;                  // move constructor
-  SyncTesting& operator=(const SyncTesting& other) = delete;  // copy assignment
-  SyncTesting& operator=(SyncTesting&& other) = delete;       // move assignment
-
  private:
   std::mutex mutex_;
   std::condition_variable cond_var_;
   std::atomic<int> step_;  // TODO: change for "queue"
 };
 
-using SyncThread = std::function<void(SyncTesting&)>;
+//! Default function declaration to run asynchronously
+using SyncThread = std::function<void(TestSyncer&)>;
 
 /**
  * @brief Run multiple functions, each one as an unique thread
  * @param functions List of functions informed by test
  */
 static inline void RunAsyncTest(std::vector<SyncThread> functions) {
-  SyncTesting sync;
+  TestSyncer syncer;
   std::vector<std::thread> threads{};
 
   for (auto& func : functions) {
-    threads.push_back(std::thread(func, std::ref(sync)));
+    threads.push_back(std::thread(func, std::ref(syncer)));
   }
 
   for (auto& thread : threads) {

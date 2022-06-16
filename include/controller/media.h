@@ -78,6 +78,12 @@ class Media : public interface::ActionListener, public interface::InterfaceNotif
    */
   void ClearSongInformation() override;
 
+  /**
+   * @brief Notify UI with error code from some background operation
+   * @param code Application error code
+   */
+  void NotifyError(error::Code code) override;
+
   /* ******************************************************************************************** */
   //! Variables
  private:
