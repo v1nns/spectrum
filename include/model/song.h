@@ -29,11 +29,11 @@ struct Song {
   uint32_t duration;      //!< Audio duration (in seconds)
 };
 
-/* ------------------------------------ Overloaded Operators ------------------------------------ */
-
-std::ostream& operator<<(std::ostream& os, const Song& entry);
-std::istream& operator>>(std::istream& is, Song& entry);
-
+/**
+ * @brief Util method to pretty print Song structure
+ * @param arg Song struct
+ * @return std::string Formatted string with properties from Song
+ */
 std::string to_string(const Song& arg);
 
 }  // namespace model

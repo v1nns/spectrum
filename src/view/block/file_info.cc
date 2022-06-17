@@ -13,36 +13,36 @@ constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::FileInfo}, audio_info_{std::nullopt} {}
+    : Block{dispatcher, Identifier::FileInfo}, audio_info_{} {}
 
 /* ********************************************************************************************** */
 
 ftxui::Element FileInfo::Render() {
   ftxui::Elements lines;
 
-  if (!audio_info_) {
-    lines.push_back(ftxui::text("Choose a song to play...") | ftxui::dim);
-  } else {
-    std::istringstream input{model::to_string(audio_info_.value())};
-    size_t pos;
+  // Choose a different color for when there is no current song
+  ftxui::Color::Palette256 color =
+      audio_info_.filepath.empty() ? ftxui::Color::Grey50 : ftxui::Color::Grey82;
 
-    for (std::string line; std::getline(input, line);) {
-      pos = line.find_first_of(':');
-      std::string field = line.substr(0, pos), value = line.substr(pos + 1);
+  // Use istringstream to split string into lines and parse it as <Field, Value>
+  std::istringstream input{model::to_string(audio_info_)};
+  size_t pos;
 
-      // Create element
-      ftxui::Element item = ftxui::hbox({
-          ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
-          ftxui::filler(),
-          ftxui::text(value) | ftxui::align_right,
-      });
+  for (std::string line; std::getline(input, line);) {
+    pos = line.find_first_of(':');
+    std::string field = line.substr(0, pos), value = line.substr(pos + 1);
 
-      lines.push_back(item);
-    }
+    // Create element
+    ftxui::Element item = ftxui::hbox({
+        ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
+        ftxui::filler(),
+        ftxui::text(value) | ftxui::align_right | ftxui::color(ftxui::Color(color)),
+    });
+
+    lines.push_back(item);
   }
 
   ftxui::Element content = ftxui::vbox(std::move(lines));
-  if (lines.size() == 1) content = content | ftxui::center;
 
   using ftxui::HEIGHT, ftxui::EQUAL;
   return ftxui::window(ftxui::text(" information "), std::move(content)) |
@@ -62,7 +62,7 @@ bool FileInfo::OnCustomEvent(const CustomEvent& event) {
   }
 
   if (event == CustomEvent::Type::ClearFileInfo) {
-    audio_info_.reset();
+    audio_info_ = model::Song{};
     return true;
   }
 

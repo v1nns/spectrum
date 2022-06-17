@@ -266,7 +266,7 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
 
 /* ********************************************************************************************** */
 
-TEST_F(PlayerTest, ErrorDecodingFile) {
+TEST_F(PlayerTest, ErrorOpeningFile) {
   auto player = [&](TestSyncer& syncer) {
     auto playback = GetPlayback();
     auto decoder = GetDecoder();

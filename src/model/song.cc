@@ -4,54 +4,7 @@
 
 namespace model {
 
-std::ostream& operator<<(std::ostream& os, const Song& entry) {
-  return os << entry.filepath << "|" << entry.artist << "|" << entry.title << "|"
-            << entry.num_channels << "|" << entry.sample_rate << "|" << entry.bit_rate << "|"
-            << entry.bit_depth << "|" << entry.duration << "|";
-}
-
-/* ********************************************************************************************** */
-
-std::istream& operator>>(std::istream& is, Song& entry) {
-  std::string token;
-  std::getline(is, token, '|');
-  entry.filepath = token;
-
-  std::getline(is, token, '|');
-  entry.artist = token;
-
-  std::getline(is, token, '|');
-  entry.title = token;
-
-  std::getline(is, token, '|');
-  entry.num_channels = std::atoi(token.c_str());
-
-  std::getline(is, token, '|');
-  entry.sample_rate = std::atoi(token.c_str());
-
-  std::getline(is, token, '|');
-  entry.bit_rate = std::atoi(token.c_str());
-
-  std::getline(is, token, '|');
-  entry.bit_depth = std::atoi(token.c_str());
-
-  std::getline(is, token, '|');
-  entry.duration = std::atoi(token.c_str());
-
-  return is;
-}
-
-/* ********************************************************************************************** */
-
-// std::ostream& operator<<(std::ostream& oss, const Song& arg) {
-//   return oss;
-// }
-
-/* ********************************************************************************************** */
-
 std::string to_string(const Song& arg) {
-  std::ostringstream ss;
-
   //   // TODO: improve this
   //   std::string bit_rate;
   //   if (arg.bit_rate > 1000) {
@@ -59,18 +12,29 @@ std::string to_string(const Song& arg) {
   //   } else {
   //     bit_rate = std::to_string(arg.bit_rate) + " bps";
   //   }
+  bool is_empty = arg.filepath.empty() ? true : false;
 
-  std::string artist = arg.artist.empty() ? "<Unknown>" : arg.artist;
-  std::string title = arg.title.empty() ? "<Unknown>" : arg.title;
+  //   std::string artist = arg.artist.empty() ? "<Unknown>" : arg.artist;
+
+  std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
+  std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;
+
+  std::string channels = is_empty ? "<Empty>" : std::to_string(arg.num_channels);
+  std::string sample_rate = is_empty ? "<Empty>" : std::to_string(arg.sample_rate);
+  std::string bit_rate = is_empty ? "<Empty>" : std::to_string(arg.bit_rate);
+  std::string bit_depth = is_empty ? "<Empty>" : std::to_string(arg.bit_depth);
+  std::string duration = is_empty ? "<Empty>" : std::to_string(arg.duration);
+
+  std::ostringstream ss;
 
   //   oss << "Filepath: " << arg.filepath << std::endl;
   ss << "Artist: " << artist << std::endl;
   ss << "Title: " << title << std::endl;
-  ss << "Channels: " << arg.num_channels << std::endl;
-  ss << "Sample rate: " << arg.sample_rate << std::endl;
-  ss << "Bit rate: " << arg.bit_rate << std::endl;
-  ss << "Bits per sample: " << arg.bit_depth << std::endl;
-  ss << "Duration (seconds): " << arg.duration << std::endl;
+  ss << "Channels: " << channels << std::endl;
+  ss << "Sample rate: " << sample_rate << std::endl;
+  ss << "Bit rate: " << bit_rate << std::endl;
+  ss << "Bits per sample: " << bit_depth << std::endl;
+  ss << "Duration (seconds): " << duration << std::endl;
 
   return std::move(ss).str();
 }

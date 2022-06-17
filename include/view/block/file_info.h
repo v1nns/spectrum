@@ -7,7 +7,6 @@
 #define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
 #include <memory>  // for shared_ptr, unique_ptr
-#include <optional>
 #include <string>  // for string
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
@@ -55,7 +54,7 @@ class FileInfo : public Block {
 
   /* ******************************************************************************************* */
  private:
-  std::optional<model::Song> audio_info_;  //!< Audio information from current song
+  model::Song audio_info_;  //!< Audio information from current song
 };
 
 }  // namespace interface
