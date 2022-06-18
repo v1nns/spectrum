@@ -21,7 +21,7 @@
 
 //! Forward declaration
 namespace audio {
-class PlayerControl;
+class AudioControl;
 }
 
 namespace interface {
@@ -78,7 +78,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @brief Pass external player interface to internal UI controller
    * @param player Audio player control interface
    */
-  void RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player);
+  void RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player);
 
   /**
    * @brief Bind an external send event function to an internal function

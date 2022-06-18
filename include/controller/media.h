@@ -42,7 +42,7 @@ class Media : public interface::ActionListener, public interface::InterfaceNotif
    * @brief Register player interface for media control
    * @param player Interface to Audio player
    */
-  void RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player);
+  void RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player);
 
   /* ******************************************************************************************** */
   //! Actions received from UI and sent to Audio thread
@@ -88,7 +88,7 @@ class Media : public interface::ActionListener, public interface::InterfaceNotif
   //! Variables
  private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for UI blocks
-  std::weak_ptr<audio::PlayerControl> player_ctl_;        //!< Send events to control Audio Player
+  std::weak_ptr<audio::AudioControl> player_ctl_;         //!< Send events to control Audio Player
 };
 
 }  // namespace controller

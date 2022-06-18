@@ -18,7 +18,7 @@ Media::Media(const std::shared_ptr<interface::EventDispatcher>& dispatcher)
 
 /* ********************************************************************************************** */
 
-void Media::RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player) {
+void Media::RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player) {
   player_ctl_ = player;
 }
 

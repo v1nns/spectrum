@@ -99,6 +99,7 @@ void Player::AudioHandler() {
       // To keep decoding audio, return true in lambda function
       result = decoder_->Decode(period_size, [&](void* buffer, int buffer_size, int out_samples) {
         if (media_control_.stop || media_control_.exit) {
+          playback_->Stop();
           return false;
         }
 
@@ -112,14 +113,9 @@ void Player::AudioHandler() {
         return true;
       });
 
-      // TODO: do something with result
-
-      if (media_control_.stop) {
-        playback_->Stop();
-      }
-
-      // Reached the end of song (naturally or forced to stop by user)
-      ResetMediaControl();
+      // Reached the end of song, originated from one of these situations:
+      // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
+      ResetMediaControl(result);
     }
   }
 }

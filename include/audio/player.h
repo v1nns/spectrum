@@ -34,7 +34,7 @@ namespace audio {
 /**
  * @brief Interface to control Audio Player
  */
-class PlayerControl {
+class AudioControl {
  public:
   virtual void Play(const std::string& filepath) = 0;
   virtual void PauseOrResume() = 0;
@@ -45,7 +45,7 @@ class PlayerControl {
 /**
  * @brief Responsible to control media and play it on hardware
  */
-class Player : public PlayerControl {
+class Player : public AudioControl {
  private:
   /**
    * @brief Construct a new Player object

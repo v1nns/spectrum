@@ -88,7 +88,7 @@ void Terminal::Exit() {
 
 /* ********************************************************************************************** */
 
-void Terminal::RegisterPlayerControl(const std::shared_ptr<audio::PlayerControl>& player) {
+void Terminal::RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player) {
   media_ctl_->RegisterPlayerControl(player);
 }
 
