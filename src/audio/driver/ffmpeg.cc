@@ -89,8 +89,20 @@ error::Code FFmpeg::ConfigureResampler() {
 /* ********************************************************************************************** */
 
 void FFmpeg::FillAudioInformation(model::Song *audio_info) {
-  //   .artist = "",
-  //   .title = "",
+  // use this to get all metadata associated to this audio file
+  //   const AVDictionaryEntry *tag = nullptr;
+  //   while ((tag = av_dict_get(input_stream_->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
+  //     printf("%s=%s\n", tag->key, tag->value);
+  const AVDictionaryEntry *tag = nullptr;
+
+  // Get track name
+  tag = av_dict_get(input_stream_->metadata, "title", tag, AV_DICT_IGNORE_SUFFIX);
+  if (tag) audio_info->title = std::string{tag->value};
+
+  // Get artist name
+  tag = av_dict_get(input_stream_->metadata, "artist", tag, AV_DICT_IGNORE_SUFFIX);
+  if (tag) audio_info->artist = std::string{tag->value};
+
   audio_info->num_channels = (uint16_t)decoder_->channels,
   audio_info->sample_rate = (uint32_t)decoder_->sample_rate,
   audio_info->bit_rate = (uint32_t)input_stream_->bit_rate,
