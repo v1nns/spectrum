@@ -30,6 +30,12 @@ class Decoder {
   //! Public API
 
   /**
+   * @brief Function invoked after resample is available.
+   * (for better understanding: take a look at Audio Loop from Player, and also Playback class)
+   */
+  using AudioCallback = std::function<bool(void*, int, int, int)>;
+
+  /**
    * @brief Open file as input stream and check for codec compatibility for decoding
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
@@ -42,7 +48,7 @@ class Decoder {
    * @param callback Pass resamples to this callback
    * @return error::Code Application error code
    */
-  virtual error::Code Decode(int samples, std::function<bool(void*, int, int)> callback) = 0;
+  virtual error::Code Decode(int samples, AudioCallback callback) = 0;
 
   /**
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache

@@ -3,10 +3,9 @@
 namespace interface {
 
 // Static
-CustomEvent CustomEvent::UpdateFileInfo(const model::Song& info) {
+CustomEvent CustomEvent::ClearSongInfo() {
   CustomEvent event;
-  event.type_ = Type::UpdateFileInfo;
-  event.content_ = info;
+  event.type_ = Type::ClearSongInfo;
 
   return event;
 }
@@ -14,9 +13,20 @@ CustomEvent CustomEvent::UpdateFileInfo(const model::Song& info) {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::ClearFileInfo() {
+CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
   CustomEvent event;
-  event.type_ = Type::ClearFileInfo;
+  event.type_ = Type::UpdateSongInfo;
+  event.content_ = info;
+
+  return event;
+}
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::UpdateSongState(const model::Song::State& new_state) {
+  CustomEvent event;
+  event.type_ = Type::UpdateSongState;
+  event.content_ = new_state;
 
   return event;
 }

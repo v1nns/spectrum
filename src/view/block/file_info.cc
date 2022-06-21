@@ -56,14 +56,14 @@ bool FileInfo::OnEvent(ftxui::Event event) { return false; }
 /* ********************************************************************************************** */
 
 bool FileInfo::OnCustomEvent(const CustomEvent& event) {
-  if (event == CustomEvent::Type::UpdateFileInfo) {
-    audio_info_ = event.GetContent<model::Song>();
-    return true;
+  // Do not return true because other blocks may use it
+  if (event == CustomEvent::Type::ClearSongInfo) {
+    audio_info_ = model::Song{};
   }
 
-  if (event == CustomEvent::Type::ClearFileInfo) {
-    audio_info_ = model::Song{};
-    return true;
+  // Do not return true because other blocks may use it
+  if (event == CustomEvent::Type::UpdateSongInfo) {
+    audio_info_ = event.GetContent<model::Song>();
   }
 
   return false;

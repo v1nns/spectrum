@@ -61,7 +61,7 @@ class FFmpeg : public Decoder {
    * @param callback Pass resamples to this callback
    * @return error::Code Application error code
    */
-  error::Code Decode(int samples, std::function<bool(void*, int, int)> callback) override;
+  error::Code Decode(int samples, AudioCallback callback) override;
 
   /**
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache

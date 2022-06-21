@@ -63,6 +63,7 @@ class MediaPlayer : public Block {
   /* ******************************************************************************************** */
  private:
   MediaButton btn_play_, btn_stop_;  //!< Media player buttons
+  model::Song audio_info_;           //!< Audio information from current song
 };
 
 }  // namespace interface

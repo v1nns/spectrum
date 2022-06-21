@@ -135,7 +135,7 @@ error::Code FFmpeg::OpenFile(model::Song *audio_info) {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::Decode(int samples, std::function<bool(void *, int, int)> callback) {
+error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   int max_buffer_size =
       av_samples_get_buffer_size(nullptr, decoder_->channels, samples, decoder_->sample_fmt, 1);
 
@@ -161,11 +161,13 @@ error::Code FFmpeg::Decode(int samples, std::function<bool(void *, int, int)> ca
     }
 
     while (avcodec_receive_frame(decoder_.get(), frame.get()) >= 0 && continue_decoding) {
+      int position = packet->pts / decoder_->time_base.den;
+
       int out_samples = swr_convert(resampler_.get(), &buffer, samples,
                                     (const uint8_t **)(frame->data), frame->nb_samples);
 
       while (out_samples > 0 && continue_decoding) {
-        continue_decoding = callback(buffer, max_buffer_size, out_samples);
+        continue_decoding = callback(buffer, max_buffer_size, out_samples, position);
         out_samples = swr_convert(resampler_.get(), &buffer, samples, nullptr, 0);
       }
 

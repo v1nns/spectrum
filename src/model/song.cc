@@ -1,5 +1,6 @@
 #include "model/song.h"
 
+#include <iomanip>
 #include <string>
 
 namespace model {
@@ -35,6 +36,22 @@ std::string to_string(const Song& arg) {
   ss << "Bit rate: " << bit_rate << std::endl;
   ss << "Bits per sample: " << bit_depth << std::endl;
   ss << "Duration (seconds): " << duration << std::endl;
+
+  return std::move(ss).str();
+}
+
+/* ********************************************************************************************** */
+
+std::string time_to_string(const uint32_t& arg) {
+  const int hours = arg / 3600;
+  const int minutes = (arg - (hours * 3600)) / 60;
+  const int seconds = arg - (hours * 3600) - (minutes * 60);
+
+  std::ostringstream ss;
+
+  if (hours > 0) ss << std::setw(2) << std::setfill('0') << hours << ":";
+  ss << std::setw(2) << std::setfill('0') << minutes << ":";
+  ss << std::setw(2) << std::setfill('0') << seconds;
 
   return std::move(ss).str();
 }

@@ -51,11 +51,23 @@ void Media::PauseOrResume() {
 
 /* ********************************************************************************************** */
 
+void Media::ClearSongInformation() {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) return;
+
+  auto event = interface::CustomEvent::ClearSongInfo();
+
+  // Notify File Info block with to clear info about song
+  dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
 void Media::NotifySongInformation(const model::Song& info) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
-  auto event = interface::CustomEvent::UpdateFileInfo(info);
+  auto event = interface::CustomEvent::UpdateSongInfo(info);
 
   // Notify File Info block with information about the recently loaded song
   dispatcher->SendEvent(event);
@@ -63,13 +75,13 @@ void Media::NotifySongInformation(const model::Song& info) {
 
 /* ********************************************************************************************** */
 
-void Media::ClearSongInformation() {
+void Media::NotifySongState(const model::Song::State& state) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
-  auto event = interface::CustomEvent::ClearFileInfo();
+  auto event = interface::CustomEvent::UpdateSongState(state);
 
-  // Notify File Info block with to clear info about song
+  // Notify Audio Player block with new state information about the current song
   dispatcher->SendEvent(event);
 }
 

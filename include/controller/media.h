@@ -68,15 +68,21 @@ class Media : public interface::ActionListener, public interface::InterfaceNotif
   //! Actions received from Player and sent to UI
 
   /**
+   * @brief Inform UI to clear song information
+   */
+  void ClearSongInformation() override;
+
+  /**
    * @brief Inform UI that Audio player loaded song with success by sending its information
    * @param info Detailed information about audio data from the current song
    */
   void NotifySongInformation(const model::Song& info) override;
 
   /**
-   * @brief Inform UI to clear song information
+   * @brief Notify UI with new state information from current song
+   * @param state Updated state information
    */
-  void ClearSongInformation() override;
+  void NotifySongState(const model::Song::State& state) override;
 
   /**
    * @brief Notify UI with error code from some background operation

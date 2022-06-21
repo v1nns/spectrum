@@ -118,8 +118,8 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([](int dummy, std::function<bool(void*, int, int)> callback) {
-          callback(0, 0, 0);
+        .WillOnce(Invoke([](int dummy, driver::Decoder::AudioCallback callback) {
+          callback(0, 0, 0, 0);
           return error::kSuccess;
         }));
 
@@ -171,9 +171,9 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, std::function<bool(void*, int, int)> callback) {
+        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           syncer.NotifyStep(2);
-          callback(0, 0, 0);
+          callback(0, 0, 0, 0);
           return error::kSuccess;
         }));
 
@@ -234,8 +234,8 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, std::function<bool(void*, int, int)> callback) {
-          callback(0, 0, 0);
+        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          callback(0, 0, 0, 0);
           return error::kSuccess;
         }));
 
@@ -269,6 +269,65 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
   testing::RunAsyncTest({player, client});
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Received filepath to play
+    const std::string expected_name{"The White Stripes - Blue Orchid"};
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare is called again right after Pause was called
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          callback(0, 0, 0, 1);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*playback, AudioCallback(_, _, _));
+
+    // In this case, decoder will tell us that the current timestamp matches some position other
+    // than zero (this value is represented in seconds). And for this, we should notify Media Player
+    // to update its graphical interface
+    uint32_t expected_position = 1;
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::State::position, expected_position)));
+
+    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    const std::string filename{"The White Stripes - Blue Orchid"};
+
+    // Ask Audio Player to play file
+    player_ctl->Play(filename);
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, ErrorOpeningFile) {

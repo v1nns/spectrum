@@ -18,8 +18,9 @@ namespace interface {
 struct CustomEvent {
   //! Identifier for all existing events
   enum class Type {
-    UpdateFileInfo = 50000,
-    ClearFileInfo = 50001,
+    ClearSongInfo = 50000,
+    UpdateSongInfo = 50001,
+    UpdateSongState = 50002,
   };
 
   //! Overloaded operators
@@ -28,8 +29,9 @@ struct CustomEvent {
 
  public:
   //! Possible events
-  static CustomEvent UpdateFileInfo(const model::Song& info);
-  static CustomEvent ClearFileInfo();
+  static CustomEvent ClearSongInfo();
+  static CustomEvent UpdateSongInfo(const model::Song& info);
+  static CustomEvent UpdateSongState(const model::Song::State& new_state);
 
   //! Generic getter for event content
   template <typename T>
@@ -43,7 +45,7 @@ struct CustomEvent {
 
  private:
   //! Possible types for content
-  using Content = std::variant<model::Song>;
+  using Content = std::variant<model::Song, model::Song::State>;
 
   //! Variables
   Type type_;        //!< Unique type identifier for Event

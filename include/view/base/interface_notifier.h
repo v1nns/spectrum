@@ -30,15 +30,21 @@ class InterfaceNotifier {
   //! Public API
 
   /**
+   * @brief Notify UI to clear any info about the previously song that was playing
+   */
+  virtual void ClearSongInformation() = 0;
+
+  /**
    * @brief Notify UI with detailed information from the parsed song
    * @param info Detailed audio information from previously file selected
    */
   virtual void NotifySongInformation(const model::Song& info) = 0;
 
   /**
-   * @brief Notify UI to clear any info about the previously song that was playing
+   * @brief Notify UI with new state information from current song
+   * @param state Updated state information
    */
-  virtual void ClearSongInformation() = 0;
+  virtual void NotifySongState(const model::Song::State& state) = 0;
 
   /**
    * @brief Notify UI with error code from some background operation

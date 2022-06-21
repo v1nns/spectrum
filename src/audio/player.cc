@@ -96,22 +96,36 @@ void Player::AudioHandler() {
       // Inform playback driver to be ready to play
       playback_->Prepare();
 
+      int curr_position = 0;  // in seconds
+
       // To keep decoding audio, return true in lambda function
-      result = decoder_->Decode(period_size, [&](void* buffer, int buffer_size, int out_samples) {
-        if (media_control_.stop || media_control_.exit) {
-          playback_->Stop();
-          return false;
-        }
+      result = decoder_->Decode(period_size,
+                                [&](void* buffer, int buffer_size, int out_samples, int position) {
+                                  if (media_control_.stop || media_control_.exit) {
+                                    playback_->Stop();
+                                    return false;
+                                  }
 
-        if (media_control_.pause) {
-          playback_->Pause();
-          media_control_.WaitForResume();
-          playback_->Prepare();
-        }
+                                  if (media_control_.pause) {
+                                    playback_->Pause();
+                                    media_control_.WaitForResume();
+                                    playback_->Prepare();
+                                  }
 
-        playback_->AudioCallback(buffer, buffer_size, out_samples);
-        return true;
-      });
+                                  playback_->AudioCallback(buffer, buffer_size, out_samples);
+
+                                  if (position > curr_position) {
+                                    curr_position = position;
+
+                                    auto media_notifier = notifier_.lock();
+                                    if (media_notifier) {
+                                      model::Song::State state{.position = (uint32_t)curr_position};
+                                      media_notifier->NotifySongState(state);
+                                    }
+                                  }
+
+                                  return true;
+                                });
 
       // Reached the end of song, originated from one of these situations:
       // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;

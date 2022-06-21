@@ -27,6 +27,12 @@ struct Song {
   uint32_t bit_rate;      //!< Bits per second
   uint32_t bit_depth;     //!< Number of bits per sample
   uint32_t duration;      //!< Audio duration (in seconds)
+
+  struct State {
+    uint32_t position;  //!< Current position (in seconds) of the audio
+  };
+
+  State curr_state;  //!< Current state of song
 };
 
 /**
@@ -35,6 +41,13 @@ struct Song {
  * @return std::string Formatted string with properties from Song
  */
 std::string to_string(const Song& arg);
+
+/**
+ * @brief Util method to pretty print time from Song structure
+ * @param arg Time (in seconds)
+ * @return std::string Formatted string with converted time from Song
+ */
+std::string time_to_string(const uint32_t& arg);
 
 }  // namespace model
 #endif  // INCLUDE_MODEL_SONG_H_

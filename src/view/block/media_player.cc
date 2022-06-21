@@ -14,7 +14,10 @@ constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::MediaPlayer}, btn_play_{nullptr}, btn_stop_{nullptr} {
+    : Block{dispatcher, Identifier::MediaPlayer},
+      btn_play_{nullptr},
+      btn_stop_{nullptr},
+      audio_info_{} {
   // TODO: bind methods for on_click
   btn_play_ = Button::make_button_play(nullptr);
   btn_stop_ = Button::make_button_stop(nullptr);
@@ -24,7 +27,18 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
 
 ftxui::Element MediaPlayer::Render() {
   // Duration
-  ftxui::Element bar_duration = ftxui::gauge(0.9) | ftxui::xflex_grow |
+  std::string curr_time = "--:--";
+  std::string total_time = "--:--";
+  float position = 0;
+
+  // Only fill these fields when exists a current song playing
+  if (audio_info_.duration > 0) {
+    position = (float)audio_info_.curr_state.position / (float)audio_info_.duration;
+    curr_time = model::time_to_string(audio_info_.curr_state.position);
+    total_time = model::time_to_string(audio_info_.duration);
+  }
+
+  ftxui::Element bar_duration = ftxui::gauge(position) | ftxui::xflex_grow |
                                 ftxui::bgcolor(ftxui::Color::DarkKhaki) |
                                 ftxui::color(ftxui::Color::DarkVioletBis);
 
@@ -42,9 +56,9 @@ ftxui::Element MediaPlayer::Render() {
                                         }),
                                         ftxui::hbox({
                                             bar_margin,
-                                            ftxui::text("1:38") | ftxui::bold,
+                                            ftxui::text(curr_time) | ftxui::bold,
                                             ftxui::filler(),
-                                            ftxui::text("1:58") | ftxui::bold,
+                                            ftxui::text(total_time) | ftxui::bold,
                                             bar_margin,
                                         })});
 
@@ -58,14 +72,29 @@ ftxui::Element MediaPlayer::Render() {
 bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event.is_mouse()) return OnMouseEvent(event);
 
-  // if(Focusable()){}
-
   return false;
 }
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::OnCustomEvent(const CustomEvent& event) { return false; }
+bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
+  // Do not return true because other blocks may use it
+  if (event == CustomEvent::Type::ClearSongInfo) {
+    audio_info_ = model::Song{};
+  }
+
+  // Do not return true because other blocks may use it
+  if (event == CustomEvent::Type::UpdateSongInfo) {
+    audio_info_ = event.GetContent<model::Song>();
+  }
+
+  if (event == CustomEvent::Type::UpdateSongState) {
+    audio_info_.curr_state = event.GetContent<model::Song::State>();
+    return true;
+  }
+
+  return false;
+}
 
 /* ********************************************************************************************** */
 

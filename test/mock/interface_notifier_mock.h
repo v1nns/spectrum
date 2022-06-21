@@ -12,8 +12,9 @@ namespace {
 
 class InterfaceNotifierMock final : public interface::InterfaceNotifier {
  public:
-  MOCK_METHOD(void, NotifySongInformation, (const model::Song& info), (override));
   MOCK_METHOD(void, ClearSongInformation, (), (override));
+  MOCK_METHOD(void, NotifySongInformation, (const model::Song& info), (override));
+  MOCK_METHOD(void, NotifySongState, (const model::Song::State& new_state), (override));
   MOCK_METHOD(void, NotifyError, (error::Code code), (override));
 };
 
