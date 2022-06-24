@@ -5,10 +5,6 @@
 namespace interface {
 
 Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id)
-    : ftxui::ComponentBase{}, id_{id}, dispatcher_{dispatcher}, listener_{} {}
-
-/* ********************************************************************************************** */
-
-void Block::Attach(const std::shared_ptr<ActionListener>& listener) { listener_ = listener; }
+    : ftxui::ComponentBase{}, id_{id}, dispatcher_{dispatcher} {}
 
 }  // namespace interface

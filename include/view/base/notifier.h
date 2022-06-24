@@ -3,8 +3,8 @@
  * \brief  Interface class for notify interface with information
  */
 
-#ifndef INCLUDE_VIEW_BASE_INTERFACE_NOTIFIER_H_
-#define INCLUDE_VIEW_BASE_INTERFACE_NOTIFIER_H_
+#ifndef INCLUDE_VIEW_BASE_NOTIFIER_H_
+#define INCLUDE_VIEW_BASE_NOTIFIER_H_
 
 #include "model/application_error.h"
 #include "model/song.h"
@@ -14,17 +14,17 @@ namespace interface {
 /**
  * @brief Interface class to notify interface with updated information
  */
-class InterfaceNotifier {
+class Notifier {
  public:
   /**
-   * @brief Construct a new Interface Notifier object
+   * @brief Construct a new Notifier object
    */
-  InterfaceNotifier() = default;
+  Notifier() = default;
 
   /**
-   * @brief Destroy the Interface Notifier object
+   * @brief Destroy the Notifier object
    */
-  virtual ~InterfaceNotifier() = default;
+  virtual ~Notifier() = default;
 
   /* ******************************************************************************************** */
   //! Public API
@@ -54,4 +54,4 @@ class InterfaceNotifier {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BASE_INTERFACE_NOTIFIER_H_
+#endif  // INCLUDE_VIEW_BASE_NOTIFIER_H_

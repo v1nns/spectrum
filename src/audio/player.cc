@@ -4,7 +4,7 @@
 
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
-#include "view/base/interface_notifier.h"
+#include "view/base/notifier.h"
 
 namespace audio {
 
@@ -152,8 +152,7 @@ void Player::ResetMediaControl(error::Code err_code) {
 
 /* ********************************************************************************************** */
 
-void Player::RegisterInterfaceNotifier(
-    const std::shared_ptr<interface::InterfaceNotifier>& notifier) {
+void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier>& notifier) {
   notifier_ = notifier;
 }
 

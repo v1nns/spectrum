@@ -6,11 +6,11 @@
 #ifndef INCLUDE_TEST_INTERFACE_NOTIFIER_MOCK_H_
 #define INCLUDE_TEST_INTERFACE_NOTIFIER_MOCK_H_
 
-#include "view/base/interface_notifier.h"
+#include "view/base/notifier.h"
 
 namespace {
 
-class InterfaceNotifierMock final : public interface::InterfaceNotifier {
+class InterfaceNotifierMock final : public interface::Notifier {
  public:
   MOCK_METHOD(void, ClearSongInformation, (), (override));
   MOCK_METHOD(void, NotifySongInformation, (const model::Song& info), (override));

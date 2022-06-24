@@ -22,7 +22,7 @@
 
 //! Forward declaration
 namespace interface {
-class InterfaceNotifier;
+class Notifier;
 }
 
 namespace {
@@ -103,9 +103,9 @@ class Player : public AudioControl {
  public:
   /**
    * @brief Register notifier to send events to interface
-   * @param player Audio player control interface
+   * @param notifier Interface notifier
    */
-  void RegisterInterfaceNotifier(const std::shared_ptr<interface::InterfaceNotifier>& notifier);
+  void RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier>& notifier);
 
   /* ******************************************************************************************** */
   //! Media Control
@@ -203,7 +203,7 @@ class Player : public AudioControl {
 
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
 
-  std::weak_ptr<interface::InterfaceNotifier> notifier_;  //!< Send notifications to interface
+  std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

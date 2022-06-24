@@ -31,4 +31,15 @@ CustomEvent CustomEvent::UpdateSongState(const model::Song::State& new_state) {
   return event;
 }
 
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path file_path) {
+  CustomEvent event;
+  event.type_ = Type::NotifyFileSelection;
+  event.content_ = file_path;
+
+  return event;
+}
+
 }  // namespace interface

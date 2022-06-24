@@ -13,8 +13,8 @@
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for ComponentBase
 #include "ftxui/dom/elements.hpp"              // for Element
-#include "view/base/action_listener.h"
 #include "view/base/custom_event.h"
+#include "view/base/listener.h"
 
 namespace interface {
 
@@ -47,6 +47,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
    */
   virtual ~Block() = default;
 
+  //! Unique ID
+  Identifier GetId() { return id_; }
+
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
 
@@ -55,17 +58,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   virtual bool OnCustomEvent(const CustomEvent&) = 0;
 
   /* ******************************************************************************************** */
-
-  //! Attach listener to notify actions (optional)
-  void Attach(const std::shared_ptr<ActionListener>& listener);
-
-  //! Unique ID
-  Identifier GetId() { return id_; }
-
-  /* ******************************************************************************************** */
+  //! Variables
  protected:
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-  std::weak_ptr<ActionListener> listener_;     //!< Inform actions to outside listener
 
  private:
   Identifier id_;  //!< Block identification

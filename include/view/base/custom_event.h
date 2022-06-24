@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BASE_CUSTOM_EVENT_H_
 #define INCLUDE_VIEW_BASE_CUSTOM_EVENT_H_
 
+#include <filesystem>
 #include <variant>
 
 #include "model/song.h"
@@ -18,9 +19,12 @@ namespace interface {
 struct CustomEvent {
   //! Identifier for all existing events
   enum class Type {
+    // Events between blocks
     ClearSongInfo = 50000,
     UpdateSongInfo = 50001,
     UpdateSongState = 50002,
+    // Events for an outside listener
+    NotifyFileSelection = 60000,
   };
 
   //! Overloaded operators
@@ -32,6 +36,8 @@ struct CustomEvent {
   static CustomEvent ClearSongInfo();
   static CustomEvent UpdateSongInfo(const model::Song& info);
   static CustomEvent UpdateSongState(const model::Song::State& new_state);
+
+  static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
 
   //! Generic getter for event content
   template <typename T>
@@ -45,7 +51,7 @@ struct CustomEvent {
 
  private:
   //! Possible types for content
-  using Content = std::variant<model::Song, model::Song::State>;
+  using Content = std::variant<model::Song, model::Song::State, std::filesystem::path>;
 
   //! Variables
   Type type_;        //!< Unique type identifier for Event

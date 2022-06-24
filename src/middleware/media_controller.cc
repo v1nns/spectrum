@@ -1,30 +1,43 @@
-#include "controller/media.h"
+#include "middleware/media_controller.h"
 
 #include <string>
 #include <thread>
 
+#include "audio/player.h"
 #include "ftxui/component/event.hpp"
 #include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/block.h"
+#include "view/base/terminal.h"
 
-namespace controller {
+namespace middleware {
 
-Media::Media(const std::shared_ptr<interface::EventDispatcher>& dispatcher)
-    : interface::ActionListener(),
-      interface::InterfaceNotifier(),
-      dispatcher_{dispatcher},
-      player_ctl_{} {}
+std::shared_ptr<MediaController> MediaController::Create(
+    const std::shared_ptr<interface::Terminal>& terminal,
+    const std::shared_ptr<audio::Player>& player) {
+  auto controller = std::shared_ptr<MediaController>(new MediaController(terminal, player));
 
-/* ********************************************************************************************** */
+  // Register callbacks to Terminal
+  terminal->RegisterInterfaceListener(controller);
 
-void Media::RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player) {
-  player_ctl_ = player;
+  // Register callbacks to Player
+  player->RegisterInterfaceNotifier(controller);
+
+  return controller;
 }
 
 /* ********************************************************************************************** */
 
-void Media::NotifyFileSelection(const std::filesystem::path& filepath) {
+MediaController::MediaController(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
+                                 const std::shared_ptr<audio::AudioControl>& player_ctl)
+    : interface::Listener(),
+      interface::Notifier(),
+      dispatcher_{dispatcher},
+      player_ctl_{player_ctl} {}
+
+/* ********************************************************************************************** */
+
+void MediaController::NotifyFileSelection(const std::filesystem::path& filepath) {
   auto player = player_ctl_.lock();
   if (!player) return;
 
@@ -33,7 +46,7 @@ void Media::NotifyFileSelection(const std::filesystem::path& filepath) {
 
 /* ********************************************************************************************** */
 
-void Media::ClearCurrentSong() {
+void MediaController::ClearCurrentSong() {
   auto player = player_ctl_.lock();
   if (!player) return;
 
@@ -42,7 +55,7 @@ void Media::ClearCurrentSong() {
 
 /* ********************************************************************************************** */
 
-void Media::PauseOrResume() {
+void MediaController::PauseOrResume() {
   auto player = player_ctl_.lock();
   if (!player) return;
 
@@ -51,7 +64,7 @@ void Media::PauseOrResume() {
 
 /* ********************************************************************************************** */
 
-void Media::ClearSongInformation() {
+void MediaController::ClearSongInformation() {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
@@ -63,7 +76,7 @@ void Media::ClearSongInformation() {
 
 /* ********************************************************************************************** */
 
-void Media::NotifySongInformation(const model::Song& info) {
+void MediaController::NotifySongInformation(const model::Song& info) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
@@ -75,7 +88,7 @@ void Media::NotifySongInformation(const model::Song& info) {
 
 /* ********************************************************************************************** */
 
-void Media::NotifySongState(const model::Song::State& state) {
+void MediaController::NotifySongState(const model::Song::State& state) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
@@ -87,7 +100,7 @@ void Media::NotifySongState(const model::Song::State& state) {
 
 /* ********************************************************************************************** */
 
-void Media::NotifyError(error::Code code) {
+void MediaController::NotifyError(error::Code code) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
@@ -95,4 +108,4 @@ void Media::NotifyError(error::Code code) {
   dispatcher->SetApplicationError(code);
 }
 
-}  // namespace controller
+}  // namespace middleware

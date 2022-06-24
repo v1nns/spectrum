@@ -33,7 +33,7 @@ std::shared_ptr<Terminal> Terminal::Create() {
 Terminal::Terminal()
     : EventDispatcher{},
       ftxui::ComponentBase{},
-      media_ctl_{},
+      listener_{},
       receiver_{ftxui::MakeReceiver<CustomEvent>()},
       sender_{receiver_->MakeSender()},
       cb_send_event_{},
@@ -55,16 +55,10 @@ void Terminal::Init() {
   // use itself as a mediator to send events between them
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
-  // Create controllers
-  media_ctl_ = std::make_shared<controller::Media>(dispatcher);
-
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
-
-  // Attach controller as listener to block actions
-  list_dir->Attach(std::static_pointer_cast<ActionListener>(media_ctl_));
 
   // Make every block as a child of this terminal
   Add(list_dir);
@@ -88,8 +82,8 @@ void Terminal::Exit() {
 
 /* ********************************************************************************************** */
 
-void Terminal::RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player) {
-  media_ctl_->RegisterPlayerControl(player);
+void Terminal::RegisterInterfaceListener(const std::shared_ptr<interface::Listener>& listener) {
+  listener_ = listener;
 }
 
 /* ********************************************************************************************** */
@@ -157,18 +151,24 @@ bool Terminal::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool Terminal::OnCustomEvent() {
-  if (!receiver_->HasPending()) {
-    return false;
-  }
+  if (!receiver_->HasPending()) return false;
 
   CustomEvent event;
   if (!receiver_->Receive(&event)) return false;
 
+  // First, check if it is an event for listener
+  if (event == CustomEvent::Type::NotifyFileSelection) {
+    auto listener = listener_.lock();
+    if (listener) {
+      auto content = event.GetContent<std::filesystem::path>();
+      listener->NotifyFileSelection(content);
+    }
+  }
+
+  // Send it to children blocks
   for (auto& child : children_) {
     auto block = std::static_pointer_cast<Block>(child);
-    if (block->OnCustomEvent(event)) {
-      return true;
-    }
+    if (block->OnCustomEvent(event)) return true;
   }
 
   return false;
@@ -185,13 +185,16 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
 
   // Clear current song from player controller
   if (event == ftxui::Event::Character('c')) {
-    media_ctl_->ClearCurrentSong();
+    auto media_ctl = listener_.lock();
+    if (media_ctl) media_ctl->ClearCurrentSong();
     return true;
   }
 
   // TODO: Move this to audio player block
   if (event == ftxui::Event::Character('p')) {
-    media_ctl_->PauseOrResume();
+    auto media_ctl = listener_.lock();
+    if (media_ctl) media_ctl->PauseOrResume();
+    return true;
   }
 
   return false;

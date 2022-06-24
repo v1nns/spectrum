@@ -38,8 +38,8 @@ target_sources(
             audio/driver/alsa.cc
             audio/driver/ffmpeg.cc
             audio/player.cc
-            # controller
-            controller/media.cc
+            # middleware
+            middleware/media_controller.cc
             # model
             model/song.cc
             # view

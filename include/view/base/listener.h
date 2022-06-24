@@ -3,8 +3,8 @@
  * \brief  Interface class to listen for actions from blocks
  */
 
-#ifndef INCLUDE_VIEW_BASE_ACTION_LISTENER_H_
-#define INCLUDE_VIEW_BASE_ACTION_LISTENER_H_
+#ifndef INCLUDE_VIEW_BASE_LISTENER_H_
+#define INCLUDE_VIEW_BASE_LISTENER_H_
 
 #include <filesystem>
 
@@ -13,17 +13,17 @@ namespace interface {
 /**
  * @brief Interface class to receive an interface action
  */
-class ActionListener {
+class Listener {
  public:
   /**
    * @brief Construct a new Action Listener object
    */
-  ActionListener() = default;
+  Listener() = default;
 
   /**
    * @brief Destroy the Action Listener object
    */
-  virtual ~ActionListener() = default;
+  virtual ~Listener() = default;
 
   /* ******************************************************************************************** */
   //! Public API
@@ -46,4 +46,4 @@ class ActionListener {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BASE_ACTION_LISTENER_H_
+#endif  // INCLUDE_VIEW_BASE_LISTENER_H_

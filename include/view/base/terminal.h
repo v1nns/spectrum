@@ -10,10 +10,10 @@
 #include <optional>
 #include <vector>
 
-#include "controller/media.h"
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/component/component_base.hpp"  // for Component
 #include "ftxui/component/receiver.hpp"
+#include "middleware/media_controller.h"
 #include "model/application_error.h"
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
@@ -75,10 +75,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Binds and registrations
  public:
   /**
-   * @brief Pass external player interface to internal UI controller
-   * @param player Audio player control interface
+   * @brief Register listener to receive events from interface
+   * @param listener Interface listener
    */
-  void RegisterPlayerControl(const std::shared_ptr<audio::AudioControl>& player);
+  void RegisterInterfaceListener(const std::shared_ptr<interface::Listener>& listener);
 
   /**
    * @brief Bind an external send event function to an internal function
@@ -107,15 +107,6 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @return true if event was handled, otherwise false
    */
   bool OnEvent(ftxui::Event event) override;
-
-  /* ******************************************************************************************** */
-  //! Expose Media Controller
-
-  /**
-   * @brief Get the Media Controller object
-   * @return std::shared_ptr<controller::Media> UI Media controller
-   */
-  std::shared_ptr<controller::Media> GetMediaController() const { return media_ctl_; }
 
   /* ******************************************************************************************** */
   //! Internal event handling
@@ -152,8 +143,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::shared_ptr<controller::Media> media_ctl_;  //!< Media controller
-  std::optional<error::Code> last_error_;         //!< Last application error
+  std::weak_ptr<interface::Listener> listener_;  //!< Outside listener for events from UI
+  std::optional<error::Code> last_error_;        //!< Last application error
 
   ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
   ftxui::Sender<CustomEvent> sender_;      //! Custom event sender

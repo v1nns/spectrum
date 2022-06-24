@@ -253,8 +253,11 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
         new_dir = curr_dir_ / active->filename();
       } else {
         // Send user action to controller
-        auto listener = listener_.lock();
-        if (listener) listener->NotifyFileSelection(*active);
+        auto dispatcher = dispatcher_.lock();
+        if (dispatcher) {
+          auto event = interface::CustomEvent::NotifyFileSelection(*active);
+          dispatcher->SendEvent(event);
+        }
       }
 
       if (!new_dir.empty()) {
