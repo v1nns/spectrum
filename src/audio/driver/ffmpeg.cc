@@ -103,10 +103,12 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
   tag = av_dict_get(input_stream_->metadata, "artist", tag, AV_DICT_IGNORE_SUFFIX);
   if (tag) audio_info->artist = std::string{tag->value};
 
-  audio_info->num_channels = (uint16_t)decoder_->channels,
-  audio_info->sample_rate = (uint32_t)decoder_->sample_rate,
-  audio_info->bit_rate = (uint32_t)input_stream_->bit_rate,
-  audio_info->bit_depth = (uint32_t)decoder_->bits_per_coded_sample,
+  const AVCodecParameters *audio_stream = input_stream_->streams[stream_index_]->codecpar;
+
+  audio_info->num_channels = (uint16_t)audio_stream->channels,
+  audio_info->sample_rate = (uint32_t)audio_stream->sample_rate;
+  audio_info->bit_rate = (uint32_t)audio_stream->bit_rate,
+  audio_info->bit_depth = (uint32_t)sample_fmt_info[audio_stream->format].bits;
   audio_info->duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
 }
 

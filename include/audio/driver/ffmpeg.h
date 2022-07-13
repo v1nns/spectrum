@@ -113,6 +113,29 @@ class FFmpeg : public Decoder {
   static constexpr int kChannelLayout = AV_CH_LAYOUT_STEREO;
 
   /* ******************************************************************************************** */
+  //! Utilities
+
+  struct SampleFmtInfo {
+    char name[8];  //! Short name
+    int bits;      //! Bit depth
+    int planar;  //! For planar sample formats, each audio channel is in a separate data plane, and
+                 //! linesize is the buffer size, in bytes, for a single plane.
+    enum AVSampleFormat altform;  //! Associated value from AVSampleFormat
+  };
+
+  /**
+   * @brief Utilitary table with detailed info from FFmpeg AVSampleFormat (bit depth specially)
+   */
+  static constexpr SampleFmtInfo sample_fmt_info[AV_SAMPLE_FMT_NB] = {
+      {"ut8", 8, 0, AV_SAMPLE_FMT_U8},     {"s16", 16, 0, AV_SAMPLE_FMT_S16},
+      {"s32", 32, 0, AV_SAMPLE_FMT_S32},   {"flt", 32, 0, AV_SAMPLE_FMT_FLT},
+      {"dbl", 64, 0, AV_SAMPLE_FMT_DBL},   {"u8p", 8, 1, AV_SAMPLE_FMT_U8P},
+      {"s16p", 16, 1, AV_SAMPLE_FMT_S16P}, {"s32p", 32, 1, AV_SAMPLE_FMT_S32P},
+      {"fltp", 32, 1, AV_SAMPLE_FMT_FLTP}, {"dblp", 64, 1, AV_SAMPLE_FMT_DBLP},
+      {"s64", 64, 0, AV_SAMPLE_FMT_S64},   {"s64p", 64, 1, AV_SAMPLE_FMT_S64P},
+  };
+
+  /* ******************************************************************************************** */
   //! Variables
 
   FormatContext input_stream_;  //!< Input stream from file
