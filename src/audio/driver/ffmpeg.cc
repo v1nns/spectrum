@@ -19,7 +19,7 @@ error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
   input_stream_.reset(std::move(ptr));
 
   if (avformat_find_stream_info(input_stream_.get(), nullptr) < 0) {
-    error::kFileNotSupported;
+    return error::kFileNotSupported;
   }
 
   return error::kSuccess;
@@ -28,7 +28,7 @@ error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::ConfigureDecoder() {
-  AVCodec *codec = nullptr;
+  const AVCodec *codec = nullptr;
   AVCodecParameters *parameters = nullptr;
 
   for (int i = 0; i < input_stream_->nb_streams; i++) {
@@ -153,6 +153,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
 
   while (av_read_frame(input_stream_.get(), packet.get()) >= 0 && continue_decoding) {
     if (packet->stream_index != stream_index_) {
+      av_packet_unref(packet.get());
       continue;
     }
 
@@ -161,7 +162,8 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
     }
 
     while (avcodec_receive_frame(decoder_.get(), frame.get()) >= 0 && continue_decoding) {
-      int position = packet->pts / decoder_->time_base.den;
+      // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
+      int64_t position = packet->pts / input_stream_->streams[stream_index_]->time_base.den;
 
       int out_samples = swr_convert(resampler_.get(), &buffer, samples,
                                     (const uint8_t **)(frame->data), frame->nb_samples);
