@@ -3,8 +3,8 @@
  * \brief  Class to support using ALSA driver
  */
 
-#ifndef INCLUDE_DRIVER_ALSA_H_
-#define INCLUDE_DRIVER_ALSA_H_
+#ifndef INCLUDE_AUDIO_DRIVER_ALSA_H_
+#define INCLUDE_AUDIO_DRIVER_ALSA_H_
 
 #include <alsa/asoundlib.h>
 
@@ -107,4 +107,4 @@ class Alsa : public Playback {
 };
 
 }  // namespace driver
-#endif  // INCLUDE_DRIVER_ALSA_H_
+#endif  // INCLUDE_AUDIO_DRIVER_ALSA_H_

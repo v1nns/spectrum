@@ -6,6 +6,8 @@
 #ifndef INCLUDE_AUDIO_BASE_DECODER_H_
 #define INCLUDE_AUDIO_BASE_DECODER_H_
 
+#include <functional>
+
 #include "model/application_error.h"
 #include "model/song.h"
 
