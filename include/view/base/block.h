@@ -30,8 +30,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   enum class Identifier {
     ListDirectory = 201,
     FileInfo = 202,
-    MediaPlayer = 203,
-    ErrorDialog = 204,
+    AudioVisualizer = 203,
+    MediaPlayer = 204,
+    ErrorDialog = 205,
   };
 
   /**

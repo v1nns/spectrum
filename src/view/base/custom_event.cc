@@ -20,6 +20,7 @@ CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
 
   return event;
 }
+
 /* ********************************************************************************************** */
 
 // Static
@@ -38,6 +39,17 @@ CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path file_pa
   CustomEvent event;
   event.type_ = Type::NotifyFileSelection;
   event.content_ = file_path;
+
+  return event;
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::DrawAudioRaw(int* buffer, int buffer_size) {
+  CustomEvent event;
+  event.type_ = Type::DrawAudioRaw;
+  event.content_ = std::vector<int>(buffer, buffer + buffer_size);
 
   return event;
 }

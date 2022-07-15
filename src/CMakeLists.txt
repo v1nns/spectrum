@@ -10,7 +10,8 @@ pkg_check_modules(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
 # Audio Library for Playback (using direclty ALSA)
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
 
-# DSP Processing (FFTW3) pkg_check_modules(FFTW REQUIRED fftw3)
+# DSP Processing (FFTW3)
+# pkg_check_modules(FFTW REQUIRED fftw3)
 
 # GUI Library (FTXUI)
 FetchContent_Declare(
@@ -37,6 +38,7 @@ target_sources(
     PRIVATE # audio
             audio/driver/alsa.cc
             audio/driver/ffmpeg.cc
+            audio/driver/fftw.cc
             audio/player.cc
             # middleware
             middleware/media_controller.cc
@@ -49,6 +51,7 @@ target_sources(
             view/block/list_directory.cc
             view/block/file_info.cc
             view/block/media_player.cc
+            view/block/audio_visualizer.cc
             view/element/button.cc)
 
 target_include_directories(
@@ -80,4 +83,4 @@ target_compile_options(spectrum PRIVATE -Wall -Werror -Wno-sign-compare -Wfatal-
 
 # **************************************************************************************************
 # For prototyping
-add_subdirectory(prototype)
+# add_subdirectory(prototype)

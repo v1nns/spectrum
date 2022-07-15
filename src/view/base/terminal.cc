@@ -13,6 +13,7 @@
 #include "view/block/file_info.h"                  // for FileInfo
 #include "view/block/list_directory.h"             // for ListDirectory
 #include "view/block/media_player.h"
+#include "view/block/audio_visualizer.h"
 
 namespace interface {
 
@@ -49,7 +50,7 @@ Terminal::~Terminal() {
 
 void Terminal::Init() {
   // TODO: remove this after developing
-  std::string custom_path = "/home/vinicius/projects/music-analyzer/";
+  std::string custom_path = "/home/vinicius/Downloads";
 
   // As this terminal will hold all these interface blocks, there is nothing better than
   // use itself as a mediator to send events between them
@@ -58,11 +59,13 @@ void Terminal::Init() {
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
+  auto audio_visualizer = std::make_shared<AudioVisualizer>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
 
   // Make every block as a child of this terminal
   Add(list_dir);
   Add(file_info);
+  Add(audio_visualizer);
   Add(media_player);
 }
 
@@ -104,12 +107,12 @@ ftxui::Element Terminal::Render() {
 
   ftxui::Element list_dir = children_.at(0)->Render();
   ftxui::Element file_info = children_.at(1)->Render();
-  ftxui::Element spectrum_graph = ftxui::filler() | ftxui::border;
-  ftxui::Element audio_player = children_.at(2)->Render();
+  ftxui::Element audio_visualizer = children_.at(2)->Render();
+  ftxui::Element audio_player = children_.at(3)->Render();
 
   ftxui::Element terminal = ftxui::hbox({
       ftxui::vbox({std::move(list_dir), std::move(file_info)}),
-      ftxui::vbox({std::move(spectrum_graph), std::move(audio_player)}) | ftxui::xflex_grow,
+      ftxui::vbox({std::move(audio_visualizer) | ftxui::yflex_grow, std::move(audio_player)}) | ftxui::xflex_grow,
   });
 
   ftxui::Element error = ftxui::text("");
@@ -163,6 +166,8 @@ bool Terminal::OnCustomEvent() {
       auto content = event.GetContent<std::filesystem::path>();
       listener->NotifyFileSelection(content);
     }
+
+    return true;
   }
 
   // Send it to children blocks

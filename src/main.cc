@@ -1,18 +1,12 @@
-
-
+/**
+ * \file
+ * \brief Main function
+ */
 #include <cstdlib>  // for EXIT_SUCCESS
 
 #include "audio/player.h"                          // for Player
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "view/base/terminal.h"                    // for Terminal
-
-void teste() {
-  auto player = audio::Player::Create();
-
-  player->Play("/home/vinicius/projects/music-analyzer/crazysong.wav");
-  while (1) {
-  }
-}
 
 int main() {
   // Create and initialize a new player
@@ -30,12 +24,15 @@ int main() {
   terminal->RegisterEventSenderCallback([&](ftxui::Event e) { screen.PostEvent(e); });
 
   terminal->RegisterExitCallback([&]() {
-    player->Exit();
     screen.ExitLoopClosure()();
   });
 
   // Start graphical interface loop
   screen.Loop(terminal);
+
+  // Clear screen and exit from player thread
+  screen.Clear();
+  player->Exit();
 
   return EXIT_SUCCESS;
 }

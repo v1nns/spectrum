@@ -100,6 +100,18 @@ void MediaController::NotifySongState(const model::Song::State& state) {
 
 /* ********************************************************************************************** */
 
+void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) return;
+
+  auto event = interface::CustomEvent::DrawAudioRaw(buffer, buffer_size);
+
+  // Notify Audio Player block with new state information about the current song
+  dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::NotifyError(error::Code code) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;

@@ -47,6 +47,13 @@ class Notifier {
   virtual void NotifySongState(const model::Song::State& state) = 0;
 
   /**
+   * @brief Send raw audio samples to UI
+   * @param buffer Audio samples
+   * @param buff_size Sample count
+   */
+  virtual void SendAudioRaw(int* buffer, int buffer_size) = 0;
+
+  /**
    * @brief Notify UI with error code from some background operation
    * @param code Application error code
    */

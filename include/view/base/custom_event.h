@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <variant>
+#include <vector>
 
 #include "model/song.h"
 
@@ -19,11 +20,12 @@ namespace interface {
 struct CustomEvent {
   //! Identifier for all existing events
   enum class Type {
-    // Events between blocks
+    // Events between blocks TODO: add a better documentation for each one
     ClearSongInfo = 50000,
     UpdateSongInfo = 50001,
     UpdateSongState = 50002,
-    // Events for an outside listener
+    DrawAudioRaw = 50003,
+    // Events for an outside listener (in this case, player thread)
     NotifyFileSelection = 60000,
   };
 
@@ -36,6 +38,7 @@ struct CustomEvent {
   static CustomEvent ClearSongInfo();
   static CustomEvent UpdateSongInfo(const model::Song& info);
   static CustomEvent UpdateSongState(const model::Song::State& new_state);
+  static CustomEvent DrawAudioRaw(int* buffer, int buffer_size);
 
   static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
 
@@ -51,7 +54,7 @@ struct CustomEvent {
 
  private:
   //! Possible types for content
-  using Content = std::variant<model::Song, model::Song::State, std::filesystem::path>;
+  using Content = std::variant<model::Song, model::Song::State, std::filesystem::path, std::vector<int>>;
 
   //! Variables
   Type type_;        //!< Unique type identifier for Event

@@ -112,12 +112,15 @@ void Player::AudioHandler() {
                                     playback_->Prepare();
                                   }
 
+                                  auto media_notifier = notifier_.lock();
+                                  if (media_notifier)
+                                    media_notifier->SendAudioRaw((int*)buffer, out_samples);
+
                                   playback_->AudioCallback(buffer, buffer_size, out_samples);
 
                                   if (position > curr_position) {
                                     curr_position = position;
 
-                                    auto media_notifier = notifier_.lock();
                                     if (media_notifier) {
                                       model::Song::State state{.position = (uint32_t)curr_position};
                                       media_notifier->NotifySongState(state);

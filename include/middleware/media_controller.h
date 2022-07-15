@@ -101,6 +101,13 @@ class MediaController : public interface::Listener, public interface::Notifier {
   void NotifySongState(const model::Song::State& state) override;
 
   /**
+   * @brief Send raw audio samples to UI
+   * @param buffer Audio samples
+   * @param buff_size Sample count
+   */
+  void SendAudioRaw(int* buffer, int buffer_size) override;
+
+  /**
    * @brief Notify UI with error code from some background operation
    * @param code Application error code
    */
