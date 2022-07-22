@@ -151,7 +151,14 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnCustomEvent(const CustomEvent& event) { return false; }
+bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
+  if (event == CustomEvent::Type::UpdateSongInfo) {
+    // Exit search mode if enabled
+    mode_search_.reset();
+  }
+
+  return false;
+}
 
 /* ********************************************************************************************** */
 
