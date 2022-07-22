@@ -51,6 +51,7 @@ class AudioVisualizer : public Block {
   /* ******************************************************************************************* */
   //! Variables
  private:
+  std::vector<int> data_;
 };
 
 }  // namespace interface

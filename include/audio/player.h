@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <thread>
 
@@ -135,59 +136,141 @@ class Player : public AudioControl {
   //! Custom class for blocking actions
  private:
   /**
-   * @brief A simple structure for data synchronization considering external events (currently used
-   * in two situations: to block thread while waiting to start playing and also for resuming audio
-   * when it is paused)
+   * @brief Commands list (used for internal control)
+   */
+  enum class Command {
+    None = 8000,
+    Play = 8001,
+    PauseOrResume = 8002,
+    Stop = 8003,
+    Exit = 8004,
+  };
+
+  /**
+   * @brief States list
+   */
+  enum class State {
+    Idle = 9000,
+    Play = 9001,
+    Pause = 9002,
+    Stop = 9003,
+    Exit = 9004,
+  };
+
+  /**
+   * @brief Translate media control command to media state
+   *
+   * @param cmd Media control command
+   * @return Media state
+   */
+  static State TranslateCommand(const Command cmd) {
+    State st = State::Idle;
+    switch (cmd) {
+      case Command::Play:
+        st = State::Play;
+        break;
+      case Command::PauseOrResume:
+        st = State::Pause;
+        break;
+      case Command::Stop:
+        st = State::Stop;
+        break;
+      case Command::Exit:
+        st = State::Exit;
+        break;
+      default:
+        break;
+    }
+    return st;
+  }
+
+  /**
+   * @brief An structure for data synchronization considering external events (currently used in
+   * some situations like: to block thread while waiting to start playing and also for resuming
+   * audio when it is paused)
    */
   struct MediaControlSynced {
-    std::mutex mutex;                     //!< Control access for internal resources
-    std::condition_variable cond_var;     //!< Conditional variable to block thread
-    std::atomic<bool> play, pause, stop;  //!< Media control
-    std::atomic<bool> exit;               //!< Flag to force to exit from application
+    std::mutex mutex;                  //!< Control access for internal resources
+    std::condition_variable notifier;  //!< Conditional variable to block thread
+
+    std::queue<Command> queue;  //! Queue with media control commands
+    std::atomic<State> state;   //! Current state
 
     /**
      * @brief Reset media controls
      */
     void Reset() {
-      play = false;
-      pause = false;
-      stop = false;
+      if (state != State::Exit) state = State::Idle;
+      std::queue<Command>().swap(queue);
     }
 
     /**
-     * @brief Notify thread to unblock (when it is blocked by condition variable)
+     * @brief Push command to media control queue
+     * @param cmd Media command
      */
-    void Notify() { cond_var.notify_one(); }
+    void Push(const Command cmd) {
+      {
+        std::unique_lock<std::mutex> lock(mutex);
 
-    /**
-     * @brief Wait until interface notifies to play song
-     * @return true Start playing
-     * @return false Do nothing
-     */
-    bool WaitForPlay() {
-      WaitForSync([&] { return play || exit; });
-      return play.load();
+        // Clear queue in case of exit request
+        if (cmd == Command::Exit) {
+          std::queue<Command>().swap(queue);
+          state = State::Exit;
+        }
+
+        queue.push(std::move(cmd));
+      }
+      notifier.notify_one();
     }
 
     /**
-     * @brief Wait until interface notifies to resume song
-     * @return true Resume song
-     * @return false Do nothing
+     * @brief Pop command from media control queue
+     * @return Media command
      */
-    bool WaitForResume() {
-      WaitForSync([&] { return !pause || exit; });
-      return !pause.load();
-    }
-
-   private:
-    /**
-     * @brief Block thread until predicate from function is satisfied (in other words, wait until
-     * user interface sends events)
-     * @param wait_until Function with predicates to evaluate when it is possible to release mutex
-     */
-    void WaitForSync(std::function<bool()> wait_until) {
+    Command Pop() {
       std::unique_lock<std::mutex> lock(mutex);
-      cond_var.wait(lock, wait_until);
+      if (queue.empty()) return Command::None;
+
+      auto cmd = queue.front();
+      queue.pop();
+
+      return cmd;
+    }
+
+    /**
+     * @brief Block thread until user interface sends events matching the expected command(s). As
+     * this is a blocking operation, when one of the expected commands matches with the one from
+     * queue, media control state is updated
+     *
+     * @tparam Args Media command
+     * @param cmds Command list
+     * @return True if thread should keep working, False if not
+     */
+    template <typename... Args>
+    bool WaitFor(Args&&... cmds) {
+      std::unique_lock<std::mutex> lock(mutex);
+      notifier.wait(lock, [&]() mutable {
+        // Simply exit, do not wait for any command
+        if (state == State::Exit) return true;
+
+        // No command in queue
+        if (queue.empty()) return false;
+
+        // Pop first command from queue
+        auto tmp = queue.front();
+        queue.pop();
+
+        // Check if it matches with any command from list
+        for (auto cmd : {Command::Exit, cmds...})
+          if (tmp == cmd) {
+            state = TranslateCommand(tmp);
+            return true;
+          }
+
+        return false;
+      });
+
+      return state != State::Exit;
     }
   };
 
@@ -197,7 +280,7 @@ class Player : public AudioControl {
   std::unique_ptr<driver::Playback> playback_;  //!< Handle playback stream
   std::unique_ptr<driver::Decoder> decoder_;    //!< Open file as input stream and parse samples
 
-  std::thread audio_loop_;  //!< Thread to execute main-loop function
+  std::thread audio_loop_;  //!< Execute audio-loop function as a thread
 
   MediaControlSynced media_control_;  // Controls the media (play, pause/resume and stop)
 

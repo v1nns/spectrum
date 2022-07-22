@@ -33,7 +33,8 @@ MediaController::MediaController(const std::shared_ptr<interface::EventDispatche
     : interface::Listener(),
       interface::Notifier(),
       dispatcher_{dispatcher},
-      player_ctl_{player_ctl} {}
+      player_ctl_{player_ctl},
+      buffer_() {}
 
 /* ********************************************************************************************** */
 
@@ -101,13 +102,21 @@ void MediaController::NotifySongState(const model::Song::State& state) {
 /* ********************************************************************************************** */
 
 void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
-  auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) return;
+  buffer_.insert(buffer_.end(), buffer, buffer + buffer_size);
 
-  auto event = interface::CustomEvent::DrawAudioRaw(buffer, buffer_size);
+  // 44100 * 0.3s = 13230
+  if (buffer_.size() > 13230) {
+    // auto dispatcher = dispatcher_.lock();
+    // if (!dispatcher) return;
+    //
+    // auto event = interface::CustomEvent::DrawAudioRaw(buffer_.data(), buffer_.size());
+    //
+    // // Notify Audio Player block with new state information about the current song
+    // dispatcher->SendEvent(event);
 
-  // Notify Audio Player block with new state information about the current song
-  dispatcher->SendEvent(event);
+    // clear
+    buffer_.clear();
+  }
 }
 
 /* ********************************************************************************************** */

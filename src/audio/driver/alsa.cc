@@ -65,8 +65,8 @@ error::Code Alsa::Stop() {
 
 /* ********************************************************************************************** */
 
-error::Code Alsa::AudioCallback(void* buffer, int buffer_size, int out_samples) {
-  int ret = snd_pcm_writei(playback_handle_.get(), buffer, out_samples);
+error::Code Alsa::AudioCallback(void* buffer, int max_size, int actual_size) {
+  int ret = snd_pcm_writei(playback_handle_.get(), buffer, actual_size);
 
   if (ret < 0) {
     if ((ret = snd_pcm_recover(playback_handle_.get(), ret, 1)) == 0) {

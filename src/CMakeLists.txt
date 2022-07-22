@@ -84,3 +84,7 @@ target_compile_options(spectrum PRIVATE -Wall -Werror -Wno-sign-compare -Wfatal-
 # **************************************************************************************************
 # For prototyping
 # add_subdirectory(prototype)
+
+# **************************************************************************************************
+# Install executable
+install(TARGETS spectrum DESTINATION ${CMAKE_BINARY_DIR}/bin/)

@@ -118,6 +118,8 @@ class MediaController : public interface::Listener, public interface::Notifier {
  private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for UI blocks
   std::weak_ptr<audio::AudioControl> player_ctl_;         //!< Send events to control Audio Player
+
+  std::vector<int> buffer_;
 };
 
 }  // namespace middleware

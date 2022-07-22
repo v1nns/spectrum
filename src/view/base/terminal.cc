@@ -10,10 +10,10 @@
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "view/base/block.h"                       // for Block, BlockEvent
-#include "view/block/file_info.h"                  // for FileInfo
-#include "view/block/list_directory.h"             // for ListDirectory
-#include "view/block/media_player.h"
 #include "view/block/audio_visualizer.h"
+#include "view/block/file_info.h"       // for FileInfo
+#include "view/block/list_directory.h"  // for ListDirectory
+#include "view/block/media_player.h"
 
 namespace interface {
 
@@ -111,8 +111,8 @@ ftxui::Element Terminal::Render() {
   ftxui::Element audio_player = children_.at(3)->Render();
 
   ftxui::Element terminal = ftxui::hbox({
-      ftxui::vbox({std::move(list_dir), std::move(file_info)}),
-      ftxui::vbox({std::move(audio_visualizer) | ftxui::yflex_grow, std::move(audio_player)}) | ftxui::xflex_grow,
+      ftxui::vbox({list_dir, file_info}),
+      ftxui::vbox({audio_visualizer, audio_player}) | ftxui::xflex_grow,
   });
 
   ftxui::Element error = ftxui::text("");

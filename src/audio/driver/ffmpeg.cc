@@ -167,12 +167,12 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
       // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
       int64_t position = packet->pts / input_stream_->streams[stream_index_]->time_base.den;
 
-      int out_samples = swr_convert(resampler_.get(), &buffer, samples,
+      int samples_size = swr_convert(resampler_.get(), &buffer, samples,
                                     (const uint8_t **)(frame->data), frame->nb_samples);
 
-      while (out_samples > 0 && continue_decoding) {
-        continue_decoding = callback(buffer, max_buffer_size, out_samples, position);
-        out_samples = swr_convert(resampler_.get(), &buffer, samples, nullptr, 0);
+      while (samples_size > 0 && continue_decoding) {
+        continue_decoding = callback(buffer, max_buffer_size, samples_size, position);
+        samples_size = swr_convert(resampler_.get(), &buffer, samples, nullptr, 0);
       }
 
       av_frame_unref(frame.get());
