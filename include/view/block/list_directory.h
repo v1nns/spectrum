@@ -118,6 +118,7 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
  protected:
   std::filesystem::path curr_dir_;  //!< Current directory
+  std::optional<std::filesystem::path> curr_playing_;  //!< Current song playing
 
   //! Parameters for when search mode is enabled
   struct Search {

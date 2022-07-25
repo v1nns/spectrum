@@ -49,6 +49,7 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
     : Block{dispatcher, Identifier::ListDirectory},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)},
+      curr_playing_{std::nullopt},
       entries_{},
       selected_{},
       focused_{},
@@ -66,6 +67,8 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
 /* ********************************************************************************************** */
 
 ftxui::Element ListDirectory::Render() {
+  using ftxui::WIDTH, ftxui::EQUAL;
+
   Clamp();
   ftxui::Elements entries;
   bool is_menu_focused = Focused();
@@ -82,7 +85,9 @@ ftxui::Element ListDirectory::Render() {
     bool is_selected = (*selected == i);
 
     File& entry = GetEntry(i);
-    auto& type = std::filesystem::is_directory(entry) ? styles_.directory : styles_.file;
+    auto& type = entry == curr_playing_                 ? styles_.playing
+                 : std::filesystem::is_directory(entry) ? styles_.directory
+                                                        : styles_.file;
     const char* icon = is_selected ? "> " : "  ";
 
     ftxui::Decorator style = is_selected
@@ -91,7 +96,8 @@ ftxui::Element ListDirectory::Render() {
 
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
-    entries.push_back(ftxui::text(icon + entry.filename().string()) | style | focus_management |
+    entries.push_back(ftxui::text(icon + entry.filename().string()) |
+                      ftxui::size(WIDTH, EQUAL, kMaxColumns) | style | focus_management |
                       ftxui::reflect(boxes_[i]));
   }
 
@@ -111,7 +117,7 @@ ftxui::Element ListDirectory::Render() {
 
     content.push_back(std::move(search_box));
   }
-  using ftxui::WIDTH, ftxui::EQUAL;
+
   return ftxui::window(ftxui::text(" files "), ftxui::vbox(std::move(content)) | ftxui::flex |
                                                    ftxui::size(WIDTH, EQUAL, kMaxColumns));
 }
@@ -155,6 +161,15 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Type::UpdateSongInfo) {
     // Exit search mode if enabled
     mode_search_.reset();
+
+    // Set current song
+    model::Song info = event.GetContent<model::Song>();
+    curr_playing_ = info.filepath;
+  }
+
+  if (event == CustomEvent::Type::ClearSongInfo) {
+    // Clear current song
+    curr_playing_.reset();
   }
 
   return false;
