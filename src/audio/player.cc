@@ -103,21 +103,21 @@ void Player::AudioHandler() {
           auto command = media_control_.Pop();
 
           switch (command) {
-            case Command::PauseOrResume:
+            case Command::PauseOrResume: {
               media_control_.state = TranslateCommand(command);
               playback_->Pause();
 
               // block thread until receives one of the informed commands
-              media_control_.WaitFor(Command::PauseOrResume, Command::Stop);
+              bool keep_executing = media_control_.WaitFor(Command::PauseOrResume, Command::Stop);
 
-              if (media_control_.state == State::Stop || media_control_.state == State::Exit) {
+              if (!keep_executing || media_control_.state == State::Stop) {
                 playback_->Stop();
                 return false;
               }
 
               media_control_.state = State::Play;
               playback_->Prepare();
-              break;
+            } break;
 
             case Command::Stop:
             case Command::Exit:
