@@ -158,7 +158,7 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
-  if (event == CustomEvent::Type::UpdateSongInfo) {
+  if (event == CustomEvent::Identifier::UpdateSongInfo) {
     // Exit search mode if enabled
     mode_search_.reset();
 
@@ -167,7 +167,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     curr_playing_ = info.filepath;
   }
 
-  if (event == CustomEvent::Type::ClearSongInfo) {
+  if (event == CustomEvent::Identifier::ClearSongInfo) {
     // Clear current song
     curr_playing_.reset();
   }

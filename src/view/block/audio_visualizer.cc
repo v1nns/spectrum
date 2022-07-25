@@ -49,7 +49,7 @@ bool AudioVisualizer::OnEvent(ftxui::Event event) { return false; }
 /* ********************************************************************************************** */
 
 bool AudioVisualizer::OnCustomEvent(const CustomEvent& event) {
-  if (event == CustomEvent::Type::DrawAudioRaw) {
+  if (event == CustomEvent::Identifier::DrawAudioRaw) {
     const auto& data = event.GetContent<std::vector<int>>();
 
     // TODO: do something with data

@@ -18,20 +18,26 @@ namespace interface {
  * @brief Interface for custom events to be handled by blocks
  */
 struct CustomEvent {
-  //! Identifier for all existing events
+  // Possible group type events (it determines event direction)
   enum class Type {
+    FromInterfaceToAudioThread = 40000,
+    FromAudioThreadToInterface = 40001,
+  };
+
+  //! Identifier for all existing events
+  enum class Identifier {
     // Events between blocks TODO: add a better documentation for each one
     ClearSongInfo = 50000,
     UpdateSongInfo = 50001,
     UpdateSongState = 50002,
     DrawAudioRaw = 50003,
-    // Events for an outside listener (in this case, player thread)
+    // Events for an outside listener (in this case, audio player thread)
     NotifyFileSelection = 60000,
   };
 
   //! Overloaded operators
-  bool operator==(const Type other) const { return type_ == other; }
-  bool operator!=(const Type other) const { return !operator==(other); }
+  bool operator==(const Identifier other) const { return id == other; }
+  bool operator!=(const Identifier other) const { return !operator==(other); }
 
  public:
   //! Possible events
@@ -45,20 +51,22 @@ struct CustomEvent {
   //! Generic getter for event content
   template <typename T>
   T GetContent() const {
-    if (std::holds_alternative<T>(content_)) {
-      return std::get<T>(content_);
+    if (std::holds_alternative<T>(content)) {
+      return std::get<T>(content);
     } else {
       return T();
     }
   }
 
- private:
   //! Possible types for content
-  using Content = std::variant<model::Song, model::Song::State, std::filesystem::path, std::vector<int>>;
+  using Content =
+      std::variant<model::Song, model::Song::State, std::filesystem::path, std::vector<int>>;
 
   //! Variables
-  Type type_;        //!< Unique type identifier for Event
-  Content content_;  //!< Wrapper for content
+  // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization
+  Type type;        //!< Event group type
+  Identifier id;    //!< Unique type identifier for Event
+  Content content;  //!< Wrapper for content
 };
 
 }  // namespace interface

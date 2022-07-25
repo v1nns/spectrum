@@ -79,16 +79,16 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 
 bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   // Do not return true because other blocks may use it
-  if (event == CustomEvent::Type::ClearSongInfo) {
+  if (event == CustomEvent::Identifier::ClearSongInfo) {
     audio_info_ = model::Song{};
   }
 
   // Do not return true because other blocks may use it
-  if (event == CustomEvent::Type::UpdateSongInfo) {
+  if (event == CustomEvent::Identifier::UpdateSongInfo) {
     audio_info_ = event.GetContent<model::Song>();
   }
 
-  if (event == CustomEvent::Type::UpdateSongState) {
+  if (event == CustomEvent::Identifier::UpdateSongState) {
     audio_info_.curr_state = event.GetContent<model::Song::State>();
     return true;
   }

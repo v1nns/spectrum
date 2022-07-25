@@ -4,54 +4,53 @@ namespace interface {
 
 // Static
 CustomEvent CustomEvent::ClearSongInfo() {
-  CustomEvent event;
-  event.type_ = Type::ClearSongInfo;
-
-  return event;
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::ClearSongInfo,
+  };
 }
 
 /* ********************************************************************************************** */
 
 // Static
 CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
-  CustomEvent event;
-  event.type_ = Type::UpdateSongInfo;
-  event.content_ = info;
-
-  return event;
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::UpdateSongInfo,
+      .content = info,
+  };
 }
 
 /* ********************************************************************************************** */
 
 // Static
 CustomEvent CustomEvent::UpdateSongState(const model::Song::State& new_state) {
-  CustomEvent event;
-  event.type_ = Type::UpdateSongState;
-  event.content_ = new_state;
-
-  return event;
-}
-
-/* ********************************************************************************************** */
-
-// Static
-CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path file_path) {
-  CustomEvent event;
-  event.type_ = Type::NotifyFileSelection;
-  event.content_ = file_path;
-
-  return event;
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::UpdateSongState,
+      .content = new_state,
+  };
 }
 
 /* ********************************************************************************************** */
 
 // Static
 CustomEvent CustomEvent::DrawAudioRaw(int* buffer, int buffer_size) {
-  CustomEvent event;
-  event.type_ = Type::DrawAudioRaw;
-  event.content_ = std::vector<int>(buffer, buffer + buffer_size);
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::DrawAudioRaw,
+      .content = std::vector<int>(buffer, buffer + buffer_size),
+  };
+}
+/* ********************************************************************************************** */
 
-  return event;
+// Static
+CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path file_path) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::NotifyFileSelection,
+      .content = file_path,
+  };
 }
 
 }  // namespace interface

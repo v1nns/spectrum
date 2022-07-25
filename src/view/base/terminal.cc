@@ -159,18 +159,26 @@ bool Terminal::OnCustomEvent() {
   CustomEvent event;
   if (!receiver_->Receive(&event)) return false;
 
-  // First, check if it is an event for listener
-  if (event == CustomEvent::Type::NotifyFileSelection) {
-    auto listener = listener_.lock();
-    if (listener) {
-      auto content = event.GetContent<std::filesystem::path>();
-      listener->NotifyFileSelection(content);
+  // As this class centralizes any event sending (to an external listener or some child block),
+  // first gotta check if this event is specifically for the outside listener
+  if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
+    switch (event.id) {
+      case CustomEvent::Identifier::NotifyFileSelection: {
+        auto listener = listener_.lock();
+        if (listener) {
+          auto content = event.GetContent<std::filesystem::path>();
+          listener->NotifyFileSelection(content);
+        }
+
+      } break;
+      default:
+        break;
     }
 
     return true;
   }
 
-  // Send it to children blocks
+  // Otherwise, send it to children blocks
   for (auto& child : children_) {
     auto block = std::static_pointer_cast<Block>(child);
     if (block->OnCustomEvent(event)) return true;
