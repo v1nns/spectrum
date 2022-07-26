@@ -147,7 +147,7 @@ class Player : public AudioControl {
   };
 
   /**
-   * @brief States list
+   * @brief Audio player states list
    */
   enum class State {
     Idle = 9000,

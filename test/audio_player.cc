@@ -304,7 +304,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     // to update its graphical interface
     uint32_t expected_position = 1;
     EXPECT_CALL(*notifier,
-                NotifySongState(Field(&model::Song::State::position, expected_position)));
+                NotifySongState(Field(&model::Song::CurrentInformation::position, expected_position)));
 
     EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
 

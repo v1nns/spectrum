@@ -50,6 +50,7 @@ class MediaPlayer : public Block {
 
   /**
    * @brief Handles a custom event
+   *
    * @param event Received event (probably sent by Audio thread)
    * @return true if event was handled, otherwise false
    */
@@ -60,10 +61,16 @@ class MediaPlayer : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
+  //! Utility to check media state
+  bool IsPlaying() {
+    return song_.curr_info.state == model::Song::MediaState::Play ||
+           song_.curr_info.state == model::Song::MediaState::Pause;
+  }
+
   /* ******************************************************************************************** */
  private:
   MediaButton btn_play_, btn_stop_;  //!< Media player buttons
-  model::Song audio_info_;           //!< Audio information from current song
+  model::Song song_;                 //!< Audio information from current song
 };
 
 }  // namespace interface

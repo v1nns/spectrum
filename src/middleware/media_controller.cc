@@ -89,7 +89,7 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 
 /* ********************************************************************************************** */
 
-void MediaController::NotifySongState(const model::Song::State& state) {
+void MediaController::NotifySongState(const model::Song::CurrentInformation& state) {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 

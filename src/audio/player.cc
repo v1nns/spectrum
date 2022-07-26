@@ -95,7 +95,7 @@ void Player::AudioHandler() {
     // Inform playback driver to be ready to play
     playback_->Prepare();
 
-    int curr_position = 0;  // in seconds
+    int curr_position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
     result = decoder_->Decode(
@@ -107,7 +107,7 @@ void Player::AudioHandler() {
               media_control_.state = TranslateCommand(command);
               playback_->Pause();
 
-              // block thread until receives one of the informed commands
+              // Block thread until receives one of the informed commands
               bool keep_executing = media_control_.WaitFor(Command::PauseOrResume, Command::Stop);
 
               if (!keep_executing || media_control_.state == State::Stop) {
@@ -131,17 +131,24 @@ void Player::AudioHandler() {
           }
 
           auto media_notifier = notifier_.lock();
+
+          // Send information to graphical interface
           if (media_notifier) {
             media_notifier->SendAudioRaw((int*)buffer, actual_size);
           }
 
+          // Write samples to playback
           playback_->AudioCallback(buffer, max_size, actual_size);
 
+          // Notify song state to graphical interface
           if (position > curr_position) {
             curr_position = position;
 
             if (media_notifier) {
-              model::Song::State state{.position = (uint32_t)curr_position};
+              model::Song::CurrentInformation state{
+                  .state = model::Song::MediaState::Play,
+                  .position = (uint32_t)curr_position,
+              };
               media_notifier->NotifySongState(state);
             }
           }

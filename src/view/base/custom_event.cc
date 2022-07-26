@@ -24,7 +24,7 @@ CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::UpdateSongState(const model::Song::State& new_state) {
+CustomEvent CustomEvent::UpdateSongState(const model::Song::CurrentInformation& new_state) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
       .id = Identifier::UpdateSongState,
@@ -42,6 +42,7 @@ CustomEvent CustomEvent::DrawAudioRaw(int* buffer, int buffer_size) {
       .content = std::vector<int>(buffer, buffer + buffer_size),
   };
 }
+
 /* ********************************************************************************************** */
 
 // Static
@@ -50,6 +51,26 @@ CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path file_pa
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::NotifyFileSelection,
       .content = file_path,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::PauseOrResumeSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::PauseOrResumeSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::ClearCurrentSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::ClearCurrentSong,
   };
 }
 

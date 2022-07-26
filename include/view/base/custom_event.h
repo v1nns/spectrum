@@ -33,6 +33,8 @@ struct CustomEvent {
     DrawAudioRaw = 50003,
     // Events for an outside listener (in this case, audio player thread)
     NotifyFileSelection = 60000,
+    PauseOrResumeSong = 60001,
+    ClearCurrentSong = 60002,
   };
 
   //! Overloaded operators
@@ -40,14 +42,17 @@ struct CustomEvent {
   bool operator!=(const Identifier other) const { return !operator==(other); }
 
  public:
-  //! Possible events
+  //! Possible events (from audio thread to interface)
   static CustomEvent ClearSongInfo();
   static CustomEvent UpdateSongInfo(const model::Song& info);
-  static CustomEvent UpdateSongState(const model::Song::State& new_state);
+  static CustomEvent UpdateSongState(const model::Song::CurrentInformation& new_state);
   static CustomEvent DrawAudioRaw(int* buffer, int buffer_size);
 
+  //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
-
+  static CustomEvent PauseOrResumeSong();
+  static CustomEvent ClearCurrentSong();
+  
   //! Generic getter for event content
   template <typename T>
   T GetContent() const {
@@ -60,7 +65,7 @@ struct CustomEvent {
 
   //! Possible types for content
   using Content =
-      std::variant<model::Song, model::Song::State, std::filesystem::path, std::vector<int>>;
+      std::variant<model::Song, model::Song::CurrentInformation, std::filesystem::path, std::vector<int>>;
 
   //! Variables
   // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization

@@ -24,9 +24,11 @@ bool Button::OnEvent(ftxui::Event event) {
 
     if (event.mouse().button == ftxui::Mouse::Left &&
         event.mouse().motion == ftxui::Mouse::Released) {
+      ToggleState();
+
       // Mouse click on menu entry
-      //   on_click_();
-      clicked_ = !clicked_;
+      if (on_click_ != nullptr) on_click_();
+
       return true;
     }
 
@@ -36,6 +38,18 @@ bool Button::OnEvent(ftxui::Event event) {
 
   return false;
 }
+
+/* ********************************************************************************************** */
+
+void Button::SetState(bool clicked) { clicked_ = clicked; }
+
+/* ********************************************************************************************** */
+
+void Button::ToggleState() { clicked_ = !clicked_; }
+
+/* ********************************************************************************************** */
+
+void Button::ResetState() { clicked_ = false; }
 
 /* ********************************************************************************************** */
 
@@ -51,11 +65,10 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
       auto button =
           ftxui::canvas(std::move(content)) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
 
-      if (!focused_)
-        button = button | ftxui::color(style_.border_normal);
-      else
-        button = button | ftxui::color(style_.border_focused);
+      ftxui::Decorator border_color =
+          !focused_ ? ftxui::color(style_.border_normal) : ftxui::color(style_.border_focused);
 
+      button = button | border_color;
       return button;
     }
 
@@ -127,11 +140,10 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
       auto button_stop =
           ftxui::canvas(std::move(stop)) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
 
-      if (!focused_)
-        button_stop = button_stop | ftxui::color(style_.border_normal);
-      else
-        button_stop = button_stop | ftxui::color(style_.border_focused);
+      ftxui::Decorator border_color =
+          !focused_ ? ftxui::color(style_.border_normal) : ftxui::color(style_.border_focused);
 
+      button_stop = button_stop | border_color;
       return button_stop;
     }
   };

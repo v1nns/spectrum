@@ -98,7 +98,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
    * @brief Notify UI with new state information from current song
    * @param state Updated state information
    */
-  void NotifySongState(const model::Song::State& state) override;
+  void NotifySongState(const model::Song::CurrentInformation& state) override;
 
   /**
    * @brief Send raw audio samples to UI

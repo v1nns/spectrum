@@ -28,11 +28,20 @@ struct Song {
   uint32_t bit_depth;     //!< Number of bits per sample
   uint32_t duration;      //!< Audio duration (in seconds)
 
-  struct State {
+  //! Audio state
+  enum class MediaState {
+    Empty = 2001,
+    Play = 2002,
+    Pause = 2003,
+    Stop = 2004,
+  };
+
+  struct CurrentInformation {
+    MediaState state;   //!< Current song state
     uint32_t position;  //!< Current position (in seconds) of the audio
   };
 
-  State curr_state;  //!< Current state of song
+  CurrentInformation curr_info;  //!< Current state of song
 };
 
 /**

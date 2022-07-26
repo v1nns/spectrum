@@ -162,15 +162,23 @@ bool Terminal::OnCustomEvent() {
   // As this class centralizes any event sending (to an external listener or some child block),
   // first gotta check if this event is specifically for the outside listener
   if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
+    auto media_ctl = listener_.lock();
+    if(!media_ctl) return true; // TODO: improve handling
+
     switch (event.id) {
       case CustomEvent::Identifier::NotifyFileSelection: {
-        auto listener = listener_.lock();
-        if (listener) {
-          auto content = event.GetContent<std::filesystem::path>();
-          listener->NotifyFileSelection(content);
-        }
-
+        auto content = event.GetContent<std::filesystem::path>();
+        media_ctl->NotifyFileSelection(content);
       } break;
+
+      case CustomEvent::Identifier::PauseOrResumeSong:
+        media_ctl->PauseOrResume();
+        break;
+
+      case CustomEvent::Identifier::ClearCurrentSong:
+        media_ctl->ClearCurrentSong();
+        break;
+
       default:
         break;
     }
@@ -187,7 +195,8 @@ bool Terminal::OnCustomEvent() {
   return false;
 }
 
-/* ********************************************************************************************** */
+/* **********************************************************************************************
+ */
 
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
@@ -196,24 +205,11 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Clear current song from player controller
-  if (event == ftxui::Event::Character('c')) {
-    auto media_ctl = listener_.lock();
-    if (media_ctl) media_ctl->ClearCurrentSong();
-    return true;
-  }
-
-  // TODO: Move this to audio player block
-  if (event == ftxui::Event::Character('p')) {
-    auto media_ctl = listener_.lock();
-    if (media_ctl) media_ctl->PauseOrResume();
-    return true;
-  }
-
   return false;
 }
 
-/* ********************************************************************************************** */
+/* **********************************************************************************************
+ */
 
 bool Terminal::OnErrorModeEvent(const ftxui::Event& event) {
   if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
@@ -225,14 +221,16 @@ bool Terminal::OnErrorModeEvent(const ftxui::Event& event) {
   return true;
 }
 
-/* ********************************************************************************************** */
+/* **********************************************************************************************
+ */
 
 void Terminal::SendEvent(const CustomEvent& event) {
   sender_->Send(event);
   cb_send_event_(ftxui::Event::Custom);  // force a refresh
 }
 
-/* ********************************************************************************************** */
+/* **********************************************************************************************
+ */
 
 void Terminal::SetApplicationError(error::Code id) { last_error_ = id; }
 

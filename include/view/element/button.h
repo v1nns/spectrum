@@ -67,6 +67,21 @@ class Button {
    */
   bool OnEvent(ftxui::Event event);
 
+  /**
+   * @brief Set button state
+   */
+  void SetState(bool clicked);
+
+  /**
+   * @brief Toggle button state
+   */
+  void ToggleState();
+
+  /**
+   * @brief Reset button state to initial value
+   */
+  void ResetState();
+
   /* ******************************************************************************************** */
  protected:
   ftxui::Box box_;  //!< Box to control if mouse cursor is over the button
