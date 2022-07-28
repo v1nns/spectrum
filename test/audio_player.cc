@@ -328,6 +328,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
 
   testing::RunAsyncTest({player, client});
 }
+
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, ErrorOpeningFile) {

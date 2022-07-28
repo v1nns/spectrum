@@ -52,7 +52,8 @@ target_sources(
             view/block/file_info.cc
             view/block/media_player.cc
             view/block/audio_visualizer.cc
-            view/element/button.cc)
+            view/element/button.cc
+            view/element/dialog.cc)
 
 target_include_directories(
     spectrum-lib

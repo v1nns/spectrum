@@ -4,7 +4,8 @@
 #include <stdlib.h>  // for exit, EXIT_FAILURE
 
 #include <functional>  // for function
-#include <utility>     // for move
+#include <memory>
+#include <utility>  // for move
 
 #include "ftxui/component/component.hpp"           // for CatchEvent, Make
 #include "ftxui/component/event.hpp"               // for Event
@@ -35,6 +36,8 @@ Terminal::Terminal()
     : EventDispatcher{},
       ftxui::ComponentBase{},
       listener_{},
+      last_error_{error::kSuccess},
+      dialog_box_{std::make_unique<Dialog>()},
       receiver_{ftxui::MakeReceiver<CustomEvent>()},
       sender_{receiver_->MakeSender()},
       cb_send_event_{},
@@ -100,37 +103,25 @@ void Terminal::RegisterExitCallback(Callback cb) { cb_exit_ = cb; }
 /* ********************************************************************************************** */
 
 ftxui::Element Terminal::Render() {
-  if (children_.size() == 0) {
+  if (children_.size() == 0 || children_.size() != 4) {
     // TODO: this is an error, should exit...
     return ftxui::text("Empty container");
   }
 
+  // Render each block
   ftxui::Element list_dir = children_.at(0)->Render();
   ftxui::Element file_info = children_.at(1)->Render();
   ftxui::Element audio_visualizer = children_.at(2)->Render();
   ftxui::Element audio_player = children_.at(3)->Render();
 
+  // Glue everything together
   ftxui::Element terminal = ftxui::hbox({
       ftxui::vbox({list_dir, file_info}),
       ftxui::vbox({audio_visualizer, audio_player}) | ftxui::xflex_grow,
   });
 
-  ftxui::Element error = ftxui::text("");
-
-  if (last_error_) {
-    std::string message(error::ApplicationError::GetMessage(last_error_.value()));
-
-    using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
-    // TODO: split this to an element (derived from Node)
-    error = ftxui::vbox({
-                ftxui::text(" ERROR") | ftxui::bold,
-                ftxui::text(""),
-                ftxui::paragraph(message) | ftxui::center | ftxui::bold,
-            }) |
-            ftxui::bgcolor(ftxui::Color::DarkRedBis) | ftxui::size(HEIGHT, EQUAL, 5) |
-            ftxui::size(WIDTH, EQUAL, 35) | ftxui::borderDouble |
-            ftxui::color(ftxui::Color::Grey93) | ftxui::center;
-  }
+  // Render dialog box
+  ftxui::Element error = dialog_box_->IsVisible() ? dialog_box_->Render() : ftxui::text("");
 
   return ftxui::dbox({terminal, error});
 }
@@ -138,7 +129,8 @@ ftxui::Element Terminal::Render() {
 /* ********************************************************************************************** */
 
 bool Terminal::OnEvent(ftxui::Event event) {
-  if (last_error_ && OnErrorModeEvent(event)) return true;
+  // Cannot do anything while dialog box is opened
+  if (dialog_box_->IsVisible()) return dialog_box_->OnEvent(event);
 
   if (OnCustomEvent()) return true;
 
@@ -163,7 +155,7 @@ bool Terminal::OnCustomEvent() {
   // first gotta check if this event is specifically for the outside listener
   if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
     auto media_ctl = listener_.lock();
-    if(!media_ctl) return true; // TODO: improve handling
+    if (!media_ctl) return true;  // TODO: improve handling
 
     switch (event.id) {
       case CustomEvent::Identifier::NotifyFileSelection: {
@@ -195,8 +187,7 @@ bool Terminal::OnCustomEvent() {
   return false;
 }
 
-/* **********************************************************************************************
- */
+/* ********************************************************************************************** */
 
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
@@ -208,30 +199,20 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   return false;
 }
 
-/* **********************************************************************************************
- */
-
-bool Terminal::OnErrorModeEvent(const ftxui::Event& event) {
-  if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
-      event == ftxui::Event::Character('q')) {
-    last_error_.reset();
-  }
-
-  // This is to ensure that no one else will treat any event while on error mode
-  return true;
-}
-
-/* **********************************************************************************************
- */
+/* ********************************************************************************************** */
 
 void Terminal::SendEvent(const CustomEvent& event) {
   sender_->Send(event);
   cb_send_event_(ftxui::Event::Custom);  // force a refresh
 }
 
-/* **********************************************************************************************
- */
+/* ********************************************************************************************** */
 
-void Terminal::SetApplicationError(error::Code id) { last_error_ = id; }
+void Terminal::SetApplicationError(error::Code id) {
+  std::string message{error::ApplicationError::GetMessage(id)};
+  dialog_box_->SetErrorMessage(message);
+
+  last_error_ = id;
+}
 
 }  // namespace interface

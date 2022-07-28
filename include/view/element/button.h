@@ -40,6 +40,11 @@ class Button {
 
  public:
   /**
+   * @brief Destroy Button object
+   */
+  virtual ~Button() = default;
+
+  /**
    * @brief Create a Play button
    * @param on_click Callback function for click event
    * @return std::shared_ptr<Button> New instance to Play button

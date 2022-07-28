@@ -7,7 +7,6 @@
 #define INCLUDE_VIEW_BASE_TERMINAL_H_
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
@@ -18,6 +17,7 @@
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/dialog.h"
 
 //! Forward declaration
 namespace audio {
@@ -124,13 +124,6 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   bool OnGlobalModeEvent(const ftxui::Event& event);
 
-  /**
-   * @brief Handles a event while on error mode (it means someone informed an error)
-   * @param event Received event from screen
-   * @return true if event was handled, otherwise false
-   */
-  bool OnErrorModeEvent(const ftxui::Event& event);
-
   /* ******************************************************************************************** */
   //! UI Event dispatching
  public:
@@ -144,7 +137,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Variables
  private:
   std::weak_ptr<interface::Listener> listener_;  //!< Outside listener for events from UI
-  std::optional<error::Code> last_error_;        //!< Last application error
+  error::Code last_error_;                       //!< Last application error
+
+  std::unique_ptr<Dialog> dialog_box_;  //!< Dialog box to show custom messages
 
   ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
   ftxui::Sender<CustomEvent> sender_;      //! Custom event sender
