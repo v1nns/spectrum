@@ -1,29 +1,66 @@
 #include "model/song.h"
 
+#include <math.h>
+
+#include <array>
+#include <cmath>
 #include <iomanip>
+#include <sstream>
 #include <string>
+#include <string_view>
 
 namespace model {
 
-std::string to_string(const Song& arg) {
-  //   // TODO: improve this
-  //   std::string bit_rate;
-  //   if (arg.bit_rate > 1000) {
-  //     bit_rate = std::to_string(arg.bit_rate / 1000) + " kbps";
-  //   } else {
-  //     bit_rate = std::to_string(arg.bit_rate) + " bps";
-  //   }
-  bool is_empty = arg.filepath.empty() ? true : false;
+using Prefix = std::pair<int, std::string_view>;
+using PrefixArray = std::array<Prefix, 4>;
 
-  //   std::string artist = arg.artist.empty() ? "<Unknown>" : arg.artist;
+static constexpr PrefixArray kPrefixes{{
+    {0, ""},
+    {3, "k"},
+    {6, "M"},
+    {9, "G"},
+}};
+
+/**
+ * @brief Format value as string using metric prefix (from International System of Units)
+ *
+ * @tparam T Value type
+ * @param value Value
+ * @param unit Custom unit to concatenate on string
+ * @return Formatted string
+ */
+template <typename T>
+std::string format_with_prefix(T value, std::string unit) {
+  std::ostringstream ss;
+
+  if (value == 0) {
+    ss << "0 " << unit;
+    return std::move(ss).str();
+  }
+
+  int magnitude = log(value) / log(10);
+
+  PrefixArray::const_reverse_iterator rit;
+  for (rit = kPrefixes.rbegin(); rit < kPrefixes.rend(); ++rit) {
+    if (magnitude >= rit->first) break;
+  }
+
+  ss << (value / std::pow(10, rit->first)) << " " << rit->second << unit;
+  return std::move(ss).str();
+}
+
+/* ********************************************************************************************** */
+
+std::string to_string(const Song& arg) {
+  bool is_empty = arg.filepath.empty() ? true : false;
 
   std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
   std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;
 
   std::string channels = is_empty ? "<Empty>" : std::to_string(arg.num_channels);
-  std::string sample_rate = is_empty ? "<Empty>" : std::to_string(arg.sample_rate);
-  std::string bit_rate = is_empty ? "<Empty>" : std::to_string(arg.bit_rate);
-  std::string bit_depth = is_empty ? "<Empty>" : std::to_string(arg.bit_depth);
+  std::string sample_rate = is_empty ? "<Empty>" : format_with_prefix(arg.sample_rate, "Hz");
+  std::string bit_rate = is_empty ? "<Empty>" : format_with_prefix(arg.bit_rate, "bps");
+  std::string bit_depth = is_empty ? "<Empty>" : format_with_prefix(arg.bit_depth, "bits");
   std::string duration = is_empty ? "<Empty>" : std::to_string(arg.duration);
 
   std::ostringstream ss;
