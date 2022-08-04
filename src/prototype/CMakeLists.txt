@@ -12,7 +12,7 @@ if(NOT ftxui_POPULATED)
     add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-pkg_check_modules(FFTW REQUIRED fftw3)
+# pkg_check_modules(FFTW REQUIRED fftw3)
 
 # **************************************************************************************************
 # For testing
@@ -21,7 +21,7 @@ add_executable(dummy)
 target_sources(dummy PRIVATE dummy.cc)
 target_link_libraries(
     dummy
-    PRIVATE fftw3
+    # PRIVATE fftw3
     PRIVATE ftxui::screen
     PRIVATE ftxui::dom
     PRIVATE ftxui::component)
