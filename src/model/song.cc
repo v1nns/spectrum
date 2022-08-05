@@ -61,7 +61,7 @@ std::string to_string(const Song& arg) {
   std::string sample_rate = is_empty ? "<Empty>" : format_with_prefix(arg.sample_rate, "Hz");
   std::string bit_rate = is_empty ? "<Empty>" : format_with_prefix(arg.bit_rate, "bps");
   std::string bit_depth = is_empty ? "<Empty>" : format_with_prefix(arg.bit_depth, "bits");
-  std::string duration = is_empty ? "<Empty>" : std::to_string(arg.duration);
+  std::string duration = is_empty ? "<Empty>" : format_with_prefix(arg.duration, "sec");
 
   std::ostringstream ss;
 
@@ -72,7 +72,7 @@ std::string to_string(const Song& arg) {
   ss << "Sample rate: " << sample_rate << std::endl;
   ss << "Bit rate: " << bit_rate << std::endl;
   ss << "Bits per sample: " << bit_depth << std::endl;
-  ss << "Duration (seconds): " << duration << std::endl;
+  ss << "Duration: " << duration << std::endl;
 
   return std::move(ss).str();
 }
