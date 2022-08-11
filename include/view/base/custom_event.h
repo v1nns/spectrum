@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "model/song.h"
+#include "model/volume.h"
 
 namespace interface {
 
@@ -28,13 +29,15 @@ struct CustomEvent {
   enum class Identifier {
     // Events between blocks TODO: add a better documentation for each one
     ClearSongInfo = 50000,
-    UpdateSongInfo = 50001,
-    UpdateSongState = 50002,
-    DrawAudioRaw = 50003,
+    UpdateVolume = 50001,
+    UpdateSongInfo = 50002,
+    UpdateSongState = 50003,
+    DrawAudioRaw = 50004,
     // Events for an outside listener (in this case, audio player thread)
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
     ClearCurrentSong = 60002,
+    SetAudioVolume = 60003,
   };
 
   //! Overloaded operators
@@ -44,6 +47,7 @@ struct CustomEvent {
  public:
   //! Possible events (from audio thread to interface)
   static CustomEvent ClearSongInfo();
+  static CustomEvent UpdateVolume(const model::Volume& sound_volume);
   static CustomEvent UpdateSongInfo(const model::Song& info);
   static CustomEvent UpdateSongState(const model::Song::CurrentInformation& new_state);
   static CustomEvent DrawAudioRaw(int* buffer, int buffer_size);
@@ -52,7 +56,8 @@ struct CustomEvent {
   static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
   static CustomEvent PauseOrResumeSong();
   static CustomEvent ClearCurrentSong();
-  
+  static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
+
   //! Generic getter for event content
   template <typename T>
   T GetContent() const {
@@ -64,8 +69,8 @@ struct CustomEvent {
   }
 
   //! Possible types for content
-  using Content =
-      std::variant<model::Song, model::Song::CurrentInformation, std::filesystem::path, std::vector<int>>;
+  using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
+                               std::filesystem::path, std::vector<int>>;
 
   //! Variables
   // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization

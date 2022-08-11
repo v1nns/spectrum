@@ -75,11 +75,6 @@ void Terminal::Init() {
 /* ********************************************************************************************** */
 
 void Terminal::Exit() {
-  //   if (critical_error_) {
-  //     std::cerr << "error: " << critical_error_->second << std::endl;
-  //     std::exit(EXIT_FAILURE);
-  //   }
-
   // Trigger exit callback
   if (cb_exit_ != nullptr) {
     cb_exit_();
@@ -94,7 +89,11 @@ void Terminal::RegisterInterfaceListener(const std::shared_ptr<interface::Listen
 
 /* ********************************************************************************************** */
 
-void Terminal::RegisterEventSenderCallback(EventCallback cb) { cb_send_event_ = cb; }
+void Terminal::RegisterEventSenderCallback(EventCallback cb) {
+  cb_send_event_ = cb;
+  cb_send_event_(ftxui::Event::Custom);  // force a refresh to handle any pending custom event
+                                         // (update UI with volume information)
+}
 
 /* ********************************************************************************************** */
 
@@ -132,7 +131,8 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Cannot do anything while dialog box is opened
   if (dialog_box_->IsVisible()) return dialog_box_->OnEvent(event);
 
-  if (OnCustomEvent()) return true;
+  // Treat any pending custom event
+  OnCustomEvent();
 
   if (OnGlobalModeEvent(event)) return true;
 
@@ -145,46 +145,54 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool Terminal::OnCustomEvent() {
-  if (!receiver_->HasPending()) return false;
+void Terminal::OnCustomEvent() {
+  while (receiver_->HasPending()) {
+    CustomEvent event;
+    if (!receiver_->Receive(&event)) break;
 
-  CustomEvent event;
-  if (!receiver_->Receive(&event)) return false;
+    // As this class centralizes any event sending (to an external listener or some child block),
+    // first gotta check if this event is specifically for the outside listener
+    if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
+      auto media_ctl = listener_.lock();
+      if (!media_ctl) {
+        // TODO: improve handling here and also for each method call
+        continue;  // skip to next while-loop
+      }
 
-  // As this class centralizes any event sending (to an external listener or some child block),
-  // first gotta check if this event is specifically for the outside listener
-  if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
-    auto media_ctl = listener_.lock();
-    if (!media_ctl) return true;  // TODO: improve handling
+      switch (event.id) {
+        case CustomEvent::Identifier::NotifyFileSelection: {
+          auto content = event.GetContent<std::filesystem::path>();
+          media_ctl->NotifyFileSelection(content);
+        } break;
 
-    switch (event.id) {
-      case CustomEvent::Identifier::NotifyFileSelection: {
-        auto content = event.GetContent<std::filesystem::path>();
-        media_ctl->NotifyFileSelection(content);
-      } break;
+        case CustomEvent::Identifier::PauseOrResumeSong:
+          media_ctl->PauseOrResume();
+          break;
 
-      case CustomEvent::Identifier::PauseOrResumeSong:
-        media_ctl->PauseOrResume();
-        break;
+        case CustomEvent::Identifier::ClearCurrentSong:
+          media_ctl->ClearCurrentSong();
+          break;
 
-      case CustomEvent::Identifier::ClearCurrentSong:
-        media_ctl->ClearCurrentSong();
-        break;
+        case CustomEvent::Identifier::SetAudioVolume: {
+          auto content = event.GetContent<model::Volume>();
+          media_ctl->SetVolume(content);
+        } break;
 
-      default:
-        break;
+        default:
+          break;
+      }
+
+      continue;  // skip to next while-loop
     }
 
-    return true;
+    // Otherwise, send it to children blocks
+    for (auto& child : children_) {
+      auto block = std::static_pointer_cast<Block>(child);
+      if (block->OnCustomEvent(event)) {
+        break;  // skip from this for-loop
+      }
+    }
   }
-
-  // Otherwise, send it to children blocks
-  for (auto& child : children_) {
-    auto block = std::static_pointer_cast<Block>(child);
-    if (block->OnCustomEvent(event)) return true;
-  }
-
-  return false;
 }
 
 /* ********************************************************************************************** */
@@ -205,6 +213,10 @@ void Terminal::SendEvent(const CustomEvent& event) {
   sender_->Send(event);
   cb_send_event_(ftxui::Event::Custom);  // force a refresh
 }
+
+/* ********************************************************************************************** */
+
+void Terminal::QueueEvent(const CustomEvent& event) { sender_->Send(event); }
 
 /* ********************************************************************************************** */
 

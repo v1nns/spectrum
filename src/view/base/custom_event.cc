@@ -13,6 +13,17 @@ CustomEvent CustomEvent::ClearSongInfo() {
 /* ********************************************************************************************** */
 
 // Static
+CustomEvent CustomEvent::UpdateVolume(const model::Volume& sound_volume) {
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::UpdateVolume,
+      .content = sound_volume,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
 CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
@@ -71,6 +82,17 @@ CustomEvent CustomEvent::ClearCurrentSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::ClearCurrentSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SetAudioVolume(const model::Volume& sound_volume) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetAudioVolume,
+      .content = sound_volume,
   };
 }
 

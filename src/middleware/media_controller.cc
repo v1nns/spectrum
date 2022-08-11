@@ -23,6 +23,11 @@ std::shared_ptr<MediaController> MediaController::Create(
   // Register callbacks to Player
   player->RegisterInterfaceNotifier(controller);
 
+  // TODO: Think of a better way to do this...
+  model::Volume value = player->GetAudioVolume();
+  auto event = interface::CustomEvent::UpdateVolume(value);
+  terminal->QueueEvent(event);
+
   return controller;
 }
 
@@ -61,6 +66,15 @@ void MediaController::PauseOrResume() {
   if (!player) return;
 
   player->PauseOrResume();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SetVolume(model::Volume value) {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->SetAudioVolume(value);
 }
 
 /* ********************************************************************************************** */

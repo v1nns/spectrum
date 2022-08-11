@@ -303,8 +303,8 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     // than zero (this value is represented in seconds). And for this, we should notify Media Player
     // to update its graphical interface
     uint32_t expected_position = 1;
-    EXPECT_CALL(*notifier,
-                NotifySongState(Field(&model::Song::CurrentInformation::position, expected_position)));
+    EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
+                                                 expected_position)));
 
     EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
 
@@ -423,6 +423,34 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
   };
 
   testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ChangeVolume) {
+  auto playback = GetPlayback();
+  auto player_ctl = GetAudioControl();
+
+  // As playback is just an interface, use this variable to hold volume information and setup
+  // expectation for playback from player to always return the same variable
+  model::Volume value;
+  EXPECT_CALL(*playback, GetVolume()).WillRepeatedly(Invoke([&] { return value; }));
+
+  // Setup expectation for default value on volume
+  EXPECT_THAT(player_ctl->GetAudioVolume(), Eq(model::Volume{1.f}));
+
+  // Setup expectation for playback and set new volume on player
+  EXPECT_CALL(*playback, SetVolume(_)).WillOnce(Invoke([&](model::Volume other) {
+    value = other;
+    return error::kSuccess;
+  }));
+
+  player_ctl->SetAudioVolume({0.3f});
+
+  // Get updated volume from player
+  EXPECT_THAT(player_ctl->GetAudioVolume(), Eq(model::Volume{0.3f}));
+
+  // TODO: return error::Code on player API and create a test forcing error on volume change
 }
 
 }  // namespace

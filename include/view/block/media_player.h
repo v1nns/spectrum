@@ -11,7 +11,8 @@
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "model/song.h"                        // for Song
-#include "view/base/block.h"                   // for Block, BlockEvent (ptr...
+#include "model/volume.h"
+#include "view/base/block.h"  // for Block, BlockEvent (ptr...
 #include "view/element/button.h"
 
 namespace interface {
@@ -71,6 +72,7 @@ class MediaPlayer : public Block {
  private:
   MediaButton btn_play_, btn_stop_;  //!< Media player buttons
   model::Song song_;                 //!< Audio information from current song
+  model::Volume volume_;             //!< General sound volume
 };
 
 }  // namespace interface

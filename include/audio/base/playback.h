@@ -7,6 +7,7 @@
 #define INCLUDE_AUDIO_BASE_PLAYBACK_H_
 
 #include "model/application_error.h"
+#include "model/volume.h"
 
 namespace driver {
 
@@ -67,6 +68,20 @@ class Playback {
    * @return error::Code Playback error converted to application error code
    */
   virtual error::Code AudioCallback(void* buffer, int max_size, int actual_size) = 0;
+
+  /**
+   * @brief Set volume on playback stream
+   *
+   * @param value Desired volume (in a range between 0.f and 1.f)
+   * @return error::Code Playback error converted to application error code
+   */
+  virtual error::Code SetVolume(model::Volume value) = 0;
+
+  /**
+   * @brief Get volume from playback stream
+   * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
+   */
+  virtual model::Volume GetVolume() = 0;
 
   /**
    * @brief Get period size

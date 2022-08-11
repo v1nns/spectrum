@@ -112,10 +112,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Internal event handling
  private:
   /**
-   * @brief When it has any custom event, handles to broadcast it to children
-   * @return true if event was handled, otherwise false
+   * @brief Handles any pending custom event, to broadcast it to children or audio thread
    */
-  bool OnCustomEvent();
+  void OnCustomEvent();
 
   /**
    * @brief Handles a event when no internal mode has been set
@@ -129,6 +128,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  public:
   //! Send event to blocks
   void SendEvent(const CustomEvent& event) override;
+
+  //! Add a custom event to internal queue
+  void QueueEvent(const CustomEvent& event) override;
 
   //! Set application error (can be originated from controller or any interface::block)
   void SetApplicationError(error::Code id) override;

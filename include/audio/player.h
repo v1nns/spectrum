@@ -40,6 +40,8 @@ class AudioControl {
   virtual void Play(const std::string& filepath) = 0;
   virtual void PauseOrResume() = 0;
   virtual void Stop() = 0;
+  virtual void SetAudioVolume(model::Volume value) = 0;
+  virtual model::Volume GetAudioVolume() = 0;
   virtual void Exit() = 0;
 };
 
@@ -126,6 +128,18 @@ class Player : public AudioControl {
    * @brief Inform Audio loop to stop decoding and sending song to playback
    */
   void Stop() override;
+
+  /**
+   * @brief Set Audio Volume on playback
+   * @param Sound volume
+   */
+  void SetAudioVolume(model::Volume value) override;
+
+  /**
+   * @brief Get Audio Volume information from playback
+   * @return Sound volume
+   */
+  model::Volume GetAudioVolume() override;
 
   /**
    * @brief Exit from Audio loop
@@ -287,6 +301,8 @@ class Player : public AudioControl {
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
 
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
+
+  int period_size_;  //!< Period size from Playback driver
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

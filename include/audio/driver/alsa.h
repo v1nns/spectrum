@@ -74,15 +74,39 @@ class Alsa : public Playback {
   error::Code AudioCallback(void* buffer, int max_size, int actual_size) override;
 
   /**
+   * @brief Set volume on playback stream
+   *
+   * @param value Desired volume (in a range between 0.f and 1.f)
+   * @return error::Code Playback error converted to application error code
+   */
+  error::Code SetVolume(model::Volume value) override;
+
+  /**
+   * @brief Get volume from playback stream
+   * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
+   */
+  model::Volume GetVolume() override;
+
+  /**
    * @brief Get period size (previously filled by ALSA API)
    * @return uint32_t Period size
    */
   uint32_t GetPeriodSize() const override { return period_size_; }
 
   /* ******************************************************************************************** */
+  //! Utility
+ private:
+  /**
+   * @brief Find and return master playback from High level control interface from ALSA (p.s.: not
+   * necessary the use of smart pointers here because this resource is managed by ALSA)
+   */
+  snd_mixer_elem_t* GetMasterPlayback();
+
+  /* ******************************************************************************************** */
   //! Default Constants for Audio Parameters
  private:
   static constexpr const char kDevice[] = "default";
+  static constexpr const char kSelemName[] = "Master";
   static constexpr int kChannels = 2;
   static constexpr int kSampleRate = 44100;
   static constexpr snd_pcm_format_t kSampleFormat = SND_PCM_FORMAT_S16_LE;
@@ -97,12 +121,19 @@ class Alsa : public Playback {
     }
   };
 
+  struct MixerDeleter {
+    void operator()(snd_mixer_t* p) const { snd_mixer_close(p); }
+  };
+
   using PcmPlayback = std::unique_ptr<snd_pcm_t, PcmDeleter>;
+
+  using MixerControl = std::unique_ptr<snd_mixer_t, MixerDeleter>;
 
   /* ******************************************************************************************** */
   //! Variables
 
   PcmPlayback playback_handle_;    //! Playback stream handled by ALSA API
+  MixerControl mixer_;             //! High level control interface from ALSA API (to manage volume)
   snd_pcm_uframes_t period_size_;  //! Period size (necessary in order to discover buffer size)
 };
 

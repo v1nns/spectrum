@@ -39,6 +39,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
 
   //! Implemented by derived class
   virtual void SendEvent(const CustomEvent&) = 0;
+  virtual void QueueEvent(const CustomEvent&) = 0;
   virtual void SetApplicationError(error::Code) = 0;
 };
 

@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BASE_LISTENER_H_
 
 #include <filesystem>
+#include "model/volume.h"
 
 namespace interface {
 
@@ -43,6 +44,12 @@ class Listener {
    * @brief Notify Audio thread to pause/resume the current song
    */
   virtual void PauseOrResume() = 0;
+
+  /**
+   * @brief Notify Audio Player to set volume
+   * @param value Sound volume information
+   */
+  virtual void SetVolume(model::Volume value) = 0;
 };
 
 }  // namespace interface

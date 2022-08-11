@@ -36,7 +36,8 @@ Player::Player(std::unique_ptr<driver::Playback>&& playback,
       audio_loop_{},
       media_control_{.state = State::Idle},
       curr_song_{},
-      notifier_{} {}
+      notifier_{},
+      period_size_() {}
 
 /* ********************************************************************************************** */
 
@@ -63,6 +64,9 @@ void Player::Init(bool asynchronous) {
     throw std::runtime_error("Could not set parameters in player");
   }
 
+  // This value is used to decide buffer size for song decoding
+  int period_size = playback_->GetPeriodSize();
+
   if (asynchronous) {
     // Spawn thread for Audio player
     audio_loop_ = std::thread(&Player::AudioHandler, this);
@@ -72,9 +76,6 @@ void Player::Init(bool asynchronous) {
 /* ********************************************************************************************** */
 
 void Player::AudioHandler() {
-  // This value is used to decide buffer size for the step that starts decoding song
-  int period_size = playback_->GetPeriodSize();
-
   // Block this thread until UI informs us a song to play
   while (media_control_.WaitFor(Command::Play)) {
     // First, try to parse file (it may be or not a support file extension to decode)
@@ -99,7 +100,7 @@ void Player::AudioHandler() {
 
     // To keep decoding audio, return true in lambda function
     result = decoder_->Decode(
-        period_size, [&](void* buffer, int max_size, int actual_size, int position) {
+        period_size_, [&](void* buffer, int max_size, int actual_size, int position) {
           auto command = media_control_.Pop();
 
           switch (command) {
@@ -201,6 +202,14 @@ void Player::Stop() {
   media_control_.Push(Command::Stop);
   curr_song_.reset();
 }
+
+/* ********************************************************************************************** */
+
+void Player::SetAudioVolume(model::Volume value) { playback_->SetVolume(value); }
+
+/* ********************************************************************************************** */
+
+model::Volume Player::GetAudioVolume() { return playback_->GetVolume(); }
 
 /* ********************************************************************************************** */
 

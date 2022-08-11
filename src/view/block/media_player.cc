@@ -6,6 +6,7 @@
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_options.hpp"
 #include "ftxui/component/event.hpp"  // for Event
+#include "model/volume.h"
 #include "view/base/event_dispatcher.h"
 
 namespace interface {
@@ -15,8 +16,11 @@ constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
 /* ********************************************************************************************** */
 
 MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::MediaPlayer}, btn_play_{nullptr}, btn_stop_{nullptr}, song_{} {
-  // TODO: bind methods for on_click
+    : Block{dispatcher, Identifier::MediaPlayer},
+      btn_play_{nullptr},
+      btn_stop_{nullptr},
+      song_{},
+      volume_{} {
   btn_play_ = Button::make_button_play([&]() {
     // TODO: Try to play active entry from list directory
     if (IsPlaying()) {
@@ -27,6 +31,8 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       }
     }
   });
+
+  // TODO: bind methods for on_click
   btn_stop_ = Button::make_button_stop(nullptr);
 }
 
@@ -45,29 +51,40 @@ ftxui::Element MediaPlayer::Render() {
     total_time = model::time_to_string(song_.duration);
   }
 
+  ftxui::Element bar_margin = ftxui::text(std::string(5, ' '));
+
   ftxui::Element bar_duration = ftxui::gauge(position) | ftxui::xflex_grow |
                                 ftxui::bgcolor(ftxui::Color::DarkKhaki) |
                                 ftxui::color(ftxui::Color::DarkVioletBis);
 
-  ftxui::Element bar_margin = ftxui::text("  ");
+  ftxui::Element volume = ftxui::text(std::string("Volume: " + std::to_string((int)volume_) + "%"));
 
-  ftxui::Element content = ftxui::vbox({ftxui::hbox({
-                                            std::move(btn_play_->Render()),
-                                            std::move(btn_stop_->Render()),
-                                        }) | ftxui::center,
-                                        ftxui::text(""),
-                                        ftxui::hbox({
-                                            bar_margin,
-                                            std::move(bar_duration),
-                                            bar_margin,
-                                        }),
-                                        ftxui::hbox({
-                                            bar_margin,
-                                            ftxui::text(curr_time) | ftxui::bold,
-                                            ftxui::filler(),
-                                            ftxui::text(total_time) | ftxui::bold,
-                                            bar_margin,
-                                        })});
+  ftxui::Element content = ftxui::vbox({
+      ftxui::hbox({
+          ftxui::filler(),
+          std::move(btn_play_->Render()),
+          std::move(btn_stop_->Render()),
+          ftxui::filler(),
+          ftxui::vbox({
+              ftxui::filler(),
+              std::move(volume),
+          }),
+          bar_margin,
+      }),
+      ftxui::text(""),
+      ftxui::hbox({
+          bar_margin,
+          std::move(bar_duration),
+          bar_margin,
+      }),
+      ftxui::hbox({
+          bar_margin,
+          ftxui::text(curr_time) | ftxui::bold,
+          ftxui::filler(),
+          ftxui::text(total_time) | ftxui::bold,
+          bar_margin,
+      }),
+  });
 
   using ftxui::HEIGHT, ftxui::EQUAL;
   return ftxui::window(ftxui::text(" player "), content | ftxui::vcenter | ftxui::flex |
@@ -105,12 +122,45 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     return true;
   }
 
+  // Decrease volume
+  if (event == ftxui::Event::Character('-')) {
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      volume_--;
+
+      auto event = interface::CustomEvent::SetAudioVolume(volume_);
+      dispatcher->SendEvent(event);
+    }
+
+    return true;
+  }
+
+  // Increase volume
+  if (event == ftxui::Event::Character('+')) {
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      volume_++;
+
+      auto event = interface::CustomEvent::SetAudioVolume(volume_);
+      dispatcher->SendEvent(event);
+    }
+
+    return true;
+  }
+
   return false;
 }
 
 /* ********************************************************************************************** */
 
 bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
+  if (event == CustomEvent::Identifier::UpdateVolume) {
+    volume_ = event.GetContent<model::Volume>();
+
+
+    return true;
+  }
+
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     song_ = model::Song{.curr_info = {.state = model::Song::MediaState::Empty}};

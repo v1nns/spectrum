@@ -80,6 +80,11 @@ class MediaController : public interface::Listener, public interface::Notifier {
    */
   void ClearCurrentSong() override;
 
+  /**
+   * @brief Notify Audio Player to set volume
+   */
+  virtual void SetVolume(model::Volume value) override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 
