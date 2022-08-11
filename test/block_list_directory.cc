@@ -25,9 +25,11 @@ using ::testing::StrEq;
 class ListDirectoryTest : public ::testing::Test {
  protected:
   void SetUp() override {
+    // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(32, 15);
 
-    std::string source_dir{std::filesystem::current_path().parent_path()};
+    // Use test directory as base dir
+    std::string source_dir{std::filesystem::current_path().parent_path().string() + "/test"};
     block = ftxui::Make<ListDirectoryMock>(nullptr, source_dir);
   }
 
@@ -50,18 +52,18 @@ TEST_F(ListDirectoryTest, InitialRender) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│spectrum                      │
+│test                          │
 │> ..                          │
-│  build                       │
-│  .clang-format               │
+│  audio_player.cc             │
+│  block_list_directory.cc     │
 │  CMakeLists.txt              │
-│  .git                        │
-│  .gitignore                  │
-│  include                     │
-│  README.md                   │
-│  src                         │
-│  test                        │
-│  .vscode                     │
+│  mock                        │
+│  sync_testing.h              │
+│  utils.h                     │
+│                              │
+│                              │
+│                              │
+│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -83,18 +85,18 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│spectrum                      │
+│test                          │
 │  ..                          │
-│  build                       │
-│  .clang-format               │
+│  audio_player.cc             │
+│  block_list_directory.cc     │
 │> CMakeLists.txt              │
-│  .git                        │
-│  .gitignore                  │
-│  include                     │
-│  README.md                   │
-│  src                         │
-│  test                        │
-│  .vscode                     │
+│  mock                        │
+│  sync_testing.h              │
+│  utils.h                     │
+│                              │
+│                              │
+│                              │
+│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -103,8 +105,9 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 
 /* ********************************************************************************************** */
 
-TEST_F(ListDirectoryTest, NavigateToTestDir) {
+TEST_F(ListDirectoryTest, NavigateToMockDir) {
   block->OnEvent(ftxui::Event::End);
+  block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Return);
 
@@ -114,14 +117,14 @@ TEST_F(ListDirectoryTest, NavigateToTestDir) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│test                          │
+│mock                          │
 │> ..                          │
-│  audio_player.cc             │
-│  block_list_directory.cc     │
-│  CMakeLists.txt              │
-│  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
+│  decoder_mock.h              │
+│  interface_notifier_mock.h   │
+│  list_directory_mock.h       │
+│  playback_mock.h             │
+│                              │
+│                              │
 │                              │
 │                              │
 │                              │
@@ -143,18 +146,18 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│spectrum                      │
+│test                          │
 │> ..                          │
-│  build                       │
-│  .clang-format               │
+│  audio_player.cc             │
+│  block_list_directory.cc     │
 │  CMakeLists.txt              │
-│  .git                        │
-│  .gitignore                  │
-│  include                     │
-│  README.md                   │
-│  src                         │
-│  test                        │
-│  .vscode                     │
+│  mock                        │
+│  sync_testing.h              │
+│  utils.h                     │
+│                              │
+│                              │
+│                              │
+│                              │
 │Search:                       │
 ╰──────────────────────────────╯)";
 
@@ -164,7 +167,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 /* ********************************************************************************************** */
 
 TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
-  std::string typed{"/i"};
+  std::string typed{"/e"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -173,19 +176,19 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│spectrum                      │
-│> build                       │
+│test                          │
+│> audio_player.cc             │
+│  block_list_directory.cc     │
 │  CMakeLists.txt              │
-│  .git                        │
-│  .gitignore                  │
-│  include                     │
+│  sync_testing.h              │
 │                              │
 │                              │
 │                              │
 │                              │
 │                              │
 │                              │
-│Search:i                      │
+│                              │
+│Search:e                      │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -194,7 +197,7 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 /* ********************************************************************************************** */
 
 TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
-  std::string typed{"/test"};
+  std::string typed{"/mock"};
   utils::QueueCharacterEvents(*block, typed);
   block->OnEvent(ftxui::Event::Return);
 
@@ -204,14 +207,14 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│test                          │
+│mock                          │
 │> ..                          │
-│  audio_player.cc             │
-│  block_list_directory.cc     │
-│  CMakeLists.txt              │
-│  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
+│  decoder_mock.h              │
+│  interface_notifier_mock.h   │
+│  list_directory_mock.h       │
+│  playback_mock.h             │
+│                              │
+│                              │
 │                              │
 │                              │
 │                              │
@@ -235,7 +238,7 @@ TEST_F(ListDirectoryTest, NonExistentTextInSearchMode) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│spectrum                      │
+│test                          │
 │                              │
 │                              │
 │                              │
@@ -265,18 +268,18 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 
   std::string expected = R"(
 ╭ files ───────────────────────╮
-│spectrum                      │
+│test                          │
 │> ..                          │
-│  build                       │
-│  .clang-format               │
+│  audio_player.cc             │
+│  block_list_directory.cc     │
 │  CMakeLists.txt              │
-│  .git                        │
-│  .gitignore                  │
-│  include                     │
-│  README.md                   │
-│  src                         │
-│  test                        │
-│  .vscode                     │
+│  mock                        │
+│  sync_testing.h              │
+│  utils.h                     │
+│                              │
+│                              │
+│                              │
+│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
