@@ -127,10 +127,10 @@ TEST_F(ListDirectoryTest, NavigateToMockDir) {
 │mock                          │
 │> ..                          │
 │  decoder_mock.h              │
+│  event_dispatcher_mock.h     │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -217,10 +217,10 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 │mock                          │
 │> ..                          │
 │  decoder_mock.h              │
+│  event_dispatcher_mock.h     │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
 │                              │
 │                              │
 │                              │
