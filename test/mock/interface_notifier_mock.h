@@ -6,6 +6,8 @@
 #ifndef INCLUDE_TEST_INTERFACE_NOTIFIER_MOCK_H_
 #define INCLUDE_TEST_INTERFACE_NOTIFIER_MOCK_H_
 
+#include <gmock/gmock-function-mocker.h>
+
 #include "view/base/notifier.h"
 
 namespace {

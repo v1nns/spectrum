@@ -3,8 +3,10 @@
  * \brief  Mock class for Decoder API
  */
 
-#ifndef INCLUDE_TEST_DECODER_MOCK_H_
-#define INCLUDE_TEST_DECODER_MOCK_H_
+#ifndef INCLUDE_TEST_MOCK_DECODER_MOCK_H_
+#define INCLUDE_TEST_MOCK_DECODER_MOCK_H_
+
+#include <gmock/gmock-function-mocker.h>
 
 #include "audio/base/decoder.h"
 #include "model/song.h"
@@ -19,4 +21,4 @@ class DecoderMock final : public driver::Decoder {
 };
 
 }  // namespace
-#endif  // INCLUDE_TEST_DECODER_MOCK_H_
+#endif  // INCLUDE_TEST_MOCK_DECODER_MOCK_H_

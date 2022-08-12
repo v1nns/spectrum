@@ -6,6 +6,8 @@
 #ifndef INCLUDE_TEST_PLAYBACK_MOCK_H_
 #define INCLUDE_TEST_PLAYBACK_MOCK_H_
 
+#include <gmock/gmock-function-mocker.h>
+
 #include "audio/base/playback.h"
 
 namespace {
