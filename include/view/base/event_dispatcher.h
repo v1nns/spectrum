@@ -19,13 +19,12 @@ namespace interface {
  * @brief Interface class to dispatch events among blocks
  */
 class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
- protected:
+ public:
   /**
    * @brief Construct a new Event Dispatcher object
    */
   EventDispatcher() = default;
 
- public:
   /**
    * @brief Destroy the Event Dispatcher object
    */
@@ -38,9 +37,9 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
   EventDispatcher& operator=(EventDispatcher&& other) = delete;       // move assignment
 
   //! Implemented by derived class
-  virtual void SendEvent(const CustomEvent&) = 0;
-  virtual void QueueEvent(const CustomEvent&) = 0;
-  virtual void SetApplicationError(error::Code) = 0;
+  virtual void SendEvent(const CustomEvent& event) = 0;
+  virtual void QueueEvent(const CustomEvent& event) = 0;
+  virtual void SetApplicationError(error::Code id) = 0;
 };
 
 }  // namespace interface

@@ -12,11 +12,13 @@
 #include "ftxui/dom/node.hpp"                  // for Render
 #include "ftxui/screen/screen.hpp"             // for Screen
 #include "gtest/gtest_pred_impl.h"             // for SuiteApiResolver, TEST_F
+#include "mock/event_dispatcher_mock.h"
 #include "mock/list_directory_mock.h"
 #include "utils.h"  // for FilterAnsiCommands
 
 namespace {
 
+using ::testing::_;
 using ::testing::StrEq;
 
 /**
@@ -28,18 +30,23 @@ class ListDirectoryTest : public ::testing::Test {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(32, 15);
 
-    // Use test directory as base dir
+    // Create mock for event dispatcher
+    dispatcher = std::make_shared<EventDispatcherMock>();
+
+    // use test directory as base dir
     std::string source_dir{std::filesystem::current_path().parent_path().string() + "/test"};
-    block = ftxui::Make<ListDirectoryMock>(nullptr, source_dir);
+    block = ftxui::Make<ListDirectoryMock>(dispatcher, source_dir);
   }
 
   void TearDown() override {
     screen.reset();
+    dispatcher.reset();
     block.reset();
   }
 
  protected:
   std::unique_ptr<ftxui::Screen> screen;
+  std::shared_ptr<EventDispatcherMock> dispatcher;
   ftxui::Component block;
 };
 
@@ -271,6 +278,39 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_list_directory.cc     │
+│  CMakeLists.txt              │
+│  mock                        │
+│  sync_testing.h              │
+│  utils.h                     │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, NotifyFileSelection) {
+  // Setup expectation for event sending
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(1);
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│  ..                          │
+│> audio_player.cc             │
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
