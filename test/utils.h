@@ -6,6 +6,7 @@
 #ifndef INCLUDE_TEST_UTILS_H_
 #define INCLUDE_TEST_UTILS_H_
 
+#include <iterator>
 #include <regex>
 #include <string>
 
@@ -16,7 +17,7 @@
 namespace utils {
 
 //! Filter any ANSI escape code from string
-std::string FilterAnsiCommands(const std::string& screen) {
+inline std::string FilterAnsiCommands(const std::string& screen) {
   std::stringstream result;
   const std::regex ansi_command("(\e\\[(\\d+;)*(\\d+)?[ABCDHJKfmsu])|(\\r)");
 
@@ -30,7 +31,7 @@ std::string FilterAnsiCommands(const std::string& screen) {
 /* ********************************************************************************************** */
 
 //! Split string into characters and send each as an event to Component
-void QueueCharacterEvents(ftxui::ComponentBase& block, const std::string& typed) {
+inline void QueueCharacterEvents(ftxui::ComponentBase& block, const std::string& typed) {
   std::for_each(typed.begin(), typed.end(),
                 [&block](char const& c) { block.OnEvent(ftxui::Event::Character(c)); });
 }
