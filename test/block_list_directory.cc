@@ -62,12 +62,12 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
 │  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -95,12 +95,12 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
-│  block_list_directory.cc     │
-│> CMakeLists.txt              │
+│  block_file_info.cc          │
+│> block_list_directory.cc     │
+│  CMakeLists.txt              │
 │  mock                        │
 │  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -156,12 +156,12 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
 │  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -185,10 +185,10 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 ╭ files ───────────────────────╮
 │test                          │
 │> audio_player.cc             │
+│  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  sync_testing.h              │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -278,12 +278,12 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
 │  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -311,12 +311,12 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │test                          │
 │  ..                          │
 │> audio_player.cc             │
+│  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  CMakeLists.txt              │
 │  mock                        │
 │  sync_testing.h              │
 │  utils.h                     │
-│                              │
 │                              │
 │                              │
 │                              │
