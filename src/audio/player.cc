@@ -65,7 +65,7 @@ void Player::Init(bool asynchronous) {
   }
 
   // This value is used to decide buffer size for song decoding
-  int period_size = playback_->GetPeriodSize();
+  period_size_ = playback_->GetPeriodSize();
 
   if (asynchronous) {
     // Spawn thread for Audio player
