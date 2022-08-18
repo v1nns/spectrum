@@ -30,6 +30,11 @@ class FileInfoTest : public ::testing::Test {
     block.reset();
   }
 
+  void Process(interface::CustomEvent event) {
+    auto file_info = std::static_pointer_cast<interface::Block>(block);
+    file_info->OnCustomEvent(event);
+  }
+
  protected:
   std::unique_ptr<ftxui::Screen> screen;
   std::shared_ptr<EventDispatcherMock> dispatcher;
@@ -39,6 +44,94 @@ class FileInfoTest : public ::testing::Test {
 /* ********************************************************************************************** */
 
 TEST_F(FileInfoTest, InitialRender) {
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ information ─────────────────╮
+│Artist                 <Empty>│
+│Title                  <Empty>│
+│Channels               <Empty>│
+│Sample rate            <Empty>│
+│Bit rate               <Empty>│
+│Bits per sample        <Empty>│
+│Duration               <Empty>│
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, UpdateSongInfo) {
+  model::Song audio{
+      .filepath = "/some/custom/path/to/song.mp3",
+      .artist = "Baco Exu do Blues",
+      .title = "Lágrimas",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 123,
+  };
+
+  // Process custom event on block
+  auto event = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ information ─────────────────╮
+│Artist       Baco Exu do Blues│
+│Title                 Lágrimas│
+│Channels                     2│
+│Sample rate           44.1 kHz│
+│Bit rate              256 kbps│
+│Bits per sample        32 bits│
+│Duration               123 sec│
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
+  model::Song audio{
+      .filepath = "/some/custom/path/to/another/song.mp3",
+      .artist = "ARTY",
+      .title = "Poison For Lovers",
+      .num_channels = 2,
+      .sample_rate = 96000,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 123,
+  };
+
+  // Process custom event on block
+  auto event_update = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update);
+
+  // Process custom event on block
+  auto event_clear = interface::CustomEvent::ClearSongInfo();
+  Process(event_clear);
+
   ftxui::Render(*screen, block->Render());
 
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
