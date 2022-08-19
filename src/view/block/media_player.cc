@@ -1,5 +1,6 @@
 #include "view/block/media_player.h"
 
+#include <sstream>
 #include <utility>  // for move
 #include <vector>   // for vector
 
@@ -51,16 +52,30 @@ ftxui::Element MediaPlayer::Render() {
     total_time = model::time_to_string(song_.duration);
   }
 
-  ftxui::Element bar_margin = ftxui::text(std::string(5, ' '));
-
+  // Bar to display song duration
   ftxui::Element bar_duration = ftxui::gauge(position) | ftxui::xflex_grow |
                                 ftxui::bgcolor(ftxui::Color::DarkKhaki) |
                                 ftxui::color(ftxui::Color::DarkVioletBis);
 
-  ftxui::Element volume = ftxui::text(std::string("Volume: " + std::to_string((int)volume_) + "%"));
+  // Format volume information string
+  std::ostringstream ss;
+  ss << "Volume: " << std::setfill(' ') << std::setw(3) << ((int)volume_) << "%";
+  std::string vol_info = std::move(ss).str();
+
+  // Current volume element
+  ftxui::Element volume = ftxui::text(vol_info);
+
+  // Fixed margin for content
+  ftxui::Element margin = ftxui::text(std::string(5, ' '));
+
+  // In order to maintain media buttons centered on screen, it is necessary to append this dummy
+  // margin based on volume string length
+  auto dummy_margin = ftxui::text(std::string(vol_info.size(), ' '));
 
   ftxui::Element content = ftxui::vbox({
       ftxui::hbox({
+          margin,
+          dummy_margin,
           ftxui::filler(),
           std::move(btn_play_->Render()),
           std::move(btn_stop_->Render()),
@@ -69,20 +84,20 @@ ftxui::Element MediaPlayer::Render() {
               ftxui::filler(),
               std::move(volume),
           }),
-          bar_margin,
+          margin,
       }),
       ftxui::text(""),
       ftxui::hbox({
-          bar_margin,
+          margin,
           std::move(bar_duration),
-          bar_margin,
+          margin,
       }),
       ftxui::hbox({
-          bar_margin,
+          margin,
           ftxui::text(curr_time) | ftxui::bold,
           ftxui::filler(),
           ftxui::text(total_time) | ftxui::bold,
-          bar_margin,
+          margin,
       }),
   });
 
@@ -156,7 +171,6 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateVolume) {
     volume_ = event.GetContent<model::Volume>();
-
 
     return true;
   }
