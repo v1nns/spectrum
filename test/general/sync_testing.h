@@ -3,8 +3,8 @@
  * \brief  Class for synchronized testing
  */
 
-#ifndef INCLUDE_TEST_SYNC_TESTING_H_
-#define INCLUDE_TEST_SYNC_TESTING_H_
+#ifndef INCLUDE_TEST_GENERAL_SYNC_TESTING_H_
+#define INCLUDE_TEST_GENERAL_SYNC_TESTING_H_
 
 #include <atomic>
 #include <condition_variable>
@@ -74,4 +74,4 @@ static inline void RunAsyncTest(std::vector<SyncThread> functions) {
 }
 
 }  // namespace testing
-#endif  // INCLUDE_TEST_SYNC_TESTING_H_
+#endif  // INCLUDE_TEST_GENERAL_SYNC_TESTING_H_

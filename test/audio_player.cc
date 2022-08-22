@@ -12,7 +12,7 @@
 #include "mock/interface_notifier_mock.h"
 #include "mock/playback_mock.h"
 #include "model/application_error.h"
-#include "sync_testing.h"
+#include "general/sync_testing.h"
 
 namespace {
 

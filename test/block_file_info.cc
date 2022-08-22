@@ -1,7 +1,8 @@
 #include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
 
+#include "general/block.h"
+#include "general/utils.h"  // for FilterAnsiCommands
 #include "mock/event_dispatcher_mock.h"
-#include "utils.h"  // for FilterAnsiCommands
 #include "view/block/file_info.h"
 
 namespace {
@@ -11,7 +12,7 @@ using ::testing::StrEq;
 /**
  * @brief Tests with FileInfo class
  */
-class FileInfoTest : public ::testing::Test {
+class FileInfoTest : public ::BlockTest {
  protected:
   void SetUp() override {
     // Create a custom screen with fixed size
@@ -23,22 +24,6 @@ class FileInfoTest : public ::testing::Test {
     // Create FileInfo block
     block = ftxui::Make<interface::FileInfo>(dispatcher);
   }
-
-  void TearDown() override {
-    screen.reset();
-    dispatcher.reset();
-    block.reset();
-  }
-
-  void Process(interface::CustomEvent event) {
-    auto file_info = std::static_pointer_cast<interface::Block>(block);
-    file_info->OnCustomEvent(event);
-  }
-
- protected:
-  std::unique_ptr<ftxui::Screen> screen;
-  std::shared_ptr<EventDispatcherMock> dispatcher;
-  ftxui::Component block;
 };
 
 /* ********************************************************************************************** */

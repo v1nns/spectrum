@@ -3,8 +3,8 @@
  * \brief  Header with utilities to be used within unit tests
  */
 
-#ifndef INCLUDE_TEST_UTILS_H_
-#define INCLUDE_TEST_UTILS_H_
+#ifndef INCLUDE_TEST_GENERAL_UTILS_H_
+#define INCLUDE_TEST_GENERAL_UTILS_H_
 
 #include <iterator>
 #include <regex>
@@ -37,4 +37,4 @@ inline void QueueCharacterEvents(ftxui::ComponentBase& block, const std::string&
 }
 
 }  // namespace utils
-#endif  // INCLUDE_TEST_UTILS_H_
+#endif  // INCLUDE_TEST_GENERAL_UTILS_H_

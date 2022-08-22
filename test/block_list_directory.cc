@@ -11,10 +11,11 @@
 #include "ftxui/component/event.hpp"           // for Event, Event::ArrowDown
 #include "ftxui/dom/node.hpp"                  // for Render
 #include "ftxui/screen/screen.hpp"             // for Screen
-#include "gtest/gtest_pred_impl.h"             // for SuiteApiResolver, TEST_F
+#include "general/block.h"
+#include "general/utils.h"          // for FilterAnsiCommands
+#include "gtest/gtest_pred_impl.h"  // for SuiteApiResolver, TEST_F
 #include "mock/event_dispatcher_mock.h"
 #include "mock/list_directory_mock.h"
-#include "utils.h"  // for FilterAnsiCommands
 
 namespace {
 
@@ -24,7 +25,7 @@ using ::testing::StrEq;
 /**
  * @brief Tests with ListDirectory class
  */
-class ListDirectoryTest : public ::testing::Test {
+class ListDirectoryTest : public ::BlockTest {
  protected:
   void SetUp() override {
     // Create a custom screen with fixed size
@@ -37,17 +38,6 @@ class ListDirectoryTest : public ::testing::Test {
     std::string source_dir{std::filesystem::current_path().parent_path().string() + "/test"};
     block = ftxui::Make<ListDirectoryMock>(dispatcher, source_dir);
   }
-
-  void TearDown() override {
-    screen.reset();
-    dispatcher.reset();
-    block.reset();
-  }
-
- protected:
-  std::unique_ptr<ftxui::Screen> screen;
-  std::shared_ptr<EventDispatcherMock> dispatcher;
-  ftxui::Component block;
 };
 
 /* ********************************************************************************************** */
@@ -64,10 +54,10 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  general                     │
 │  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
 │                              │
 │                              │
 │                              │
@@ -97,10 +87,10 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │> block_list_directory.cc     │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  general                     │
 │  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
 │                              │
 │                              │
 │                              │
@@ -114,8 +104,6 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 
 TEST_F(ListDirectoryTest, NavigateToMockDir) {
   block->OnEvent(ftxui::Event::End);
-  block->OnEvent(ftxui::Event::ArrowUp);
-  block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
@@ -158,10 +146,10 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  general                     │
 │  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
 │                              │
 │                              │
 │                              │
@@ -187,9 +175,9 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │> audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
-│  sync_testing.h              │
-│                              │
+│  general                     │
 │                              │
 │                              │
 │                              │
@@ -280,10 +268,10 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  general                     │
 │  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
 │                              │
 │                              │
 │                              │
@@ -313,10 +301,10 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │> audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  general                     │
 │  mock                        │
-│  sync_testing.h              │
-│  utils.h                     │
 │                              │
 │                              │
 │                              │
