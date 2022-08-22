@@ -53,7 +53,7 @@ Terminal::~Terminal() {
 
 void Terminal::Init() {
   // TODO: remove this after developing
-  std::string custom_path = "/home/vinicius/Downloads";
+  std::string custom_path = "/home/vinicius/Downloads/music";
 
   // As this terminal will hold all these interface blocks, there is nothing better than
   // use itself as a mediator to send events between them
