@@ -50,4 +50,43 @@ TEST_F(MediaPlayerTest, InitialRender) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, UpdateSongInfo) {
+  model::Song audio{
+      .filepath = "/another/custom/path/to/song.mp3",
+      .artist = "Deko",
+      .title = "Phantasy Star Online",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 193,
+  };
+
+  // Process custom event on block
+  auto event = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│                                                              │
+│     00:00                                          03:13     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

@@ -46,7 +46,7 @@ ftxui::Element MediaPlayer::Render() {
   float position = 0;
 
   // Only fill these fields when exists a current song playing
-  if (IsPlaying()) {
+  if (IsPlaying() || song_.duration > 0) {
     position = (float)song_.curr_info.position / (float)song_.duration;
     curr_time = model::time_to_string(song_.curr_info.position);
     total_time = model::time_to_string(song_.duration);
