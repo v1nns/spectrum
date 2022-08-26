@@ -136,4 +136,82 @@ TEST_F(MediaPlayerTest, StartPlaying) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, PauseAndResume) {
+  model::Song audio{
+      .filepath = "/another/custom/path/to/music.mp3",
+      .artist = "TENDER",
+      .title = "Slow Love",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 252,
+  };
+
+  // Process custom event on block to update song info
+  auto event_update = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update);
+
+  model::Song::CurrentInformation info{
+      .state = model::Song::MediaState::Pause,
+      .position = 11,
+  };
+
+  // Process custom event on block to update song state, pause song 
+  auto event_info = interface::CustomEvent::UpdateSongState(info);
+  Process(event_info);
+
+  // Process custom event on block to pause song
+  Process(event_info);
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│     ██▏                                                      │
+│     00:11                                          04:12     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  event_info.content = model::Song::CurrentInformation{
+      .state = model::Song::MediaState::Play,
+      .position = 12,
+  };
+
+  // Process custom event on block to resume song
+  Process(event_info);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │ ⣶  ⣶ ││ ⣶⣶⣶⣶ │                       │
+│                       │ ⣿  ⣿ ││ ⣿⣿⣿⣿ │                       │
+│                       │ ⠿  ⠿ ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│     ██▍                                                      │
+│     00:12                                          04:12     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace
