@@ -7,6 +7,9 @@
 
 namespace {
 
+using ::testing::_;
+using ::testing::Field;
+using ::testing::Invoke;
 using ::testing::StrEq;
 
 /**
@@ -159,7 +162,7 @@ TEST_F(MediaPlayerTest, PauseAndResume) {
       .position = 11,
   };
 
-  // Process custom event on block to update song state, pause song 
+  // Process custom event on block to update song state, pause song
   auto event_info = interface::CustomEvent::UpdateSongState(info);
   Process(event_info);
 
@@ -208,6 +211,46 @@ TEST_F(MediaPlayerTest, PauseAndResume) {
 │                                                              │
 │     ██▍                                                      │
 │     00:12                                          04:12     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, ChangeVolume) {
+  // Setup mock calls to send back an UpdateVolume event to block
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::SetAudioVolume)))
+      .WillRepeatedly(Invoke([&](const interface::CustomEvent& event) {
+        auto update_vol = interface::CustomEvent::UpdateVolume(event.GetContent<model::Volume>());
+        Process(update_vol);
+      }));
+
+  // Simulate keyboard events
+  block->OnEvent(ftxui::Event::Character('-'));
+  block->OnEvent(ftxui::Event::Character('-'));
+  block->OnEvent(ftxui::Event::Character('-'));
+  block->OnEvent(ftxui::Event::Character('-'));
+  block->OnEvent(ftxui::Event::Character('+'));
+
+  // Render screen
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume:  85%     │
+│                                                              │
+│                                                              │
+│     --:--                                          --:--     │
 │                                                              │
 ╰──────────────────────────────────────────────────────────────╯)";
 
