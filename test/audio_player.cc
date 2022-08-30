@@ -8,15 +8,16 @@
 #include <thread>
 
 #include "audio/player.h"
+#include "general/sync_testing.h"
 #include "mock/decoder_mock.h"
 #include "mock/interface_notifier_mock.h"
 #include "mock/playback_mock.h"
 #include "model/application_error.h"
-#include "general/sync_testing.h"
 
 namespace {
 
 using ::testing::_;
+using ::testing::AtMost;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
@@ -221,20 +222,23 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
 
     // Setup all expectations
     EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
-        .WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*notifier, NotifySongInformation(_)).WillOnce(Invoke([&] {
-      // Notify step here to give enough time for client to ask for stop
-      syncer.NotifyStep(2);
-    }));
+        .WillOnce(Invoke([&] {
+          // Notify step here to give enough time for client to ask for stop
+          syncer.NotifyStep(2);
+          return error::kSuccess;
+        }));
 
-    // Prepare is called again right after Pause was called
-    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare is called again right after Stop was called
+    EXPECT_CALL(*playback, Prepare());
 
     // Only interested in second argument, which is a lambda created internally by audio_player
-    // itself So it is necessary to manually call it, to keep the behaviour similar to a
+    // itself so it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          syncer.WaitForStep(3);
           callback(0, 0, 0, 0);
           return error::kSuccess;
         }));
@@ -242,7 +246,8 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
     EXPECT_CALL(*playback, Stop());
 
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(3); }));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AtMost(1));
+    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -252,17 +257,20 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
   auto client = [&](TestSyncer& syncer) {
     auto player_ctl = GetAudioControl();
     syncer.WaitForStep(1);
-    const std::string filename{"RÜFÜS - Innerbloom (What So Not Remix)"};
 
     // Ask Audio Player to play file
+    const std::string filename{"RÜFÜS - Innerbloom (What So Not Remix)"};
     player_ctl->Play(filename);
 
     // Wait for Player to prepare for playing
     syncer.WaitForStep(2);
     player_ctl->Stop();
 
+    // Notify audio player to execute Decode callback right after the Stop command is sent
+    syncer.NotifyStep(3);
+
     // Wait for Player to finish playing song before client asks to exit
-    syncer.WaitForStep(3);
+    syncer.WaitForStep(4);
     player_ctl->Exit();
   };
 
