@@ -262,8 +262,8 @@ TEST_F(MediaPlayerTest, ChangeVolume) {
 TEST_F(MediaPlayerTest, StartPlayingAndClear) {
   model::Song audio{
       .filepath = "/another/custom/path/to/music.mp3",
-      .artist = "",
-      .title = "",
+      .artist = "Timothy Fleet",
+      .title = "Sos",
       .num_channels = 2,
       .sample_rate = 44100,
       .bit_rate = 256000,
@@ -308,6 +308,105 @@ TEST_F(MediaPlayerTest, StartPlayingAndClear) {
   // Process custom event to clear song information
   auto event_clear = interface::CustomEvent::ClearSongInfo();
   Process(event_clear);
+
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│                                                              │
+│     --:--                                          --:--     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
+  model::Song audio{
+      .filepath = "/another/custom/path/to/music.mp3",
+      .artist = "cln",
+      .title = "DUST",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 146,
+  };
+
+  // Process custom event on block to update song info
+  auto event_update = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update);
+
+  model::Song::CurrentInformation info{
+      .state = model::Song::MediaState::Play,
+      .position = 103,
+  };
+
+  // Process custom event on block to update song state
+  auto event_info = interface::CustomEvent::UpdateSongState(info);
+  Process(event_info);
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │ ⣶  ⣶ ││ ⣶⣶⣶⣶ │                       │
+│                       │ ⣿  ⣿ ││ ⣿⣿⣿⣿ │                       │
+│                       │ ⠿  ⠿ ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│     ████████████████████████████████████▋                    │
+│     01:43                                          02:26     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  screen->Clear();
+
+  // Process keyboard event to pause song
+  EXPECT_CALL(*dispatcher, SendEvent(_));
+  auto event_pause = ftxui::Event::Character('p');
+  block->OnEvent(event_pause);
+
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│     ████████████████████████████████████▋                    │
+│     01:43                                          02:26     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  screen->Clear();
+
+  // Process keyboard event to clear song
+  EXPECT_CALL(*dispatcher, SendEvent(_));
+  auto event_clear = ftxui::Event::Character('c');
+  block->OnEvent(event_clear);
 
   ftxui::Render(*screen, block->Render());
   rendered = utils::FilterAnsiCommands(screen->ToString());
