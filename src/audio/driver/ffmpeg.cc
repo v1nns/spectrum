@@ -1,8 +1,18 @@
 #include "audio/driver/ffmpeg.h"
 
+#include <libavutil/channel_layout.h>
+
 namespace driver {
 
-FFmpeg::FFmpeg() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
+FFmpeg::FFmpeg()
+    : ch_layout_{new AVChannelLayout{}},
+      input_stream_{},
+      decoder_{},
+      resampler_{},
+      stream_index_{} {
+  // Set output channel layout to stereo (2-channel)
+  av_channel_layout_default(ch_layout_.get(), 2);
+
   // TODO: Control this with a parameter
   av_log_set_level(AV_LOG_QUIET);
 }
@@ -51,18 +61,9 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kUnknownError;
   }
 
-  if (decoder_->channel_layout == 0) {
-    decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-    // switch (decoder_->channels) {
-    //   case 1:
-    //     decoder_->channel_layout = AV_CH_LAYOUT_MONO;
-    //     break;
-    //   case 2:
-    //     decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-    //     break;
-    //   default:
-    //     return error::kUnknownError;
-    // }
+  if (!codec->ch_layouts) {
+    auto dummy = (AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO;
+    av_channel_layout_copy(&decoder_->ch_layout, &dummy);
   }
 
   if (avcodec_open2(decoder_.get(), codec, nullptr) < 0) {
@@ -75,9 +76,11 @@ error::Code FFmpeg::ConfigureDecoder() {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::ConfigureResampler() {
-  resampler_ = CustomSwrContext{swr_alloc_set_opts(
-      nullptr, kChannelLayout, kSampleFormat, kSampleRate, decoder_->channel_layout,
-      decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr)};
+  SwrContext *dummy{};
+  swr_alloc_set_opts2(&dummy, ch_layout_.get(), kSampleFormat, kSampleRate, &decoder_->ch_layout,
+                      decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr);
+
+  resampler_.reset(std::move(dummy));
 
   if (!resampler_ || swr_init(resampler_.get()) < 0) {
     return error::kUnknownError;
@@ -105,7 +108,7 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
 
   const AVCodecParameters *audio_stream = input_stream_->streams[stream_index_]->codecpar;
 
-  audio_info->num_channels = (uint16_t)audio_stream->channels,
+  audio_info->num_channels = (uint16_t)audio_stream->ch_layout.nb_channels,
   audio_info->sample_rate = (uint32_t)audio_stream->sample_rate;
   audio_info->bit_rate = (uint32_t)audio_stream->bit_rate,
   audio_info->bit_depth = (uint32_t)sample_fmt_info[audio_stream->format].bits;
@@ -138,8 +141,8 @@ error::Code FFmpeg::OpenFile(model::Song *audio_info) {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
-  int max_buffer_size =
-      av_samples_get_buffer_size(nullptr, decoder_->channels, samples, decoder_->sample_fmt, 1);
+  int max_buffer_size = av_samples_get_buffer_size(nullptr, decoder_->ch_layout.nb_channels,
+                                                   samples, decoder_->sample_fmt, 1);
 
   Packet packet = Packet{av_packet_alloc()};
   Frame frame = Frame{av_frame_alloc()};
@@ -168,7 +171,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
       int64_t position = packet->pts / input_stream_->streams[stream_index_]->time_base.den;
 
       int samples_size = swr_convert(resampler_.get(), &buffer, samples,
-                                    (const uint8_t **)(frame->data), frame->nb_samples);
+                                     (const uint8_t **)(frame->data), frame->nb_samples);
 
       while (samples_size > 0 && continue_decoding) {
         continue_decoding = callback(buffer, max_buffer_size, samples_size, position);

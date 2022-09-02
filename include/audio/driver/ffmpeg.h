@@ -71,6 +71,10 @@ class FFmpeg : public Decoder {
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
  private:
+  struct ChannelLayoutDeleter {
+    void operator()(AVChannelLayout* p) const { av_channel_layout_uninit(p); }
+  };
+
   struct FormatContextDeleter {
     void operator()(AVFormatContext* p) const { avformat_close_input(&p); }
   };
@@ -95,6 +99,8 @@ class FFmpeg : public Decoder {
     void operator()(uint8_t* p) const { free(p); }
   };
 
+  using ChannelLayout = std::unique_ptr<AVChannelLayout, ChannelLayoutDeleter>;
+
   using FormatContext = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
   using CodecContext = std::unique_ptr<AVCodecContext, CodecContextDeleter>;
   using CustomSwrContext = std::unique_ptr<SwrContext, SwrContextDeleter>;
@@ -110,7 +116,6 @@ class FFmpeg : public Decoder {
   static constexpr int kChannels = 2;
   static constexpr int kSampleRate = 44100;
   static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;
-  static constexpr int kChannelLayout = AV_CH_LAYOUT_STEREO;
 
   /* ******************************************************************************************** */
   //! Utilities
@@ -137,6 +142,8 @@ class FFmpeg : public Decoder {
 
   /* ******************************************************************************************** */
   //! Variables
+
+  ChannelLayout ch_layout_;  //!< Default channel layout to use on decoding
 
   FormatContext input_stream_;  //!< Input stream from file
   CodecContext decoder_;        //!< Specific codec compatible with the input stream
