@@ -378,7 +378,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
   screen->Clear();
 
   // Process keyboard event to pause song
-  EXPECT_CALL(*dispatcher, SendEvent(_));
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::PauseOrResumeSong)));
   auto event_pause = ftxui::Event::Character('p');
   block->OnEvent(event_pause);
 
@@ -403,8 +404,15 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 
   screen->Clear();
 
+  // Setup mock calls to send back a ClearSongInfo event to block
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::ClearCurrentSong)))
+      .WillRepeatedly(Invoke([&](const interface::CustomEvent& event) {
+        auto clear_song = interface::CustomEvent::ClearSongInfo();
+        Process(clear_song);
+      }));
+
   // Process keyboard event to clear song
-  EXPECT_CALL(*dispatcher, SendEvent(_));
   auto event_clear = ftxui::Event::Character('c');
   block->OnEvent(event_clear);
 
