@@ -58,10 +58,26 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                           .playing = std::move(Colored(ftxui::Color::Aquamarine1))}},
       boxes_{},
       box_{},
-      mode_search_{std::nullopt} {
+      mode_search_{std::nullopt},
+      animation_{} {
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
   RefreshList(curr_dir_);
+
+  animation_.cb_update = [&] {
+    // Send user action to controller
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::Refresh();
+      dispatcher->SendEvent(event);
+    }
+  };
+}
+
+/* ********************************************************************************************** */
+
+ListDirectory::~ListDirectory() {
+  if (animation_.enabled) animation_.Stop();
 }
 
 /* ********************************************************************************************** */
@@ -96,9 +112,13 @@ ftxui::Element ListDirectory::Render() {
 
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
-    entries.push_back(ftxui::text(icon + entry.filename().string()) |
-                      ftxui::size(WIDTH, EQUAL, kMaxColumns) | style | focus_management |
-                      ftxui::reflect(boxes_[i]));
+    // In case of entry text too long, animation thread will be running, so we gotta take the text
+    // content from there
+    std::string text =
+        animation_.enabled && is_selected ? animation_.text : entry.filename().string();
+
+    entries.push_back(ftxui::text(icon + text) | ftxui::size(WIDTH, EQUAL, kMaxColumns) | style |
+                      focus_management | ftxui::reflect(boxes_[i]));
   }
 
   // Build up the content
@@ -260,6 +280,15 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
     if (*selected != old_selected) {
       *focused = *selected;
       event_handled = true;
+
+      // Stop animation thread
+      if (animation_.enabled) animation_.Stop();
+
+      std::string text = GetEntry(*selected).filename().string();
+      int max_chars = text.length() + 2;  // entry text length + icon (2)
+
+      // Start animation thread
+      if (max_chars > kMaxColumns) animation_.Start(text);
     }
   }
 

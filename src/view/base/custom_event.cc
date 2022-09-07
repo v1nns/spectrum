@@ -96,4 +96,14 @@ CustomEvent CustomEvent::SetAudioVolume(const model::Volume& sound_volume) {
   };
 }
 
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::Refresh() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::Refresh,
+  };
+}
+
 }  // namespace interface

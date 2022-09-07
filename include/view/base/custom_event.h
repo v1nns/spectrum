@@ -23,21 +23,25 @@ struct CustomEvent {
   enum class Type {
     FromInterfaceToAudioThread = 40000,
     FromAudioThreadToInterface = 40001,
+    FromInterfaceToInterface = 40002,
   };
 
   //! Identifier for all existing events
   enum class Identifier {
-    // Events between blocks TODO: add a better documentation for each one
+    // Events from audio thread to interface
+    // TODO: add a better documentation for each one
     ClearSongInfo = 50000,
     UpdateVolume = 50001,
     UpdateSongInfo = 50002,
     UpdateSongState = 50003,
     DrawAudioRaw = 50004,
-    // Events for an outside listener (in this case, audio player thread)
+    // Events from interface to audio thread
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
     ClearCurrentSong = 60002,
     SetAudioVolume = 60003,
+    // Events from interface to interface
+    Refresh = 70000,
   };
 
   //! Overloaded operators
@@ -57,6 +61,9 @@ struct CustomEvent {
   static CustomEvent PauseOrResumeSong();
   static CustomEvent ClearCurrentSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
+
+  //! Possible events (from interface to interface)
+  static CustomEvent Refresh();
 
   //! Generic getter for event content
   template <typename T>

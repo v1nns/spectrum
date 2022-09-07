@@ -207,8 +207,8 @@ class Player : public AudioControl {
     std::mutex mutex;                  //!< Control access for internal resources
     std::condition_variable notifier;  //!< Conditional variable to block thread
 
-    std::queue<Command> queue;  //! Queue with media control commands
-    std::atomic<State> state;   //! Current state
+    std::queue<Command> queue;  //!< Queue with media control commands
+    std::atomic<State> state;   //!< Current state
 
     /**
      * @brief Reset media controls

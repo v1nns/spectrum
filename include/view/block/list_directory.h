@@ -6,11 +6,14 @@
 #ifndef INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 #define INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 
+#include <atomic>
 #include <filesystem>  // for path
 #include <memory>      // for shared_ptr
-#include <optional>    // for optional
-#include <string>      // for string, allocator
-#include <vector>      // for vector
+#include <mutex>
+#include <optional>  // for optional
+#include <string>    // for string, allocator
+#include <thread>
+#include <vector>  // for vector
 
 #include "ftxui/component/captured_mouse.hpp"     // for ftxui
 #include "ftxui/component/component_options.hpp"  // for MenuEntryOption
@@ -40,7 +43,7 @@ class ListDirectory : public Block {
   /**
    * @brief Destroy the List Directory object
    */
-  virtual ~ListDirectory() = default;
+  virtual ~ListDirectory();
 
   /**
    * @brief Renders the component
@@ -135,6 +138,58 @@ class ListDirectory : public Block {
   };
 
   /* ******************************************************************************************** */
+  //! Custom class for text animation
+ private:
+  /**
+   * @brief An structure to offset selected entry text when its content is too long (> 32 columns)
+   */
+  struct TextAnimation {
+    std::mutex mutex;    //!< Control access for internal resources
+    std::thread thread;  //!< Thread to perform offset animation on text
+
+    std::atomic<bool> enabled = false;  //!< Flag to control thread animation
+    std::string text;                   //!< Entry text with an offset
+
+    std::function<void()> cb_update;  //!< Force an UI refresh
+
+    /**
+     * @brief Start animation thread
+     *
+     * @param entry Text content from selected entry
+     */
+    void Start(std::string entry) {
+      text = entry;
+      enabled = true;
+
+      thread = std::thread([&] {
+        while (enabled) {
+          using namespace std::chrono_literals;
+          // TODO: remove this sleep and use something like a condition_variable, to wake up as soon
+          // some event is received
+          std::this_thread::sleep_for(0.15s);
+          {
+            std::unique_lock<std::mutex> lock(mutex);
+
+            // Here comes the magic
+            text += text.front();
+            text.erase(text.begin());
+
+            cb_update();
+          }
+        }
+      });
+    }
+
+    /**
+     * @brief Stop animation thread
+     */
+    void Stop() {
+      enabled = false;
+      thread.join();
+    }
+  };
+
+  /* ******************************************************************************************** */
  private:
   Files entries_;           //!< List containing files from current directory
   int selected_, focused_;  //!< Entry indexes in files list
@@ -145,6 +200,8 @@ class ListDirectory : public Block {
   std::optional<Search> mode_search_;  //!< Mode to render only files matching the search pattern
 
   EntryStyles styles_;  //!< Style for each possible type of entry on menu
+
+  TextAnimation animation_;  //!< Text animation for selected entry
 };
 
 }  // namespace interface
