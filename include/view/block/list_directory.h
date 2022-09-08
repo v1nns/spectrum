@@ -6,7 +6,10 @@
 #ifndef INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 #define INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 
+#include <gtest/gtest_prod.h>
+
 #include <atomic>
+#include <condition_variable>
 #include <filesystem>  // for path
 #include <memory>      // for shared_ptr
 #include <mutex>
@@ -20,6 +23,12 @@
 #include "ftxui/dom/elements.hpp"                 // for Element
 #include "ftxui/screen/box.hpp"                   // for Box
 #include "view/base/block.h"                      // for Block, BlockEvent...
+
+//! Forward declaration
+namespace {
+class ListDirectoryTest;
+class ListDirectoryTest_RunTextAnimation_Test;
+}  // namespace
 
 namespace interface {
 
@@ -107,8 +116,8 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
  private:
   /**
-   * @brief Refresh list with all files from the given directory path TODO: move this to a
-   * controller?
+   * TODO: move this to a controller?
+   * @brief Refresh list with all files from the given directory path
    * @param dir_path Full path to directory
    */
   void RefreshList(const std::filesystem::path& dir_path);
@@ -144,11 +153,12 @@ class ListDirectory : public Block {
    * @brief An structure to offset selected entry text when its content is too long (> 32 columns)
    */
   struct TextAnimation {
-    std::mutex mutex;    //!< Control access for internal resources
-    std::thread thread;  //!< Thread to perform offset animation on text
+    std::mutex mutex;                  //!< Control access for internal resources
+    std::condition_variable notifier;  //!< Conditional variable to block thread
+    std::thread thread;                //!< Thread to perform offset animation on text
 
     std::atomic<bool> enabled = false;  //!< Flag to control thread animation
-    std::string text;                   //!< Entry text with an offset
+    std::string text;                   //!< Entry text to perform animation
 
     std::function<void()> cb_update;  //!< Force an UI refresh
 
@@ -157,25 +167,22 @@ class ListDirectory : public Block {
      *
      * @param entry Text content from selected entry
      */
-    void Start(std::string entry) {
+    void Start(const std::string& entry) {
       text = entry;
       enabled = true;
 
       thread = std::thread([&] {
-        while (enabled) {
-          using namespace std::chrono_literals;
-          // TODO: remove this sleep and use something like a condition_variable, to wake up as soon
-          // some event is received
-          std::this_thread::sleep_for(0.15s);
-          {
-            std::unique_lock<std::mutex> lock(mutex);
+        using namespace std::chrono_literals;
+        std::unique_lock<std::mutex> lock(mutex);
 
-            // Here comes the magic
-            text += text.front();
-            text.erase(text.begin());
+        // Run the animation every 0.2 seconds while enabled is true
+        while (!notifier.wait_for(lock, 0.2s, [&] { return enabled == false; })) {
+          // Here comes the magic
+          text += text.front();
+          text.erase(text.begin());
 
-            cb_update();
-          }
+          // Notify UI
+          cb_update();
         }
       });
     }
@@ -184,7 +191,11 @@ class ListDirectory : public Block {
      * @brief Stop animation thread
      */
     void Stop() {
-      enabled = false;
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        enabled = false;
+      }
+      notifier.notify_one();
       thread.join();
     }
   };
@@ -202,6 +213,10 @@ class ListDirectory : public Block {
   EntryStyles styles_;  //!< Style for each possible type of entry on menu
 
   TextAnimation animation_;  //!< Text animation for selected entry
+
+  /* ******************************************************************************************** */
+  //! Friend test
+  FRIEND_TEST(::ListDirectoryTest, RunTextAnimation);
 };
 
 }  // namespace interface

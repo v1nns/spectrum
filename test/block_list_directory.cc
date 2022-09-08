@@ -314,4 +314,71 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, RunTextAnimation) {
+  // Hacky method to add new entry
+  auto list_dir = std::static_pointer_cast<interface::ListDirectory>(block);
+  std::filesystem::path dummy{"this_is_a_really_long_pathname.mp3"};
+  list_dir->entries_.emplace_back(dummy);
+
+  // Setup expectation for event sending (to refresh UI)
+  // p.s.: Times(5) is based on refresh timing from thread animation
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(5);
+
+  block->OnEvent(ftxui::Event::End);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│  ..                          │
+│  audio_player.cc             │
+│  block_file_info.cc          │
+│  block_list_directory.cc     │
+│  block_media_player.cc       │
+│  CMakeLists.txt              │
+│  general                     │
+│  mock                        │
+│> this_is_a_really_long_pathna│
+│                              │
+│                              │
+│                              │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Wait for a few moments to render again and see that text has changed
+  screen->Clear();
+
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(1.1s);
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│  ..                          │
+│  audio_player.cc             │
+│  block_file_info.cc          │
+│  block_list_directory.cc     │
+│  block_media_player.cc       │
+│  CMakeLists.txt              │
+│  general                     │
+│  mock                        │
+│> is_a_really_long_pathname.mp│
+│                              │
+│                              │
+│                              │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

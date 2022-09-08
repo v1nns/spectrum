@@ -17,6 +17,8 @@
 
 namespace {
 
+using ::testing::AtLeast;
+
 //! Implement custom action to show only directory filename instead of the full path
 ACTION_P(ReturnPointee, p) { return p->filename().string(); }
 
@@ -35,7 +37,7 @@ class ListDirectoryMock final : public interface::ListDirectory {
 
     // Instead of using NiceMock to ignore uninteresting calls from "GetTitle"
     // create this expectation for every Render()
-    EXPECT_CALL(*this, GetTitle).Times(1);
+    EXPECT_CALL(*this, GetTitle).Times(AtLeast(1));
   }
 };
 
