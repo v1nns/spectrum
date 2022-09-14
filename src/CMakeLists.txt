@@ -10,7 +10,8 @@ pkg_check_modules(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
 # Audio Library for Playback (using direclty ALSA)
 pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
 
-# DSP Processing (FFTW3) pkg_check_modules(FFTW REQUIRED fftw3)
+# DSP Processing (FFTW3)
+pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
 
 # GUI Library (FTXUI)
 FetchContent_Declare(
@@ -60,7 +61,8 @@ target_include_directories(
          $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
          $<BUILD_INTERFACE:${expected_SOURCE_DIR}/include>
          ${ALSA_INCLUDE_DIRS}
-         ${AVCODEC_INCLUDE_DIRS})
+         ${AVCODEC_INCLUDE_DIRS}
+         ${FFTW_INCLUDE_DIRS})
 
 target_link_libraries(
   spectrum-lib
@@ -71,6 +73,8 @@ target_link_libraries(
   INTERFACE PkgConfig::SWRESAMPLE
   PRIVATE
   INTERFACE PkgConfig::ALSA
+  PRIVATE
+  INTERFACE PkgConfig::FFTW
   PRIVATE ftxui::screen ftxui::dom ftxui::component
   PRIVATE Threads::Threads)
 
