@@ -27,7 +27,7 @@ class FFTW {
   /**
    * @brief Destroy the FFTW object
    */
-  virtual ~FFTW() = default;
+  virtual ~FFTW();
 
   /* ******************************************************************************************** */
   //! Public API
@@ -53,7 +53,13 @@ class FFTW {
   //! Default Constants
 
   static constexpr int kBufferSize = 1024;
-  static constexpr int kNumberBar = 10;
+  static constexpr int kNumberBars = 10;
+  static constexpr int kNumberChannels = 2;
+
+  static constexpr int kLowCutOff = 50;
+  static constexpr int kHighCutOff = 10000;
+
+  static constexpr int kSampleRate = 44100;
 
   /* ******************************************************************************************** */
   //! Variables
@@ -62,15 +68,31 @@ class FFTW {
    * @brief Audio frequency analysis
    */
   struct FreqAnalysis {
-    int buffer_size; // FFTbassbufferSize;
-    fftw_plan plan_left, plan_right; // p_bass_l, p_bass_r;
-    fftw_complex *out_left, *out_right; // *out_bass_l, *out_bass_r;
-    double *multiplier; // *bass_multiplier;
-    double *in_raw_left, *in_raw_right; // *in_bass_r_raw, *in_bass_l_raw;
-    double *in_left, *in_right; // *in_bass_r, *in_bass_l;
+    int buffer_size;                     // FFTbassbufferSize;
+    fftw_plan plan_left, plan_right;     // p_bass_l, p_bass_r;
+    fftw_complex *out_left, *out_right;  // *out_bass_l, *out_bass_r;
+    double *multiplier;                  // *bass_multiplier;
+    double *in_raw_left, *in_raw_right;  // *in_bass_r_raw, *in_bass_l_raw;
+    double *in_left, *in_right;          // *in_bass_r, *in_bass_l;
   };
 
   FreqAnalysis bass_, mid_, treble_;
+
+  //! Input buffer
+  double input_size;  // input_buffer_size
+  double *input;      // input_buffer
+
+  //! Still gotta understand
+  double *prev_cava_out, *cava_mem, *cava_peak;
+  int *cava_fall;
+
+  float *cut_off_frequency;
+  int bass_cut_off_bar;
+  int treble_cut_off_bar;
+
+  double *eq;
+  int *FFTbuffer_lower_cut_off;
+  int *FFTbuffer_upper_cut_off;
 };
 
 }  // namespace driver
