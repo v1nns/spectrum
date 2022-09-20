@@ -33,6 +33,7 @@ class FFTW {
   //! Public API
  public:
   error::Code Init();
+  error::Code Execute(double *in, int size, double *out);
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -56,10 +57,12 @@ class FFTW {
   static constexpr int kNumberBars = 10;
   static constexpr int kNumberChannels = 2;
 
-  static constexpr int kLowCutOff = 50;
-  static constexpr int kHighCutOff = 10000;
+  static constexpr int kLowCutOff = 50;      //!< Low frequency to cut off (in Hz)
+  static constexpr int kHighCutOff = 10000;  //!< High frequency to cut off (in Hz)
 
   static constexpr int kSampleRate = 44100;
+
+  static constexpr float kNoiseReduction = 0.77f;
 
   /* ******************************************************************************************** */
   //! Variables
@@ -93,6 +96,12 @@ class FFTW {
   double *eq;
   int *FFTbuffer_lower_cut_off;
   int *FFTbuffer_upper_cut_off;
+
+  double framerate;
+  int frame_skip;
+
+  double sens;
+  int sens_init;
 };
 
 }  // namespace driver
