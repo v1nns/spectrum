@@ -9,6 +9,7 @@
 #include <fftw3.h>
 
 #include <memory>
+#include <vector>
 
 #include "model/application_error.h"
 
@@ -38,17 +39,36 @@ class FFTW {
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
  private:
-  struct PlanDeleter {
-    void operator()(fftw_plan *p) const { fftw_destroy_plan(*p); }
+  struct RealDeleter {
+    void operator()(double *p) const { fftw_free(p); }
   };
 
   struct ComplexDeleter {
     void operator()(fftw_complex *p) const { fftw_free(p); }
   };
 
-  using FFTPlan = std::unique_ptr<fftw_plan, PlanDeleter>;
-
+  using FFTReal = std::unique_ptr<double, RealDeleter>;
   using FFTComplex = std::unique_ptr<fftw_complex, ComplexDeleter>;
+
+  /**
+   * @brief Audio frequency analysis
+   */
+  struct FreqAnalysis {
+    int buffer_size;                    // FFTbassbufferSize;
+    fftw_plan plan_left, plan_right;    // p_bass_l, p_bass_r;
+    FFTComplex out_left, out_right;     // *out_bass_l, *out_bass_r;
+    FFTReal multiplier;                 // *bass_multiplier;
+    FFTReal in_raw_left, in_raw_right;  // *in_bass_r_raw, *in_bass_l_raw;
+    FFTReal in_left, in_right;          // *in_bass_r, *in_bass_l;
+  };
+
+  /* ******************************************************************************************** */
+  //! Private methods
+ private:
+  void CreateHannWindow(FreqAnalysis &analysis);
+  void CreateFftwStructure(FreqAnalysis &analysis);
+  void CreateBuffers();
+  void CalculateFreqs();
 
   /* ******************************************************************************************** */
   //! Default Constants
@@ -67,23 +87,11 @@ class FFTW {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  /**
-   * @brief Audio frequency analysis
-   */
-  struct FreqAnalysis {
-    int buffer_size;                     // FFTbassbufferSize;
-    fftw_plan plan_left, plan_right;     // p_bass_l, p_bass_r;
-    fftw_complex *out_left, *out_right;  // *out_bass_l, *out_bass_r;
-    double *multiplier;                  // *bass_multiplier;
-    double *in_raw_left, *in_raw_right;  // *in_bass_r_raw, *in_bass_l_raw;
-    double *in_left, *in_right;          // *in_bass_r, *in_bass_l;
-  };
-
   FreqAnalysis bass_, mid_, treble_;
 
   //! Input buffer
-  double input_size;  // input_buffer_size
-  double *input;      // input_buffer
+  double input_size;           //!< input_buffer_size
+  std::vector<double> input_;  //!< input_buffer
 
   //! Still gotta understand
   double *prev_cava_out, *cava_mem, *cava_peak;
