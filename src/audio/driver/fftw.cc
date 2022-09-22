@@ -10,44 +10,28 @@ FFTW::FFTW()
     : bass_{},
       mid_{},
       treble_{},
-      input_size{},
+      input_size_{},
       input_{},
-      prev_cava_out{},
-      cava_mem{},
-      cava_peak{},
-      cava_fall{},
-      cut_off_frequency{},
+      previous_output_{},
+      memory_{},
+      peak_{},
+      fall_{},
+      cut_off_frequency_{},
       bass_cut_off_bar{},
       treble_cut_off_bar{},
-      eq{},
+      equalizer_{},
       FFTbuffer_lower_cut_off{},
       FFTbuffer_upper_cut_off{},
-      framerate{},
-      frame_skip{},
-      sens{},
+      frame_rate_{},
+      frame_skip_{},
+      sensitivity_{},
       sens_init{} {}
 
 /* ********************************************************************************************** */
 
-FFTW::~FFTW() {
-  free(prev_cava_out);
-  free(cava_mem);
-  free(cava_peak);
-  free(cava_fall);
-
-  free(cut_off_frequency);
-
-  free(eq);
-
-  free(FFTbuffer_lower_cut_off);
-  free(FFTbuffer_upper_cut_off);
-}
-
-/* ********************************************************************************************** */
-
 error::Code FFTW::Init() {
-  framerate = 75;
-  sens = 1;
+  frame_rate_ = 75;
+  sensitivity_ = 1;
   bass_.buffer_size = kBufferSize * 8;
   mid_.buffer_size = kBufferSize * 4;
   treble_.buffer_size = kBufferSize;
@@ -74,145 +58,21 @@ error::Code FFTW::Init() {
 /* ********************************************************************************************** */
 
 error::Code FFTW::Execute(double* in, int size, double* out) {
-  std::cout << "step 1" << std::endl;
-  if (size > input_size) size = input_size;
-
-  std::cout << "step 2" << std::endl;
   int silence = 1;
-  if (size > 0) {
-    framerate -= framerate / 64;
-    framerate += (double)((kSampleRate * kNumberChannels * frame_skip) / size) / 64;
-    frame_skip = 1;
 
-    // shifting input buffer
-    for (uint16_t n = input_size - 1; n >= size; n--) {
-      input_[n] = input_[n - size];
-    }
+  // Use raw data to fill input
+  FillInputBuffer(in, size, silence);
 
-    // fill the input buffer
-    for (uint16_t n = 0; n < size; n++) {
-      input_[size - n - 1] = in[n];
-      if (in[n]) {
-        silence = 0;
-      }
-    }
-  } else {
-    frame_skip++;
-  }
+  // Fill the bass, mid and treble buffers
+  ApplyFft(bass_);
+  ApplyFft(mid_);
+  ApplyFft(treble_);
 
-  std::cout << "step 3" << std::endl;
+  // Separate frequency bands
+  SeparateFreqBands(out);
 
-  // fill the bass, mid and treble buffers
-  auto fill_and_run_fft = [&](FreqAnalysis& analysis) mutable {
-    std::cout << "step 3.1" << std::endl;
-    for (int i = 0; i < analysis.buffer_size; i++) {
-      analysis.in_raw_right.get()[i] = input_[i * 2];
-      analysis.in_raw_left.get()[i] = input_[i * 2 + 1];
-    }
-    std::cout << "step 3.2" << std::endl;
-    // Hann Window
-    for (int j = 0; j < analysis.buffer_size; j++) {
-      analysis.in_left.get()[j] = analysis.multiplier.get()[j] * analysis.in_raw_left.get()[j];
-      analysis.in_right.get()[j] = analysis.multiplier.get()[j] * analysis.in_raw_right.get()[j];
-    }
-    std::cout << "step 3.3" << std::endl;
-    fftw_execute(analysis.plan_left);
-    fftw_execute(analysis.plan_right);
-  };
-
-  fill_and_run_fft(bass_);
-  fill_and_run_fft(mid_);
-  fill_and_run_fft(treble_);
-
-  std::cout << "step 4" << std::endl;
-
-  // process: separate frequency bands
-  for (int n = 0; n < kNumberBars; n++) {
-    double temp_l = 0;
-    double temp_r = 0;
-
-    // process: add upp FFT values within bands
-    for (int i = FFTbuffer_lower_cut_off[n]; i <= FFTbuffer_upper_cut_off[n]; i++) {
-      if (n <= bass_cut_off_bar) {
-        temp_l += hypot(bass_.out_left.get()[i][0], bass_.out_left.get()[i][1]);
-        temp_r += hypot(bass_.out_right.get()[i][0], bass_.out_right.get()[i][1]);
-
-      } else if (n > bass_cut_off_bar && n <= treble_cut_off_bar) {
-        temp_l += hypot(mid_.out_left.get()[i][0], mid_.out_left.get()[i][1]);
-        temp_r += hypot(mid_.out_right.get()[i][0], mid_.out_right.get()[i][1]);
-
-      } else if (n > treble_cut_off_bar) {
-        temp_l += hypot(treble_.out_left.get()[i][0], treble_.out_left.get()[i][1]);
-        temp_r += hypot(treble_.out_right.get()[i][0], treble_.out_right.get()[i][1]);
-      }
-    }
-
-    // getting average multiply with eq
-    temp_l /= FFTbuffer_upper_cut_off[n] - FFTbuffer_lower_cut_off[n] + 1;
-    temp_l *= eq[n];
-    out[n] = temp_l;
-
-    temp_r /= FFTbuffer_upper_cut_off[n] - FFTbuffer_lower_cut_off[n] + 1;
-    temp_r *= eq[n];
-    out[n + kNumberBars] = temp_r;
-  }
-
-  std::cout << "step 5" << std::endl;
-
-  // applying sens
-  for (int n = 0; n < kNumberBars * kNumberChannels; n++) {
-    out[n] *= sens;
-  }
-
-  // process [smoothing]
-  int overshoot = 0;
-  double gravity_mod = pow((60 / framerate), 2.5) * 1.54 / kNoiseReduction;
-
-  if (gravity_mod < 1) gravity_mod = 1;
-
-  std::cout << "step 6" << std::endl;
-
-  for (int n = 0; n < kNumberBars * kNumberChannels; n++) {
-    // process [smoothing]: falloff
-    if (out[n] < prev_cava_out[n]) {
-      out[n] = cava_peak[n] * (1000 - (cava_fall[n] * cava_fall[n] * gravity_mod)) / 1000;
-
-      if (out[n] < 0) out[n] = 0;
-      cava_fall[n]++;
-    } else {
-      cava_peak[n] = out[n];
-      cava_fall[n] = 0;
-    }
-    prev_cava_out[n] = out[n];
-
-    // process [smoothing]: integral
-    out[n] = cava_mem[n] * kNoiseReduction + out[n];
-    cava_mem[n] = out[n];
-
-    double diff = 1000 - out[n];
-    if (diff < 0) diff = 0;
-    double div = 1 / (diff + 1);
-    cava_mem[n] = cava_mem[n] * (1 - div / 20);
-
-    // check if we overshoot target height
-    if (out[n] > 1000) {
-      overshoot = 1;
-    }
-    out[n] /= 1000;
-  }
-
-  std::cout << "step 7" << std::endl;
-
-  // calculating automatic sense adjustment
-  if (overshoot) {
-    sens = sens * 0.98;
-    sens_init = 0;
-  } else {
-    if (!silence) {
-      sens = sens * 1.001;
-      if (sens_init) sens = sens * 1.1;
-    }
-  }
+  // Smoothing results with sense adjustment
+  SmoothingResults(out, silence);
 
   return error::kUnknownError;
 }
@@ -220,7 +80,7 @@ error::Code FFTW::Execute(double* in, int size, double* out) {
 /* ********************************************************************************************** */
 
 void FFTW::CreateHannWindow(FreqAnalysis& analysis) {
-  analysis.multiplier = FFTReal(fftw_alloc_real(analysis.buffer_size));
+  analysis.multiplier.reset(fftw_alloc_real(analysis.buffer_size));
 
   for (int i = 0; i < analysis.buffer_size; i++) {
     analysis.multiplier.get()[i] = 0.5 * (1 - std::cos(2 * M_PI * i / (analysis.buffer_size - 1)));
@@ -230,19 +90,22 @@ void FFTW::CreateHannWindow(FreqAnalysis& analysis) {
 /* ********************************************************************************************** */
 
 void FFTW::CreateFftwStructure(FreqAnalysis& analysis) {
-  analysis.in_raw_left = FFTReal(fftw_alloc_real(analysis.buffer_size));
-  analysis.in_raw_right = FFTReal(fftw_alloc_real(analysis.buffer_size));
+  analysis.in_raw_left.reset(fftw_alloc_real(analysis.buffer_size));
+  analysis.in_raw_right.reset(fftw_alloc_real(analysis.buffer_size));
 
-  analysis.in_left = FFTReal(fftw_alloc_real(analysis.buffer_size));
-  analysis.in_right = FFTReal(fftw_alloc_real(analysis.buffer_size));
+  analysis.in_left.reset(fftw_alloc_real(analysis.buffer_size));
+  analysis.in_right.reset(fftw_alloc_real(analysis.buffer_size));
 
-  analysis.out_left = FFTComplex(fftw_alloc_complex(analysis.buffer_size / 2 + 1));
-  analysis.out_right = FFTComplex(fftw_alloc_complex(analysis.buffer_size / 2 + 1));
+  analysis.out_left.reset(fftw_alloc_complex(analysis.buffer_size / 2 + 1));
+  analysis.out_right.reset(fftw_alloc_complex(analysis.buffer_size / 2 + 1));
 
-  analysis.plan_left = fftw_plan_dft_r2c_1d(analysis.buffer_size, analysis.in_left.get(),
-                                            analysis.out_left.get(), FFTW_MEASURE);
-  analysis.plan_right = fftw_plan_dft_r2c_1d(analysis.buffer_size, analysis.in_right.get(),
-                                             analysis.out_right.get(), FFTW_MEASURE);
+  fftw_plan p = fftw_plan_dft_r2c_1d(analysis.buffer_size, analysis.in_left.get(),
+                                     analysis.out_left.get(), FFTW_MEASURE);
+  analysis.plan_left.reset(p);
+
+  p = fftw_plan_dft_r2c_1d(analysis.buffer_size, analysis.in_right.get(), analysis.out_right.get(),
+                           FFTW_MEASURE);
+  analysis.plan_right.reset(p);
 
   memset(analysis.in_raw_left.get(), 0, sizeof(double) * analysis.buffer_size);
   memset(analysis.in_raw_right.get(), 0, sizeof(double) * analysis.buffer_size);
@@ -257,24 +120,19 @@ void FFTW::CreateFftwStructure(FreqAnalysis& analysis) {
 /* ********************************************************************************************** */
 
 void FFTW::CreateBuffers() {
-  input_size = bass_.buffer_size * kNumberChannels;
-  input_ = std::vector<double>(input_size, 0);
+  input_size_ = bass_.buffer_size * kNumberChannels;
+  input_ = std::vector<double>(input_size_, 0);
 
-  cava_fall = (int*)malloc(sizeof(int) * kNumberBars * kNumberChannels);
-  cava_mem = (double*)malloc(sizeof(double) * kNumberBars * kNumberChannels);
-  cava_peak = (double*)malloc(sizeof(double) * kNumberBars * kNumberChannels);
-  prev_cava_out = (double*)malloc(sizeof(double) * kNumberBars * kNumberChannels);
+  fall_ = std::vector<int>(kNumberBars * kNumberChannels, 0);
+  memory_ = std::vector<double>(kNumberBars * kNumberChannels, 0);
+  peak_ = std::vector<double>(kNumberBars * kNumberChannels, 0);
+  previous_output_ = std::vector<double>(kNumberBars * kNumberChannels, 0);
 
-  memset(cava_fall, 0, sizeof(int) * kNumberBars * kNumberChannels);
-  memset(cava_mem, 0, sizeof(double) * kNumberBars * kNumberChannels);
-  memset(cava_peak, 0, sizeof(double) * kNumberBars * kNumberChannels);
-  memset(prev_cava_out, 0, sizeof(double) * kNumberBars * kNumberChannels);
+  cut_off_frequency_ = std::vector<float>(kNumberBars + 1, 0);
+  equalizer_ = std::vector<double>(kNumberBars + 1, 0);
 
-  cut_off_frequency = (float*)malloc((kNumberBars + 1) * sizeof(float));
-  eq = (double*)malloc((kNumberBars + 1) * sizeof(double));
-
-  FFTbuffer_lower_cut_off = (int*)malloc((kNumberBars + 1) * sizeof(int));
-  FFTbuffer_upper_cut_off = (int*)malloc((kNumberBars + 1) * sizeof(int));
+  FFTbuffer_lower_cut_off = std::vector<int>(kNumberBars + 1);
+  FFTbuffer_upper_cut_off = std::vector<int>(kNumberBars + 1);
 }
 
 /* ********************************************************************************************** */
@@ -298,25 +156,25 @@ void FFTW::CalculateFreqs() {
   for (int n = 0; n < kNumberBars + 1; n++) {
     double bar_distribution_coefficient = frequency_constant * (-1);
     bar_distribution_coefficient += ((float)n + 1) / ((float)kNumberBars + 1) * frequency_constant;
-    cut_off_frequency[n] = kHighCutOff * pow(10, bar_distribution_coefficient);
+    cut_off_frequency_[n] = kHighCutOff * pow(10, bar_distribution_coefficient);
 
     if (n > 0) {
-      if (cut_off_frequency[n - 1] >= cut_off_frequency[n] &&
-          cut_off_frequency[n - 1] > bass_cut_off)
-        cut_off_frequency[n] =
-            cut_off_frequency[n - 1] + (cut_off_frequency[n - 1] - cut_off_frequency[n - 2]);
+      if (cut_off_frequency_[n - 1] >= cut_off_frequency_[n] &&
+          cut_off_frequency_[n - 1] > bass_cut_off)
+        cut_off_frequency_[n] =
+            cut_off_frequency_[n - 1] + (cut_off_frequency_[n - 1] - cut_off_frequency_[n - 2]);
     }
 
     // nyquist freq
-    relative_cut_off[n] = cut_off_frequency[n] / ((float)kSampleRate / 2);
+    relative_cut_off[n] = cut_off_frequency_[n] / ((float)kSampleRate / 2);
 
     // the numbers that come out of the FFT are very high
-    // the EQ is used to "normalize" them by dividing with this verry huge number
-    eq[n] = pow(cut_off_frequency[n], 1);
-    eq[n] /= pow(2, 18);
-    eq[n] /= log2(bass_.buffer_size);
+    // the EQ is used to "normalize" them by dividing with this very huge number
+    equalizer_[n] = pow(cut_off_frequency_[n], 1);
+    equalizer_[n] /= pow(2, 18);
+    equalizer_[n] /= log2(bass_.buffer_size);
 
-    if (cut_off_frequency[n] < bass_cut_off) {
+    if (cut_off_frequency_[n] < bass_cut_off) {
       // BASS
       bar_buffer[n] = 1;
       FFTbuffer_lower_cut_off[n] = relative_cut_off[n] * ((float)bass_.buffer_size / 2);
@@ -327,7 +185,7 @@ void FFTW::CalculateFreqs() {
       if (FFTbuffer_lower_cut_off[n] > bass_.buffer_size / 2) {
         FFTbuffer_lower_cut_off[n] = bass_.buffer_size / 2;
       }
-    } else if (cut_off_frequency[n] > bass_cut_off && cut_off_frequency[n] < treble_cut_off) {
+    } else if (cut_off_frequency_[n] > bass_cut_off && cut_off_frequency_[n] < treble_cut_off) {
       // MID
       bar_buffer[n] = 2;
       FFTbuffer_lower_cut_off[n] = relative_cut_off[n] * ((float)mid_.buffer_size / 2);
@@ -402,13 +260,147 @@ void FFTW::CalculateFreqs() {
                 break;
             }
 
-            cut_off_frequency[n] = relative_cut_off[n] * ((float)kSampleRate / 2);
+            cut_off_frequency_[n] = relative_cut_off[n] * ((float)kSampleRate / 2);
           }
         }
       } else {
         if (FFTbuffer_upper_cut_off[n - 1] <= FFTbuffer_lower_cut_off[n - 1])
           FFTbuffer_upper_cut_off[n - 1] = FFTbuffer_lower_cut_off[n - 1] + 1;
       }
+    }
+  }
+}
+
+/* ********************************************************************************************** */
+
+void FFTW::FillInputBuffer(double* in, int& size, int& silence) {
+  if (size > input_size_) size = input_size_;
+
+  if (size > 0) {
+    frame_rate_ -= frame_rate_ / 64;
+    frame_rate_ += (double)((float)(kSampleRate * kNumberChannels * frame_skip_) / size) / 64;
+    frame_skip_ = 1;
+
+    // shifting input buffer
+    for (uint16_t n = input_size_ - 1; n >= size; n--) {
+      input_[n] = input_[n - size];
+    }
+
+    // fill the input buffer
+    for (uint16_t n = 0; n < size; n++) {
+      input_[size - n - 1] = in[n];
+      if (in[n]) {
+        silence = 0;
+      }
+    }
+  } else {
+    frame_skip_++;
+  }
+}
+
+/* ********************************************************************************************** */
+
+void FFTW::ApplyFft(FreqAnalysis& analysis) {
+  for (int i = 0; i < analysis.buffer_size; i++) {
+    analysis.in_raw_right.get()[i] = input_[i * 2];
+    analysis.in_raw_left.get()[i] = input_[i * 2 + 1];
+  }
+
+  // Hann Window
+  for (int j = 0; j < analysis.buffer_size; j++) {
+    analysis.in_left.get()[j] = analysis.multiplier.get()[j] * analysis.in_raw_left.get()[j];
+    analysis.in_right.get()[j] = analysis.multiplier.get()[j] * analysis.in_raw_right.get()[j];
+  }
+
+  fftw_execute(analysis.plan_left.get());
+  fftw_execute(analysis.plan_right.get());
+}
+
+/* ********************************************************************************************** */
+
+void FFTW::SeparateFreqBands(double* out) {
+  for (int n = 0; n < kNumberBars; n++) {
+    double temp_l = 0;
+    double temp_r = 0;
+
+    // process: add upp FFT values within bands
+    for (int i = FFTbuffer_lower_cut_off[n]; i <= FFTbuffer_upper_cut_off[n]; i++) {
+      if (n <= bass_cut_off_bar) {
+        temp_l += hypot(bass_.out_left.get()[i][0], bass_.out_left.get()[i][1]);
+        temp_r += hypot(bass_.out_right.get()[i][0], bass_.out_right.get()[i][1]);
+
+      } else if (n > bass_cut_off_bar && n <= treble_cut_off_bar) {
+        temp_l += hypot(mid_.out_left.get()[i][0], mid_.out_left.get()[i][1]);
+        temp_r += hypot(mid_.out_right.get()[i][0], mid_.out_right.get()[i][1]);
+
+      } else if (n > treble_cut_off_bar) {
+        temp_l += hypot(treble_.out_left.get()[i][0], treble_.out_left.get()[i][1]);
+        temp_r += hypot(treble_.out_right.get()[i][0], treble_.out_right.get()[i][1]);
+      }
+    }
+
+    // getting average multiply with eq
+    temp_l /= FFTbuffer_upper_cut_off[n] - FFTbuffer_lower_cut_off[n] + 1;
+    temp_l *= equalizer_[n];
+    out[n] = temp_l;
+
+    temp_r /= FFTbuffer_upper_cut_off[n] - FFTbuffer_lower_cut_off[n] + 1;
+    temp_r *= equalizer_[n];
+    out[n + kNumberBars] = temp_r;
+  }
+}
+
+/* ********************************************************************************************** */
+
+void FFTW::SmoothingResults(double* out, int silence) {
+  // applying sensitivity adjustment
+  for (int n = 0; n < kNumberBars * kNumberChannels; n++) {
+    out[n] *= sensitivity_;
+  }
+
+  // smoothing
+  int overshoot = 0;
+  double gravity_mod = pow((60 / frame_rate_), 2.5) * 1.54 / kNoiseReduction;
+
+  if (gravity_mod < 1) gravity_mod = 1;
+
+  for (int n = 0; n < kNumberBars * kNumberChannels; n++) {
+    // falloff
+    if (out[n] < previous_output_[n]) {
+      out[n] = peak_[n] * (1000 - (fall_[n] * fall_[n] * gravity_mod)) / 1000;
+
+      if (out[n] < 0) out[n] = 0;
+      fall_[n]++;
+    } else {
+      peak_[n] = out[n];
+      fall_[n] = 0;
+    }
+    previous_output_[n] = out[n];
+
+    // integral
+    out[n] = memory_[n] * kNoiseReduction + out[n];
+    memory_[n] = out[n];
+
+    double diff = 1000 - out[n];
+    if (diff < 0) diff = 0;
+    double div = 1 / (diff + 1);
+    memory_[n] = memory_[n] * (1 - div / 20);
+
+    // check if we overshoot target height
+    if (out[n] > 1000) {
+      overshoot = 1;
+    }
+    out[n] /= 1000;
+  }
+
+  // calculating automatic sensitivity adjustment
+  if (overshoot) {
+    sensitivity_ = sensitivity_ * 0.98;
+    sens_init = 0;
+  } else {
+    if (!silence) {
+      sensitivity_ = sensitivity_ * 1.001;
+      if (sens_init) sensitivity_ = sensitivity_ * 1.1;
     }
   }
 }
