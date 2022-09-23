@@ -85,40 +85,43 @@ class FFTW {
   /* ******************************************************************************************** */
   //! Default Constants
 
-  static constexpr int kBufferSize = 1024;
-  static constexpr int kNumberBars = 10;
-  static constexpr int kNumberChannels = 2;
+  static constexpr int kBufferSize = 1024;   //!< Base size for buffers
+  static constexpr int kNumberBars = 10;     //!< Quantity of bars to represent audio spectrum
+  static constexpr int kNumberChannels = 2;  //!< Always consider input audio data as stereo
 
   static constexpr int kLowCutOff = 50;      //!< Low frequency to cut off (in Hz)
   static constexpr int kHighCutOff = 10000;  //!< High frequency to cut off (in Hz)
 
-  static constexpr int kSampleRate = 44100;
+  static constexpr int kSampleRate = 44100;  //!< Audio data sample rate
 
-  static constexpr float kNoiseReduction = 0.77f;
+  static constexpr float kNoiseReduction =
+      0.77f;  //!< Adjusts the integral and gravity filters to keep the signal smooth
 
   /* ******************************************************************************************** */
   //! Variables
  private:
-  FreqAnalysis bass_, mid_, treble_;
+  FreqAnalysis bass_, mid_, treble_;  //!< Split analysis between three audio spectrums
 
-  //! Input buffer
-  double input_size_;          //!< input_buffer_size
-  std::vector<double> input_;  //!< input_buffer
+  //! Input data
+  double input_size_;          //!< Maximum size for input buffer
+  std::vector<double> input_;  //!< Input buffer with raw audio data
 
-  //! Still gotta understand
+  //! To smooth results after applying FFT
   std::vector<double> previous_output_, memory_, peak_;
   std::vector<int> fall_;
 
-  std::vector<float> cut_off_frequency_;
-  int bass_cut_off_bar;
-  int treble_cut_off_bar;
+  //! Distribute bars across the frequency band (based on output from FFT)
+  std::vector<float> cut_off_freq_;  //!< Cut-off frequency per bar
+  int bass_cut_off_;                 //!< Maximum frequency in bass range
+  int treble_cut_off_;               //!< Minimum frequency in treble range
 
-  std::vector<double> equalizer_;
-  std::vector<int> FFTbuffer_lower_cut_off;
-  std::vector<int> FFTbuffer_upper_cut_off;
+  std::vector<int> lower_cut_off_per_bar_;  //!< Contains the lowest frequency per bar
+  std::vector<int> upper_cut_off_per_bar_;  //!< Contains the highest frequency per bar
 
-  double frame_rate_;
-  int frame_skip_;
+  std::vector<double> equalizer_;  //!< Normalize output from audio analysis
+
+  double frame_rate_;  //!< Frames per second for UI refresh
+  int frame_skip_;     //!< Counter for skipped frames when no input is available to analyze
 
   double sensitivity_;  //!< Sensitivity adjustment, to dynamic regulate output signal from 0 to 1
   int sens_init;  //!< Previous value for sensitivity adjustment (this is to ensure that output
