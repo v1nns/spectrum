@@ -4,20 +4,17 @@
 #include <gtest/gtest-test-part.h>  // for TestPartResult
 
 #include <cmath>
+#include <iostream>
 #include <memory>
+#include <vector>
 
 #include "audio/driver/fftw.h"
 #include "model/application_error.h"
 
 namespace {
 
-using ::testing::_;
-using ::testing::AtMost;
-using ::testing::Eq;
-using ::testing::Field;
-using ::testing::InSequence;
-using ::testing::Invoke;
-using ::testing::Return;
+using ::testing::ElementsAreArray;
+using ::testing::Matcher;
 
 /**
  * @brief Tests with FFTW class
@@ -37,78 +34,61 @@ class FftwTest : public ::testing::Test {
   }
 
  protected:
-  Fftw analyzer;  //!< TODO:
+  static constexpr int kNumberBars = 10;    //!< Number of bars per channel
+  static constexpr int kBufferSize = 1024;  //!< Input buffer size
+
+  Fftw analyzer;  //!< Audio frequency analysis
 };
 
 /* ********************************************************************************************** */
 
 TEST_F(FftwTest, InitAndExecute) {
-  printf("allocating buffers and generating sine wave for test\n\n");
+  // Create expected results
+  const Matcher<double> expected_200MHz[kNumberBars] = {0, 0, 0.998, 0.009, 0, 0.001, 0, 0, 0, 0};
+  const Matcher<double> expected_2000MHz[kNumberBars] = {0, 0, 0, 0, 0, 0, 0.524, 0.474, 0, 0};
 
-  double blueprint_2000MHz[10] = {0, 0, 0, 0, 0, 0, 0.524, 0.474, 0, 0};
-  double blueprint_200MHz[10] = {0, 0, 0.998, 0.009, 0, 0.001, 0, 0, 0, 0};
+  // Create in/out buffers
+  std::vector<double> out(kNumberBars * 2, 0);
+  std::vector<double> in(kBufferSize, 0);
 
-  double *cava_out;
-  double *cava_in;
-
-  cava_out = (double *)malloc(10 * 2 * sizeof(double));
-  cava_in = (double *)malloc(1024 * sizeof(double));
-
-  for (int i = 0; i < 10 * 2; i++) {
-    cava_out[i] = 0;
-  }
-
-  printf("running cava execute 300 times (simulating about 3.5 seconds run time)\n\n");
+  // Running execute 300 times (simulating about 3.5 seconds run time
   for (int k = 0; k < 300; k++) {
-    // filling up 512*2 samples at a time, making sure the sinus wave is unbroken
+    // Filling up 512*2 samples at a time, making sure the sinus wave is unbroken
     // 200MHz in left channel, 2000MHz in right
-    // if we where using a proper audio source this would be replaced by a simple read function
-    for (int n = 0; n < 1024 / 2; n++) {
-      cava_in[n * 2] = sin(2 * M_PI * 200 / 44100 * (n + (k * 1024 / 2))) * 20000;
-      cava_in[n * 2 + 1] = sin(2 * M_PI * 2000 / 44100 * (n + (k * 1024 / 2))) * 20000;
+    for (int n = 0; n < kBufferSize / 2; n++) {
+      in[n * 2] = sin(2 * M_PI * 200 / 44100 * (n + ((float)k * kBufferSize / 2))) * 20000;
+      in[n * 2 + 1] = sin(2 * M_PI * 2000 / 44100 * (n + ((float)k * kBufferSize / 2))) * 20000;
     }
 
-    analyzer->Execute(cava_in, 1024, cava_out);
+    analyzer->Execute(in.data(), kBufferSize, out.data());
   }
 
-  // rounding last output to nearst 1/1000th
-  for (int i = 0; i < 10 * 2; i++) {
-    cava_out[i] = (double)round(cava_out[i] * 1000) / 1000;
+  // Rounding last output to nearest 1/1000th
+  for (int i = 0; i < kNumberBars * 2; i++) {
+    out[i] = (double)round(out[i] * 1000) / 1000;
   }
 
-  printf("\nlast output left, max value should be at 200Hz:\n");
-  for (int i = 0; i < 10; i++) {
-    printf("%.3f \t", cava_out[i]);
-  }
-  printf("MHz\n");
+  // Split result by channel
+  std::vector<double> left(out.begin(), out.begin() + 10);
+  std::vector<double> right(out.begin() + 10, out.begin() + 20);
 
-  printf("last output right,  max value should be at 2000Hz:\n");
-  for (int i = 0; i < 10; i++) {
-    printf("%.3f \t", cava_out[i + 10]);
+  // Print results
+  std::cout.setf(std::ios::fixed, std::ios::floatfield);
+  std::cout << "\nlast output from channel left, max value should be at 200Hz:\n";
+  for (const auto& value : left) {
+    std::cout << std::setprecision(3) << value << " \t";
   }
-  printf("MHz\n\n");
+  std::cout << "MHz\n\n";
 
-  // checking if within 2% of blueprint
-  int bp_ok = 1;
-  for (int i = 0; i < 10; i++) {
-    if (cava_out[i] > blueprint_200MHz[i] * 1.02 || cava_out[i] < blueprint_200MHz[i] * 0.98)
-      bp_ok = 0;
+  std::cout << "last output from channel right,  max value should be at 2000Hz:\n";
+  for (const auto& value : left) {
+    std::cout << std::setprecision(3) << value << " \t";
   }
-  for (int i = 0; i < 10; i++) {
-    if (cava_out[i + 10] > blueprint_2000MHz[i] * 1.02 ||
-        cava_out[i + 10] < blueprint_2000MHz[i] * 0.98)
-      bp_ok = 0;
-  }
+  std::cout << "MHz\n\n";
 
-  free(cava_in);
-  free(cava_out);
-  if (bp_ok == 1) {
-    printf("matching blueprint\n");
-    exit(0);
-  } else {
-    printf("not matching blueprint\n");
-    exit(1);
-  }
+  // Check that values are equal to expectation
+  ASSERT_THAT(left, ElementsAreArray(expected_200MHz));
+  ASSERT_THAT(right, ElementsAreArray(expected_2000MHz));
 }
 
 }  // namespace

@@ -25,7 +25,7 @@ FFTW::FFTW()
       frame_rate_{},
       frame_skip_{},
       sensitivity_{},
-      sens_init{} {}
+      sens_init_{} {}
 
 /* ********************************************************************************************** */
 
@@ -395,11 +395,11 @@ void FFTW::SmoothingResults(double* out, int silence) {
   // Calculating automatic sensitivity adjustment
   if (overshoot) {
     sensitivity_ = sensitivity_ * 0.98;
-    sens_init = 0;
+    sens_init_ = 0;
   } else {
     if (!silence) {
       sensitivity_ = sensitivity_ * 1.001;
-      if (sens_init) sensitivity_ = sensitivity_ * 1.1;
+      if (sens_init_) sensitivity_ = sensitivity_ * 1.1;
     }
   }
 }

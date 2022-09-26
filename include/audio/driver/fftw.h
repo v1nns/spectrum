@@ -124,8 +124,8 @@ class FFTW {
   int frame_skip_;     //!< Counter for skipped frames when no input is available to analyze
 
   double sensitivity_;  //!< Sensitivity adjustment, to dynamic regulate output signal from 0 to 1
-  int sens_init;  //!< Previous value for sensitivity adjustment (this is to ensure that output
-                  //!< signal won't exceed maximum value)
+  int sens_init_;  //!< Previous value for sensitivity adjustment (this is to ensure that output
+                   //!< signal won't exceed maximum value)
 };
 
 }  // namespace driver
