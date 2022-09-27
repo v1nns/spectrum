@@ -46,11 +46,11 @@ CustomEvent CustomEvent::UpdateSongState(const model::Song::CurrentInformation& 
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::DrawAudioRaw(int* buffer, int buffer_size) {
+CustomEvent CustomEvent::DrawAudioSpectrum(const std::vector<double>& data) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
-      .id = Identifier::DrawAudioRaw,
-      .content = std::vector<int>(buffer, buffer + buffer_size),
+      .id = Identifier::DrawAudioSpectrum,
+      .content = data,
   };
 }
 

@@ -48,7 +48,8 @@ TEST_F(FftwTest, InitAndExecute) {
   const Matcher<double> expected_2000MHz[kNumberBars] = {0, 0, 0, 0, 0, 0, 0.524, 0.474, 0, 0};
 
   // Create in/out buffers
-  std::vector<double> out(kNumberBars * 2, 0);
+  int out_size = analyzer->GetOutputSize();
+  std::vector<double> out(out_size, 0);
   std::vector<double> in(kBufferSize, 0);
 
   // Running execute 300 times (simulating about 3.5 seconds run time
@@ -64,7 +65,7 @@ TEST_F(FftwTest, InitAndExecute) {
   }
 
   // Rounding last output to nearest 1/1000th
-  for (int i = 0; i < kNumberBars * 2; i++) {
+  for (int i = 0; i < out_size; i++) {
     out[i] = (double)round(out[i] * 1000) / 1000;
   }
 
@@ -81,7 +82,7 @@ TEST_F(FftwTest, InitAndExecute) {
   std::cout << "MHz\n\n";
 
   std::cout << "last output from channel right,  max value should be at 2000Hz:\n";
-  for (const auto& value : left) {
+  for (const auto& value : right) {
     std::cout << std::setprecision(3) << value << " \t";
   }
   std::cout << "MHz\n\n";

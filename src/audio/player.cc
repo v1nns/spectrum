@@ -42,6 +42,8 @@ Player::Player(std::unique_ptr<driver::Playback>&& playback,
 /* ********************************************************************************************** */
 
 Player::~Player() {
+  Exit();
+
   if (audio_loop_.joinable()) {
     audio_loop_.join();
   }

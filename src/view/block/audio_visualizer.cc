@@ -2,8 +2,6 @@
 
 #include <chrono>
 #include <cmath>
-#include <fstream>
-#include <iostream>
 #include <iterator>
 
 #include "ftxui/component/event.hpp"
@@ -20,26 +18,14 @@ AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatc
 
 ftxui::Element AudioVisualizer::Render() {
   // ftxui::Element content = ftxui::vbox(ftxui::filler());
+  ftxui::Elements entries;
 
-  auto my_graph = [this](int width, int height) {
-    std::vector<int> output(width);
-    for (int i = 0; i < width; ++i) {
-      // float v = 0.5f;
-      float v = 0;
-      if (i < data_.size()) {
-        // v += data_.at(i);
-        v += 0.1f * sin((i)*data_.at(i));
-        // v += 0.2f * sin((i + 10) * 0.15f);
-        // v += 0.1f * sin((i)*0.03f);
-        v *= height;
-      }
+  for (const auto& value : data_) {
+    entries.push_back(ftxui::gauge(value));
+    entries.push_back(ftxui::text(" "));
+  }
 
-      output[i] = (int)v;
-    }
-    return output;
-  };
-
-  return ftxui::window(ftxui::text(" visualizer "), ftxui::graph(my_graph));
+  return ftxui::window(ftxui::text(" visualizer "), ftxui::vbox(std::move(entries)) | ftxui::flex);
 }
 
 /* ********************************************************************************************** */
@@ -49,8 +35,8 @@ bool AudioVisualizer::OnEvent(ftxui::Event event) { return false; }
 /* ********************************************************************************************** */
 
 bool AudioVisualizer::OnCustomEvent(const CustomEvent& event) {
-  if (event == CustomEvent::Identifier::DrawAudioRaw) {
-    const auto& data = event.GetContent<std::vector<int>>();
+  if (event == CustomEvent::Identifier::DrawAudioSpectrum) {
+    const auto& data = event.GetContent<std::vector<double>>();
 
     // TODO: do something with data
     data_ = std::move(data);

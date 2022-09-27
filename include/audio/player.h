@@ -85,7 +85,7 @@ class Player : public AudioControl {
   //! Internal operations
  private:
   /**
-   * @brief Initialize internal components for Terminal object
+   * @brief Initialize internal components for Player object
    * @param asynchronous Run Audio Player as a thread
    */
   void Init(bool asynchronous);

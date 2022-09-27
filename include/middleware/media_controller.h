@@ -6,8 +6,12 @@
 #ifndef INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
+#include <atomic>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 
+#include "audio/driver/fftw.h"
 #include "audio/player.h"
 #include "model/application_error.h"
 #include "model/song.h"
@@ -48,16 +52,36 @@ class MediaController : public interface::Listener, public interface::Notifier {
    * @brief Factory method: Create, initialize internal components and return MediaController object
    * @param dispatcher Event dispatcher for Interface
    * @param player Interface to Audio player
+   * @param asynchronous Run Audio Analysis as a thread (default is true)
    * @return std::shared_ptr<MediaController> MediaController instance
    */
   static std::shared_ptr<MediaController> Create(
       const std::shared_ptr<interface::Terminal>& terminal,
-      const std::shared_ptr<audio::Player>& player);
+      const std::shared_ptr<audio::Player>& player, bool asynchronous = true);
 
   /**
    * @brief Destroy the MediaController object
    */
-  virtual ~MediaController() = default;
+  virtual ~MediaController();
+
+  /**
+   * @brief Exit from Audio Analysis loop
+   */
+  void Exit();
+
+  /* ******************************************************************************************** */
+  //! Internal operations
+ private:
+  /**
+   * @brief Initialize internal components for MediaController object
+   * @param asynchronous Run Audio Analysis as a thread
+   */
+  void Init(bool asynchronous);
+
+  /**
+   * @brief Main-loop function to analyze input stream and send result to UI
+   */
+  void AnalysisHandler();
 
   /* ******************************************************************************************** */
   //! Actions received from UI and sent to Player
@@ -119,12 +143,71 @@ class MediaController : public interface::Listener, public interface::Notifier {
   void NotifyError(error::Code code) override;
 
   /* ******************************************************************************************** */
+  //! Audio analysis
+
+  /**
+   * @brief An structure for data synchronization considering external events (wait for audio data
+   * from player to run some frequency analysis)
+   */
+  struct AnalysisDataSynced {
+    std::mutex mutex;                  //!< Control access for internal resources
+    std::condition_variable notifier;  //!< Conditional variable to block thread
+
+    std::atomic<bool> exit;  //!< Control flag to exit thread
+
+    std::vector<double> buffer;  //!< Input buffer with raw audio data
+
+    /**
+     * @brief Block thread until player sends raw audio data.
+     *
+     * @return True if thread should keep working, False if not
+     */
+    bool WaitForInput() {
+      std::unique_lock<std::mutex> lock(mutex);
+      notifier.wait(lock, [&]() {
+        // Simply exit, do not wait for input data
+        if (exit) return true;
+
+        // There is input to be analyzed
+        if (!buffer.empty()) return true;
+
+        return false;
+      });
+
+      return !exit;
+    }
+
+    /**
+     * @brief Get a slice from raw audio data to run frequency analysis
+     *
+     * @param size Chunk size
+     * @return Vector containing raw audio data
+     */
+    const std::vector<double> GetData(int size) {
+      std::unique_lock<std::mutex> lock(mutex);
+      if (size > buffer.size()) size = buffer.size();
+
+      std::vector<double>::const_iterator first = buffer.begin();
+      std::vector<double>::const_iterator last = buffer.begin() + size;
+
+      std::vector<double> output(first, last);
+      buffer.erase(first, last);
+
+      return output;
+    }
+  };
+
+  /* ******************************************************************************************** */
   //! Variables
  private:
-  std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Dispatch events for UI blocks
+  std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Send events to UI blocks
   std::weak_ptr<audio::AudioControl> player_ctl_;         //!< Send events to control Audio Player
 
-  std::vector<int> buffer_;
+  std::unique_ptr<driver::FFTW> analyzer_;  //!< Run FFTs on audio raw data to get spectrum
+
+  std::thread analysis_loop_;  //!< Execute audio-analysis function as a thread
+
+  AnalysisDataSynced analysis_data_;  //!< Controls the audio data synchronization
 };
 
 }  // namespace middleware

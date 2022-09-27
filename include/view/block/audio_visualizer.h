@@ -51,7 +51,8 @@ class AudioVisualizer : public Block {
   /* ******************************************************************************************* */
   //! Variables
  private:
-  std::vector<int> data_;
+  std::vector<double>
+      data_;  //!< Audio spectrum for stereo (split in bars, each entry represents a frequency bar)
 };
 
 }  // namespace interface

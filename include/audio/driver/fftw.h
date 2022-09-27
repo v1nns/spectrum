@@ -36,6 +36,9 @@ class FFTW {
   error::Code Init();
   error::Code Execute(double *in, int size, double *out);
 
+  int GetBufferSize() { return kBufferSize; }
+  int GetOutputSize() { return kNumberBars * kNumberChannels; }
+
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
  private:

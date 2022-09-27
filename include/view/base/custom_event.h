@@ -34,7 +34,7 @@ struct CustomEvent {
     UpdateVolume = 50001,
     UpdateSongInfo = 50002,
     UpdateSongState = 50003,
-    DrawAudioRaw = 50004,
+    DrawAudioSpectrum = 50004,
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
@@ -54,7 +54,7 @@ struct CustomEvent {
   static CustomEvent UpdateVolume(const model::Volume& sound_volume);
   static CustomEvent UpdateSongInfo(const model::Song& info);
   static CustomEvent UpdateSongState(const model::Song::CurrentInformation& new_state);
-  static CustomEvent DrawAudioRaw(int* buffer, int buffer_size);
+  static CustomEvent DrawAudioSpectrum(const std::vector<double>& data);
 
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
@@ -77,7 +77,7 @@ struct CustomEvent {
 
   //! Possible types for content
   using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
-                               std::filesystem::path, std::vector<int>>;
+                               std::filesystem::path, std::vector<double>>;
 
   //! Variables
   // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization

@@ -30,7 +30,7 @@ FFTW::FFTW()
 /* ********************************************************************************************** */
 
 error::Code FFTW::Init() {
-  frame_rate_ = 75;
+  frame_rate_ = 60;
   sensitivity_ = 1;
   bass_.buffer_size = kBufferSize * 8;
   mid_.buffer_size = kBufferSize * 4;
