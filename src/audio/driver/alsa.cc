@@ -39,8 +39,9 @@ error::Code Alsa::CreatePlaybackStream() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::ConfigureParameters() {
+  // with latency as 92900us, we get a period size equal to 1024
   if (snd_pcm_set_params(playback_handle_.get(), kSampleFormat, SND_PCM_ACCESS_RW_INTERLEAVED,
-                         kChannels, kSampleRate, 0, kSampleRate / 4) < 0) {
+                         kChannels, kSampleRate, 0, 92900) < 0) {
     return error::kUnknownError;
   }
 

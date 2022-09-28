@@ -169,7 +169,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
         if (exit) return true;
 
         // There is input to be analyzed
-        if (!buffer.empty() && buffer.size() >= 1024) return true;
+        if (!buffer.empty()) return true;
 
         return false;
       });
@@ -183,7 +183,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
      * @param size Chunk size
      * @return Vector containing raw audio data
      */
-    const std::vector<double> GetData(int size) {
+    const std::vector<double> Get(int size) {
       std::unique_lock<std::mutex> lock(mutex);
       if (size > buffer.size()) size = buffer.size();
 
@@ -194,6 +194,28 @@ class MediaController : public interface::Listener, public interface::Notifier {
       buffer.erase(first, last);
 
       return output;
+    }
+
+    /**
+     * @brief Append raw audio data sent by Audio Player to internal buffer
+     *
+     * @param input Array with raw data
+     * @param size Array size
+     */
+    void Append(int* input, int size) {
+      std::unique_lock<std::mutex> lock(mutex);
+      std::vector<double>::const_iterator end = buffer.end();
+
+      buffer.insert(end, input, input + size);
+      notifier.notify_one();
+    }
+
+    /**
+     * @brief Force to exit from audio analysis thread
+     */
+    void Exit() {
+      exit = true;
+      notifier.notify_one();
     }
   };
 

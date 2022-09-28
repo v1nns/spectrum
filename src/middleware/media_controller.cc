@@ -72,8 +72,7 @@ void MediaController::Init(bool asynchronous) {
 /* ********************************************************************************************** */
 
 void MediaController::Exit() {
-  analysis_data_.exit = true;
-  analysis_data_.notifier.notify_one();
+  analysis_data_.Exit();
 }
 
 /* ********************************************************************************************** */
@@ -87,7 +86,7 @@ void MediaController::AnalysisHandler() {
   std::vector<double> result(output_size, 0);
 
   while (analysis_data_.WaitForInput()) {
-    input = analysis_data_.GetData(input_size);
+    input = analysis_data_.Get(input_size);
     analyzer_->Execute(input.data(), input.size(), result.data());
 
     auto dispatcher = dispatcher_.lock();
@@ -175,17 +174,12 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& sta
 /* ********************************************************************************************** */
 
 void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
-  std::unique_lock<std::mutex> lock(analysis_data_.mutex);
-
   // std::ofstream myfile;
   // myfile.open("/tmp/output.txt", std::ios::out | std::ios::app | std::ios::binary);
   // myfile << "ta adicionando isso no buffer: " << buffer_size << "\n";
   // myfile.close();
 
-  // Append input data to internal buffer
-  std::vector<double>::const_iterator end = analysis_data_.buffer.end();
-  analysis_data_.buffer.insert(end, buffer, buffer + buffer_size);
-  analysis_data_.notifier.notify_one();
+  analysis_data_.Append(buffer, buffer_size);
 }
 
 /* ********************************************************************************************** */
