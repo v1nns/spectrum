@@ -24,9 +24,9 @@ namespace interface {
  * @param c Color
  * @return MenuEntryOption Custom object with the requested color
  */
-ftxui::MenuEntryOption Colored(ftxui::Color c) {
+MenuEntryOption Colored(ftxui::Color c) {
   using ftxui::Decorator, ftxui::color, ftxui::inverted;
-  return ftxui::MenuEntryOption{
+  return MenuEntryOption{
       .style_normal = Decorator(color(c)),
       .style_focused = Decorator(color(c)) | inverted,
       .style_selected = Decorator(color(c)),
@@ -151,7 +151,7 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
     return OnMouseEvent(event);
   }
 
-  if (Focused()) {
+  // if (Focused()) {
     if (OnMenuNavigation(event)) {
       return true;
     }
@@ -170,8 +170,7 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
       });
       return true;
     }
-  }
-
+  // }
   return false;
 }
 

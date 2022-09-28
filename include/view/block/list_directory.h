@@ -36,6 +36,14 @@ namespace interface {
 using File = std::filesystem::path;  //!< Single file path
 using Files = std::vector<File>;     //!< List of file paths
 
+//! Custom style for menu entry
+struct MenuEntryOption {
+  ftxui::Decorator style_normal;
+  ftxui::Decorator style_focused;
+  ftxui::Decorator style_selected;
+  ftxui::Decorator style_selected_focused;
+};
+
 /**
  * @brief Component to list files from given directory
  */
@@ -141,9 +149,9 @@ class ListDirectory : public Block {
 
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
-    ftxui::MenuEntryOption directory;
-    ftxui::MenuEntryOption file;
-    ftxui::MenuEntryOption playing;
+    MenuEntryOption directory;
+    MenuEntryOption file;
+    MenuEntryOption playing;
   };
 
   /* ******************************************************************************************** */

@@ -169,7 +169,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
         if (exit) return true;
 
         // There is input to be analyzed
-        if (!buffer.empty()) return true;
+        if (!buffer.empty() && buffer.size() >= 1024) return true;
 
         return false;
       });

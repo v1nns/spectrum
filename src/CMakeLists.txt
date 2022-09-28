@@ -17,7 +17,7 @@ pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
 FetchContent_Declare(
   ftxui
   GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-  GIT_TAG v2.0.0)
+  GIT_TAG b3aad183da2e67943d2330a396200167da523be0)
 
 FetchContent_GetProperties(ftxui)
 if(NOT ftxui_POPULATED)
