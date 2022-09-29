@@ -108,6 +108,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   bool OnEvent(ftxui::Event event) override;
 
+  /**
+   * @brief Based on maximum terminal size, calculate how many bars can be shown in spectrum graphic
+   * @return Number of bars
+   */
+  int CalculateNumberBars();
+
   /* ******************************************************************************************** */
   //! Internal event handling
  private:
@@ -148,6 +154,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
   Callback cb_exit_;             //!< Function to exit from graphical interface
+
+  ftxui::Dimensions size_;  //!< Terminal maximum size
 };
 
 }  // namespace interface

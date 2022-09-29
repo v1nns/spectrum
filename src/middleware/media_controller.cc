@@ -17,7 +17,10 @@ std::shared_ptr<MediaController> MediaController::Create(
     const std::shared_ptr<audio::Player>& player, bool asynchronous) {
   // Create and initialize media controller
   auto controller = std::shared_ptr<MediaController>(new MediaController(terminal, player));
-  controller->Init(asynchronous);
+
+  // Use terminal maximum width as input to decide how many bars should display on audio visualizer
+  auto number_bars = terminal->CalculateNumberBars();
+  controller->Init(number_bars, asynchronous);
 
   // Register callbacks to Terminal
   terminal->RegisterInterfaceListener(controller);
@@ -57,11 +60,11 @@ MediaController::~MediaController() {
 
 /* ********************************************************************************************** */
 
-void MediaController::Init(bool asynchronous) {
+void MediaController::Init(int number_bars, bool asynchronous) {
   analyzer_ = std::make_unique<driver::FFTW>();
 
   // Initialize internal structures
-  analyzer_->Init();
+  analyzer_->Init(number_bars);
 
   if (asynchronous) {
     // Spawn thread for Audio Analysis
@@ -71,31 +74,39 @@ void MediaController::Init(bool asynchronous) {
 
 /* ********************************************************************************************** */
 
-void MediaController::Exit() {
-  analysis_data_.Exit();
-}
+void MediaController::Exit() { analysis_data_.Exit(); }
 
 /* ********************************************************************************************** */
 
 void MediaController::AnalysisHandler() {
-  // Get buffer size directly from audio analyzer, to discover chunk size to send and receive
-  int input_size = analyzer_->GetBufferSize();
-  int output_size = analyzer_->GetOutputSize();
-
-  std::vector<double> input;
-  std::vector<double> result(output_size, 0);
+  std::vector<double> input, output;
+  int input_size, output_size;
 
   while (analysis_data_.WaitForInput()) {
+    // Get buffer size directly from audio analyzer, to discover chunk size to send and receive
+    input_size = analyzer_->GetBufferSize();
+    output_size = analyzer_->GetOutputSize();
+
+    // Resize vectors if necessary
+    if (input.size() != input_size) {
+      input.resize(input_size);
+    }
+    if (output.size() != output_size) {
+      output.resize(output_size);
+    }
+
+    // Get input data and run FFT
     input = analysis_data_.Get(input_size);
-    analyzer_->Execute(input.data(), input.size(), result.data());
+    analyzer_->Execute(input.data(), input.size(), output.data());
 
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) continue;
 
-    auto event = interface::CustomEvent::DrawAudioSpectrum(result);
+    // Send result to UI
+    auto event = interface::CustomEvent::DrawAudioSpectrum(output);
     dispatcher->SendEvent(event);
 
-    std::fill(result.begin(), result.end(), 0);
+    // std::fill(output.begin(), output.end(), 0);
   }
 }
 
@@ -133,6 +144,13 @@ void MediaController::SetVolume(model::Volume value) {
   if (!player) return;
 
   player->SetAudioVolume(value);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::ResizeAnalysisOutput(int value) {
+  std::unique_lock<std::mutex> lock(analysis_data_.mutex);
+  analyzer_->Init(value);
 }
 
 /* ********************************************************************************************** */

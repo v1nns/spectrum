@@ -21,6 +21,11 @@ namespace interface {
 //! Forward declaration
 class EventDispatcher;
 
+//! Maximum dimensions for block
+struct Size {
+  int width, height;
+};
+
 /**
  * @brief Base class representing a block in view
  */
@@ -39,8 +44,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
    * @brief Construct a new Block object (only called by derived classes)
    * @param dispatcher Event dispatcher
    * @param id Unique ID for block
+   * @param size Block dimensions
    */
-  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id);
+  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id, const Size& size);
 
  public:
   /**
@@ -50,6 +56,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
 
   //! Unique ID
   Identifier GetId() { return id_; }
+
+  //! Block size
+  Size GetSize() { return size_; }
 
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
@@ -65,6 +74,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
 
  private:
   Identifier id_;  //!< Block identification
+  Size size_;      //!< Block size
 };
 
 }  // namespace interface

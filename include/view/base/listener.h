@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BASE_LISTENER_H_
 
 #include <filesystem>
+
 #include "model/volume.h"
 
 namespace interface {
@@ -50,6 +51,12 @@ class Listener {
    * @param value Sound volume information
    */
   virtual void SetVolume(model::Volume value) = 0;
+
+  /**
+   * @brief Notify Audio Player to resize quantity of frequency bars as result from audio analysis
+   * @param value Maximum quantity of frequency bars
+   */
+  virtual void ResizeAnalysisOutput(int value) = 0;
 };
 
 }  // namespace interface

@@ -74,9 +74,10 @@ class MediaController : public interface::Listener, public interface::Notifier {
  private:
   /**
    * @brief Initialize internal components for MediaController object
+   * @param number_bars Maximum number of bars to result from frequency analysis
    * @param asynchronous Run Audio Analysis as a thread
    */
-  void Init(bool asynchronous);
+  void Init(int number_bars, bool asynchronous);
 
   /**
    * @brief Main-loop function to analyze input stream and send result to UI
@@ -108,6 +109,12 @@ class MediaController : public interface::Listener, public interface::Notifier {
    * @brief Notify Audio Player to set volume
    */
   virtual void SetVolume(model::Volume value) override;
+
+  /**
+   * @brief Notify Audio Player to resize quantity of frequency bars as result from audio analysis
+   * @param value Maximum quantity of frequency bars
+   */
+  void ResizeAnalysisOutput(int value) override;
 
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI

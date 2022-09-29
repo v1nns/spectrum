@@ -40,6 +40,7 @@ struct CustomEvent {
     PauseOrResumeSong = 60001,
     ClearCurrentSong = 60002,
     SetAudioVolume = 60003,
+    ResizeAnalysis = 60004,
     // Events from interface to interface
     Refresh = 70000,
   };
@@ -61,6 +62,7 @@ struct CustomEvent {
   static CustomEvent PauseOrResumeSong();
   static CustomEvent ClearCurrentSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
+  static CustomEvent ResizeAnalysis(int bars);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
@@ -77,7 +79,7 @@ struct CustomEvent {
 
   //! Possible types for content
   using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
-                               std::filesystem::path, std::vector<double>>;
+                               std::filesystem::path, std::vector<double>, int>;
 
   //! Variables
   // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization

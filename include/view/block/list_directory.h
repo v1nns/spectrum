@@ -38,16 +38,18 @@ using Files = std::vector<File>;     //!< List of file paths
 
 //! Custom style for menu entry
 struct MenuEntryOption {
-  ftxui::Decorator style_normal;
-  ftxui::Decorator style_focused;
-  ftxui::Decorator style_selected;
-  ftxui::Decorator style_selected_focused;
+  ftxui::Decorator normal;
+  ftxui::Decorator focused;
+  ftxui::Decorator selected;
+  ftxui::Decorator selected_focused;
 };
 
 /**
  * @brief Component to list files from given directory
  */
 class ListDirectory : public Block {
+  static constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
+
  public:
   /**
    * @brief Construct a new List Directory object
@@ -165,8 +167,8 @@ class ListDirectory : public Block {
     std::condition_variable notifier;  //!< Conditional variable to block thread
     std::thread thread;                //!< Thread to perform offset animation on text
 
-    std::atomic<bool> enabled = false;  //!< Flag to control thread animation
-    std::string text;                   //!< Entry text to perform animation
+    std::atomic<bool> enabled;  //!< Flag to control thread animation
+    std::string text;           //!< Entry text to perform animation
 
     std::function<void()> cb_update;  //!< Force an UI refresh
 

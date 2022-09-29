@@ -3,6 +3,7 @@
 
 #include <stdlib.h>  // for exit, EXIT_FAILURE
 
+#include <cmath>
 #include <functional>  // for function
 #include <memory>
 #include <utility>  // for move
@@ -10,13 +11,21 @@
 #include "ftxui/component/component.hpp"           // for CatchEvent, Make
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "view/base/block.h"                       // for Block, BlockEvent
+#include "ftxui/screen/terminal.hpp"
+#include "view/base/block.h"  // for Block, BlockEvent
 #include "view/block/audio_visualizer.h"
 #include "view/block/file_info.h"       // for FileInfo
 #include "view/block/list_directory.h"  // for ListDirectory
 #include "view/block/media_player.h"
 
 namespace interface {
+
+//! To make life easier
+bool operator!=(const ftxui::Dimensions& lhs, const ftxui::Dimensions& rhs) {
+  return std::tie(lhs.dimx, lhs.dimy) != std::tie(rhs.dimx, rhs.dimy);
+}
+
+/* ********************************************************************************************** */
 
 std::shared_ptr<Terminal> Terminal::Create() {
   // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
@@ -41,7 +50,8 @@ Terminal::Terminal()
       receiver_{ftxui::MakeReceiver<CustomEvent>()},
       sender_{receiver_->MakeSender()},
       cb_send_event_{},
-      cb_exit_{} {}
+      cb_exit_{},
+      size_{ftxui::Terminal::Size()} {}
 
 /* ********************************************************************************************** */
 
@@ -107,6 +117,19 @@ ftxui::Element Terminal::Render() {
     return ftxui::text("Empty container");
   }
 
+  // Check if terminal has been resized
+  auto current_size = ftxui::Terminal::Size();
+  if (size_ != current_size) {
+    size_ = current_size;
+
+    // Recalculate maximum number of bars to show in spectrum graphic
+    int number_bars = CalculateNumberBars();
+
+    // Send event to audio analysis thread
+    auto event_resize = interface::CustomEvent::ResizeAnalysis(number_bars);
+    SendEvent(event_resize);
+  }
+
   // Render each block
   ftxui::Element list_dir = children_.at(0)->Render();
   ftxui::Element file_info = children_.at(1)->Render();
@@ -145,6 +168,32 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
+int Terminal::CalculateNumberBars() {
+  // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
+  auto block = std::static_pointer_cast<Block>(children_.at(0));
+
+  // crazy math function = (a - b - c - d) / e;
+  // considering these:
+  // a = terminal maximum width
+  // b = ListDirectory width
+  // c = border characters
+  // d = some constant to represent spacing between bars
+  // e = bar thickness + 1
+  float crazy_math = ((float)(size_.dimx - block->GetSize().width - 2 - 10) / 4);
+  crazy_math += crazy_math * .01;
+
+  // Round to nearest odd number
+  int number_bars;
+  if ((int)floor(crazy_math) % 2 == 0)
+    number_bars = floor(crazy_math);
+  else
+    number_bars = ceil(crazy_math);
+
+  return number_bars;
+}
+
+/* ********************************************************************************************** */
+
 void Terminal::OnCustomEvent() {
   while (receiver_->HasPending()) {
     CustomEvent event;
@@ -176,6 +225,11 @@ void Terminal::OnCustomEvent() {
         case CustomEvent::Identifier::SetAudioVolume: {
           auto content = event.GetContent<model::Volume>();
           media_ctl->SetVolume(content);
+        } break;
+
+        case CustomEvent::Identifier::ResizeAnalysis: {
+          auto content = event.GetContent<int>();
+          media_ctl->ResizeAnalysisOutput(content);
         } break;
 
         default:

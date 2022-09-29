@@ -25,11 +25,18 @@ FFTW::FFTW()
       frame_rate_{},
       frame_skip_{},
       sensitivity_{},
-      sens_init_{} {}
+      sens_init_{},
+      bars_per_channel_{kNumberBars},
+      output_size_{kNumberBars * kNumberChannels} {}
 
 /* ********************************************************************************************** */
 
-error::Code FFTW::Init() {
+error::Code FFTW::Init(int output_size) {
+  if (output_size_ != output_size) {
+    output_size_ = output_size;
+    bars_per_channel_ = output_size / 2;
+  }
+
   frame_rate_ = 75;
   sensitivity_ = 1;
   bass_.buffer_size = kBufferSize * 8;
@@ -123,16 +130,16 @@ void FFTW::CreateBuffers() {
   input_size_ = bass_.buffer_size * kNumberChannels;
   input_ = std::vector<double>(input_size_, 0);
 
-  fall_ = std::vector<int>(kNumberBars * kNumberChannels, 0);
-  memory_ = std::vector<double>(kNumberBars * kNumberChannels, 0);
-  peak_ = std::vector<double>(kNumberBars * kNumberChannels, 0);
-  previous_output_ = std::vector<double>(kNumberBars * kNumberChannels, 0);
+  fall_ = std::vector<int>(output_size_, 0);
+  memory_ = std::vector<double>(output_size_, 0);
+  peak_ = std::vector<double>(output_size_, 0);
+  previous_output_ = std::vector<double>(output_size_, 0);
 
-  cut_off_freq_ = std::vector<float>(kNumberBars + 1, 0);
-  equalizer_ = std::vector<double>(kNumberBars + 1, 0);
+  cut_off_freq_ = std::vector<float>(bars_per_channel_ + 1, 0);
+  equalizer_ = std::vector<double>(bars_per_channel_ + 1, 0);
 
-  lower_cut_off_per_bar_ = std::vector<int>(kNumberBars + 1);
-  upper_cut_off_per_bar_ = std::vector<int>(kNumberBars + 1);
+  lower_cut_off_per_bar_ = std::vector<int>(bars_per_channel_ + 1);
+  upper_cut_off_per_bar_ = std::vector<int>(bars_per_channel_ + 1);
 }
 
 /* ********************************************************************************************** */
@@ -144,7 +151,7 @@ void FFTW::CalculateFreqs() {
 
   // Calculate frequency constant (used to distribute bars across the frequency band)
   double frequency_constant =
-      log10((float)kLowCutOff / (float)kHighCutOff) / (1 / ((float)kNumberBars + 1) - 1);
+      log10((float)kLowCutOff / (float)kHighCutOff) / (1 / ((float)bars_per_channel_ + 1) - 1);
 
   float relative_cut_off[treble_.buffer_size];
 
@@ -152,11 +159,12 @@ void FFTW::CalculateFreqs() {
   treble_cut_off_ = -1;
   int first_bar = 1;
   int first_treble_bar = 0;
-  int bar_buffer[kNumberBars + 1];
+  int bar_buffer[bars_per_channel_ + 1];
 
-  for (int n = 0; n < kNumberBars + 1; n++) {
+  for (int n = 0; n < bars_per_channel_ + 1; n++) {
     double bar_distribution_coefficient = frequency_constant * (-1);
-    bar_distribution_coefficient += ((float)n + 1) / ((float)kNumberBars + 1) * frequency_constant;
+    bar_distribution_coefficient +=
+        ((float)n + 1) / ((float)bars_per_channel_ + 1) * frequency_constant;
     cut_off_freq_[n] = kHighCutOff * pow(10, bar_distribution_coefficient);
 
     if (n > 0) {
@@ -318,7 +326,7 @@ void FFTW::ApplyFft(FreqAnalysis& analysis) {
 /* ********************************************************************************************** */
 
 void FFTW::SeparateFreqBands(double* out) {
-  for (int n = 0; n < kNumberBars; n++) {
+  for (int n = 0; n < bars_per_channel_; n++) {
     double temp_l = 0;
     double temp_r = 0;
 
@@ -345,7 +353,7 @@ void FFTW::SeparateFreqBands(double* out) {
 
     temp_r /= upper_cut_off_per_bar_[n] - lower_cut_off_per_bar_[n] + 1;
     temp_r *= equalizer_[n];
-    out[n + kNumberBars] = temp_r;
+    out[n + bars_per_channel_] = temp_r;
   }
 }
 
@@ -353,7 +361,7 @@ void FFTW::SeparateFreqBands(double* out) {
 
 void FFTW::SmoothingResults(double* out, int silence) {
   // Applying sensitivity adjustment
-  for (int n = 0; n < kNumberBars * kNumberChannels; n++) {
+  for (int n = 0; n < output_size_; n++) {
     out[n] *= sensitivity_;
   }
 
@@ -363,7 +371,7 @@ void FFTW::SmoothingResults(double* out, int silence) {
 
   if (gravity_mod < 1) gravity_mod = 1;
 
-  for (int n = 0; n < kNumberBars * kNumberChannels; n++) {
+  for (int n = 0; n < output_size_; n++) {
     // Falloff
     if (out[n] < previous_output_[n]) {
       out[n] = peak_[n] * (1000 - (fall_[n] * fall_[n] * gravity_mod)) / 1000;

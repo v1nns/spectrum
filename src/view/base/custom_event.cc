@@ -99,6 +99,17 @@ CustomEvent CustomEvent::SetAudioVolume(const model::Volume& sound_volume) {
 /* ********************************************************************************************** */
 
 // Static
+CustomEvent CustomEvent::ResizeAnalysis(int bars) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::ResizeAnalysis,
+      .content = bars,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
 CustomEvent CustomEvent::Refresh() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,

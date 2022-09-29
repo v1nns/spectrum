@@ -8,12 +8,11 @@
 
 namespace interface {
 
-constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
-
 /* ********************************************************************************************** */
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::FileInfo}, audio_info_{} {}
+    : Block{dispatcher, Identifier::FileInfo, interface::Size{.width = 0, .height = kMaxRows}},
+      audio_info_{} {}
 
 /* ********************************************************************************************** */
 

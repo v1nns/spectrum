@@ -20,6 +20,8 @@ namespace interface {
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
 class FileInfo : public Block {
+  static constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
+
  public:
   /**
    * @brief Construct a new File Info object

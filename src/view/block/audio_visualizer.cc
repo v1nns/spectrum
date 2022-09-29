@@ -12,22 +12,17 @@ namespace interface {
 /* ********************************************************************************************** */
 
 AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::AudioVisualizer}, data_{} {}
+    : Block{dispatcher, Identifier::AudioVisualizer, interface::Size{.width = 0, .height = 0}},
+      data_{} {}
 
 /* ********************************************************************************************** */
 
 ftxui::Element AudioVisualizer::Render() {
-  // ftxui::Element content = ftxui::vbox(ftxui::filler());
   ftxui::Elements entries;
 
   int size = data_.size();
   if (size > 0) {
-    entries.push_back(ftxui::text(" "));
-
     for (int i = 0; i < size / 2; i++) {
-      entries.push_back(ftxui::gaugeUp(data_[i]));
-      entries.push_back(ftxui::gaugeUp(data_[i]));
-      entries.push_back(ftxui::gaugeUp(data_[i]));
       entries.push_back(ftxui::gaugeUp(data_[i]));
       entries.push_back(ftxui::gaugeUp(data_[i]));
       entries.push_back(ftxui::gaugeUp(data_[i]));
@@ -38,14 +33,12 @@ ftxui::Element AudioVisualizer::Render() {
       entries.push_back(ftxui::gaugeUp(data_[i]));
       entries.push_back(ftxui::gaugeUp(data_[i]));
       entries.push_back(ftxui::gaugeUp(data_[i]));
-      entries.push_back(ftxui::gaugeUp(data_[i]));
-      entries.push_back(ftxui::gaugeUp(data_[i]));
-      entries.push_back(ftxui::gaugeUp(data_[i]));
       entries.push_back(ftxui::text(" "));
     }
   }
 
-  return ftxui::window(ftxui::text(" visualizer "), ftxui::hbox(std::move(entries)) | ftxui::yflex);
+  return ftxui::window(ftxui::text(" visualizer "),
+                       ftxui::hbox(std::move(entries)) | ftxui::hcenter | ftxui::yflex);
 }
 
 /* ********************************************************************************************** */

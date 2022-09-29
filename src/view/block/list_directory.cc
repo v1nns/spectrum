@@ -27,10 +27,10 @@ namespace interface {
 MenuEntryOption Colored(ftxui::Color c) {
   using ftxui::Decorator, ftxui::color, ftxui::inverted;
   return MenuEntryOption{
-      .style_normal = Decorator(color(c)),
-      .style_focused = Decorator(color(c)) | inverted,
-      .style_selected = Decorator(color(c)),
-      .style_selected_focused = Decorator(color(c)) | inverted,
+      .normal = Decorator(color(c)),
+      .focused = Decorator(color(c)) | inverted,
+      .selected = Decorator(color(c)),
+      .selected_focused = Decorator(color(c)) | inverted,
   };
 }
 
@@ -40,13 +40,12 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
   return v < lo ? lo : hi < v ? hi : v;
 }
 
-constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
-
 /* ********************************************************************************************** */
 
 ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                              const std::string& optional_path)
-    : Block{dispatcher, Identifier::ListDirectory},
+    : Block{dispatcher, Identifier::ListDirectory,
+            interface::Size{.width = kMaxColumns, .height = 0}},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)},
       curr_playing_{std::nullopt},
@@ -59,7 +58,7 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
       boxes_{},
       box_{},
       mode_search_{std::nullopt},
-      animation_{} {
+      animation_{TextAnimation{.enabled = false}} {
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
   RefreshList(curr_dir_);
@@ -106,9 +105,8 @@ ftxui::Element ListDirectory::Render() {
                                                         : styles_.file;
     const char* icon = is_selected ? "> " : "  ";
 
-    ftxui::Decorator style = is_selected
-                                 ? (is_focused ? type.style_selected_focused : type.style_selected)
-                                 : (is_focused ? type.style_focused : type.style_normal);
+    ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
+                                         : (is_focused ? type.focused : type.normal);
 
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
@@ -152,24 +150,24 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
   }
 
   // if (Focused()) {
-    if (OnMenuNavigation(event)) {
-      return true;
-    }
+  if (OnMenuNavigation(event)) {
+    return true;
+  }
 
-    if (mode_search_ && OnSearchModeEvent(event)) {
-      return true;
-    }
+  if (mode_search_ && OnSearchModeEvent(event)) {
+    return true;
+  }
 
-    // Enable search mode
-    if (!mode_search_ && event == ftxui::Event::Character('/')) {
-      mode_search_ = Search({
-          .text_to_search = "",
-          .entries = entries_,
-          .selected = 0,
-          .focused = 0,
-      });
-      return true;
-    }
+  // Enable search mode
+  if (!mode_search_ && event == ftxui::Event::Character('/')) {
+    mode_search_ = Search({
+        .text_to_search = "",
+        .entries = entries_,
+        .selected = 0,
+        .focused = 0,
+    });
+    return true;
+  }
   // }
   return false;
 }

@@ -33,11 +33,11 @@ class FFTW {
   /* ******************************************************************************************** */
   //! Public API
  public:
-  error::Code Init();
+  error::Code Init(int output_size);
   error::Code Execute(double *in, int size, double *out);
 
   int GetBufferSize() { return kBufferSize; }
-  int GetOutputSize() { return kNumberBars * kNumberChannels; }
+  int GetOutputSize() { return output_size_; }
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -129,6 +129,9 @@ class FFTW {
   double sensitivity_;  //!< Sensitivity adjustment, to dynamic regulate output signal from 0 to 1
   int sens_init_;  //!< Previous value for sensitivity adjustment (this is to ensure that output
                    //!< signal won't exceed maximum value)
+
+  int bars_per_channel_;  //!< Maximum number of bars per channel
+  int output_size_;      //!< Maximum output size from audio analysis
 };
 
 }  // namespace driver

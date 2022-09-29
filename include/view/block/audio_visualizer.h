@@ -13,7 +13,7 @@
 namespace interface {
 
 /**
- * @brief Component with detailed information about the chosen file (in this case, some music file)
+ * @brief Component with audio spectrum in realtime from current music playing
  */
 class AudioVisualizer : public Block {
  public:
@@ -48,7 +48,7 @@ class AudioVisualizer : public Block {
    */
   bool OnCustomEvent(const CustomEvent& event) override;
 
-  /* ******************************************************************************************* */
+  /* ******************************************************************************************** */
   //! Variables
  private:
   std::vector<double> data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
