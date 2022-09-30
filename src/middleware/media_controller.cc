@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 
+#include "audio/driver/fftw.h"
 #include "audio/player.h"
 #include "ftxui/component/event.hpp"
 #include "model/application_error.h"
@@ -15,8 +16,12 @@ namespace middleware {
 std::shared_ptr<MediaController> MediaController::Create(
     const std::shared_ptr<interface::Terminal>& terminal,
     const std::shared_ptr<audio::Player>& player, bool asynchronous) {
+  // Instantiate FFTW to run audio analysis
+  std::unique_ptr<driver::Analyzer> analyzer(new driver::FFTW);
+
   // Create and initialize media controller
-  auto controller = std::shared_ptr<MediaController>(new MediaController(terminal, player));
+  auto controller =
+      std::shared_ptr<MediaController>(new MediaController(terminal, player, std::move(analyzer)));
 
   // Use terminal maximum width as input to decide how many bars should display on audio visualizer
   auto number_bars = terminal->CalculateNumberBars();
@@ -39,12 +44,13 @@ std::shared_ptr<MediaController> MediaController::Create(
 /* ********************************************************************************************** */
 
 MediaController::MediaController(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
-                                 const std::shared_ptr<audio::AudioControl>& player_ctl)
+                                 const std::shared_ptr<audio::AudioControl>& player_ctl,
+                                 std::unique_ptr<driver::Analyzer>&& analyzer)
     : interface::Listener(),
       interface::Notifier(),
       dispatcher_{dispatcher},
       player_ctl_{player_ctl},
-      analyzer_{},
+      analyzer_{std::move(analyzer)},
       analysis_loop_{},
       analysis_data_{.exit = false} {}
 
@@ -61,8 +67,6 @@ MediaController::~MediaController() {
 /* ********************************************************************************************** */
 
 void MediaController::Init(int number_bars, bool asynchronous) {
-  analyzer_ = std::make_unique<driver::FFTW>();
-
   // Initialize internal structures
   analyzer_->Init(number_bars);
 
@@ -87,10 +91,7 @@ void MediaController::AnalysisHandler() {
     input_size = analyzer_->GetBufferSize();
     output_size = analyzer_->GetOutputSize();
 
-    // Resize vectors if necessary
-    if (input.size() != input_size) {
-      input.resize(input_size);
-    }
+    // Resize output vector if necessary
     if (output.size() != output_size) {
       output.resize(output_size);
     }
@@ -105,8 +106,6 @@ void MediaController::AnalysisHandler() {
     // Send result to UI
     auto event = interface::CustomEvent::DrawAudioSpectrum(output);
     dispatcher->SendEvent(event);
-
-    // std::fill(output.begin(), output.end(), 0);
   }
 }
 

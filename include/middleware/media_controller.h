@@ -11,7 +11,7 @@
 #include <memory>
 #include <mutex>
 
-#include "audio/driver/fftw.h"
+#include "audio/base/analyzer.h"
 #include "audio/player.h"
 #include "model/application_error.h"
 #include "model/song.h"
@@ -45,7 +45,8 @@ class MediaController : public interface::Listener, public interface::Notifier {
    * @param player Interface to Audio player
    */
   explicit MediaController(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
-                           const std::shared_ptr<audio::AudioControl>& player_ctl);
+                           const std::shared_ptr<audio::AudioControl>& player_ctl,
+                           std::unique_ptr<driver::Analyzer>&& analyzer);
 
  public:
   /**
@@ -232,7 +233,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Send events to UI blocks
   std::weak_ptr<audio::AudioControl> player_ctl_;         //!< Send events to control Audio Player
 
-  std::unique_ptr<driver::FFTW> analyzer_;  //!< Run FFTs on audio raw data to get spectrum
+  std::unique_ptr<driver::Analyzer> analyzer_;  //!< Run FFTs on audio raw data to get spectrum
 
   std::thread analysis_loop_;  //!< Execute audio-analysis function as a thread
 

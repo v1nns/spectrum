@@ -26,12 +26,16 @@ FFTW::FFTW()
       frame_skip_{},
       sensitivity_{},
       sens_init_{},
-      bars_per_channel_{kNumberBars},
-      output_size_{kNumberBars * kNumberChannels} {}
+      bars_per_channel_{},
+      output_size_{} {}
 
 /* ********************************************************************************************** */
 
 error::Code FFTW::Init(int output_size) {
+  if (output_size == 0) {
+    return error::kUnknownError;
+  }
+
   if (output_size_ != output_size) {
     output_size_ = output_size;
     bars_per_channel_ = output_size / 2;
@@ -59,7 +63,7 @@ error::Code FFTW::Init(int output_size) {
   // Calculate cutoff frequencies and equalize result
   CalculateFreqs();
 
-  return error::kUnknownError;
+  return error::kSuccess;
 }
 
 /* ********************************************************************************************** */
@@ -81,7 +85,7 @@ error::Code FFTW::Execute(double* in, int size, double* out) {
   // Smoothing results with sensitivity adjustment
   SmoothingResults(out, silence);
 
-  return error::kUnknownError;
+  return error::kSuccess;
 }
 
 /* ********************************************************************************************** */

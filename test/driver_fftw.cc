@@ -30,8 +30,10 @@ class FftwTest : public ::testing::Test {
 
   void Init() {
     analyzer = std::make_unique<driver::FFTW>();
-    analyzer->Init();
+    analyzer->Init(kNumberBars * 2);
   }
+
+  void PrintResults(const std::vector<double>& result) {}
 
  protected:
   static constexpr int kNumberBars = 10;    //!< Number of bars per channel

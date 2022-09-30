@@ -6,6 +6,7 @@
 
 #include "audio/player.h"                          // for Player
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
+#include "middleware/media_controller.h"           // for MediaController
 #include "view/base/terminal.h"                    // for Terminal
 
 int main() {
@@ -23,16 +24,13 @@ int main() {
 
   terminal->RegisterEventSenderCallback([&](ftxui::Event e) { screen.PostEvent(e); });
 
-  terminal->RegisterExitCallback([&]() {
-    screen.ExitLoopClosure()();
-  });
+  terminal->RegisterExitCallback([&]() { screen.ExitLoopClosure()(); });
 
   // Start graphical interface loop
   screen.Loop(terminal);
 
-  // Clear screen and exit from player thread
+  // Clear screen after exit from loop
   screen.Clear();
-  player->Exit();
 
   return EXIT_SUCCESS;
 }
