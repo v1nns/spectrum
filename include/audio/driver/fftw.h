@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 
+#include "audio/base/analyzer.h"
 #include "model/application_error.h"
 
 namespace driver {
@@ -18,7 +19,7 @@ namespace driver {
 /**
  * @brief Provides an interface to apply frequency analysis on audio samples by using FFT
  */
-class FFTW {
+class FFTW : public Analyzer {
  public:
   /**
    * @brief Construct a new FFTW object
@@ -33,11 +34,35 @@ class FFTW {
   /* ******************************************************************************************** */
   //! Public API
  public:
-  error::Code Init(int output_size);
-  error::Code Execute(double *in, int size, double *out);
+  /**
+   * @brief Initialize internal structures for audio analysis
+   *
+   * @param output_size Size for output vector from Execute
+   */
+  error::Code Init(int output_size) override;
 
-  int GetBufferSize() { return kBufferSize; }
-  int GetOutputSize() { return output_size_; }
+  /**
+   * @brief Run FFT on input vector to get information about audio in the frequency domain
+   *
+   * @param in Input vector with audio raw data (signal amplitude)
+   * @param size Input vector size
+   * @param out Output vector where each entry represents a frequency bar
+   */
+  error::Code Execute(double *in, int size, double *out) override;
+
+  /**
+   * @brief Get internal buffer size
+   *
+   * @return Maximum size for input vector
+   */
+  int GetBufferSize() override { return kBufferSize; }
+
+  /**
+   * @brief Get output buffer size
+   *
+   * @return Size for output vector (considering number of bars multiplied per number of channels)
+   */
+  int GetOutputSize() override { return output_size_; }
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -131,7 +156,7 @@ class FFTW {
                    //!< signal won't exceed maximum value)
 
   int bars_per_channel_;  //!< Maximum number of bars per channel
-  int output_size_;      //!< Maximum output size from audio analysis
+  int output_size_;       //!< Maximum output size from audio analysis
 };
 
 }  // namespace driver

@@ -56,9 +56,9 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -89,9 +89,9 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │> block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -148,9 +148,9 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 │Search:                       │
@@ -177,8 +177,8 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -270,9 +270,9 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -303,9 +303,9 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -341,10 +341,10 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
 │> this_is_a_really_long_pathna│
-│                              │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -370,10 +370,10 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
+│  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
 │> is_a_really_long_pathname.mp│
-│                              │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
