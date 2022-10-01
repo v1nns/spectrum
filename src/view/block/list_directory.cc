@@ -29,7 +29,7 @@ MenuEntryOption Colored(ftxui::Color c) {
   return MenuEntryOption{
       .normal = Decorator(color(c)),
       .focused = Decorator(color(c)) | inverted,
-      .selected = Decorator(color(c)),
+      .selected = Decorator(color(c)) | inverted,
       .selected_focused = Decorator(color(c)) | inverted,
   };
 }

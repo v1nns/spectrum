@@ -87,12 +87,12 @@ class FFTW : public Analyzer {
    * @brief Audio frequency analysis
    */
   struct FreqAnalysis {
-    int buffer_size;                    // FFTbassbufferSize;
-    FFTPlan plan_left, plan_right;      // p_bass_l, p_bass_r;
-    FFTComplex out_left, out_right;     // *out_bass_l, *out_bass_r;
-    FFTReal multiplier;                 // *bass_multiplier;
-    FFTReal in_raw_left, in_raw_right;  // *in_bass_r_raw, *in_bass_l_raw;
-    FFTReal in_left, in_right;          // *in_bass_r, *in_bass_l;
+    int buffer_size;                    //!< Buffer size for this audio range analysis
+    FFTPlan plan_left, plan_right;      //!< FFTW Plan (define input and output size to perform DFT)
+    FFTComplex out_left, out_right;     //!< One-dimensional DFT output per channel
+    FFTReal multiplier;                 //!< Hanning Window
+    FFTReal in_raw_left, in_raw_right;  //!< Raw audio input data per channel
+    FFTReal in_left, in_right;          //!< Audio input data with windowing applied per channel
   };
 
   /* ******************************************************************************************** */
@@ -128,7 +128,7 @@ class FFTW : public Analyzer {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  FreqAnalysis bass_, mid_, treble_;  //!< Split analysis between three audio spectrums
+  FreqAnalysis bass_, mid_, treble_;  //!< Split audio spectrum analysis between three audio ranges
 
   //! Input data
   double input_size_;          //!< Maximum size for input buffer
