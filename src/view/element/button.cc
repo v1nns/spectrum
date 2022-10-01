@@ -115,7 +115,7 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
   auto style = ButtonStyles{
       .content = ftxui::Color::SpringGreen2,
       .border_normal = ftxui::Color::GrayDark,
-      .border_focused = ftxui::Color::Aquamarine1Bis,
+      .border_focused = ftxui::Color::SteelBlue3,
   };
 
   return std::make_shared<Play>(style, on_click);
@@ -151,7 +151,7 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
   auto style = ButtonStyles{
       .content = ftxui::Color::Red,
       .border_normal = ftxui::Color::GrayDark,
-      .border_focused = ftxui::Color::Aquamarine1Bis,
+      .border_focused = ftxui::Color::SteelBlue3,
   };
 
   return std::make_shared<Stop>(style, on_click);

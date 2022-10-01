@@ -21,7 +21,7 @@ ftxui::Element FileInfo::Render() {
 
   // Choose a different color for when there is no current song
   ftxui::Color::Palette256 color =
-      audio_info_.filepath.empty() ? ftxui::Color::Grey50 : ftxui::Color::Grey82;
+      audio_info_.filepath.empty() ? ftxui::Color::LightSteelBlue3 : ftxui::Color::LightSteelBlue1;
 
   // Use istringstream to split string into lines and parse it as <Field, Value>
   std::istringstream input{model::to_string(audio_info_)};
@@ -33,7 +33,7 @@ ftxui::Element FileInfo::Render() {
 
     // Create element
     ftxui::Element item = ftxui::hbox({
-        ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::CadetBlue),
+        ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::SteelBlue1),
         ftxui::filler(),
         ftxui::text(value) | ftxui::align_right | ftxui::color(ftxui::Color(color)),
     });

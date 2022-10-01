@@ -52,8 +52,8 @@ ftxui::Element MediaPlayer::Render() {
 
   // Bar to display song duration
   ftxui::Element bar_duration = ftxui::gauge(position) | ftxui::xflex_grow |
-                                ftxui::bgcolor(ftxui::Color::DarkKhaki) |
-                                ftxui::color(ftxui::Color::DarkVioletBis);
+                                ftxui::bgcolor(ftxui::Color::LightSteelBlue3) |
+                                ftxui::color(ftxui::Color::SteelBlue3);
 
   // Format volume information string
   std::ostringstream ss;
