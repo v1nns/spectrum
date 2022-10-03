@@ -160,6 +160,9 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
   // Enable search mode
   if (!mode_search_ && event == ftxui::Event::Character('/')) {
+    // Stop animation thread
+    if (animation_.enabled) animation_.Stop();
+
     mode_search_ = Search({
         .text_to_search = "",
         .entries = entries_,
