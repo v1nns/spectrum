@@ -420,4 +420,44 @@ TEST_F(ListDirectoryTest, TryToNavigateOnEmptySearch) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, NavigateAndEraseCharactersOnSearch) {
+  std::string typed{"/block"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  block->OnEvent(ftxui::Event::ArrowLeft);
+  block->OnEvent(ftxui::Event::ArrowLeft);
+  block->OnEvent(ftxui::Event::ArrowLeft);
+  block->OnEvent(ftxui::Event::ArrowLeft);
+  block->OnEvent(ftxui::Event::Backspace);
+
+  block->OnEvent(ftxui::Event::ArrowRight);
+  block->OnEvent(ftxui::Event::ArrowRight);
+  block->OnEvent(ftxui::Event::Backspace);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│Search:lck                    │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

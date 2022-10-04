@@ -147,6 +147,7 @@ class ListDirectory : public Block {
     std::string text_to_search;  //!< Text to search in file entries
     Files entries;          //!< List containing only files from current directory matching the text
     int selected, focused;  //!< Entry indexes in files list
+    int position;           //!< Cursor position for text to search
   };
 
   //! Put together all possible styles for an entry in this component

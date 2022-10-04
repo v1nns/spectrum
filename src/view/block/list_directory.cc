@@ -127,10 +127,10 @@ ftxui::Element ListDirectory::Render() {
 
   // Append search box, if enabled
   if (mode_search_) {
-    ftxui::InputOption opt{.cursor_position = mode_search_->text_to_search.size()};
+    ftxui::InputOption opt{.cursor_position = mode_search_->position};
     ftxui::Element search_box = ftxui::hbox({
         ftxui::text("Search:"),
-        ftxui::Input(&mode_search_->text_to_search, " ", &opt)->Render() | ftxui::inverted,
+        ftxui::Input(&mode_search_->text_to_search, " ", &opt)->Render() | ftxui::flex,
     });
 
     content.push_back(std::move(search_box));
@@ -168,6 +168,7 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
         .entries = entries_,
         .selected = 0,
         .focused = 0,
+        .position = 0,
     });
     return true;
   }
@@ -336,28 +337,52 @@ bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
 
   // Any alphabetic character
   if (event.is_character()) {
-    mode_search_->text_to_search += event.character();
+    mode_search_->text_to_search.insert(mode_search_->position, event.character());
+    mode_search_->position++;
     event_handled = true;
   }
 
   // Backspace
   if (event == ftxui::Event::Backspace && !(mode_search_->text_to_search.empty())) {
-    mode_search_->text_to_search.pop_back();
+    if (mode_search_->position > 0) {
+      mode_search_->text_to_search.erase(mode_search_->position - 1, 1);
+      mode_search_->position--;
+    }
     event_handled = true;
   }
 
   // Ctrl + Backspace
   if (event == ftxui::Event::Special({8}) || event == ftxui::Event::Special("\027")) {
     mode_search_->text_to_search.clear();
+    mode_search_->position = 0;
+    event_handled = true;
+  }
+
+  // Arrow left
+  if (event == ftxui::Event::ArrowLeft) {
+    if (mode_search_->position > 0) mode_search_->position--;
+    event_handled = true;
+  }
+
+  // Arrow right
+  if (event == ftxui::Event::ArrowRight) {
+    int size = mode_search_->text_to_search.size();
+    if (mode_search_->position < size) mode_search_->position++;
     event_handled = true;
   }
 
   if (event_handled) {
+    // Stop animation thread
+    if (animation_.enabled) animation_.Stop();
+
     RefreshSearchList();
   }
 
   // Quit search mode
   if (event == ftxui::Event::Escape) {
+    // Stop animation thread
+    if (animation_.enabled) animation_.Stop();
+
     mode_search_.reset();
     event_handled = true;
   }
