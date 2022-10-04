@@ -19,7 +19,7 @@
 
 namespace {
 
-using ::testing::_;
+using ::testing::Field;
 using ::testing::StrEq;
 
 /**
@@ -285,7 +285,10 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 
 TEST_F(ListDirectoryTest, NotifyFileSelection) {
   // Setup expectation for event sending
-  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(1);
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::NotifyFileSelection)))
+      .Times(1);
 
   block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::Return);
@@ -324,7 +327,9 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 
   // Setup expectation for event sending (to refresh UI)
   // p.s.: Times(5) is based on refresh timing from thread animation
-  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(5);
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::Refresh)))
+      .Times(5);
 
   block->OnEvent(ftxui::Event::End);
 
@@ -376,6 +381,40 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │> is_a_really_long_pathname.mp│
 │                              │
 │                              │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, TryToNavigateOnEmptySearch) {
+  std::string typed{"/notsomethingthatexists"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│Search:notsomethingthatexists │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
