@@ -48,7 +48,8 @@ struct MenuEntryOption {
  * @brief Component to list files from given directory
  */
 class ListDirectory : public Block {
-  static constexpr int kMaxColumns = 30;  //!< Maximum columns for the Component
+  static constexpr int kMaxColumns = 30;     //!< Maximum columns for Component
+  static constexpr int kMaxIconColumns = 2;  //!< Maximum columns for Icon
 
  public:
   /**
@@ -136,6 +137,11 @@ class ListDirectory : public Block {
    * @brief Refresh list to keep only files matching pattern from the text to search
    */
   void RefreshSearchList();
+
+  /**
+   * @brief Update content from active entry (decides if animation thread should run or not)
+   */
+  void UpdateActiveEntry();
 
   /* ******************************************************************************************** */
  protected:

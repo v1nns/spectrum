@@ -160,9 +160,6 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
   // Enable search mode
   if (!mode_search_ && event == ftxui::Event::Character('/')) {
-    // Stop animation thread
-    if (animation_.enabled) animation_.Stop();
-
     mode_search_ = Search({
         .text_to_search = "",
         .entries = entries_,
@@ -170,6 +167,8 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
         .focused = 0,
         .position = 0,
     });
+
+    UpdateActiveEntry();
     return true;
   }
   // }
@@ -286,14 +285,7 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
       *focused = *selected;
       event_handled = true;
 
-      // Stop animation thread
-      if (animation_.enabled) animation_.Stop();
-
-      std::string text = GetEntry(*selected).filename().string();
-      int max_chars = text.length() + 2;  // entry text length + icon (2)
-
-      // Start animation thread
-      if (max_chars > kMaxColumns) animation_.Start(text);
+      UpdateActiveEntry();
     }
   }
 
@@ -333,7 +325,7 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
-  bool event_handled = false;
+  bool event_handled = false, exit_from_search_mode = false;
 
   // Any alphabetic character
   if (event.is_character()) {
@@ -371,20 +363,17 @@ bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
     event_handled = true;
   }
 
-  if (event_handled) {
-    // Stop animation thread
-    if (animation_.enabled) animation_.Stop();
-
-    RefreshSearchList();
-  }
-
   // Quit search mode
   if (event == ftxui::Event::Escape) {
-    // Stop animation thread
-    if (animation_.enabled) animation_.Stop();
-
     mode_search_.reset();
     event_handled = true;
+    exit_from_search_mode = true;
+  }
+
+  if (event_handled) {
+    if (!exit_from_search_mode) RefreshSearchList();
+
+    UpdateActiveEntry();
   }
 
   return event_handled;
@@ -480,6 +469,23 @@ void ListDirectory::RefreshSearchList() {
     if (it != filename.end()) {
       mode_search_->entries.push_back(entry);
     }
+  }
+}
+
+/* ********************************************************************************************** */
+
+void ListDirectory::UpdateActiveEntry() {
+  // Stop animation thread
+  if (animation_.enabled) animation_.Stop();
+
+  if (Size() > 0) {
+    // Check text length of active entry
+    int* selected = GetSelected();
+    std::string text = GetEntry(*selected).filename().string();
+    int max_chars = text.length() + kMaxIconColumns;
+
+    // Start animation thread
+    if (max_chars > kMaxColumns) animation_.Start(text);
   }
 }
 
