@@ -460,4 +460,40 @@ TEST_F(ListDirectoryTest, NavigateAndEraseCharactersOnSearch) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
+  // Hacky method to add new entries until it fills the screen
+  auto list_dir = std::static_pointer_cast<interface::ListDirectory>(block);
+  for (int i = 0; i < 5; i++) {
+    std::filesystem::path dummy{"some_music_" + std::to_string(i) + ".mp3"};
+    list_dir->entries_.emplace_back(dummy);
+  }
+
+  // Navigate to the end and check if list moves on the screen according to selected entry
+  block->OnEvent(ftxui::Event::End);
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│  block_file_info.cc          │
+│  block_list_directory.cc     │
+│  block_media_player.cc       │
+│  CMakeLists.txt              │
+│  driver_fftw.cc              │
+│  general                     │
+│  mock                        │
+│  some_music_0.mp3            │
+│  some_music_1.mp3            │
+│  some_music_2.mp3            │
+│  some_music_3.mp3            │
+│> some_music_4.mp3            │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

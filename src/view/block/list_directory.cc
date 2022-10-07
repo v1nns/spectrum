@@ -86,7 +86,6 @@ ftxui::Element ListDirectory::Render() {
 
   Clamp();
   ftxui::Elements entries;
-  bool is_menu_focused = Focused();
 
   int* selected = GetSelected();
   int* focused = GetFocused();
@@ -96,7 +95,7 @@ ftxui::Element ListDirectory::Render() {
 
   // Fill list with entries
   for (int i = 0; i < Size(); ++i) {
-    bool is_focused = (*focused == i) && is_menu_focused;
+    bool is_focused = (*focused == i);
     bool is_selected = (*selected == i);
 
     File& entry = GetEntry(i);

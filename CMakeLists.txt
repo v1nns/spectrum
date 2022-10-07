@@ -4,7 +4,7 @@ project(spectrum)
 set(CMAKE_CXX_STANDARD 17)
 
 # Export compilation database for external tools
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 # Use pkg-config and FetchContent modules for CMake build
 find_package(PkgConfig REQUIRED)

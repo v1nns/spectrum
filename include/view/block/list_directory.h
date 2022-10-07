@@ -28,6 +28,7 @@
 namespace {
 class ListDirectoryTest;
 class ListDirectoryTest_RunTextAnimation_Test;
+class ListDirectoryTest_ScrollMenuOnBigList_Test;
 }  // namespace
 
 namespace interface {
@@ -234,6 +235,7 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
   //! Friend test
   FRIEND_TEST(::ListDirectoryTest, RunTextAnimation);
+  FRIEND_TEST(::ListDirectoryTest, ScrollMenuOnBigList);
 };
 
 }  // namespace interface
