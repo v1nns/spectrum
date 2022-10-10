@@ -35,8 +35,11 @@ std::shared_ptr<MediaController> MediaController::Create(
 
   // TODO: Think of a better way to do this...
   model::Volume value = player->GetAudioVolume();
-  auto event = interface::CustomEvent::UpdateVolume(value);
-  terminal->QueueEvent(event);
+  auto event_vol = interface::CustomEvent::UpdateVolume(value);
+  terminal->ProcessEvent(event_vol);
+
+  auto event_bars = interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(number_bars, 0.001));
+  terminal->ProcessEvent(event_bars);
 
   return controller;
 }

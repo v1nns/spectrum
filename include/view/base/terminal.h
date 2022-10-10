@@ -135,8 +135,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Send event to blocks
   void SendEvent(const CustomEvent& event) override;
 
-  //! Add a custom event to internal queue
-  void QueueEvent(const CustomEvent& event) override;
+  //! Add a custom event to internal queue and process right away
+  void ProcessEvent(const CustomEvent& event) override;
 
   //! Set application error (can be originated from controller or any interface::block)
   void SetApplicationError(error::Code id) override;

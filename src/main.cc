@@ -26,11 +26,9 @@ int main() {
 
   terminal->RegisterExitCallback([&]() { screen.ExitLoopClosure()(); });
 
-  // Start graphical interface loop
+  // Start graphical interface loop and clear screen after exit
   screen.Loop(terminal);
-
-  // Clear screen after exit from loop
-  screen.Clear();
+  screen.ResetPosition(true);
 
   return EXIT_SUCCESS;
 }

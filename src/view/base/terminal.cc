@@ -138,8 +138,8 @@ ftxui::Element Terminal::Render() {
 
   // Glue everything together
   ftxui::Element terminal = ftxui::hbox({
-      ftxui::vbox({list_dir, file_info}),
-      ftxui::vbox({audio_visualizer, audio_player}) | ftxui::xflex_grow,
+      ftxui::vbox({std::move(list_dir), std::move(file_info)}),
+      ftxui::vbox({std::move(audio_visualizer), std::move(audio_player)}) | ftxui::xflex_grow,
   });
 
   // Render dialog box
@@ -270,7 +270,11 @@ void Terminal::SendEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void Terminal::QueueEvent(const CustomEvent& event) { sender_->Send(event); }
+void Terminal::ProcessEvent(const CustomEvent& event) {
+  // This method was planned to execute any custom event while Screen loop is not running yet
+  sender_->Send(event);
+  OnCustomEvent();
+}
 
 /* ********************************************************************************************** */
 
