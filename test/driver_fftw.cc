@@ -46,7 +46,7 @@ class FftwTest : public ::testing::Test {
 
 TEST_F(FftwTest, InitAndExecute) {
   // Create expected results
-  const Matcher<double> expected_200MHz[kNumberBars] = {0, 0, 0.998, 0.009, 0, 0.001, 0, 0, 0, 0};
+  const Matcher<double> expected_200MHz[kNumberBars] = {0, 0, 0.999, 0.009, 0, 0.001, 0, 0, 0, 0};
   const Matcher<double> expected_2000MHz[kNumberBars] = {0, 0, 0, 0, 0, 0, 0.524, 0.474, 0, 0};
 
   // Create in/out buffers

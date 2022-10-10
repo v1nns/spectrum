@@ -43,6 +43,7 @@ error::Code FFTW::Init(int output_size) {
 
   frame_rate_ = 75;
   sensitivity_ = 1;
+  sens_init_ = 1;
   bass_.buffer_size = kBufferSize * 8;
   mid_.buffer_size = kBufferSize * 4;
   treble_.buffer_size = kBufferSize;
@@ -334,7 +335,7 @@ void FFTW::SeparateFreqBands(double* out) {
     double temp_l = 0;
     double temp_r = 0;
 
-    // Add upp FFT values within bands
+    // Add FFT values within bands
     for (int i = lower_cut_off_per_bar_[n]; i <= upper_cut_off_per_bar_[n]; i++) {
       if (n <= bass_cut_off_) {
         temp_l += hypot(bass_.out_left.get()[i][0], bass_.out_left.get()[i][1]);

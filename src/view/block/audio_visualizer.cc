@@ -22,14 +22,16 @@ ftxui::Element AudioVisualizer::Render() {
 
   int size = data_.size();
   if (size > 0) {
-    for (int i = 0; i < size / 2; i++) {
+    // for (int i = 0; i < size / 2; i++) {
+    for (int i = (size / 2) - 1; i >= 0; i--) {
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::text(" "));
     }
 
-    for (int i = size - 1; i >= size / 2; i--) {
+    // for (int i = size - 1; i >= size / 2; i--) {
+    for (int i = size / 2; i <= size; i++) {
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
