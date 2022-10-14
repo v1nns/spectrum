@@ -161,7 +161,8 @@ class MediaController : public interface::Listener, public interface::Notifier {
     std::mutex mutex;                  //!< Control access for internal resources
     std::condition_variable notifier;  //!< Conditional variable to block thread
 
-    std::atomic<bool> exit;  //!< Control flag to exit thread
+    std::atomic<bool> exit;           //!< Control flag to exit thread
+    std::atomic<bool> smooth_clear;  //!< Control flag to send zeroed data to UI
 
     std::vector<double> buffer;  //!< Input buffer with raw audio data
 
@@ -178,6 +179,9 @@ class MediaController : public interface::Listener, public interface::Notifier {
 
         // There is input to be analyzed
         if (!buffer.empty()) return true;
+
+        // For aesthetics, send zeroed data to UI
+        if(smooth_clear) return true;
 
         return false;
       });
@@ -223,6 +227,14 @@ class MediaController : public interface::Listener, public interface::Notifier {
      */
     void Exit() {
       exit = true;
+      notifier.notify_one();
+    }
+
+    /**
+     * @brief Send zeroed data to graphic interface
+     */
+    void ClearGraphic() {
+      smooth_clear = true;
       notifier.notify_one();
     }
   };

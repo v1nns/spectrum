@@ -104,14 +104,26 @@ void Player::AudioHandler() {
     result = decoder_->Decode(
         period_size_, [&](void* buffer, int max_size, int actual_size, int position) {
           auto command = media_control_.Pop();
+          auto media_notifier = notifier_.lock();
 
           switch (command) {
             case Command::PauseOrResume: {
               media_control_.state = TranslateCommand(command);
               playback_->Pause();
 
+              // As this thread can stay blocked for a long time, waiting for a command,
+              // notify state to media controller
+              if (media_notifier) {
+                media_notifier->NotifySongState(model::Song::CurrentInformation{
+                    .state = model::Song::MediaState::Pause,
+                    .position = (uint32_t)curr_position,
+                });
+              }
+
               // Block thread until receives one of the informed commands
               bool keep_executing = media_control_.WaitFor(Command::PauseOrResume, Command::Stop);
+
+              // TODO: NotifySongState for stop
 
               if (!keep_executing || media_control_.state == State::Stop) {
                 playback_->Stop();
@@ -133,9 +145,7 @@ void Player::AudioHandler() {
               break;
           }
 
-          auto media_notifier = notifier_.lock();
-
-          // Send information to graphical interface
+          // Send raw information to media controller to run audio analysis
           if (media_notifier) {
             media_notifier->SendAudioRaw((int*)buffer, actual_size);
           }
@@ -148,11 +158,10 @@ void Player::AudioHandler() {
             curr_position = position;
 
             if (media_notifier) {
-              model::Song::CurrentInformation state{
+              media_notifier->NotifySongState(model::Song::CurrentInformation{
                   .state = model::Song::MediaState::Play,
                   .position = (uint32_t)curr_position,
-              };
-              media_notifier->NotifySongState(state);
+              });
             }
           }
 
