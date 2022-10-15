@@ -159,8 +159,9 @@ class MediaController : public interface::Listener, public interface::Notifier {
   enum class Command {
     None = 10000,
     Analyze = 10001,
-    Animation = 10002,
-    Exit = 10003,
+    RunClearAnimation = 10002,
+    RunRegainAnimation = 10003,
+    Exit = 10004,
   };
 
   /**
@@ -253,6 +254,9 @@ class MediaController : public interface::Listener, public interface::Notifier {
       notifier.wait(lock, [&]() mutable {
         // No command in queue
         if (queue.empty()) return false;
+
+        // Do not run regain animation while it has not received any input data from player
+        if (queue.size() == 1 && queue.front() == Command::RunRegainAnimation) return false;
 
         return true;
       });
