@@ -56,7 +56,7 @@ MediaController::MediaController(const std::shared_ptr<interface::EventDispatche
       player_ctl_{player_ctl},
       analyzer_{std::move(analyzer)},
       analysis_loop_{},
-      analysis_data_{.exit = false, .smooth_clear = false} {}
+      analysis_data_{} {}
 
 /* ********************************************************************************************** */
 
@@ -82,7 +82,7 @@ void MediaController::Init(int number_bars, bool asynchronous) {
 
 /* ********************************************************************************************** */
 
-void MediaController::Exit() { analysis_data_.Exit(); }
+void MediaController::Exit() { analysis_data_.Push(Command::Exit); }
 
 /* ********************************************************************************************** */
 
@@ -90,9 +90,7 @@ void MediaController::AnalysisHandler() {
   std::vector<double> input, output, previous;
   int input_size, output_size;
 
-  bool smooth_regain = false;
-
-  while (analysis_data_.WaitForInput()) {
+  while (analysis_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to send and receive
     input_size = analyzer_->GetBufferSize();
     output_size = analyzer_->GetOutputSize();
@@ -102,66 +100,75 @@ void MediaController::AnalysisHandler() {
       output.resize(output_size);
     }
 
-    if (analysis_data_.smooth_clear) {
-      using namespace std::chrono_literals;
-      auto dispatcher = dispatcher_.lock();
-      if (!dispatcher) continue;
+    auto command = analysis_data_.Pop();
 
-      for (int i = 0; i < 10; i++) {
-        std::transform(previous.begin(), previous.end(), previous.begin(),
-                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
+    switch (command) {
+      case Command::Analyze: {
+        // Get input data and run FFT
+        input = analysis_data_.GetBuffer(input_size);
+        analyzer_->Execute(input.data(), input.size(), output.data());
 
-        // Send result to UI
-        auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
-        dispatcher->SendEvent(event);
-
-        std::this_thread::sleep_for(0.04s);
-      }
-
-      previous = std::vector(previous.size(), 0.001);
-
-      auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
-      dispatcher->SendEvent(event);
-
-      analysis_data_.smooth_clear = false;
-      smooth_regain = true;
-      continue;
-    }
-
-    if (smooth_regain) {
-      using namespace std::chrono_literals;
-      auto dispatcher = dispatcher_.lock();
-      if (!dispatcher) continue;
-
-      for (int i = 1; i <= 10; i++) {
-        std::vector<double> teste;
-
-        for (auto& value : output) {
-          teste.push_back((value / 10) * i);
-        }
+        auto dispatcher = dispatcher_.lock();
+        if (!dispatcher) continue;
 
         // Send result to UI
-        auto event = interface::CustomEvent::DrawAudioSpectrum(teste);
+        auto event = interface::CustomEvent::DrawAudioSpectrum(output);
         dispatcher->SendEvent(event);
 
-        std::this_thread::sleep_for(0.01s);
-      }
+        previous = output;
+      } break;
 
-      smooth_regain = false;
+      default:
+        break;
     }
 
-    // Get input data and run FFT
-    input = analysis_data_.Get(input_size);
-    analyzer_->Execute(input.data(), input.size(), output.data());
+    // if (analysis_data_.smooth_clear) {
+    //   using namespace std::chrono_literals;
+    //   auto dispatcher = dispatcher_.lock();
+    //   if (!dispatcher) continue;
 
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) continue;
+    //   for (int i = 0; i < 10; i++) {
+    //     std::transform(previous.begin(), previous.end(), previous.begin(),
+    //                    std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
 
-    // Send result to UI
-    auto event = interface::CustomEvent::DrawAudioSpectrum(output);
-    dispatcher->SendEvent(event);
+    //     // Send result to UI
+    //     auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
+    //     dispatcher->SendEvent(event);
 
-    previous = output;
+    //     std::this_thread::sleep_for(0.04s);
+    //   }
+
+    //   previous = std::vector(previous.size(), 0.001);
+
+    //   auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
+    //   dispatcher->SendEvent(event);
+
+    //   analysis_data_.smooth_clear = false;
+    //   smooth_regain = true;
+    //   continue;
+    // }
+
+    // if (smooth_regain) {
+    //   using namespace std::chrono_literals;
+    //   auto dispatcher = dispatcher_.lock();
+    //   if (!dispatcher) continue;
+
+    //   for (int i = 1; i <= 10; i++) {
+    //     std::vector<double> teste;
+
+    //     for (auto& value : output) {
+    //       teste.push_back((value / 10) * i);
+    //     }
+
+    //     // Send result to UI
+    //     auto event = interface::CustomEvent::DrawAudioSpectrum(teste);
+    //     dispatcher->SendEvent(event);
+
+    //     std::this_thread::sleep_for(0.01s);
+    //   }
+
+    //   smooth_regain = false;
+    // }
   }
 }
 
@@ -235,7 +242,7 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& state) {
-  if (state.state == model::Song::MediaState::Pause) analysis_data_.ClearGraphic();
+  if (state.state == model::Song::MediaState::Pause) analysis_data_.Push(Command::Animation);
 
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;

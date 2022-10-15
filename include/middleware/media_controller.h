@@ -152,6 +152,16 @@ class MediaController : public interface::Listener, public interface::Notifier {
 
   /* ******************************************************************************************** */
   //! Audio analysis
+ private:
+  /**
+   * @brief Commands list (used for internal control)
+   */
+  enum class Command {
+    None = 10000,
+    Analyze = 10001,
+    Animation = 10002,
+    Exit = 10003,
+  };
 
   /**
    * @brief An structure for data synchronization considering external events (wait for audio data
@@ -161,33 +171,9 @@ class MediaController : public interface::Listener, public interface::Notifier {
     std::mutex mutex;                  //!< Control access for internal resources
     std::condition_variable notifier;  //!< Conditional variable to block thread
 
-    std::atomic<bool> exit;           //!< Control flag to exit thread
-    std::atomic<bool> smooth_clear;  //!< Control flag to send zeroed data to UI
+    std::queue<Command> queue;  //!< Queue with media control commands
 
     std::vector<double> buffer;  //!< Input buffer with raw audio data
-
-    /**
-     * @brief Block thread until player sends raw audio data.
-     *
-     * @return True if thread should keep working, False if not
-     */
-    bool WaitForInput() {
-      std::unique_lock<std::mutex> lock(mutex);
-      notifier.wait(lock, [&]() {
-        // Simply exit, do not wait for input data
-        if (exit) return true;
-
-        // There is input to be analyzed
-        if (!buffer.empty()) return true;
-
-        // For aesthetics, send zeroed data to UI
-        if(smooth_clear) return true;
-
-        return false;
-      });
-
-      return !exit;
-    }
 
     /**
      * @brief Get a slice from raw audio data to run frequency analysis
@@ -195,7 +181,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
      * @param size Chunk size
      * @return Vector containing raw audio data
      */
-    const std::vector<double> Get(int size) {
+    const std::vector<double> GetBuffer(int size) {
       std::unique_lock<std::mutex> lock(mutex);
       if (size > buffer.size()) size = buffer.size();
 
@@ -219,23 +205,59 @@ class MediaController : public interface::Listener, public interface::Notifier {
       std::vector<double>::const_iterator end = buffer.end();
 
       buffer.insert(end, input, input + size);
+
+      queue.push(Command::Analyze);
       notifier.notify_one();
     }
 
     /**
-     * @brief Force to exit from audio analysis thread
+     * @brief Push command to media controller queue
+     * @param cmd Command
      */
-    void Exit() {
-      exit = true;
+    void Push(const Command cmd) {
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+
+        // Clear queue in case of exit request
+        if (cmd == Command::Exit) {
+          std::queue<Command>().swap(queue);
+        }
+
+        queue.push(std::move(cmd));
+      }
       notifier.notify_one();
     }
 
     /**
-     * @brief Send zeroed data to graphic interface
+     * @brief Pop command from media controller queue
+     * @return Command
      */
-    void ClearGraphic() {
-      smooth_clear = true;
-      notifier.notify_one();
+    Command Pop() {
+      std::unique_lock<std::mutex> lock(mutex);
+      if (queue.empty()) return Command::None;
+
+      auto cmd = queue.front();
+      queue.pop();
+
+      return cmd;
+    }
+
+    /**
+     * @brief Block thread until player sends an event and media controller translate it into a
+     * command.
+     *
+     * @return True if thread should keep working, False if not
+     */
+    bool WaitForCommand() {
+      std::unique_lock<std::mutex> lock(mutex);
+      notifier.wait(lock, [&]() mutable {
+        // No command in queue
+        if (queue.empty()) return false;
+
+        return true;
+      });
+
+      return queue.front() != Command::Exit;
     }
   };
 
