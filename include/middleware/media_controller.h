@@ -159,9 +159,10 @@ class MediaController : public interface::Listener, public interface::Notifier {
   enum class Command {
     None = 10000,
     Analyze = 10001,
-    RunClearAnimation = 10002,
-    RunRegainAnimation = 10003,
-    Exit = 10004,
+    RunClearAnimationWithRegain = 10002,
+    RunClearAnimationWithoutRegain = 10003,
+    RunRegainAnimation = 10004,
+    Exit = 10005,
   };
 
   /**
@@ -251,7 +252,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
      */
     bool WaitForCommand() {
       std::unique_lock<std::mutex> lock(mutex);
-      notifier.wait(lock, [&]() mutable {
+      notifier.wait(lock, [&]() {
         // No command in queue
         if (queue.empty()) return false;
 
@@ -275,7 +276,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
 
   std::thread analysis_loop_;  //!< Execute audio-analysis function as a thread
 
-  AnalysisDataSynced analysis_data_;  //!< Controls the audio data synchronization
+  AnalysisDataSynced sync_data_;  //!< Controls the audio data synchronization
 };
 
 }  // namespace middleware

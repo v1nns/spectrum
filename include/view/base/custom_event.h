@@ -67,6 +67,10 @@ struct CustomEvent {
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
 
+  //! Possible types for content
+  using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
+                               std::filesystem::path, std::vector<double>, int>;
+
   //! Generic getter for event content
   template <typename T>
   T GetContent() const {
@@ -76,10 +80,6 @@ struct CustomEvent {
       return T();
     }
   }
-
-  //! Possible types for content
-  using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
-                               std::filesystem::path, std::vector<double>, int>;
 
   //! Variables
   // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization

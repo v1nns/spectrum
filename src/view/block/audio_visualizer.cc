@@ -31,7 +31,7 @@ ftxui::Element AudioVisualizer::Render() {
     }
 
     // for (int i = size - 1; i >= size / 2; i--) {
-    for (int i = size / 2; i <= size; i++) {
+    for (int i = size / 2; i < size; i++) {
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
       entries.push_back(ftxui::gaugeUp(data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));

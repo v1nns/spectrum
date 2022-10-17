@@ -35,8 +35,8 @@ std::shared_ptr<MediaController> MediaController::Create(
 
   // TODO: Think of a better way to do this...
   model::Volume value = player->GetAudioVolume();
-  auto event_vol = interface::CustomEvent::UpdateVolume(value);
-  terminal->ProcessEvent(event_vol);
+  auto event_volume = interface::CustomEvent::UpdateVolume(value);
+  terminal->ProcessEvent(event_volume);
 
   auto event_bars =
       interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(number_bars, 0.001));
@@ -56,7 +56,7 @@ MediaController::MediaController(const std::shared_ptr<interface::EventDispatche
       player_ctl_{player_ctl},
       analyzer_{std::move(analyzer)},
       analysis_loop_{},
-      analysis_data_{} {}
+      sync_data_{} {}
 
 /* ********************************************************************************************** */
 
@@ -82,7 +82,7 @@ void MediaController::Init(int number_bars, bool asynchronous) {
 
 /* ********************************************************************************************** */
 
-void MediaController::Exit() { analysis_data_.Push(Command::Exit); }
+void MediaController::Exit() { sync_data_.Push(Command::Exit); }
 
 /* ********************************************************************************************** */
 
@@ -91,7 +91,7 @@ void MediaController::AnalysisHandler() {
   std::vector<double> input, output, previous;
   int in_size, out_size;
 
-  while (analysis_data_.WaitForCommand()) {
+  while (sync_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
     in_size = analyzer_->GetBufferSize();
     out_size = analyzer_->GetOutputSize();
@@ -101,12 +101,12 @@ void MediaController::AnalysisHandler() {
       output.resize(out_size);
     }
 
-    auto command = analysis_data_.Pop();
+    auto command = sync_data_.Pop();
 
     switch (command) {
       case Command::Analyze: {
         // Get input data and run FFT
-        input = analysis_data_.GetBuffer(in_size);
+        input = sync_data_.GetBuffer(in_size);
         analyzer_->Execute(input.data(), input.size(), output.data());
 
         auto dispatcher = dispatcher_.lock();
@@ -119,7 +119,8 @@ void MediaController::AnalysisHandler() {
         previous = output;
       } break;
 
-      case Command::RunClearAnimation: {
+      case Command::RunClearAnimationWithRegain:
+      case Command::RunClearAnimationWithoutRegain: {
         auto dispatcher = dispatcher_.lock();
         if (!dispatcher) continue;
 
@@ -139,24 +140,27 @@ void MediaController::AnalysisHandler() {
         auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
         dispatcher->SendEvent(event);
 
-        analysis_data_.Push(Command::RunRegainAnimation);
+        // Enqueue to run regain animation when resume song
+        if (command == Command::RunClearAnimationWithRegain)
+          sync_data_.Push(Command::RunRegainAnimation);
+
       } break;
 
       case Command::RunRegainAnimation: {
         auto dispatcher = dispatcher_.lock();
         if (!dispatcher) continue;
 
-        std::vector<double> bar_values;
+        std::vector<double> bars;
 
         for (int i = 1; i <= 10; i++) {
-          bar_values.clear();
+          bars.clear();
 
           for (auto& value : output) {
-            bar_values.push_back((value / 10) * i);
+            bars.push_back((value / 10) * i);
           }
 
           // Send result to UI
-          auto event = interface::CustomEvent::DrawAudioSpectrum(bar_values);
+          auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
           dispatcher->SendEvent(event);
 
           std::this_thread::sleep_for(0.01s);
@@ -208,13 +212,15 @@ void MediaController::SetVolume(model::Volume value) {
 /* ********************************************************************************************** */
 
 void MediaController::ResizeAnalysisOutput(int value) {
-  std::unique_lock<std::mutex> lock(analysis_data_.mutex);
+  std::unique_lock<std::mutex> lock(sync_data_.mutex);
   analyzer_->Init(value);
 }
 
 /* ********************************************************************************************** */
 
 void MediaController::ClearSongInformation() {
+  sync_data_.Push(Command::RunClearAnimationWithoutRegain);
+
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
 
@@ -239,8 +245,12 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& state) {
-  if (state.state == model::Song::MediaState::Pause)
-    analysis_data_.Push(Command::RunClearAnimation);
+  // Enqueue animation to thread
+  if (state.state == model::Song::MediaState::Pause) {
+    sync_data_.Push(Command::RunClearAnimationWithRegain);
+  } else if (state.state == model::Song::MediaState::Stop) {
+    sync_data_.Push(Command::RunClearAnimationWithoutRegain);
+  }
 
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;
@@ -259,7 +269,7 @@ void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
   // myfile << "ta adicionando isso no buffer: " << buffer_size << "\n";
   // myfile.close();
 
-  analysis_data_.Append(buffer, buffer_size);
+  sync_data_.Append(buffer, buffer_size);
 }
 
 /* ********************************************************************************************** */
