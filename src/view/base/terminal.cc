@@ -218,6 +218,10 @@ void Terminal::OnCustomEvent() {
           media_ctl->PauseOrResume();
           break;
 
+        case CustomEvent::Identifier::StopSong:
+          media_ctl->Stop();
+          break;
+
         case CustomEvent::Identifier::ClearCurrentSong:
           media_ctl->ClearCurrentSong();
           break;

@@ -101,6 +101,11 @@ class MediaController : public interface::Listener, public interface::Notifier {
   void PauseOrResume() override;
 
   /**
+   * @brief Notify Audio thread to stop the current song
+   */
+  void Stop() override;
+
+  /**
    * @brief Clear any information about the current song. After this, player will trigger
    * ClearSongInformation method.
    */

@@ -209,10 +209,7 @@ void Player::PauseOrResume() { media_control_.Push(Command::PauseOrResume); }
 
 /* ********************************************************************************************** */
 
-void Player::Stop() {
-  media_control_.Push(Command::Stop);
-  curr_song_.reset();
-}
+void Player::Stop() { media_control_.Push(Command::Stop); }
 
 /* ********************************************************************************************** */
 

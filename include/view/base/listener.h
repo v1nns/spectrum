@@ -47,6 +47,11 @@ class Listener {
   virtual void PauseOrResume() = 0;
 
   /**
+   * @brief Notify Audio thread to stop the current song
+   */
+  virtual void Stop() = 0;
+
+  /**
    * @brief Notify Audio Player to set volume
    * @param value Sound volume information
    */

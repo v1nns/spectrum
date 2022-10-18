@@ -202,6 +202,15 @@ void MediaController::PauseOrResume() {
 
 /* ********************************************************************************************** */
 
+void MediaController::Stop() {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->Stop();
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::SetVolume(model::Volume value) {
   auto player = player_ctl_.lock();
   if (!player) return;

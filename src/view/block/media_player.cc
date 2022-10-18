@@ -23,16 +23,23 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
   btn_play_ = Button::make_button_play([&]() {
     // TODO: Try to play active entry from list directory
     if (IsPlaying()) {
-      auto dsp = dispatcher_.lock();
-      if (dsp) {
+      auto dispatcher = dispatcher_.lock();
+      if (dispatcher) {
         auto event = interface::CustomEvent::PauseOrResumeSong();
-        dsp->SendEvent(event);
+        dispatcher->SendEvent(event);
       }
     }
   });
 
-  // TODO: bind methods for on_click
-  btn_stop_ = Button::make_button_stop(nullptr);
+  btn_stop_ = Button::make_button_stop([&]() {
+    if (IsPlaying()) {
+      auto dispatcher = dispatcher_.lock();
+      if (dispatcher) {
+        auto event = interface::CustomEvent::StopSong();
+        dispatcher->SendEvent(event);
+      }
+    }
+  });
 }
 
 /* ********************************************************************************************** */
@@ -130,6 +137,19 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
       dispatcher->SendEvent(event);
 
       btn_play_->ToggleState();
+    }
+
+    return true;
+  }
+
+  // Stop current song
+  if (event == ftxui::Event::Character('s') && IsPlaying()) {
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::StopSong();
+      dispatcher->SendEvent(event);
+
+      btn_stop_->ToggleState();
     }
 
     return true;

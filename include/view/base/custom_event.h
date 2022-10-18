@@ -38,9 +38,10 @@ struct CustomEvent {
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
-    ClearCurrentSong = 60002,
-    SetAudioVolume = 60003,
-    ResizeAnalysis = 60004,
+    StopSong = 60002,
+    ClearCurrentSong = 60003,
+    SetAudioVolume = 60004,
+    ResizeAnalysis = 60005,
     // Events from interface to interface
     Refresh = 70000,
   };
@@ -60,6 +61,7 @@ struct CustomEvent {
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
   static CustomEvent PauseOrResumeSong();
+  static CustomEvent StopSong();
   static CustomEvent ClearCurrentSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
   static CustomEvent ResizeAnalysis(int bars);

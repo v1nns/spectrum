@@ -78,6 +78,16 @@ CustomEvent CustomEvent::PauseOrResumeSong() {
 /* ********************************************************************************************** */
 
 // Static
+CustomEvent CustomEvent::StopSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::StopSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
 CustomEvent CustomEvent::ClearCurrentSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
