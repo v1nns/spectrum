@@ -62,6 +62,18 @@ class Listener {
    * @param value Maximum quantity of frequency bars
    */
   virtual void ResizeAnalysisOutput(int value) = 0;
+
+  /**
+   * @brief Notify Audio Player to seek forward position in current playing song
+   * @param value Offset value
+   */
+  virtual void SeekForwardPosition(int value) = 0;
+
+  /**
+   * @brief Notify Audio Player to seek backward position in current playing song
+   * @param value Offset value
+   */
+  virtual void SeekBackwardPosition(int value) = 0;
 };
 
 }  // namespace interface

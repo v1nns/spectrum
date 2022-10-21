@@ -88,11 +88,17 @@ class FFmpeg : public Decoder {
   };
 
   struct PacketDeleter {
-    void operator()(AVPacket* p) const { av_packet_free(&p); }
+    void operator()(AVPacket* p) const {
+      av_packet_unref(p);
+      av_packet_free(&p);
+    }
   };
 
   struct FrameDeleter {
-    void operator()(AVFrame* p) const { av_frame_free(&p); }
+    void operator()(AVFrame* p) const {
+      av_frame_unref(p);
+      av_frame_free(&p);
+    }
   };
 
   struct DataBufferDeleter {

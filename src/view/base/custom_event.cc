@@ -120,6 +120,28 @@ CustomEvent CustomEvent::ResizeAnalysis(int bars) {
 /* ********************************************************************************************** */
 
 // Static
+CustomEvent CustomEvent::SeekForwardPosition(int offset) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SeekForwardPosition,
+      .content = offset,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SeekBackwardPosition(int offset) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SeekBackwardPosition,
+      .content = offset,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
 CustomEvent CustomEvent::Refresh() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,

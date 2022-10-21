@@ -102,7 +102,7 @@ void Player::AudioHandler() {
 
     // To keep decoding audio, return true in lambda function
     result = decoder_->Decode(
-        period_size_, [&](void* buffer, int max_size, int actual_size, int position) {
+        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& position) {
           auto command = media_control_.Pop();
           auto media_notifier = notifier_.lock();
 
@@ -141,6 +141,21 @@ void Player::AudioHandler() {
               return false;
               break;
 
+            case Command::SeekForward: {
+              if (position < curr_song_->duration) {
+                position++;
+                return true;
+              }
+
+            } break;
+
+            case Command::SeekBackward: {
+              if (position > 0) {
+                position--;
+                return true;
+              }
+            } break;
+
             default:
               break;
           }
@@ -154,7 +169,7 @@ void Player::AudioHandler() {
           playback_->AudioCallback(buffer, max_size, actual_size);
 
           // Notify song state to graphical interface
-          if (position > curr_position) {
+          if (position != curr_position) {
             curr_position = position;
 
             if (media_notifier) {
@@ -218,6 +233,14 @@ void Player::SetAudioVolume(model::Volume value) { playback_->SetVolume(value); 
 /* ********************************************************************************************** */
 
 model::Volume Player::GetAudioVolume() { return playback_->GetVolume(); }
+
+/* ********************************************************************************************** */
+
+void Player::SeekForwardPosition(int value) { media_control_.Push(Command::SeekForward); }
+
+/* ********************************************************************************************** */
+
+void Player::SeekBackwardPosition(int value) { media_control_.Push(Command::SeekBackward); }
 
 /* ********************************************************************************************** */
 

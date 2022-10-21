@@ -236,6 +236,16 @@ void Terminal::OnCustomEvent() {
           media_ctl->ResizeAnalysisOutput(content);
         } break;
 
+        case CustomEvent::Identifier::SeekForwardPosition: {
+          auto content = event.GetContent<int>();
+          media_ctl->SeekForwardPosition(content);
+        } break;
+
+        case CustomEvent::Identifier::SeekBackwardPosition: {
+          auto content = event.GetContent<int>();
+          media_ctl->SeekBackwardPosition(content);
+        } break;
+
         default:
           break;
       }

@@ -227,6 +227,24 @@ void MediaController::ResizeAnalysisOutput(int value) {
 
 /* ********************************************************************************************** */
 
+void MediaController::SeekForwardPosition(int value) {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->SeekForwardPosition(value);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SeekBackwardPosition(int value) {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->SeekBackwardPosition(value);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation() {
   sync_data_.Push(Command::RunClearAnimationWithoutRegain);
 

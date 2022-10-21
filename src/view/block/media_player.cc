@@ -181,6 +181,28 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     return true;
   }
 
+  // Seek forward in current song
+  if (event == ftxui::Event::Character('f') && IsPlaying()) {
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::SeekForwardPosition(1);
+      dispatcher->SendEvent(event);
+    }
+
+    return true;
+  }
+
+  // Seek backward in current song
+  if (event == ftxui::Event::Character('b') && IsPlaying()) {
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::SeekBackwardPosition(1);
+      dispatcher->SendEvent(event);
+    }
+
+    return true;
+  }
+
   return false;
 }
 

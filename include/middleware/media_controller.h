@@ -122,6 +122,18 @@ class MediaController : public interface::Listener, public interface::Notifier {
    */
   void ResizeAnalysisOutput(int value) override;
 
+  /**
+   * @brief Notify Audio Player to seek forward position in current playing song
+   * @param value Offset value
+   */
+  void SeekForwardPosition(int value) override;
+
+  /**
+   * @brief Notify Audio Player to seek backward position in current playing song
+   * @param value Offset value
+   */
+  void SeekBackwardPosition(int value) override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

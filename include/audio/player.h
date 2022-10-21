@@ -42,6 +42,8 @@ class AudioControl {
   virtual void Stop() = 0;
   virtual void SetAudioVolume(model::Volume value) = 0;
   virtual model::Volume GetAudioVolume() = 0;
+  virtual void SeekForwardPosition(int value) = 0;
+  virtual void SeekBackwardPosition(int value) = 0;
   virtual void Exit() = 0;
 };
 
@@ -131,7 +133,7 @@ class Player : public AudioControl {
 
   /**
    * @brief Set Audio Volume on playback
-   * @param Sound volume
+   * @param value Sound volume
    */
   void SetAudioVolume(model::Volume value) override;
 
@@ -140,6 +142,18 @@ class Player : public AudioControl {
    * @return Sound volume
    */
   model::Volume GetAudioVolume() override;
+
+  /**
+   * @brief Inform audio loop to seek forward position on current playing song
+   * @param value Offset position
+   */
+  void SeekForwardPosition(int value) override;
+
+  /**
+   * @brief Inform audio loop to seek backward position on current playing song
+   * @param value Offset position
+   */
+  void SeekBackwardPosition(int value) override;
 
   /**
    * @brief Exit from Audio loop
@@ -157,7 +171,9 @@ class Player : public AudioControl {
     Play = 8001,
     PauseOrResume = 8002,
     Stop = 8003,
-    Exit = 8004,
+    SeekForward = 8004,
+    SeekBackward = 8005,
+    Exit = 8006,
   };
 
   /**
@@ -181,6 +197,8 @@ class Player : public AudioControl {
     State st = State::Idle;
     switch (cmd) {
       case Command::Play:
+      case Command::SeekForward:
+      case Command::SeekBackward:
         st = State::Play;
         break;
       case Command::PauseOrResume:

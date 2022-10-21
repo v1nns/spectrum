@@ -118,7 +118,7 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::OpenFile(model::Song *audio_info) {
-  auto clean_up_and_return = [&](error::Code error_code) {
+  auto clean_up_and_return = [&](error::Code error_code) mutable {
     ClearCache();
     return error_code;
   };
@@ -154,7 +154,12 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   DataBuffer allocated_buffer = DataBuffer{(uint8_t *)av_malloc(max_buffer_size)};
   uint8_t *buffer = allocated_buffer.get();
 
+  // Control flags
   bool continue_decoding = true;
+
+  // Flag to seek frame based on value informed by callback (in this case, set by player)
+  bool seek_frame = false;
+  int64_t position = 0;
 
   while (av_read_frame(input_stream_.get(), packet.get()) >= 0 && continue_decoding) {
     if (packet->stream_index != stream_index_) {
@@ -163,12 +168,13 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
     }
 
     if (avcodec_send_packet(decoder_.get(), packet.get()) < 0) {
-      return error::kUnknownError;
+      return error::kDecodeFileFailed;
     }
 
     while (avcodec_receive_frame(decoder_.get(), frame.get()) >= 0 && continue_decoding) {
       // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
-      int64_t position = packet->pts / input_stream_->streams[stream_index_]->time_base.den;
+      position = packet->pts / input_stream_->streams[stream_index_]->time_base.den;
+      int64_t old_position = position;
 
       int samples_size = swr_convert(resampler_.get(), &buffer, samples,
                                      (const uint8_t **)(frame->data), frame->nb_samples);
@@ -176,9 +182,22 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
       while (samples_size > 0 && continue_decoding) {
         continue_decoding = callback(buffer, max_buffer_size, samples_size, position);
         samples_size = swr_convert(resampler_.get(), &buffer, samples, nullptr, 0);
+
+        if (position != old_position) seek_frame = true;
       }
 
-      av_frame_unref(frame.get());
+      if (seek_frame) {
+        avcodec_flush_buffers(decoder_.get());
+        int64_t target = av_rescale_q(position * AV_TIME_BASE, AV_TIME_BASE_Q,
+                                      input_stream_->streams[stream_index_]->time_base);
+
+        if (av_seek_frame(input_stream_.get(), stream_index_, target, AVSEEK_FLAG_BACKWARD) < 0)
+          return error::kSeekFrameFailed;
+
+        seek_frame = false;
+      }
+
+        av_frame_unref(frame.get());
     }
 
     av_packet_unref(packet.get());

@@ -120,7 +120,8 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, driver::Decoder::AudioCallback callback) {
-          callback(0, 0, 0, 0);
+          int64_t position = 0;
+          callback(0, 0, 0, position);
           return error::kSuccess;
         }));
 
@@ -174,7 +175,10 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           syncer.NotifyStep(2);
-          callback(0, 0, 0, 0);
+
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
           return error::kSuccess;
         }));
 
@@ -239,7 +243,10 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           syncer.WaitForStep(3);
-          callback(0, 0, 0, 0);
+
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
           return error::kSuccess;
         }));
 
@@ -301,7 +308,9 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
-          callback(0, 0, 0, 1);
+          int64_t position = 1;
+          callback(0, 0, 0, position);
+
           return error::kSuccess;
         }));
 

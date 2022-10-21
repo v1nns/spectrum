@@ -42,6 +42,8 @@ struct CustomEvent {
     ClearCurrentSong = 60003,
     SetAudioVolume = 60004,
     ResizeAnalysis = 60005,
+    SeekForwardPosition = 60006,
+    SeekBackwardPosition = 60007,
     // Events from interface to interface
     Refresh = 70000,
   };
@@ -65,6 +67,8 @@ struct CustomEvent {
   static CustomEvent ClearCurrentSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
   static CustomEvent ResizeAnalysis(int bars);
+  static CustomEvent SeekForwardPosition(int offset);
+  static CustomEvent SeekBackwardPosition(int offset);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
