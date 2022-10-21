@@ -272,7 +272,7 @@ class Player : public AudioControl {
     /**
      * @brief Block thread until user interface sends events matching the expected command(s). As
      * this is a blocking operation, when one of the expected commands matches with the one from
-     * queue, media control state is updated
+     * queue, media control state is updated.
      *
      * @tparam Args Media command
      * @param cmds Command list
@@ -293,11 +293,12 @@ class Player : public AudioControl {
         queue.pop();
 
         // Check if it matches with any command from list
-        for (auto cmd : {Command::Exit, cmds...})
+        for (auto cmd : {Command::Exit, cmds...}) {
           if (tmp == cmd) {
             state = TranslateCommand(tmp);
             return true;
           }
+        }
 
         return false;
       });

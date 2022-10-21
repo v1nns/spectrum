@@ -125,8 +125,11 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
           return error::kSuccess;
         }));
 
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
     EXPECT_CALL(*playback, AudioCallback(_, _, _));
 
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Play, .position = 0}));
     EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
 
     // Notify that expectations are set, and run audio loop
@@ -184,7 +187,17 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
 
     EXPECT_CALL(*playback, Pause());
 
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
     EXPECT_CALL(*playback, AudioCallback(_, _, _));
+
+    // Using-declaration to improve readability
+    using State = model::Song::MediaState;
+
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)));
+
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Play)));
 
     EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(3); }));
 
@@ -250,6 +263,7 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
           return error::kSuccess;
         }));
 
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
     EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
     EXPECT_CALL(*playback, Stop());
 
@@ -314,6 +328,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
           return error::kSuccess;
         }));
 
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
     EXPECT_CALL(*playback, AudioCallback(_, _, _));
 
     // In this case, decoder will tell us that the current timestamp matches some position other
@@ -364,6 +379,7 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
     EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(0);
     EXPECT_CALL(*playback, Prepare()).Times(0);
     EXPECT_CALL(*decoder, Decode(_, _)).Times(0);
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
     EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
 
     // Only these should be called
@@ -468,6 +484,81 @@ TEST_F(PlayerTest, ChangeVolume) {
   EXPECT_THAT(player_ctl->GetAudioVolume(), Eq(model::Volume{0.3f}));
 
   // TODO: return error::Code on player API and create a test forcing error on volume change
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
+  const std::string song{"Mareux - Summertime"};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, song)))
+        .WillOnce(Invoke([&](model::Song* audio_info) mutable {
+          // To enable seek position feature, must fill duration info to song struct
+          audio_info->duration = 15;
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare is called again right after Pause was called
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          using namespace std::chrono_literals;
+
+          int64_t position = 0;
+          for (int i = 0; i <= 3; i++) {
+            callback(0, 0, 0, position);
+            position++;
+
+            std::this_thread::sleep_for(.5s);
+          }
+
+          // This value is considering the seek backward/forward commands + sum in the for-loop
+          EXPECT_EQ(5, position);
+
+          return error::kSuccess;
+        }));
+
+    // These methods should be called only one time because of seek backward/forward command
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(1);
+    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(1);
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(1);
+
+    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play file
+    player_ctl->Play(song);
+
+    // Ask Audio Player to seek forward position in song by 1 second
+    player_ctl->SeekForwardPosition(1);
+    player_ctl->SeekBackwardPosition(1);
+    player_ctl->SeekForwardPosition(1);
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
 }
 
 }  // namespace

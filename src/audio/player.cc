@@ -102,7 +102,7 @@ void Player::AudioHandler() {
 
     // To keep decoding audio, return true in lambda function
     result = decoder_->Decode(
-        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& position) {
+        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& position) mutable {
           auto command = media_control_.Pop();
           auto media_notifier = notifier_.lock();
 
@@ -135,18 +135,17 @@ void Player::AudioHandler() {
             } break;
 
             case Command::Stop:
-            case Command::Exit:
+            case Command::Exit: {
               media_control_.state = TranslateCommand(command);
               playback_->Stop();
               return false;
-              break;
+            } break;
 
             case Command::SeekForward: {
               if (position < curr_song_->duration) {
                 position++;
                 return true;
               }
-
             } break;
 
             case Command::SeekBackward: {
