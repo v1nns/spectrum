@@ -285,21 +285,24 @@ class Player : public AudioControl {
         // Simply exit, do not wait for any command
         if (state == State::Exit) return true;
 
-        // No command in queue
-        if (queue.empty()) return false;
+        // Pop commands from queue
+        std::vector<Command> expected = {Command::Exit, cmds...};
+        while (!queue.empty()) {
+          Command current = queue.front();
+          queue.pop();
 
-        // Pop first command from queue
-        auto tmp = queue.front();
-        queue.pop();
-
-        // Check if it matches with any command from list
-        for (auto cmd : {Command::Exit, cmds...}) {
-          if (tmp == cmd) {
-            state = TranslateCommand(tmp);
-            return true;
+          // Check if it matches with some command from list
+          for (auto cmd : expected) {
+            if (current == cmd) {
+              // In case of match, update state and clear queue
+              state = TranslateCommand(current);
+              std::queue<Command>().swap(queue);
+              return true;
+            }
           }
         }
 
+        // No command in queue or didn't match expect command in list
         return false;
       });
 
@@ -309,7 +312,7 @@ class Player : public AudioControl {
 
   /* ******************************************************************************************** */
   //! Variables
-
+ private:
   std::unique_ptr<driver::Playback> playback_;  //!< Handle playback stream
   std::unique_ptr<driver::Decoder> decoder_;    //!< Open file as input stream and parse samples
 
