@@ -7,6 +7,7 @@
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -280,6 +281,26 @@ class MediaController : public interface::Listener, public interface::Notifier {
       });
 
       return queue.front() != Command::Exit;
+    }
+
+    /**
+     * @brief Block thread until player sends a command or reaches timeout
+     * @param timeout Timestamp deadline
+     *
+     * @return True if thread unlocked by command, False if reached timeout
+     */
+    bool WaitForCommandOrUntil(
+        const std::chrono::time_point<std::chrono::system_clock,
+                                      std::chrono::duration<long double, std::nano>>& timeout) {
+      std::unique_lock<std::mutex> lock(mutex);
+      notifier.wait_until(lock, timeout, [&]() {
+        // No command in queue
+        if (queue.empty()) return false;
+
+        return true;
+      });
+
+      return !queue.empty();
     }
   };
 

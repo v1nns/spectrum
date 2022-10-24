@@ -105,9 +105,10 @@ void MediaController::AnalysisHandler() {
 
     switch (command) {
       case Command::Analyze: {
-        // Get input data and run FFT
+        // Get input data, run FFT and update local cache
         input = sync_data_.GetBuffer(in_size);
         analyzer_->Execute(input.data(), input.size(), output.data());
+        previous = output;
 
         auto dispatcher = dispatcher_.lock();
         if (!dispatcher) continue;
@@ -116,7 +117,6 @@ void MediaController::AnalysisHandler() {
         auto event = interface::CustomEvent::DrawAudioSpectrum(output);
         dispatcher->SendEvent(event);
 
-        previous = output;
       } break;
 
       case Command::RunClearAnimationWithRegain:
@@ -125,6 +125,8 @@ void MediaController::AnalysisHandler() {
         if (!dispatcher) continue;
 
         for (int i = 0; i < 10; i++) {
+          // Each time this loop is executed, it will reduce spectrum bar values to 45% based on its
+          // previous values (this value was decided based on feeling :P)
           std::transform(previous.begin(), previous.end(), previous.begin(),
                          std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
 
@@ -132,7 +134,11 @@ void MediaController::AnalysisHandler() {
           auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
           dispatcher->SendEvent(event);
 
-          std::this_thread::sleep_for(0.04s);
+          // Sleep a little bit before sending a new update to UI. And in case of receiving a new
+          // command in the meantime, just cancel animation
+          auto timeout = std::chrono::system_clock::now() + 0.04s;
+          bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout);
+          if (exit_animation) break;
         }
 
         previous = std::vector(previous.size(), 0.001);
@@ -140,7 +146,7 @@ void MediaController::AnalysisHandler() {
         auto event = interface::CustomEvent::DrawAudioSpectrum(previous);
         dispatcher->SendEvent(event);
 
-        // Enqueue to run regain animation when resume song
+        // Enqueue to run regain animation when song is resumed
         if (command == Command::RunClearAnimationWithRegain)
           sync_data_.Push(Command::RunRegainAnimation);
 
@@ -155,15 +161,19 @@ void MediaController::AnalysisHandler() {
         for (int i = 1; i <= 10; i++) {
           bars.clear();
 
-          for (auto& value : output) {
-            bars.push_back((value / 10) * i);
-          }
+          // Each time this loop is executed, it will increase spectrum bar values in a step of 10%
+          // based on its previous values (this value was also decided based on feeling)
+          for (auto& value : output) bars.push_back((value / 10) * i);
 
           // Send result to UI
           auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
           dispatcher->SendEvent(event);
 
-          std::this_thread::sleep_for(0.01s);
+          // Sleep a little bit before sending a new update to UI. And in case of receiving a new
+          // command in the meantime, just cancel animation
+          auto timeout = std::chrono::system_clock::now() + 0.01s;
+          bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout);
+          if (exit_animation) break;
         }
       } break;
 
