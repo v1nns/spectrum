@@ -24,7 +24,7 @@ class Dialog {
   Dialog();
 
   /**
-   * @brief Construct a new Dialog object
+   * @brief Destroy Dialog object
    */
   virtual ~Dialog() = default;
 

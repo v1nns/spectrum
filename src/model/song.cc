@@ -8,8 +8,19 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 namespace model {
+
+bool Song::CurrentInformation::operator==(const Song::CurrentInformation other) const {
+  return std::tie(state, position) == std ::tie(other.state, position);
+}
+
+bool Song::CurrentInformation::operator!=(const Song::CurrentInformation other) const {
+  return !operator==(other);
+}
+
+/* ********************************************************************************************** */
 
 using Prefix = std::pair<int, std::string_view>;
 using PrefixArray = std::array<Prefix, 4>;
