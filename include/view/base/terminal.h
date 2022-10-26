@@ -147,7 +147,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::weak_ptr<interface::Listener> listener_;  //!< Outside listener for events from UI
   error::Code last_error_;                       //!< Last application error
 
-  std::unique_ptr<Dialog> dialog_box_;  //!< Dialog box to show custom messages
+  std::unique_ptr<Dialog> error_dialog_;  //!< Dialog box to show custom messages
 
   ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
   ftxui::Sender<CustomEvent> sender_;      //! Custom event sender

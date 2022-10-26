@@ -4,12 +4,15 @@
 
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
+#include "util/logger.h"
 #include "view/base/notifier.h"
 
 namespace audio {
 
 std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decoder* decoder,
                                        bool asynchronous) {
+  LOG("Creating a new instance of Player");
+
   // Create playback object
   auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
                                 : std::make_unique<driver::Alsa>();

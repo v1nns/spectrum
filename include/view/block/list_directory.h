@@ -210,7 +210,7 @@ class ListDirectory : public Block {
      */
     void Stop() {
       {
-        std::lock_guard<std::mutex> lock(mutex);
+        std::scoped_lock<std::mutex> lock(mutex);
         enabled = false;
       }
       notifier.notify_one();

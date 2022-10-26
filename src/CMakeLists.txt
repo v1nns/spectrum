@@ -53,7 +53,9 @@ target_sources(
           view/block/media_player.cc
           view/block/audio_visualizer.cc
           view/element/button.cc
-          view/element/dialog.cc)
+          view/element/dialog.cc
+          # logger
+          util/logger.cc)
 
 target_include_directories(
   spectrum-lib

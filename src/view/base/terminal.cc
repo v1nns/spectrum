@@ -46,7 +46,7 @@ Terminal::Terminal()
       ftxui::ComponentBase{},
       listener_{},
       last_error_{error::kSuccess},
-      dialog_box_{std::make_unique<Dialog>()},
+      error_dialog_{std::make_unique<Dialog>()},
       receiver_{ftxui::MakeReceiver<CustomEvent>()},
       sender_{receiver_->MakeSender()},
       cb_send_event_{},
@@ -143,7 +143,7 @@ ftxui::Element Terminal::Render() {
   });
 
   // Render dialog box
-  ftxui::Element error = dialog_box_->IsVisible() ? dialog_box_->Render() : ftxui::text("");
+  ftxui::Element error = error_dialog_->IsVisible() ? error_dialog_->Render() : ftxui::text("");
 
   return ftxui::dbox({terminal, error});
 }
@@ -152,7 +152,7 @@ ftxui::Element Terminal::Render() {
 
 bool Terminal::OnEvent(ftxui::Event event) {
   // Cannot do anything while dialog box is opened
-  if (dialog_box_->IsVisible()) return dialog_box_->OnEvent(event);
+  if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
 
   // Treat any pending custom event
   OnCustomEvent();
@@ -294,7 +294,7 @@ void Terminal::ProcessEvent(const CustomEvent& event) {
 
 void Terminal::SetApplicationError(error::Code id) {
   std::string message{error::ApplicationError::GetMessage(id)};
-  dialog_box_->SetErrorMessage(message);
+  error_dialog_->SetErrorMessage(message);
 
   last_error_ = id;
 }
