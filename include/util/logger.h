@@ -98,4 +98,7 @@ class Logger {
 //! Macro to log messages (this was the only way found to append "filename:line" in the output)
 #define LOG(...) logger::get_logger().Log(__FILENAME__, __LINE__, __VA_ARGS__)
 
+//! Macro to log error messages
+#define ERROR(...) logger::get_logger().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+
 #endif  // INCLUDE_UTIL_LOGGER_H_

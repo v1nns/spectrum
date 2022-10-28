@@ -2,6 +2,8 @@
 
 #include <libavutil/channel_layout.h>
 
+#include "util/logger.h"
+
 namespace driver {
 
 FFmpeg::FFmpeg()
@@ -20,15 +22,18 @@ FFmpeg::FFmpeg()
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
+  LOG("Open input stream from filepath=", filepath);
   AVFormatContext *ptr = nullptr;
 
   if (avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr) < 0) {
+    ERROR("Could not open input stream");
     return error::kFileNotSupported;
   }
 
   input_stream_.reset(std::move(ptr));
 
   if (avformat_find_stream_info(input_stream_.get(), nullptr) < 0) {
+    ERROR("Could not find stream info about opened input");
     return error::kFileNotSupported;
   }
 
@@ -38,35 +43,41 @@ error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::ConfigureDecoder() {
+  LOG("Configure audio decoder for opened input stream");
   const AVCodec *codec = nullptr;
   AVCodecParameters *parameters = nullptr;
 
   for (int i = 0; i < input_stream_->nb_streams; i++) {
     parameters = input_stream_->streams[i]->codecpar;
     if (parameters->codec_type == AVMEDIA_TYPE_AUDIO) {
+      LOG("Found audio stream from input with index=", i);
       stream_index_ = i;
       codec = avcodec_find_decoder(parameters->codec_id);
-
-      if (!codec) {
-        return error::kUnknownError;
-      }
 
       break;
     }
   }
 
+  if (!codec) {
+    ERROR("Could not find audio decoder to specified file");
+    return error::kFileNotSupported;
+  }
+
   decoder_ = CodecContext{avcodec_alloc_context3(codec)};
 
   if (!decoder_ || avcodec_parameters_to_context(decoder_.get(), parameters) < 0) {
+    ERROR("Could not create audio decoder");
     return error::kUnknownError;
   }
 
+  // Force to use stereo as channel layout
   if (!codec->ch_layouts) {
     auto dummy = (AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO;
     av_channel_layout_copy(&decoder_->ch_layout, &dummy);
   }
 
   if (avcodec_open2(decoder_.get(), codec, nullptr) < 0) {
+    ERROR("Could not initialize audio decoder");
     return error::kUnknownError;
   }
 
@@ -76,6 +87,7 @@ error::Code FFmpeg::ConfigureDecoder() {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::ConfigureResampler() {
+  LOG("Configure audio resampler");
   SwrContext *dummy{};
   swr_alloc_set_opts2(&dummy, ch_layout_.get(), kSampleFormat, kSampleRate, &decoder_->ch_layout,
                       decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr);
@@ -83,6 +95,7 @@ error::Code FFmpeg::ConfigureResampler() {
   resampler_.reset(std::move(dummy));
 
   if (!resampler_ || swr_init(resampler_.get()) < 0) {
+    ERROR("Could not initialize audio resampler");
     return error::kUnknownError;
   }
 
@@ -92,6 +105,8 @@ error::Code FFmpeg::ConfigureResampler() {
 /* ********************************************************************************************** */
 
 void FFmpeg::FillAudioInformation(model::Song *audio_info) {
+  LOG("Fill song structure with audio information");
+
   // use this to get all metadata associated to this audio file
   //   const AVDictionaryEntry *tag = nullptr;
   //   while ((tag = av_dict_get(input_stream_->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
@@ -118,6 +133,7 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::OpenFile(model::Song *audio_info) {
+  LOG("Open file and try to decode as song");
   auto clean_up_and_return = [&](error::Code error_code) mutable {
     ClearCache();
     return error_code;
@@ -141,6 +157,7 @@ error::Code FFmpeg::OpenFile(model::Song *audio_info) {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
+  LOG("Decode song using maximum sample=", samples);
   int max_buffer_size = av_samples_get_buffer_size(nullptr, decoder_->ch_layout.nb_channels,
                                                    samples, decoder_->sample_fmt, 1);
 
@@ -148,6 +165,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   Frame frame = Frame{av_frame_alloc()};
 
   if (!packet || !frame) {
+    ERROR("Could not allocate internal structures to decode song");
     return error::kUnknownError;
   }
 
@@ -168,6 +186,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
     }
 
     if (avcodec_send_packet(decoder_.get(), packet.get()) < 0) {
+      ERROR("Could not resample song");
       return error::kDecodeFileFailed;
     }
 
@@ -191,13 +210,15 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
         int64_t target = av_rescale_q(position * AV_TIME_BASE, AV_TIME_BASE_Q,
                                       input_stream_->streams[stream_index_]->time_base);
 
-        if (av_seek_frame(input_stream_.get(), stream_index_, target, AVSEEK_FLAG_BACKWARD) < 0)
+        if (av_seek_frame(input_stream_.get(), stream_index_, target, AVSEEK_FLAG_BACKWARD) < 0) {
+          ERROR("Could not seek frame in song");
           return error::kSeekFrameFailed;
+        }
 
         seek_frame = false;
       }
 
-        av_frame_unref(frame.get());
+      av_frame_unref(frame.get());
     }
 
     av_packet_unref(packet.get());
@@ -209,6 +230,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
 /* ********************************************************************************************** */
 
 void FFmpeg::ClearCache() {
+  LOG("Clear internal cache");
   input_stream_.reset();
   decoder_.reset();
   resampler_.reset();
