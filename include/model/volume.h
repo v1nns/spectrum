@@ -76,6 +76,12 @@ struct Volume {
   bool operator==(const Volume other) const { return percentage == other.percentage; }
   bool operator!=(const Volume other) const { return !operator==(other); }
 
+  // output to ostream
+  friend std::ostream& operator<<(std::ostream& out, Volume& v) {
+    out << (int)v << "%";
+    return out;
+  }
+
  private:
   float percentage;
 };

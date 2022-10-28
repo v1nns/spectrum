@@ -20,6 +20,7 @@
 #include "driver/ffmpeg.h"
 #include "model/application_error.h"
 #include "model/song.h"
+#include "util/logger.h"
 
 //! Forward declaration
 namespace interface {
@@ -187,6 +188,35 @@ class Player : public AudioControl {
     Exit = 9004,
   };
 
+  //! Output command to ostream
+  friend std::ostream& operator<<(std::ostream& out, Command& cmd) {
+    switch (cmd) {
+      case Command::None:
+        out << " None ";
+        break;
+      case Command::Play:
+        out << " Play ";
+        break;
+      case Command::PauseOrResume:
+        out << " PauseOrResume ";
+        break;
+      case Command::Stop:
+        out << " Stop ";
+        break;
+      case Command::SeekForward:
+        out << " SeekForward ";
+        break;
+      case Command::SeekBackward:
+        out << " SeekBackward ";
+        break;
+      case Command::Exit:
+        out << " Exit ";
+        break;
+    }
+
+    return out;
+  }
+
   /**
    * @brief Translate media control command to media state
    *
@@ -280,6 +310,7 @@ class Player : public AudioControl {
      */
     template <typename... Args>
     bool WaitFor(Args&&... cmds) {
+      LOG("Waiting for commands: {", cmds..., "}");
       std::unique_lock<std::mutex> lock(mutex);
       notifier.wait(lock, [&]() mutable {
         // Simply exit, do not wait for any command
@@ -290,6 +321,8 @@ class Player : public AudioControl {
         while (!queue.empty()) {
           Command current = queue.front();
           queue.pop();
+
+          LOG("Received command:", current);
 
           // Check if it matches with some command from list
           for (auto cmd : expected) {

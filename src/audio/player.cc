@@ -4,14 +4,13 @@
 
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
-#include "util/logger.h"
 #include "view/base/notifier.h"
 
 namespace audio {
 
 std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decoder* decoder,
                                        bool asynchronous) {
-  LOG("Creating a new instance of Player");
+  LOG("Create new instance of player");
 
   // Create playback object
   auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
@@ -55,6 +54,8 @@ Player::~Player() {
 /* ********************************************************************************************** */
 
 void Player::Init(bool asynchronous) {
+  LOG("Initialize player with async=", asynchronous);
+
   // Open playback stream using default device
   error::Code result = playback_->CreatePlaybackStream();
 
@@ -81,8 +82,12 @@ void Player::Init(bool asynchronous) {
 /* ********************************************************************************************** */
 
 void Player::AudioHandler() {
+  LOG("Start audio handler thread");
+
   // Block this thread until UI informs us a song to play
   while (media_control_.WaitFor(Command::Play)) {
+    LOG("Audio handler received new song to play");
+
     // First, try to parse file (it may be or not a support file extension to decode)
     error::Code result = decoder_->OpenFile(curr_song_.get());
 
@@ -111,6 +116,7 @@ void Player::AudioHandler() {
 
           switch (command) {
             case Command::PauseOrResume: {
+              LOG("Audio handler received command to pause song");
               media_control_.state = TranslateCommand(command);
               playback_->Pause();
 
@@ -129,22 +135,26 @@ void Player::AudioHandler() {
               // TODO: NotifySongState for stop
 
               if (!keep_executing || media_control_.state == State::Stop) {
+                LOG("Audio handler received command to stop song");
                 playback_->Stop();
                 return false;
               }
 
+              LOG("Audio handler received command to resume song");
               media_control_.state = State::Play;
               playback_->Prepare();
             } break;
 
             case Command::Stop:
             case Command::Exit: {
+              LOG("Audio handler received command to exit");
               media_control_.state = TranslateCommand(command);
               playback_->Stop();
               return false;
             } break;
 
             case Command::SeekForward: {
+              LOG("Audio handler received command to seek forward");
               if (position < curr_song_->duration) {
                 position++;
                 return true;
@@ -152,6 +162,7 @@ void Player::AudioHandler() {
             } break;
 
             case Command::SeekBackward: {
+              LOG("Audio handler received command to seek backward");
               if (position > 0) {
                 position--;
                 return true;
@@ -189,11 +200,14 @@ void Player::AudioHandler() {
     // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
     ResetMediaControl(result);
   }
+
+  LOG("Finish audio handler thread");
 }
 
 /* ********************************************************************************************** */
 
 void Player::ResetMediaControl(error::Code err_code) {
+  LOG("Reset media control with error code=", err_code);
   media_control_.Reset();
   curr_song_.reset();
 
@@ -210,42 +224,65 @@ void Player::ResetMediaControl(error::Code err_code) {
 /* ********************************************************************************************** */
 
 void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier>& notifier) {
+  LOG("Register new interface notifier");
   notifier_ = notifier;
 }
 
 /* ********************************************************************************************** */
 
 void Player::Play(const std::string& filepath) {
+  LOG("Add command to queue: Play (with filepath=\"", filepath, "\")");
   curr_song_ = std::make_unique<model::Song>(model::Song{.filepath = filepath});
   media_control_.Push(Command::Play);
 }
 
 /* ********************************************************************************************** */
 
-void Player::PauseOrResume() { media_control_.Push(Command::PauseOrResume); }
+void Player::PauseOrResume() {
+  LOG("Add command to queue: ", media_control_.state == State::Play ? "Pause" : "Resume");
+  media_control_.Push(Command::PauseOrResume);
+}
 
 /* ********************************************************************************************** */
 
-void Player::Stop() { media_control_.Push(Command::Stop); }
+void Player::Stop() {
+  LOG("Add command to queue: Stop");
+  media_control_.Push(Command::Stop);
+}
 
 /* ********************************************************************************************** */
 
-void Player::SetAudioVolume(model::Volume value) { playback_->SetVolume(value); }
+void Player::SetAudioVolume(model::Volume value) {
+  LOG("Set audio volume with value=", value);
+  playback_->SetVolume(value);
+}
 
 /* ********************************************************************************************** */
 
-model::Volume Player::GetAudioVolume() { return playback_->GetVolume(); }
+model::Volume Player::GetAudioVolume() {
+  LOG("Get audio volume");
+  return playback_->GetVolume();
+}
 
 /* ********************************************************************************************** */
 
-void Player::SeekForwardPosition(int value) { media_control_.Push(Command::SeekForward); }
+void Player::SeekForwardPosition(int value) {
+  LOG("Add command to queue: SeekForward (with value=", value, ")");
+  media_control_.Push(Command::SeekForward);
+}
 
 /* ********************************************************************************************** */
 
-void Player::SeekBackwardPosition(int value) { media_control_.Push(Command::SeekBackward); }
+void Player::SeekBackwardPosition(int value) {
+  LOG("Add command to queue: SeekBackward (with value=", value, ")");
+  media_control_.Push(Command::SeekBackward);
+}
 
 /* ********************************************************************************************** */
 
-void Player::Exit() { media_control_.Push(Command::Exit); }
+void Player::Exit() {
+  LOG("Add command to queue: Exit");
+  media_control_.Push(Command::Exit);
+}
 
 }  // namespace audio
