@@ -22,7 +22,7 @@ FFmpeg::FFmpeg()
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
-  LOG("Open input stream from filepath=", filepath);
+  LOG("Open input stream from filepath=\"", filepath, "\"");
   AVFormatContext *ptr = nullptr;
 
   if (avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr) < 0) {

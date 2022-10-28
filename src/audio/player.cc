@@ -147,7 +147,8 @@ void Player::AudioHandler() {
 
             case Command::Stop:
             case Command::Exit: {
-              LOG("Audio handler received command to exit");
+              LOG("Audio handler received command to ",
+                  command == Command::Stop ? "stop song" : "exit");
               media_control_.state = TranslateCommand(command);
               playback_->Stop();
               return false;

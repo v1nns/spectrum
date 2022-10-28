@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "model/application_error.h"
+#include "util/logger.h"
 
 namespace driver {
 
@@ -12,9 +13,12 @@ Alsa::Alsa() : playback_handle_{}, mixer_{}, period_size_{} {}
 /* ********************************************************************************************** */
 
 error::Code Alsa::CreatePlaybackStream() {
+  LOG("Create new playback stream");
+
   // Create playback stream on ALSA
   snd_pcm_t *pcm_handle = nullptr;
   if (snd_pcm_open(&pcm_handle, kDevice, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+    ERROR("Could not open playback stream");
     return error::kUnknownError;
   }
 
@@ -28,6 +32,7 @@ error::Code Alsa::CreatePlaybackStream() {
   snd_mixer_selem_register(mixer_handle, NULL, NULL);
 
   if (snd_mixer_load(mixer_handle) < 0) {
+    ERROR("Could not create mixer for control");
     return error::kUnknownError;
   }
 
@@ -39,14 +44,18 @@ error::Code Alsa::CreatePlaybackStream() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::ConfigureParameters() {
+  LOG("Configure parameters on playback stream");
+
   // with latency as 92900us, we get a period size equal to 1024
   if (snd_pcm_set_params(playback_handle_.get(), kSampleFormat, SND_PCM_ACCESS_RW_INTERLEAVED,
                          kChannels, kSampleRate, 0, 92900) < 0) {
+    ERROR("Could not set parameters on playback stream");
     return error::kUnknownError;
   }
 
   snd_pcm_uframes_t buffer_size = 0;
   if (snd_pcm_get_params(playback_handle_.get(), &buffer_size, &period_size_) < 0) {
+    ERROR("Could not get parameters from playback stream");
     return error::kUnknownError;
   }
 
@@ -56,7 +65,10 @@ error::Code Alsa::ConfigureParameters() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::Prepare() {
+  LOG("Prepare playback stream to play audio");
+
   if (snd_pcm_prepare(playback_handle_.get()) < 0) {
+    ERROR("Could not prepare playback stream");
     return error::kUnknownError;
   }
 
@@ -66,7 +78,10 @@ error::Code Alsa::Prepare() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::Pause() {
+  LOG("Pause playback stream");
+
   if (snd_pcm_drop(playback_handle_.get()) < 0) {
+    ERROR("Could not pause playback stream and clear remaining frames on buffer");
     return error::kUnknownError;
   }
 
@@ -76,7 +91,10 @@ error::Code Alsa::Pause() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::Stop() {
+  LOG("Stop playback stream");
+
   if (snd_pcm_drain(playback_handle_.get()) < 0) {
+    ERROR("Could not stop playback stream and preserve remaining frames on buffer");
     return error::kUnknownError;
   }
 
@@ -86,12 +104,14 @@ error::Code Alsa::Stop() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::AudioCallback(void *buffer, int max_size, int actual_size) {
+  // As this is called multiple times, LOG will not be called here in the beginning
   int ret = snd_pcm_writei(playback_handle_.get(), buffer, actual_size);
 
   if (ret < 0) {
+    ERROR("Could not write buffer to playback stream, received error=", ret);
     if ((ret = snd_pcm_recover(playback_handle_.get(), ret, 1)) == 0) {
       // TODO: do something?
-      // std::cout << "AlsaPlayer: recovered after xrun (overrun/underrun)" << std::endl;
+      LOG("Recovered playback stream from error (overrun/underrun");
     }
   }
 
@@ -101,6 +121,8 @@ error::Code Alsa::AudioCallback(void *buffer, int max_size, int actual_size) {
 /* ********************************************************************************************** */
 
 snd_mixer_elem_t *Alsa::GetMasterPlayback() {
+  LOG("Use mixer to get master playback");
+
   // Select master playback
   snd_mixer_selem_id_t *sid = nullptr;
 
@@ -115,8 +137,11 @@ snd_mixer_elem_t *Alsa::GetMasterPlayback() {
 /* ********************************************************************************************** */
 
 error::Code Alsa::SetVolume(model::Volume value) {
+  LOG("Set volume on master playback with value=", value);
+
   auto master = GetMasterPlayback();
   if (master == nullptr) {
+    ERROR("Could not get master playback");
     return error::kUnknownError;
   }
 
@@ -135,8 +160,11 @@ error::Code Alsa::SetVolume(model::Volume value) {
 /* ********************************************************************************************** */
 
 model::Volume Alsa::GetVolume() {
+  LOG("Get volume from master playback");
+
   auto master = GetMasterPlayback();
   if (master == nullptr) {
+    ERROR("Could not get master playback");
     return model::Volume();
   }
 
