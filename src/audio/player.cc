@@ -110,7 +110,7 @@ void Player::AudioHandler() {
 
     // To keep decoding audio, return true in lambda function
     result = decoder_->Decode(
-        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& position) mutable {
+        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& position) {
           auto command = media_control_.Pop();
           auto media_notifier = notifier_.lock();
 

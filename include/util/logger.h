@@ -41,22 +41,27 @@ std::string get_timestamp();
  */
 class Logger {
  public:
-  // Remove default constructor
-  Logger() = delete;
+  //! Remove these
+  Logger() = delete;                                // default constructor
+  Logger(const Logger& other) = delete;             // copy constructor
+  Logger(Logger&& other) = delete;                  // move constructor
+  Logger& operator=(const Logger& other) = delete;  // copy assignment
+  Logger& operator=(Logger&& other) = delete;       // move assignment
 
   /**
    * @brief Construct a new Logger object
    * @param filepath Full path for file to write log messages
    */
-  Logger(const std::string& filepath);
+  explicit Logger(const std::string& filepath);
 
   /**
    * @brief Destroy the Logger object
    */
-  virtual ~Logger() = default;
+  ~Logger() = default;
 
  private:
   void OpenFileStream();
+  void CloseFileStream();
   void WriteToFile(const std::string& message);
 
  public:

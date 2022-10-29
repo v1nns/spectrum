@@ -35,10 +35,7 @@ void Logger::OpenFileStream() {
   std::scoped_lock<std::mutex> lock{mutex_};
 
   if ((now - last_reopen_) > reopen_interval_) {
-    try {
-      file_.close();
-    } catch (...) {
-    }
+    CloseFileStream();
 
     try {
       bool init = last_reopen_ == std::chrono::system_clock::time_point();
@@ -55,12 +52,18 @@ void Logger::OpenFileStream() {
       }
 
     } catch (std::exception& e) {
-      try {
-        file_.close();
-      } catch (...) {
-      }
+      CloseFileStream();
       throw e;
     }
+  }
+}
+
+/* ********************************************************************************************** */
+
+void Logger::CloseFileStream() {
+  try {
+    file_.close();
+  } catch (...) {
   }
 }
 

@@ -510,7 +510,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
 
     // Setup all expectations
     EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, song)))
-        .WillOnce(Invoke([&](model::Song* audio_info) mutable {
+        .WillOnce(Invoke([&](model::Song* audio_info) {
           // To enable seek position feature, must fill duration info to song struct
           audio_info->duration = 15;
           return error::kSuccess;
@@ -587,7 +587,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
 
     // Setup all expectations
     EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, song)))
-        .WillOnce(Invoke([&](model::Song* audio_info) mutable {
+        .WillOnce(Invoke([&](model::Song* audio_info) {
           // To enable seek position feature, must fill duration info to song struct
           audio_info->duration = 15;
           return error::kSuccess;

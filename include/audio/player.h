@@ -312,7 +312,7 @@ class Player : public AudioControl {
     bool WaitFor(Args&&... cmds) {
       LOG("Waiting for commands: {", cmds..., "}");
       std::unique_lock<std::mutex> lock(mutex);
-      notifier.wait(lock, [&]() mutable {
+      notifier.wait(lock, [&]() {
         // Simply exit, do not wait for any command
         if (state == State::Exit) return true;
 

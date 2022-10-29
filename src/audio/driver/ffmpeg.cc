@@ -134,7 +134,7 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
 
 error::Code FFmpeg::OpenFile(model::Song *audio_info) {
   LOG("Open file and try to decode as song");
-  auto clean_up_and_return = [&](error::Code error_code) mutable {
+  auto clean_up_and_return = [&](error::Code error_code) {
     ClearCache();
     return error_code;
   };
