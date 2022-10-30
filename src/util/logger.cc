@@ -1,6 +1,6 @@
 #include "util/logger.h"
 
-namespace logger {
+namespace util {
 
 std::string get_timestamp() {
   // Get the time
@@ -21,36 +21,29 @@ std::string get_timestamp() {
 
 /* ********************************************************************************************** */
 
-Logger::Logger(const std::string& filepath)
-    : mutex_{},
-      filepath_{filepath},
-      file_{},
-      reopen_interval_{std::chrono::seconds(300)},
-      last_reopen_{} {}
+Logger::Logger()
+    : mutex_{}, filepath_{}, file_{}, reopen_interval_{std::chrono::seconds(300)}, last_reopen_{} {}
 
 /* ********************************************************************************************** */
 
-void Logger::OpenFileStream() {
+void Logger::OpenFileStream(const std::string& timestamp) {
   auto now = std::chrono::system_clock::now();
-  std::scoped_lock<std::mutex> lock{mutex_};
 
   if ((now - last_reopen_) > reopen_interval_) {
     CloseFileStream();
 
     try {
-      bool init = last_reopen_ == std::chrono::system_clock::time_point();
+      bool first_message = last_reopen_ == std::chrono::system_clock::time_point();
 
       // Open file
       file_.open(filepath_, std::ofstream::out | std::ofstream::app);
-      last_reopen_ = std::chrono::system_clock::now();
+      last_reopen_ = now;
 
       // In case of first time opening file, write initial message to log
-      if (init) {
+      if (first_message) {
         std::string header(15, '-');
-        file_ << "[" << get_timestamp() << "] " << header << " Initializing log file " << header
-              << "\n";
+        file_ << "[" << timestamp << "] " << header << " Initializing log file " << header << "\n";
       }
-
     } catch (std::exception& e) {
       CloseFileStream();
       throw e;
@@ -69,13 +62,15 @@ void Logger::CloseFileStream() {
 
 /* ********************************************************************************************** */
 
-void Logger::WriteToFile(const std::string& message) {
-  // Check if should (re)open file
-  OpenFileStream();
-
-  // Lock mutex and write to file
+void Logger::WriteToFile(const std::string& timestamp, const std::string& message) {
+  // Lock mutex
   std::scoped_lock<std::mutex> lock{mutex_};
+
+  // Check if should (re)open file
+  OpenFileStream(timestamp);
+
+  // Write to file
   file_ << message;
 }
 
-}  // namespace logger
+}  // namespace util

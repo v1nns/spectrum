@@ -8,6 +8,7 @@
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "middleware/media_controller.h"           // for MediaController
 #include "util/arg_parser.h"                       // for ArgumentParser
+#include "util/logger.h"                           // For Logger
 #include "view/base/terminal.h"                    // for Terminal
 
 //! Command-line argument parsing
@@ -23,17 +24,19 @@ bool parse(int argc, char** argv) {
   };
 
   try {
-    // Configure argument parser and run to get parsed arguments (first=command name, second=value)
+    // Configure argument parser and run to get parsed arguments
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
     Arguments parsed_args = arg_parser->Parse(argc, argv);
 
-    // Check if contains log config
+    // Check if contains filepath for logging
     if (parsed_args.find("log") != parsed_args.end()) {
-      // TODO: Enable logging to specified path
+      // Enable logging to specified path
+      util::Logger::Configure(parsed_args["log"]);
     }
 
   } catch (...) {
-    // Got some error while trying to parse, let ArgumentParser inform about the error on CLI
+    // Got some error while trying to parse, or even received help as argument
+    // Just let ArgumentParser inform about it on CLI
     return false;
   }
 

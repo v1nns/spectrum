@@ -8,12 +8,14 @@
 
 #include <chrono>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 
-namespace logger {
+namespace util {
 
 //! Forward declaration
 class Logger;
@@ -23,8 +25,7 @@ class Logger;
  * @return Logger instance
  */
 inline Logger& get_logger() {
-  // TODO: make it configurable via command line argument
-  static std::unique_ptr<Logger> singleton = std::make_unique<Logger>("/tmp/teste.txt");
+  static std::unique_ptr<Logger> singleton = std::make_unique<Logger>();
   return *singleton;
 }
 
@@ -41,29 +42,42 @@ std::string get_timestamp();
  */
 class Logger {
  public:
-  //! Remove these
-  Logger() = delete;                                // default constructor
-  Logger(const Logger& other) = delete;             // copy constructor
-  Logger(Logger&& other) = delete;                  // move constructor
-  Logger& operator=(const Logger& other) = delete;  // copy assignment
-  Logger& operator=(Logger&& other) = delete;       // move assignment
+  /**
+   * @brief Get a new unique instance of Logger and enable logging to specified path
+   * @param filepath Full path for file to write log messages
+   * @return Logger unique instance
+   */
+  static Logger& Configure(const std::string& filepath) {
+    auto& logger = get_logger();
+    logger.filepath_ = filepath;
+    return logger;
+  }
 
   /**
    * @brief Construct a new Logger object
-   * @param filepath Full path for file to write log messages
    */
-  explicit Logger(const std::string& filepath);
+  Logger();
 
   /**
    * @brief Destroy the Logger object
    */
   ~Logger() = default;
 
- private:
-  void OpenFileStream();
-  void CloseFileStream();
-  void WriteToFile(const std::string& message);
+  //! Remove these
+  Logger(const Logger& other) = delete;             // copy constructor
+  Logger(Logger&& other) = delete;                  // move constructor
+  Logger& operator=(const Logger& other) = delete;  // copy assignment
+  Logger& operator=(Logger&& other) = delete;       // move assignment
 
+  /* ******************************************************************************************** */
+  //! Utility
+ private:
+  void OpenFileStream(const std::string& timestamp);
+  void CloseFileStream();
+  void WriteToFile(const std::string& timestamp, const std::string& message);
+
+  /* ******************************************************************************************** */
+  //! Public API
  public:
   /**
    * @brief Concatenate all arguments into a single log message and write it to file
@@ -74,15 +88,23 @@ class Logger {
    */
   template <typename... Args>
   void Log(const char* filename, int line, Args&&... args) {
-    std::ostringstream ss;
+    // Logging is optional, so if no path has been provided, do nothing
+    if (filepath_.empty()) return;
 
-    ss << "[" << get_timestamp() << "] ";
+    // Otherwise, build log message and write it to file
+    std::ostringstream ss;
+    std::string timestamp = get_timestamp();
+
+    ss << "[" << timestamp << "] ";
+    ss << "[" << std::hex << std::this_thread::get_id() << std::dec << "] ";
     ss << "[" << filename << ":" << line << "] ";
     (ss << ... << std::forward<Args>(args)) << "\n";
 
-    WriteToFile(std::move(ss).str());
+    WriteToFile(timestamp, std::move(ss).str());
   }
 
+  /* ******************************************************************************************** */
+  //! Variables
  private:
   std::mutex mutex_;                                   //!< Control access for internal resources
   std::string filepath_;                               //!< Absolute path for log file
@@ -91,7 +113,7 @@ class Logger {
   std::chrono::system_clock::time_point last_reopen_;  //!< Last timestamp that file was (re)opened
 };
 
-}  // namespace logger
+}  // namespace util
 
 /* ---------------------------------------------------------------------------------------------- */
 /*                                           PUBLIC API                                           */
@@ -101,9 +123,9 @@ class Logger {
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 //! Macro to log messages (this was the only way found to append "filename:line" in the output)
-#define LOG(...) logger::get_logger().Log(__FILENAME__, __LINE__, __VA_ARGS__)
+#define LOG(...) util::get_logger().Log(__FILENAME__, __LINE__, __VA_ARGS__)
 
 //! Macro to log error messages
-#define ERROR(...) logger::get_logger().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+#define ERROR(...) util::get_logger().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
 
 #endif  // INCLUDE_UTIL_LOGGER_H_
