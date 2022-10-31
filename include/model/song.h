@@ -41,8 +41,8 @@ struct Song {
     uint32_t position;  //!< Current position (in seconds) of the audio
 
     //! Overloaded operators
-    bool operator==(const CurrentInformation other) const;
-    bool operator!=(const CurrentInformation other) const;
+    bool operator==(const CurrentInformation& other) const;
+    bool operator!=(const CurrentInformation& other) const;
   };
 
   CurrentInformation curr_info;  //!< Current state of song

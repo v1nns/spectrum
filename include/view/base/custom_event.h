@@ -49,8 +49,8 @@ struct CustomEvent {
   };
 
   //! Overloaded operators
-  bool operator==(const Identifier other) const { return id == other; }
-  bool operator!=(const Identifier other) const { return !operator==(other); }
+  bool operator==(const Identifier& other) const { return id == other; }
+  bool operator!=(const Identifier& other) const { return !operator==(other); }
 
  public:
   //! Possible events (from audio thread to interface)

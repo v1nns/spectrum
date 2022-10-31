@@ -7,6 +7,7 @@
 #define INCLUDE_UTIL_LOGGER_H_
 
 #include <chrono>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <memory>

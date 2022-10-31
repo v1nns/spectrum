@@ -16,6 +16,7 @@
 
 #include "audio/base/decoder.h"
 #include "audio/base/playback.h"
+#include "audio/command.h"
 #include "driver/alsa.h"
 #include "driver/ffmpeg.h"
 #include "model/application_error.h"
@@ -165,19 +166,6 @@ class Player : public AudioControl {
   //! Custom class for blocking actions
  private:
   /**
-   * @brief Commands list (used for internal control)
-   */
-  enum class Command {
-    None = 8000,
-    Play = 8001,
-    PauseOrResume = 8002,
-    Stop = 8003,
-    SeekForward = 8004,
-    SeekBackward = 8005,
-    Exit = 8006,
-  };
-
-  /**
    * @brief Audio player states list
    */
   enum class State {
@@ -188,56 +176,27 @@ class Player : public AudioControl {
     Exit = 9004,
   };
 
-  //! Output command to ostream
-  friend std::ostream& operator<<(std::ostream& out, Command& cmd) {
-    switch (cmd) {
-      case Command::None:
-        out << " None ";
-        break;
-      case Command::Play:
-        out << " Play ";
-        break;
-      case Command::PauseOrResume:
-        out << " PauseOrResume ";
-        break;
-      case Command::Stop:
-        out << " Stop ";
-        break;
-      case Command::SeekForward:
-        out << " SeekForward ";
-        break;
-      case Command::SeekBackward:
-        out << " SeekBackward ";
-        break;
-      case Command::Exit:
-        out << " Exit ";
-        break;
-    }
-
-    return out;
-  }
-
   /**
    * @brief Translate media control command to media state
    *
    * @param cmd Media control command
    * @return Media state
    */
-  static State TranslateCommand(const Command cmd) {
+  static State TranslateCommand(Command& cmd) {
     State st = State::Idle;
-    switch (cmd) {
-      case Command::Play:
-      case Command::SeekForward:
-      case Command::SeekBackward:
+    switch (&cmd) {
+      case Command::Identifier::Play:
+      case Command::Identifier::SeekForward:
+      case Command::Identifier::SeekBackward:
         st = State::Play;
         break;
-      case Command::PauseOrResume:
+      case Command::Identifier::PauseOrResume:
         st = State::Pause;
         break;
-      case Command::Stop:
+      case Command::Identifier::Stop:
         st = State::Stop;
         break;
-      case Command::Exit:
+      case Command::Identifier::Exit:
         st = State::Exit;
         break;
       default:
@@ -270,12 +229,12 @@ class Player : public AudioControl {
      * @brief Push command to media control queue
      * @param cmd Media command
      */
-    void Push(const Command cmd) {
+    void Push(const Command& cmd) {
       {
         std::unique_lock<std::mutex> lock(mutex);
 
         // Clear queue in case of exit request
-        if (cmd == Command::Exit) {
+        if (cmd == Command::Identifier::Exit) {
           std::queue<Command>().swap(queue);
           state = State::Exit;
         }
@@ -291,7 +250,7 @@ class Player : public AudioControl {
      */
     Command Pop() {
       std::unique_lock<std::mutex> lock(mutex);
-      if (queue.empty()) return Command::None;
+      if (queue.empty()) return Command::None();
 
       auto cmd = queue.front();
       queue.pop();
@@ -317,7 +276,7 @@ class Player : public AudioControl {
         if (state == State::Exit) return true;
 
         // Pop commands from queue
-        std::vector<Command> expected = {Command::Exit, cmds...};
+        std::vector<Command> expected = {Command::Exit(), cmds...};
         while (!queue.empty()) {
           Command current = queue.front();
           queue.pop();

@@ -39,6 +39,7 @@ target_sources(
           audio/driver/alsa.cc
           audio/driver/ffmpeg.cc
           audio/driver/fftw.cc
+          audio/command.cc
           audio/player.cc
           # middleware
           middleware/media_controller.cc

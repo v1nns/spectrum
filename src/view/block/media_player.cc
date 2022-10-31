@@ -1,5 +1,6 @@
 #include "view/block/media_player.h"
 
+#include <cstdlib>
 #include <sstream>
 #include <utility>  // for move
 #include <vector>   // for vector
@@ -8,6 +9,7 @@
 #include "ftxui/component/component_options.hpp"
 #include "ftxui/component/event.hpp"  // for Event
 #include "model/volume.h"
+#include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 
 namespace interface {
@@ -19,7 +21,8 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       btn_play_{nullptr},
       btn_stop_{nullptr},
       song_{},
-      volume_{} {
+      volume_{},
+      duration_box_{} {
   btn_play_ = Button::make_button_play([&]() {
     // TODO: Try to play active entry from list directory
     if (IsPlaying()) {
@@ -58,9 +61,9 @@ ftxui::Element MediaPlayer::Render() {
   }
 
   // Bar to display song duration
-  ftxui::Element bar_duration = ftxui::gauge(position) | ftxui::xflex_grow |
-                                ftxui::bgcolor(ftxui::Color::LightSteelBlue3) |
-                                ftxui::color(ftxui::Color::SteelBlue3);
+  ftxui::Element bar_duration =
+      ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) |
+      ftxui::bgcolor(ftxui::Color::LightSteelBlue3) | ftxui::color(ftxui::Color::SteelBlue3);
 
   // Format volume information string
   std::ostringstream ss;
@@ -242,6 +245,35 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   if (btn_play_->OnEvent(event)) return true;
 
   if (btn_stop_->OnEvent(event)) return true;
+
+  // Mouse click on duration box
+  if (IsPlaying() && event.mouse().button == ftxui::Mouse::Left &&
+      duration_box_.Contain(event.mouse().x, event.mouse().y)) {
+    // Acquire pointer to dispatcher
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return true;
+
+    // Calculate new song position based on screen coordinates
+    int real_x = event.mouse().x - duration_box_.x_min;
+    int new_position =
+        floor(floor(song_.duration * real_x) / (duration_box_.x_max - duration_box_.x_min));
+
+    int offset = std::abs(int(new_position - song_.curr_info.position));
+
+    // Do nothing if result is equal the current position
+    if (new_position == song_.curr_info.position) return true;
+
+    // Send event to player
+    interface::CustomEvent event;
+
+    if (new_position > song_.curr_info.position)
+      event = interface::CustomEvent::SeekForwardPosition(offset);
+    else
+      event = interface::CustomEvent::SeekBackwardPosition(offset);
+
+    dispatcher->SendEvent(event);
+    return true;
+  }
 
   return false;
 }

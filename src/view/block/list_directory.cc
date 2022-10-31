@@ -202,7 +202,7 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
     return OnMouseWheel(event);
   }
 
-  if (event.mouse().button != ftxui::Mouse::None && event.mouse().button != ftxui::Mouse::Left) {
+  if (event.mouse().button != ftxui::Mouse::Left) {
     return false;
   }
 

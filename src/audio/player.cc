@@ -85,7 +85,7 @@ void Player::AudioHandler() {
   LOG("Start audio handler thread");
 
   // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Command::Play)) {
+  while (media_control_.WaitFor(Command::Play())) {
     LOG("Audio handler received new song to play");
 
     // First, try to parse file (it may be or not a support file extension to decode)
@@ -109,93 +109,97 @@ void Player::AudioHandler() {
     int curr_position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(
-        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& position) {
-          auto command = media_control_.Pop();
-          auto media_notifier = notifier_.lock();
+    result = decoder_->Decode(period_size_, [&](void* buffer, int max_size, int actual_size,
+                                                int64_t& position) {
+      auto command = media_control_.Pop();
+      auto media_notifier = notifier_.lock();
 
-          switch (command) {
-            case Command::PauseOrResume: {
-              LOG("Audio handler received command to pause song");
-              media_control_.state = TranslateCommand(command);
-              playback_->Pause();
+      switch (&command) {
+        case Command::Identifier::PauseOrResume: {
+          LOG("Audio handler received command to pause song");
+          media_control_.state = TranslateCommand(command);
+          playback_->Pause();
 
-              // As this thread can stay blocked for a long time, waiting for a command,
-              // notify state to media controller
-              if (media_notifier) {
-                media_notifier->NotifySongState(model::Song::CurrentInformation{
-                    .state = model::Song::MediaState::Pause,
-                    .position = (uint32_t)curr_position,
-                });
-              }
-
-              // Block thread until receives one of the informed commands
-              bool keep_executing = media_control_.WaitFor(Command::PauseOrResume, Command::Stop);
-
-              // TODO: NotifySongState for stop
-
-              if (!keep_executing || media_control_.state == State::Stop) {
-                LOG("Audio handler received command to stop song");
-                playback_->Stop();
-                return false;
-              }
-
-              LOG("Audio handler received command to resume song");
-              media_control_.state = State::Play;
-              playback_->Prepare();
-            } break;
-
-            case Command::Stop:
-            case Command::Exit: {
-              LOG("Audio handler received command to ",
-                  command == Command::Stop ? "stop song" : "exit");
-              media_control_.state = TranslateCommand(command);
-              playback_->Stop();
-              return false;
-            } break;
-
-            case Command::SeekForward: {
-              LOG("Audio handler received command to seek forward");
-              if (position < curr_song_->duration) {
-                position++;
-                return true;
-              }
-            } break;
-
-            case Command::SeekBackward: {
-              LOG("Audio handler received command to seek backward");
-              if (position > 0) {
-                position--;
-                return true;
-              }
-            } break;
-
-            default:
-              break;
-          }
-
-          // Send raw information to media controller to run audio analysis
+          // As this thread can stay blocked for a long time, waiting for a command,
+          // notify state to media controller
           if (media_notifier) {
-            media_notifier->SendAudioRaw((int*)buffer, actual_size);
+            media_notifier->NotifySongState(model::Song::CurrentInformation{
+                .state = model::Song::MediaState::Pause,
+                .position = (uint32_t)curr_position,
+            });
           }
 
-          // Write samples to playback
-          playback_->AudioCallback(buffer, max_size, actual_size);
+          // Block thread until receives one of the informed commands
+          bool keep_executing = media_control_.WaitFor(Command::PauseOrResume(), Command::Stop());
 
-          // Notify song state to graphical interface
-          if (position != curr_position) {
-            curr_position = position;
+          // TODO: NotifySongState for stop
 
-            if (media_notifier) {
-              media_notifier->NotifySongState(model::Song::CurrentInformation{
-                  .state = model::Song::MediaState::Play,
-                  .position = (uint32_t)curr_position,
-              });
-            }
+          if (!keep_executing || media_control_.state == State::Stop) {
+            LOG("Audio handler received command to stop song");
+            playback_->Stop();
+            return false;
           }
 
-          return true;
-        });
+          LOG("Audio handler received command to resume song");
+          media_control_.state = State::Play;
+          playback_->Prepare();
+        } break;
+
+        case Command::Identifier::Stop:
+        case Command::Identifier::Exit: {
+          LOG("Audio handler received command to ",
+              command == Command::Identifier::Stop ? "stop song" : "exit");
+          media_control_.state = TranslateCommand(command);
+          playback_->Stop();
+          return false;
+        } break;
+
+        case Command::Identifier::SeekForward: {
+          int offset = command.GetContent<int>();
+          LOG("Audio handler received command to seek forward with value=", offset);
+
+          if ((position + offset) < curr_song_->duration) {
+            position += offset;
+            return true;
+          }
+        } break;
+
+        case Command::Identifier::SeekBackward: {
+          int offset = command.GetContent<int>();
+          LOG("Audio handler received command to seek backward with value=", offset);
+
+          if (position > 0 && (position - offset) >= 0) {
+            position -= offset;
+            return true;
+          }
+        } break;
+
+        default:
+          break;
+      }
+
+      // Send raw information to media controller to run audio analysis
+      if (media_notifier) {
+        media_notifier->SendAudioRaw((int*)buffer, actual_size);
+      }
+
+      // Write samples to playback
+      playback_->AudioCallback(buffer, max_size, actual_size);
+
+      // Notify song state to graphical interface
+      if (position != curr_position) {
+        curr_position = position;
+
+        if (media_notifier) {
+          media_notifier->NotifySongState(model::Song::CurrentInformation{
+              .state = model::Song::MediaState::Play,
+              .position = (uint32_t)curr_position,
+          });
+        }
+      }
+
+      return true;
+    });
 
     // Reached the end of song, originated from one of these situations:
     // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
@@ -234,21 +238,21 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 void Player::Play(const std::string& filepath) {
   LOG("Add command to queue: Play (with filepath=\"", filepath, "\")");
   curr_song_ = std::make_unique<model::Song>(model::Song{.filepath = filepath});
-  media_control_.Push(Command::Play);
+  media_control_.Push(Command::Play());
 }
 
 /* ********************************************************************************************** */
 
 void Player::PauseOrResume() {
   LOG("Add command to queue: ", media_control_.state == State::Play ? "Pause" : "Resume");
-  media_control_.Push(Command::PauseOrResume);
+  media_control_.Push(Command::PauseOrResume());
 }
 
 /* ********************************************************************************************** */
 
 void Player::Stop() {
   LOG("Add command to queue: Stop");
-  media_control_.Push(Command::Stop);
+  media_control_.Push(Command::Stop());
 }
 
 /* ********************************************************************************************** */
@@ -269,21 +273,21 @@ model::Volume Player::GetAudioVolume() {
 
 void Player::SeekForwardPosition(int value) {
   LOG("Add command to queue: SeekForward (with value=", value, ")");
-  media_control_.Push(Command::SeekForward);
+  media_control_.Push(Command::SeekForward(value));
 }
 
 /* ********************************************************************************************** */
 
 void Player::SeekBackwardPosition(int value) {
   LOG("Add command to queue: SeekBackward (with value=", value, ")");
-  media_control_.Push(Command::SeekBackward);
+  media_control_.Push(Command::SeekBackward(value));
 }
 
 /* ********************************************************************************************** */
 
 void Player::Exit() {
   LOG("Add command to queue: Exit");
-  media_control_.Push(Command::Exit);
+  media_control_.Push(Command::Exit());
 }
 
 }  // namespace audio

@@ -12,11 +12,11 @@
 
 namespace model {
 
-bool Song::CurrentInformation::operator==(const Song::CurrentInformation other) const {
+bool Song::CurrentInformation::operator==(const Song::CurrentInformation& other) const {
   return std::tie(state, position) == std ::tie(other.state, position);
 }
 
-bool Song::CurrentInformation::operator!=(const Song::CurrentInformation other) const {
+bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other) const {
   return !operator==(other);
 }
 
