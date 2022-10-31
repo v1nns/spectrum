@@ -9,6 +9,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -33,7 +34,8 @@ class TestSyncer {
   //! Keep blocked until receives desired step
   void WaitForStep(int step) {
     auto id = std::this_thread::get_id();
-    std::cout << "thread id [" << id << "] is waiting for step: " << step << std::endl;
+    std::cout << "thread id [" << std::hex << id << std::dec << "] is waiting for step: " << step
+              << std::endl;
     std::unique_lock<std::mutex> lock(mutex_);
     cond_var_.wait(lock, [&] { return step_ == step; });
   }
@@ -41,7 +43,8 @@ class TestSyncer {
   //! Notify with new step to unblock the other thread that is waiting for it
   void NotifyStep(int step) {
     auto id = std::this_thread::get_id();
-    std::cout << "thread id [" << id << "] notifying step: " << step << std::endl;
+    std::cout << "thread id [" << std::hex << id << std::dec << "] notifying step: " << step
+              << std::endl;
     std::unique_lock<std::mutex> lock(mutex_);
     step_ = step;
     cond_var_.notify_one();
