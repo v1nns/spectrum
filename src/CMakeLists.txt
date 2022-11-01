@@ -17,7 +17,7 @@ pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
 FetchContent_Declare(
   ftxui
   GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-  GIT_TAG b3aad183da2e67943d2330a396200167da523be0)
+  GIT_TAG dfdbe1eecf0451e0da5420c4b9c39ecb415681ac)
 
 FetchContent_GetProperties(ftxui)
 if(NOT ftxui_POPULATED)
@@ -54,7 +54,8 @@ target_sources(
           view/block/media_player.cc
           view/block/audio_visualizer.cc
           view/element/button.cc
-          view/element/dialog.cc
+          view/element/error_dialog.cc
+          view/element/help.cc
           # logger
           util/logger.cc)
 

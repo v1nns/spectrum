@@ -1,8 +1,8 @@
-#include "view/element/dialog.h"
+#include "view/element/error_dialog.h"
 
 namespace interface {
 
-Dialog::Dialog()
+ErrorDialog::ErrorDialog()
     : style_{DialogStyle{
           .background = ftxui::Color::DarkRedBis,
           .foreground = ftxui::Color::Grey93,
@@ -12,7 +12,7 @@ Dialog::Dialog()
 
 /* ********************************************************************************************** */
 
-ftxui::Element Dialog::Render() {
+ftxui::Element ErrorDialog::Render() {
   using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
   return ftxui::vbox({
              ftxui::text(" ERROR") | ftxui::bold,
@@ -26,7 +26,7 @@ ftxui::Element Dialog::Render() {
 
 /* ********************************************************************************************** */
 
-bool Dialog::OnEvent(ftxui::Event event) {
+bool ErrorDialog::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
       event == ftxui::Event::Character('q')) {
     Clear();
@@ -38,14 +38,14 @@ bool Dialog::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void Dialog::SetErrorMessage(const std::string& message) {
+void ErrorDialog::SetErrorMessage(const std::string& message) {
   message_ = message;
   opened_ = true;
 }
 
 /* ********************************************************************************************** */
 
-void Dialog::Clear() {
+void ErrorDialog::Clear() {
   opened_ = false;
   message_.clear();
 }

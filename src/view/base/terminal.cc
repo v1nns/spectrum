@@ -46,7 +46,8 @@ Terminal::Terminal()
       ftxui::ComponentBase{},
       listener_{},
       last_error_{error::kSuccess},
-      error_dialog_{std::make_unique<Dialog>()},
+      error_dialog_{std::make_unique<ErrorDialog>()},
+      helper_{std::make_unique<Help>()},
       receiver_{ftxui::MakeReceiver<CustomEvent>()},
       sender_{receiver_->MakeSender()},
       cb_send_event_{},
@@ -142,10 +143,12 @@ ftxui::Element Terminal::Render() {
       ftxui::vbox({std::move(audio_visualizer), std::move(audio_player)}) | ftxui::xflex_grow,
   });
 
-  // Render dialog box
-  ftxui::Element error = error_dialog_->IsVisible() ? error_dialog_->Render() : ftxui::text("");
+  // Render dialog box as overlay
+  ftxui::Element overlay = error_dialog_->IsVisible() ? error_dialog_->Render()
+                           : helper_->IsVisible()     ? helper_->Render(current_size)
+                                                      : ftxui::text("");
 
-  return ftxui::dbox({terminal, error});
+  return ftxui::dbox({terminal, overlay});
 }
 
 /* ********************************************************************************************** */
@@ -153,6 +156,9 @@ ftxui::Element Terminal::Render() {
 bool Terminal::OnEvent(ftxui::Event event) {
   // Cannot do anything while dialog box is opened
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
+
+  // Or if helper is opened
+  if (helper_->IsVisible()) return helper_->OnEvent(event);
 
   // Treat any pending custom event
   OnCustomEvent();
@@ -269,6 +275,12 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
   if (event == ftxui::Event::Character('q')) {
     Exit();
+    return true;
+  }
+
+  // Show helper
+  if (event == ftxui::Event::F1) {
+    helper_->Show();
     return true;
   }
 

@@ -17,7 +17,8 @@
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
-#include "view/element/dialog.h"
+#include "view/element/error_dialog.h"
+#include "view/element/help.h"
 
 //! Forward declaration
 namespace audio {
@@ -147,7 +148,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::weak_ptr<interface::Listener> listener_;  //!< Outside listener for events from UI
   error::Code last_error_;                       //!< Last application error
 
-  std::unique_ptr<Dialog> error_dialog_;  //!< Dialog box to show custom messages
+  std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show custom messages
+  std::unique_ptr<Help> helper_;               //!< Dialog box to show help menu
 
   ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
   ftxui::Sender<CustomEvent> sender_;      //! Custom event sender

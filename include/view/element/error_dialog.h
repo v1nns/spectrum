@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  Class for rendering a customized dialog
+ * \brief  Class for rendering a customized dialog for errors
  */
 
 #ifndef INCLUDE_VIEW_ELEMENT_DIALOG_H_
@@ -16,17 +16,17 @@ namespace interface {
 /**
  * @brief Customized dialog box to show messages (error/warning/info)
  */
-class Dialog {
+class ErrorDialog {
  public:
   /**
-   * @brief Construct a new Dialog object
+   * @brief Construct a new ErrorDialog object
    */
-  Dialog();
+  ErrorDialog();
 
   /**
-   * @brief Destroy Dialog object
+   * @brief Destroy ErrorDialog object
    */
-  virtual ~Dialog() = default;
+  virtual ~ErrorDialog() = default;
 
   /**
    * @brief Renders the component
