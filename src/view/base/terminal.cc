@@ -145,7 +145,7 @@ ftxui::Element Terminal::Render() {
 
   // Render dialog box as overlay
   ftxui::Element overlay = error_dialog_->IsVisible() ? error_dialog_->Render()
-                           : helper_->IsVisible()     ? helper_->Render(current_size)
+                           : helper_->IsVisible()     ? helper_->Render()
                                                       : ftxui::text("");
 
   return ftxui::dbox({terminal, overlay});

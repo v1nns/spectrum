@@ -17,6 +17,9 @@ namespace interface {
  * @brief Customized dialog box to show messages (error/warning/info)
  */
 class ErrorDialog {
+  static constexpr int kMaxColumns = 35;  //!< Maximum columns for Element
+  static constexpr int kMaxLines = 5;     //!< Maximum lines for Element
+
  public:
   /**
    * @brief Construct a new ErrorDialog object

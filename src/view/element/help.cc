@@ -4,7 +4,7 @@ namespace interface {
 
 Help::Help()
     : style_{DialogStyle{
-          .background = ftxui::Color::Yellow4Bis,
+          .background = ftxui::Color::BlueLight,
           .foreground = ftxui::Color::Grey93,
       }},
       opened_{false},
@@ -12,30 +12,61 @@ Help::Help()
 
 /* ********************************************************************************************** */
 
-ftxui::Element Help::Render(const ftxui::Dimensions max_size) {
+ftxui::Element Help::Render() {
   using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
-  int width = max_size.dimx * 0.6;
-  int height = max_size.dimy * 0.4;
+  auto title = [](const std::string& title) { return ftxui::text(title) | ftxui::bold; };
+
+  auto command = [](const std::string& command, const std::string& description) {
+    return ftxui::hbox({
+        ftxui::text(command) | ftxui::color(ftxui::Color::PaleTurquoise1),
+        ftxui::text(" - "),
+        ftxui::text(description),
+    });
+  };
 
   return ftxui::hbox({
              ftxui::vbox({
-                 ftxui::text("files") | ftxui::bold,
-                 ftxui::text("/ - Search for file"),
-                 ftxui::text("h/j/k/l - Navigate on list"),
-             }),
+                 ftxui::text(""),
+                 title("files"),
+                 ftxui::text(""),
+                 command("←/↓/↑/→", "Navigate on list"),
+                 command("h/j/k/l", "Navigate on list"),
+                 command("Home", "Go to first line"),
+                 command("End", "Go to last line"),
+                 command("Tab", "Navigate to next file"),
+                 command("Shift+Tab", "Navigate to previous file"),
+                 command("/", "Search for file"),
+                 command("Esc", "Cancel search"),
+                 command("Return", "Play selected file"),
+                 ftxui::text(""),
+                 title("information"),
+                 ftxui::text(""),
+                 ftxui::text("N/A"),
+             }) | ftxui::color(ftxui::Color::Black) |
+                 ftxui::hcenter | ftxui::flex,
 
              ftxui::vbox({
-                 ftxui::text(" HELP ") | ftxui::bold,
-             }),
-
-             ftxui::vbox({
-                 ftxui::text("wtf"),
-             }),
+                 ftxui::text(""),
+                 title("visualizer"),
+                 ftxui::text(""),
+                 ftxui::text("N/A"),
+                 ftxui::text(""),
+                 title("player"),
+                 ftxui::text(""),
+                 command("p", "Pause/Resume current song"),
+                 command("s", "Stop current song"),
+                 command("c", "Clear current song"),
+                 command("+/-", "Increase/decrease volume"),
+                 command("f", "Seek forward position in current song"),
+                 command("b", "Seek backward position in current song"),
+                 ftxui::text(""),
+             }) | ftxui::color(ftxui::Color::Black) |
+                 ftxui::hcenter | ftxui::flex,
 
          }) |
-         ftxui::bgcolor(style_.background) | ftxui::size(HEIGHT, EQUAL, height) |
-         ftxui::size(WIDTH, EQUAL, width) | ftxui::borderDouble | ftxui::color(style_.foreground) |
-         ftxui::center;
+         ftxui::bgcolor(style_.background) | ftxui::size(HEIGHT, EQUAL, kMaxLines) |
+         ftxui::size(WIDTH, EQUAL, kMaxColumns) | ftxui::borderDouble |
+         ftxui::color(style_.foreground) | ftxui::center;
 }
 
 /* ********************************************************************************************** */

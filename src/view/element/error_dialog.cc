@@ -19,9 +19,9 @@ ftxui::Element ErrorDialog::Render() {
              ftxui::text(""),
              ftxui::paragraph(message_) | ftxui::center | ftxui::bold,
          }) |
-         ftxui::bgcolor(style_.background) | ftxui::size(HEIGHT, EQUAL, 5) |
-         ftxui::size(WIDTH, EQUAL, 35) | ftxui::borderDouble | ftxui::color(style_.foreground) |
-         ftxui::center;
+         ftxui::bgcolor(style_.background) | ftxui::size(HEIGHT, EQUAL, kMaxLines) |
+         ftxui::size(WIDTH, EQUAL, kMaxColumns) | ftxui::borderDouble |
+         ftxui::color(style_.foreground) | ftxui::center;
 }
 
 /* ********************************************************************************************** */

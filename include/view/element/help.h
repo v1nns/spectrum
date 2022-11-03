@@ -18,6 +18,9 @@ namespace interface {
  * @brief Customized dialog box to show a helper
  */
 class Help {
+  static constexpr int kMaxColumns = 90;  //!< Maximum columns for Element
+  static constexpr int kMaxLines = 25;    //!< Maximum lines for Element
+
  public:
   /**
    * @brief Construct a new Help object
@@ -30,11 +33,10 @@ class Help {
   virtual ~Help() = default;
 
   /**
-   * @brief Renders the component based on screen size
-   * @param max_size Maximum terminal size
+   * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render(const ftxui::Dimensions max_size);
+  ftxui::Element Render();
 
   /**
    * @brief Handles an event (from mouse/keyboard)
