@@ -70,7 +70,7 @@ void Logger::WriteToFile(const std::string& timestamp, const std::string& messag
   OpenFileStream(timestamp);
 
   // Write to file
-  file_ << message;
+  file_ << message << std::flush;
 }
 
 }  // namespace util

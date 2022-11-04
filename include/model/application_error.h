@@ -25,6 +25,9 @@ static constexpr Code kUnknownError = 99;
 static constexpr Code kTerminalInitialization = 1;
 static constexpr Code kTerminalColorsUnavailable = 2;
 
+//! File and directory navigation
+static constexpr Code kAccessDirFailed = 20;
+
 //! Song errors
 static constexpr Code kInvalidFile = 30;
 static constexpr Code kFileNotSupported = 31;
@@ -51,9 +54,10 @@ class ApplicationError {
   using Message = std::pair<Code, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 12> kErrorMap{{
+  static constexpr std::array<Message, 13> kErrorMap{{
       {kTerminalInitialization, "Could not initialize screen"},
       {kTerminalColorsUnavailable, "No support to change colors"},
+      {kAccessDirFailed, "Could not access directory"},
       {kInvalidFile, "Invalid file"},
       {kFileNotSupported, "File not supported"},
       {kFileCompressionNotSupported, "Decoding compressed file is not supported"},

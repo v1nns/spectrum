@@ -413,15 +413,23 @@ std::string ListDirectory::GetTitle() {
 /* ********************************************************************************************** */
 
 void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
-  if (curr_dir_ != dir_path) curr_dir_ = dir_path;
-  entries_.clear();
-  selected_ = 0, focused_ = 0;
+  Files tmp;
 
-  // Add all files from the given directory
-  // TODO: fix when can´t access path
-  for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
-    entries_.emplace_back(entry);
+  try {
+    // Add all files from the given directory
+    for (auto const& entry : std::filesystem::directory_iterator(dir_path)) {
+      tmp.emplace_back(entry);
+    }
+  } catch (std::exception& e) {
+    // TODO: use logger here
+    auto dispatcher = dispatcher_.lock();
+    dispatcher->SetApplicationError(error::kAccessDirFailed);
+    return;
   }
+
+  if (curr_dir_ != dir_path) curr_dir_ = dir_path;
+  entries_ = std::move(tmp);
+  selected_ = 0, focused_ = 0;
 
   // Transform whole string into uppercase
   auto to_lower = [](char& c) { c = std::tolower(c); };
