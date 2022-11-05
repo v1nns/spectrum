@@ -6,12 +6,14 @@
 #include <cmath>
 #include <functional>  // for function
 #include <memory>
+#include <set>
 #include <utility>  // for move
 
 #include "ftxui/component/component.hpp"           // for CatchEvent, Make
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "ftxui/screen/terminal.hpp"
+#include "util/logger.h"
 #include "view/base/block.h"  // for Block, BlockEvent
 #include "view/block/audio_visualizer.h"
 #include "view/block/file_info.h"       // for FileInfo
@@ -28,6 +30,8 @@ bool operator!=(const ftxui::Dimensions& lhs, const ftxui::Dimensions& rhs) {
 /* ********************************************************************************************** */
 
 std::shared_ptr<Terminal> Terminal::Create() {
+  LOG("Create new instance of terminal");
+
   // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
   // do we want to use std::make_shared explicitly calling operator new()
   struct MakeSharedEnabler : public Terminal {};
@@ -63,6 +67,8 @@ Terminal::~Terminal() {
 /* ********************************************************************************************** */
 
 void Terminal::Init() {
+  LOG("Initialize terminal");
+
   // TODO: remove this after developing
   std::string custom_path = "/home/vinicius/Downloads/music";
 
@@ -86,6 +92,8 @@ void Terminal::Init() {
 /* ********************************************************************************************** */
 
 void Terminal::Exit() {
+  LOG("Exit from terminal");
+
   // Trigger exit callback
   if (cb_exit_ != nullptr) {
     cb_exit_();
@@ -121,6 +129,7 @@ ftxui::Element Terminal::Render() {
   // Check if terminal has been resized
   auto current_size = ftxui::Terminal::Size();
   if (size_ != current_size) {
+    LOG("Resize terminal size with new value=(x:", current_size.dimx, "y:", current_size.dimy, ")");
     size_ = current_size;
 
     // Recalculate maximum number of bars to show in spectrum graphic
@@ -176,7 +185,7 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 int Terminal::CalculateNumberBars() {
   // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
-  auto block = std::static_pointer_cast<Block>(children_.at(0));
+  int block_width = std::static_pointer_cast<Block>(children_.at(0))->GetSize().width;
 
   // crazy math function = (a - b - c - d) / e;
   // considering these:
@@ -185,7 +194,7 @@ int Terminal::CalculateNumberBars() {
   // c = border characters
   // d = some constant to represent spacing between bars
   // e = bar thickness + 1
-  float crazy_math = ((float)(size_.dimx - block->GetSize().width - 2 - 10) / 4);
+  float crazy_math = ((float)(size_.dimx - block_width - 2 - 10) / 4);
   crazy_math += crazy_math * .01;
 
   // Round to nearest odd number
@@ -201,9 +210,16 @@ int Terminal::CalculateNumberBars() {
 /* ********************************************************************************************** */
 
 void Terminal::OnCustomEvent() {
+  // Events ignored for logging
+  static std::set<CustomEvent::Identifier> ignored{CustomEvent::Identifier::DrawAudioSpectrum,
+                                                   CustomEvent::Identifier::Refresh};
+
   while (receiver_->HasPending()) {
     CustomEvent event;
     if (!receiver_->Receive(&event)) break;
+
+    // If it is not an ignored event, log it
+    if (ignored.find(event.id) == ignored.end()) LOG("Received a new custom event=", event);
 
     // As this class centralizes any event sending (to an external listener or some child block),
     // first gotta check if this event is specifically for the outside listener
@@ -274,12 +290,14 @@ void Terminal::OnCustomEvent() {
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
   if (event == ftxui::Event::Character('q')) {
+    LOG("Terminal received key to exit");
     Exit();
     return true;
   }
 
   // Show helper
   if (event == ftxui::Event::F1) {
+    LOG("Terminal received key to show helper");
     helper_->Show();
     return true;
   }
@@ -305,7 +323,11 @@ void Terminal::ProcessEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 void Terminal::SetApplicationError(error::Code id) {
+  // Get error message
   std::string message{error::ApplicationError::GetMessage(id)};
+
+  // Log error and show it on dialog
+  ERROR(message);
   error_dialog_->SetErrorMessage(message);
 
   last_error_ = id;

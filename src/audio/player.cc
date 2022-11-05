@@ -1,6 +1,7 @@
 #include "audio/player.h"
 
 #include <stdexcept>
+#include <iomanip>
 
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
@@ -236,7 +237,7 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 /* ********************************************************************************************** */
 
 void Player::Play(const std::string& filepath) {
-  LOG("Add command to queue: Play (with filepath=\"", filepath, "\")");
+  LOG("Add command to queue: Play (with filepath=", std::quoted(filepath), ")");
   curr_song_ = std::make_unique<model::Song>(model::Song{.filepath = filepath});
   media_control_.Push(Command::Play());
 }

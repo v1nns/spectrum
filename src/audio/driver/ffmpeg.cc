@@ -2,6 +2,8 @@
 
 #include <libavutil/channel_layout.h>
 
+#include <iomanip>
+
 #include "util/logger.h"
 
 namespace driver {
@@ -22,7 +24,7 @@ FFmpeg::FFmpeg()
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
-  LOG("Open input stream from filepath=\"", filepath, "\"");
+  LOG("Open input stream from filepath=", std::quoted(filepath));
   AVFormatContext *ptr = nullptr;
 
   if (avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr) < 0) {
