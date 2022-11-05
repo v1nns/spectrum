@@ -5,8 +5,9 @@
 
 #include <algorithm>   // for for_each, search, sort
 #include <filesystem>  // for path, directory_iterator
-#include <memory>      // for shared_ptr, __shared_p...
-#include <utility>     // for move
+#include <iomanip>
+#include <memory>   // for shared_ptr, __shared_p...
+#include <utility>  // for move
 
 #include "ftxui/component/component.hpp"       // for Input
 #include "ftxui/component/component_base.hpp"  // for Component, ComponentBase
@@ -14,16 +15,12 @@
 #include "ftxui/component/mouse.hpp"           // for Mouse
 #include "ftxui/screen/color.hpp"              // for Color
 #include "ftxui/util/ref.hpp"                  // for Ref
+#include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 
 namespace interface {
 
-/**
- * @brief Create a new custom style for Menu Entry
- *
- * @param c Color
- * @return MenuEntryOption Custom object with the requested color
- */
+//! Create a new custom style for Menu Entry
 MenuEntryOption Colored(ftxui::Color c) {
   using ftxui::Decorator, ftxui::color, ftxui::inverted;
   return MenuEntryOption{
@@ -38,6 +35,23 @@ MenuEntryOption Colored(ftxui::Color c) {
 template <class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
   return v < lo ? lo : hi < v ? hi : v;
+}
+
+//! Convert ftxui::Event to an user-friendly string
+static std::string EventToString(const ftxui::Event& e) {
+  if (e.is_character()) return e.character();
+
+  if (e == ftxui::Event::ArrowUp) return "ArrowUp";
+  if (e == ftxui::Event::ArrowDown) return "ArrowDown";
+  if (e == ftxui::Event::PageUp) return "PageUp";
+  if (e == ftxui::Event::PageDown) return "PageDown";
+  if (e == ftxui::Event::Home) return "Home";
+  if (e == ftxui::Event::End) return "End";
+  if (e == ftxui::Event::Tab) return "Tab";
+  if (e == ftxui::Event::TabReverse) return "Shift+Tab";
+  if (e == ftxui::Event::Return) return "Return";
+
+  return "";
 }
 
 /* ********************************************************************************************** */
@@ -159,6 +173,7 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
   // Enable search mode
   if (!mode_search_ && event == ftxui::Event::Character('/')) {
+    LOG("Enable search mode");
     mode_search_ = Search({
         .text_to_search = "",
         .entries = entries_,
@@ -178,6 +193,8 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
 
 bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
+    LOG("Received new song information from player");
+
     // Exit search mode if enabled
     mode_search_.reset();
 
@@ -187,7 +204,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
-    // Clear current song
+    LOG("Clear current song information");
     curr_playing_.reset();
   }
 
@@ -198,13 +215,10 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
 
 bool ListDirectory::OnMouseEvent(ftxui::Event event) {
   if (event.mouse().button == ftxui::Mouse::WheelDown ||
-      event.mouse().button == ftxui::Mouse::WheelUp) {
+      event.mouse().button == ftxui::Mouse::WheelUp)
     return OnMouseWheel(event);
-  }
 
-  if (event.mouse().button != ftxui::Mouse::Left) {
-    return false;
-  }
+  if (event.mouse().button != ftxui::Mouse::Left) return false;
 
   if (!CaptureMouse(event)) return false;
 
@@ -218,7 +232,7 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
     *focused = i;
     if (event.mouse().button == ftxui::Mouse::Left &&
         event.mouse().motion == ftxui::Mouse::Released) {
-      // Mouse click on menu entry
+      LOG("Handle left click mouse event on entry=", i);
       if (*selected != i) *selected = i;
       return true;
     }
@@ -234,6 +248,7 @@ bool ListDirectory::OnMouseWheel(ftxui::Event event) {
     return false;
   }
 
+  LOG("Handle mouse wheel event");
   int* selected = GetSelected();
   int* focused = GetFocused();
 
@@ -283,6 +298,7 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
     *selected = clamp(*selected, 0, Size() - 1);
 
     if (*selected != old_selected) {
+      LOG("Handle menu navigation key=", EventToString(event));
       *focused = *selected;
       event_handled = true;
 
@@ -296,6 +312,8 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
     auto active = GetActiveEntry();
 
     if (active != nullptr) {
+      LOG("Handle menu navigation key=", EventToString(event));
+
       if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
         new_dir = curr_dir_.parent_path();
       } else if (std::filesystem::is_directory(*active)) {
@@ -366,6 +384,7 @@ bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
 
   // Quit search mode
   if (event == ftxui::Event::Escape) {
+    LOG("Exit from search mode");
     mode_search_.reset();
     event_handled = true;
     exit_from_search_mode = true;
@@ -413,6 +432,7 @@ std::string ListDirectory::GetTitle() {
 /* ********************************************************************************************** */
 
 void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
+  LOG("Refresh list with files from new directory=", std::quoted(dir_path.c_str()));
   Files tmp;
 
   try {
@@ -421,7 +441,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
       tmp.emplace_back(entry);
     }
   } catch (std::exception& e) {
-    // TODO: use logger here
+    ERROR("Could not access directory, exception=", e.what());
     auto dispatcher = dispatcher_.lock();
     dispatcher->SetApplicationError(error::kAccessDirFailed);
     return;
@@ -458,6 +478,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
 /* ********************************************************************************************** */
 
 void ListDirectory::RefreshSearchList() {
+  LOG("Refresh list on search mode");
   mode_search_->selected = 0, mode_search_->focused = 0;
 
   // Do not even try to find it in the main list
