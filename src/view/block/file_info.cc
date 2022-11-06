@@ -5,6 +5,7 @@
 #include <vector>   // for vector
 
 #include "ftxui/component/event.hpp"  // for Event
+#include "util/logger.h"
 
 namespace interface {
 
@@ -57,11 +58,13 @@ bool FileInfo::OnEvent(ftxui::Event event) { return false; }
 bool FileInfo::OnCustomEvent(const CustomEvent& event) {
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::ClearSongInfo) {
+    LOG("Clear current song information");
     audio_info_ = model::Song{};
   }
 
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
+    LOG("Received new song information from player");
     audio_info_ = event.GetContent<model::Song>();
   }
 

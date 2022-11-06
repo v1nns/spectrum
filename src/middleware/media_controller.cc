@@ -301,11 +301,6 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& sta
 /* ********************************************************************************************** */
 
 void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
-  // std::ofstream myfile;
-  // myfile.open("/tmp/output.txt", std::ios::out | std::ios::app | std::ios::binary);
-  // myfile << "ta adicionando isso no buffer: " << buffer_size << "\n";
-  // myfile.close();
-
   sync_data_.Append(buffer, buffer_size);
 }
 

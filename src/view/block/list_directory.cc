@@ -199,8 +199,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     mode_search_.reset();
 
     // Set current song
-    model::Song info = event.GetContent<model::Song>();
-    curr_playing_ = info.filepath;
+    curr_playing_ = event.GetContent<model::Song>().filepath;
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
