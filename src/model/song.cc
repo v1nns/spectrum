@@ -20,6 +20,21 @@ bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other)
   return !operator==(other);
 }
 
+std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
+  out << "{state:" << static_cast<int>(info.state) << " position:" << info.position << "}";
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const Song& s) {
+  std::string artist = s.artist.empty() ? "<Unknown>" : s.artist;
+  std::string title = s.title.empty() ? "<Unknown>" : s.title;
+
+  out << "{artist:" << s.artist << " title:" << s.title << " duration:" << s.duration
+      << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
+      << " bit_depth:" << s.bit_depth << "}";
+  return out;
+}
+
 /* ********************************************************************************************** */
 
 using Prefix = std::pair<int, std::string_view>;

@@ -53,10 +53,7 @@ struct CustomEvent {
   bool operator!=(const Identifier& other) const { return !operator==(other); }
 
   //! Output custom event to ostream
-  friend std::ostream& operator<<(std::ostream& out, CustomEvent& e) {
-    out << "(Event type:" << static_cast<int>(e.type) << " id:" << static_cast<int>(e.id) << ")";
-    return out;
-  }
+  friend std::ostream& operator<<(std::ostream& out, const CustomEvent& e);
 
  public:
   //! Possible events (from audio thread to interface)

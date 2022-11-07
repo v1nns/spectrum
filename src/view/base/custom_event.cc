@@ -1,6 +1,40 @@
 #include "view/base/custom_event.h"
 
+#include <iostream>
+
 namespace interface {
+
+/**
+ * @brief Based on Visitor pattern, print content from std::variant used inside CustomEvent
+ */
+struct CustomEventVisitor {
+  explicit CustomEventVisitor(std::ostream& o) : out{o} { out << " content:"; };
+
+  // All mapped types used in the CustomEvent content
+  void operator()(int i) const { out << i; }
+  void operator()(const model::Song& s) const { out << s; }
+  void operator()(const model::Volume& v) const { out << v; }
+  void operator()(const model::Song::CurrentInformation& i) const { out << i; }
+  void operator()(const std::filesystem::path& p) const { out << p.c_str(); }
+  void operator()(const std::vector<double>& v) const { out << "{vector data...}"; }
+
+  std::ostream& out;
+};
+
+std::ostream& operator<<(std::ostream& out, const CustomEvent& e) {
+  out << "(";
+  // TODO: print type and id as pretty-print string
+  out << "Event type:" << static_cast<int>(e.type);
+  out << " id:" << static_cast<int>(e.id);
+
+  std::visit(CustomEventVisitor{out}, e.content);
+
+  out << ")";
+
+  return out;
+}
+
+/* ********************************************************************************************** */
 
 // Static
 CustomEvent CustomEvent::ClearSongInfo() {

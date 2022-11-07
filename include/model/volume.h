@@ -77,8 +77,8 @@ struct Volume {
   bool operator!=(const Volume other) const { return !operator==(other); }
 
   // output to ostream
-  friend std::ostream& operator<<(std::ostream& out, Volume& v) {
-    out << (int)v << "%";
+  friend std::ostream& operator<<(std::ostream& out, const Volume& v) {
+    out << "{volume:" << int(Volume{v}) << "%}";
     return out;
   }
 

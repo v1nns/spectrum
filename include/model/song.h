@@ -43,9 +43,13 @@ struct Song {
     //! Overloaded operators
     bool operator==(const CurrentInformation& other) const;
     bool operator!=(const CurrentInformation& other) const;
+    friend std::ostream& operator<<(std::ostream& out, const CurrentInformation& info);
   };
 
   CurrentInformation curr_info;  //!< Current state of song
+
+  //! Overloaded operators
+  friend std::ostream& operator<<(std::ostream& out, const Song& s);
 };
 
 /**
