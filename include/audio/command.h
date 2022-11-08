@@ -33,37 +33,8 @@ struct Command {
   bool operator==(const Identifier& other) const { return id == other; }
   bool operator!=(const Identifier& other) const { return !operator==(other); }
 
-  // Fancy way to access command identifier
-  Identifier& operator&() { return id; }
-
   //! Output command to ostream
-  friend std::ostream& operator<<(std::ostream& out, Command& cmd) {
-    switch (&cmd) {
-      case Command::Identifier::None:
-        out << " None ";
-        break;
-      case Command::Identifier::Play:
-        out << " Play ";
-        break;
-      case Command::Identifier::PauseOrResume:
-        out << " PauseOrResume ";
-        break;
-      case Command::Identifier::Stop:
-        out << " Stop ";
-        break;
-      case Command::Identifier::SeekForward:
-        out << " SeekForward ";
-        break;
-      case Command::Identifier::SeekBackward:
-        out << " SeekBackward ";
-        break;
-      case Command::Identifier::Exit:
-        out << " Exit ";
-        break;
-    }
-
-    return out;
-  }
+  friend std::ostream& operator<<(std::ostream& out, const Command& cmd);
 
  public:
   //! Possible commands to be handled by audio player
@@ -78,7 +49,10 @@ struct Command {
   //! Possible types for content
   using Content = std::variant<int>;
 
-  //! Generic getter for event content
+  //! Getter for command identifier
+  Identifier GetId() const { return id; }
+
+  //! Generic getter for command content
   template <typename T>
   T GetContent() const {
     if (std::holds_alternative<T>(content)) {

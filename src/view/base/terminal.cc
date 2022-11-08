@@ -219,7 +219,7 @@ void Terminal::OnCustomEvent() {
     if (!receiver_->Receive(&event)) break;
 
     // If it is not an ignored event, log it
-    if (ignored.find(event.id) == ignored.end()) LOG("Received a new custom event=", event);
+    if (ignored.find(event.GetId()) == ignored.end()) LOG("Received a new custom event=", event);
 
     // As this class centralizes any event sending (to an external listener or some child block),
     // first gotta check if this event is specifically for the outside listener
@@ -230,7 +230,7 @@ void Terminal::OnCustomEvent() {
         continue;  // skip to next while-loop
       }
 
-      switch (event.id) {
+      switch (event.GetId()) {
         case CustomEvent::Identifier::NotifyFileSelection: {
           auto content = event.GetContent<std::filesystem::path>();
           media_ctl->NotifyFileSelection(content);

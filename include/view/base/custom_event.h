@@ -80,6 +80,10 @@ struct CustomEvent {
   using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
                                std::filesystem::path, std::vector<double>, int>;
 
+
+  //! Getter for event identifier
+  Identifier GetId() const { return id; }
+
   //! Generic getter for event content
   template <typename T>
   T GetContent() const {

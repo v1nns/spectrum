@@ -182,9 +182,9 @@ class Player : public AudioControl {
    * @param cmd Media control command
    * @return Media state
    */
-  static State TranslateCommand(Command& cmd) {
+  static State TranslateCommand(const Command& cmd) {
     State st = State::Idle;
-    switch (&cmd) {
+    switch (cmd.GetId()) {
       case Command::Identifier::Play:
       case Command::Identifier::SeekForward:
       case Command::Identifier::SeekBackward:

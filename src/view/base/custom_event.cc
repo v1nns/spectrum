@@ -21,15 +21,95 @@ struct CustomEventVisitor {
   std::ostream& out;
 };
 
+//! CustomEvent::Type pretty print
+std::ostream& operator<<(std::ostream& out, const CustomEvent::Type& t) {
+  switch (t) {
+    case CustomEvent::Type::FromInterfaceToAudioThread:
+      out << "{UI->Player}";
+      break;
+
+    case CustomEvent::Type::FromAudioThreadToInterface:
+      out << "{Player->UI}";
+      break;
+
+    case CustomEvent::Type::FromInterfaceToInterface:
+      out << "{UI->UI}";
+      break;
+  }
+  return out;
+}
+
+//! CustomEvent::Identifier pretty print
+std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
+  switch (i) {
+    case CustomEvent::Identifier::ClearSongInfo:
+      out << "ClearSongInfo";
+      break;
+
+    case CustomEvent::Identifier::UpdateVolume:
+      out << "UpdateVolume";
+      break;
+
+    case CustomEvent::Identifier::UpdateSongInfo:
+      out << "UpdateSongInfo";
+      break;
+
+    case CustomEvent::Identifier::UpdateSongState:
+      out << "UpdateSongState";
+      break;
+
+    case CustomEvent::Identifier::DrawAudioSpectrum:
+      out << "DrawAudioSpectrum";
+      break;
+
+    case CustomEvent::Identifier::NotifyFileSelection:
+      out << "NotifyFileSelection";
+      break;
+
+    case CustomEvent::Identifier::PauseOrResumeSong:
+      out << "PauseOrResumeSong";
+      break;
+
+    case CustomEvent::Identifier::StopSong:
+      out << "StopSong";
+      break;
+
+    case CustomEvent::Identifier::ClearCurrentSong:
+      out << "ClearCurrentSong";
+      break;
+
+    case CustomEvent::Identifier::SetAudioVolume:
+      out << "SetAudioVolume";
+      break;
+
+    case CustomEvent::Identifier::ResizeAnalysis:
+      out << "ResizeAnalysis";
+      break;
+
+    case CustomEvent::Identifier::SeekForwardPosition:
+      out << "SeekForwardPosition";
+      break;
+
+    case CustomEvent::Identifier::SeekBackwardPosition:
+      out << "SeekBackwardPosition";
+      break;
+
+    case CustomEvent::Identifier::Refresh:
+      out << "Refresh";
+      break;
+  }
+  return out;
+}
+
+//! CustomEvent pretty print
 std::ostream& operator<<(std::ostream& out, const CustomEvent& e) {
-  out << "(";
-  // TODO: print type and id as pretty-print string
-  out << "Event type:" << static_cast<int>(e.type);
-  out << " id:" << static_cast<int>(e.id);
+  out << "{";
+  out << " type:" << e.type;
+  out << " id:" << e.id;
 
   std::visit(CustomEventVisitor{out}, e.content);
 
-  out << ")";
+  out << " }";
 
   return out;
 }

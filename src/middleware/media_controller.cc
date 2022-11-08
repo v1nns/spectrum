@@ -8,6 +8,7 @@
 #include "ftxui/component/event.hpp"
 #include "model/application_error.h"
 #include "model/song.h"
+#include "util/logger.h"
 #include "view/base/block.h"
 #include "view/base/terminal.h"
 
@@ -16,6 +17,8 @@ namespace middleware {
 std::shared_ptr<MediaController> MediaController::Create(
     const std::shared_ptr<interface::Terminal>& terminal,
     const std::shared_ptr<audio::Player>& player, bool asynchronous) {
+  LOG("Create new instance of media controller");
+
   // Instantiate FFTW to run audio analysis
   std::unique_ptr<driver::Analyzer> analyzer(new driver::FFTW);
 
@@ -71,6 +74,8 @@ MediaController::~MediaController() {
 /* ********************************************************************************************** */
 
 void MediaController::Init(int number_bars, bool asynchronous) {
+  LOG("Initialize media controller with number_bars=", number_bars, " and async=", asynchronous);
+
   // Initialize internal structures
   analyzer_->Init(number_bars);
 
@@ -82,11 +87,16 @@ void MediaController::Init(int number_bars, bool asynchronous) {
 
 /* ********************************************************************************************** */
 
-void MediaController::Exit() { sync_data_.Push(Command::Exit); }
+void MediaController::Exit() {
+  LOG("Add command to queue: Exit");
+  sync_data_.Push(Command::Exit);
+}
 
 /* ********************************************************************************************** */
 
 void MediaController::AnalysisHandler() {
+  LOG("Start analysis handler thread");
+
   using namespace std::chrono_literals;
   std::vector<double> input, output, previous;
   int in_size, out_size;
@@ -106,6 +116,7 @@ void MediaController::AnalysisHandler() {
     switch (command) {
       case Command::Analyze: {
         // Get input data, run FFT and update local cache
+        // P.S.: do not log this because this command is received too often
         input = sync_data_.GetBuffer(in_size);
         analyzer_->Execute(input.data(), input.size(), output.data());
         previous = output;
@@ -121,6 +132,7 @@ void MediaController::AnalysisHandler() {
 
       case Command::RunClearAnimationWithRegain:
       case Command::RunClearAnimationWithoutRegain: {
+        LOG("Analysis handler received command to run clear animation on audio visualizer");
         auto dispatcher = dispatcher_.lock();
         if (!dispatcher) continue;
 
@@ -153,6 +165,7 @@ void MediaController::AnalysisHandler() {
       } break;
 
       case Command::RunRegainAnimation: {
+        LOG("Analysis handler received command to run regain animation on audio visualizer");
         auto dispatcher = dispatcher_.lock();
         if (!dispatcher) continue;
 
@@ -301,6 +314,7 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& sta
 /* ********************************************************************************************** */
 
 void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
+  // Append audio data to be analyzed by thread
   sync_data_.Append(buffer, buffer_size);
 }
 

@@ -115,7 +115,7 @@ void Player::AudioHandler() {
       auto command = media_control_.Pop();
       auto media_notifier = notifier_.lock();
 
-      switch (&command) {
+      switch (command.GetId()) {
         case Command::Identifier::PauseOrResume: {
           LOG("Audio handler received command to pause song");
           media_control_.state = TranslateCommand(command);
