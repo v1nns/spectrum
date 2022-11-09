@@ -20,16 +20,41 @@ bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other)
   return !operator==(other);
 }
 
-std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
-  out << "{state:" << static_cast<int>(info.state) << " position:" << info.position << "}";
+//! Song::MediaState pretty print
+std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
+  switch (state) {
+    case Song::MediaState::Empty:
+      out << "Empty";
+      break;
+
+    case Song::MediaState::Play:
+      out << "Play";
+      break;
+
+    case Song::MediaState::Pause:
+      out << "Pause";
+      break;
+
+    case Song::MediaState::Stop:
+      out << "Stop";
+      break;
+  }
+
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const Song& s) {
-  std::string artist = s.artist.empty() ? "<Unknown>" : s.artist;
-  std::string title = s.title.empty() ? "<Unknown>" : s.title;
+//! Song::CurrentInformation pretty print
+std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
+  out << "{state:" << info.state << " position:" << info.position << "}";
+  return out;
+}
 
-  out << "{artist:" << s.artist << " title:" << s.title << " duration:" << s.duration
+//! Song pretty print
+std::ostream& operator<<(std::ostream& out, const Song& s) {
+  std::string artist = s.artist.empty() ? "<unknown>" : s.artist;
+  std::string title = s.title.empty() ? "<unknown>" : s.title;
+
+  out << "{artist:" << artist << " title:" << title << " duration:" << s.duration
       << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
       << " bit_depth:" << s.bit_depth << "}";
   return out;

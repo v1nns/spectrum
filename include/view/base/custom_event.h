@@ -77,9 +77,9 @@ struct CustomEvent {
   static CustomEvent Refresh();
 
   //! Possible types for content
-  using Content = std::variant<model::Song, model::Volume, model::Song::CurrentInformation,
-                               std::filesystem::path, std::vector<double>, int>;
-
+  using Content =
+      std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
+                   std::filesystem::path, std::vector<double>, int>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

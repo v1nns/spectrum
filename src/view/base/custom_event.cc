@@ -7,10 +7,11 @@ namespace interface {
 /**
  * @brief Based on Visitor pattern, print content from std::variant used inside CustomEvent
  */
-struct CustomEventVisitor {
-  explicit CustomEventVisitor(std::ostream& o) : out{o} { out << " content:"; };
+struct ContentVisitor {
+  explicit ContentVisitor(std::ostream& o) : out{o} { out << " content:"; };
 
   // All mapped types used in the CustomEvent content
+  void operator()(const std::monostate& m) const { out << "empty"; }
   void operator()(int i) const { out << i; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
@@ -107,7 +108,7 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent& e) {
   out << " type:" << e.type;
   out << " id:" << e.id;
 
-  std::visit(CustomEventVisitor{out}, e.content);
+  std::visit(ContentVisitor{out}, e.content);
 
   out << " }";
 
