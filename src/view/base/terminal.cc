@@ -102,7 +102,7 @@ void Terminal::Exit() {
 
 /* ********************************************************************************************** */
 
-void Terminal::RegisterInterfaceListener(const std::shared_ptr<interface::Listener>& listener) {
+void Terminal::RegisterInterfaceListener(const std::shared_ptr<Listener>& listener) {
   listener_ = listener;
 }
 
@@ -136,7 +136,7 @@ ftxui::Element Terminal::Render() {
     int number_bars = CalculateNumberBars();
 
     // Send event to audio analysis thread
-    auto event_resize = interface::CustomEvent::ResizeAnalysis(number_bars);
+    auto event_resize = CustomEvent::ResizeAnalysis(number_bars);
     SendEvent(event_resize);
   }
 
@@ -275,6 +275,29 @@ void Terminal::OnCustomEvent() {
       continue;  // skip to next while-loop
     }
 
+    // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
+    // size and calculate maximum number of bars
+    if (event == CustomEvent::Identifier::ChangeBarAnimation) {
+      auto media_ctl = listener_.lock();
+      if (!media_ctl) {
+        // TODO: improve handling here and also for each method call
+        continue;  // skip to next while-loop
+      }
+
+      // Recalculate maximum number of bars to show in spectrum graphic
+      int number_bars = CalculateNumberBars();
+
+      int animation = event.GetContent<int>();
+      if (animation == AudioVisualizer::Animation::VerticalMirror) {
+        number_bars *= 2;
+      }
+
+      // Send content directly to audio analysis thread
+      media_ctl->ResizeAnalysisOutput(number_bars);
+
+      continue;  // skip to next while-loop
+    }
+
     // Otherwise, send it to children blocks
     for (auto& child : children_) {
       auto block = std::static_pointer_cast<Block>(child);
@@ -290,14 +313,14 @@ void Terminal::OnCustomEvent() {
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
   if (event == ftxui::Event::Character('q')) {
-    LOG("Terminal received key to exit");
+    LOG("Handle key to exit");
     Exit();
     return true;
   }
 
   // Show helper
   if (event == ftxui::Event::F1) {
-    LOG("Terminal received key to show helper");
+    LOG("Handle key to show helper");
     helper_->Show();
     return true;
   }

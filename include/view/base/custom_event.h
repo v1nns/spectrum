@@ -46,6 +46,7 @@ struct CustomEvent {
     SeekBackwardPosition = 60007,
     // Events from interface to interface
     Refresh = 70000,
+    ChangeBarAnimation = 70001,
   };
 
   //! Overloaded operators
@@ -75,6 +76,7 @@ struct CustomEvent {
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
+  static CustomEvent ChangeBarAnimation(int animation);
 
   //! Possible types for content
   using Content =

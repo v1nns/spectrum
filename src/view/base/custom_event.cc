@@ -98,6 +98,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
     case CustomEvent::Identifier::Refresh:
       out << "Refresh";
       break;
+
+    case CustomEvent::Identifier::ChangeBarAnimation:
+      out << "ChangeBarAnimation";
+      break;
   }
   return out;
 }
@@ -261,6 +265,17 @@ CustomEvent CustomEvent::Refresh() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::Refresh,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::ChangeBarAnimation(int animation) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ChangeBarAnimation,
+      .content = animation,
   };
 }
 

@@ -48,10 +48,26 @@ class AudioVisualizer : public Block {
    */
   bool OnCustomEvent(const CustomEvent& event) override;
 
+  /**
+   * @brief Possible bar animations for spectrum visualizer
+   */
+  enum Animation {
+    HorizontalMirror,  //!< Both channels (L/R) are mirrored horizontally (default)
+    VerticalMirror,    //!< Both channels (L/R) are mirrored vertically
+    LAST,
+  };
+
+  /* ******************************************************************************************** */
+  //! Private methods
+ private:
+  void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
+  void DrawAnimationVerticalMirror(ftxui::Element& visualizer);
+
   /* ******************************************************************************************** */
   //! Variables
  private:
   std::vector<double> data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
+  Animation curr_anim_;       //!< Flag to control which animation to draw
 };
 
 }  // namespace interface
