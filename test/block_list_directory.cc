@@ -52,6 +52,7 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -59,7 +60,6 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -85,14 +85,14 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
-│  block_file_info.cc          │
-│> block_list_directory.cc     │
+│  block_audio_visualizer.cc   │
+│> block_file_info.cc          │
+│  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -144,6 +144,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -151,7 +152,6 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │Search:                       │
 ╰──────────────────────────────╯)";
@@ -173,13 +173,13 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 ╭ files ───────────────────────╮
 │test                          │
 │> audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -266,6 +266,7 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -273,7 +274,6 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -302,6 +302,7 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │test                          │
 │  ..                          │
 │> audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -309,7 +310,6 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │  driver_fftw.cc              │
 │  general                     │
 │  mock                        │
-│                              │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -342,6 +342,7 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -350,7 +351,6 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  general                     │
 │  mock                        │
 │> this_is_a_really_long_pathna│
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -371,6 +371,7 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
+│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -379,7 +380,6 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  general                     │
 │  mock                        │
 │> is_a_really_long_pathname.mp│
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -491,6 +491,48 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
 │  some_music_2.mp3            │
 │  some_music_3.mp3            │
 │> some_music_4.mp3            │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, TabMenuOnBigList) {
+  // Hacky method to add new entries
+  auto list_dir = std::static_pointer_cast<interface::ListDirectory>(block);
+  for (int i = 0; i < 15; i++) {
+    std::filesystem::path dummy{"some_music_" + std::to_string(i) + ".mp3"};
+    list_dir->entries_.emplace_back(dummy);
+  }
+
+  // Jump forward and backward some entries by using Tab and ShiftTab
+  block->OnEvent(ftxui::Event::Tab);
+  block->OnEvent(ftxui::Event::Tab);
+  block->OnEvent(ftxui::Event::Tab);
+
+  block->OnEvent(ftxui::Event::TabReverse);
+  block->OnEvent(ftxui::Event::Tab);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│  some_music_0.mp3            │
+│  some_music_1.mp3            │
+│  some_music_2.mp3            │
+│  some_music_3.mp3            │
+│  some_music_4.mp3            │
+│> some_music_5.mp3            │
+│  some_music_6.mp3            │
+│  some_music_7.mp3            │
+│  some_music_8.mp3            │
+│  some_music_9.mp3            │
+│  some_music_10.mp3           │
+│  some_music_11.mp3           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

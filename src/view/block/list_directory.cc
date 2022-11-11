@@ -163,11 +163,11 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
   }
 
   // if (Focused()) {
-  if (OnMenuNavigation(event)) {
+  if (mode_search_ && OnSearchModeEvent(event)) {
     return true;
   }
 
-  if (mode_search_ && OnSearchModeEvent(event)) {
+  if (Size() && OnMenuNavigation(event)) {
     return true;
   }
 
@@ -278,20 +278,16 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
 
   int old_selected = *selected;
 
-  if (mode_search_ && mode_search_->entries.size() <= 1) {
-    // do nothing in this case
-  } else {
-    if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k'))
-      *selected = (*selected + Size() - 1) % Size();
-    if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j'))
-      *selected = (*selected + 1) % Size();
-    if (event == ftxui::Event::PageUp) (*selected) -= box_.y_max - box_.y_min;
-    if (event == ftxui::Event::PageDown) (*selected) += box_.y_max - box_.y_min;
-    if (event == ftxui::Event::Home && Size()) (*selected) = 0;
-    if (event == ftxui::Event::End && Size()) (*selected) = Size() - 1;
-    if (event == ftxui::Event::Tab && Size()) *selected = (*selected + 5) % Size();
-    if (event == ftxui::Event::TabReverse && Size()) *selected = (*selected + Size() - 5) % Size();
-  }
+  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k'))
+    *selected = (*selected + Size() - 1) % Size();
+  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j'))
+    *selected = (*selected + 1) % Size();
+  if (event == ftxui::Event::PageUp) (*selected) -= box_.y_max - box_.y_min;
+  if (event == ftxui::Event::PageDown) (*selected) += box_.y_max - box_.y_min;
+  if (event == ftxui::Event::Home) (*selected) = 0;
+  if (event == ftxui::Event::End) (*selected) = Size() - 1;
+  if (event == ftxui::Event::Tab) *selected = (*selected + 5) % Size();
+  if (event == ftxui::Event::TabReverse) *selected = (*selected + Size() - 5) % Size();
 
   if (*selected != old_selected) {
     *selected = clamp(*selected, 0, Size() - 1);

@@ -39,7 +39,7 @@ ftxui::Element AudioVisualizer::Render() {
   }
 
   return ftxui::window(ftxui::text(" visualizer "), bar_visualizer | ftxui::yflex);
-}  // namespace interface
+}
 
 /* ********************************************************************************************** */
 

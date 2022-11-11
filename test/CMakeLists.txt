@@ -18,16 +18,11 @@ if(NOT googletest_POPULATED)
                    EXCLUDE_FROM_ALL)
 endif()
 
-# DSP Processing (FFTW3)
-pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
-
-
-
 # **************************************************************************************************
 # Create executable
 
 add_executable(test)
-target_sources(test PRIVATE block_file_info.cc block_list_directory.cc
+target_sources(test PRIVATE block_audio_visualizer.cc block_file_info.cc block_list_directory.cc
                             block_media_player.cc audio_player.cc driver_fftw.cc)
 
 target_link_libraries(test PRIVATE gtest gmock gtest_main spectrum-lib)
