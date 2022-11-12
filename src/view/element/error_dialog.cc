@@ -14,14 +14,17 @@ ErrorDialog::ErrorDialog()
 
 ftxui::Element ErrorDialog::Render() {
   using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
+
+  auto decorator = ftxui::size(HEIGHT, EQUAL, kMaxLines) | ftxui::size(WIDTH, EQUAL, kMaxColumns) |
+                   ftxui::borderDouble | ftxui::bgcolor(style_.background) |
+                   ftxui::color(style_.foreground) | ftxui::center;
+
   return ftxui::vbox({
              ftxui::text(" ERROR") | ftxui::bold,
              ftxui::text(""),
              ftxui::paragraph(message_) | ftxui::center | ftxui::bold,
          }) |
-         ftxui::bgcolor(style_.background) | ftxui::size(HEIGHT, EQUAL, kMaxLines) |
-         ftxui::size(WIDTH, EQUAL, kMaxColumns) | ftxui::borderDouble |
-         ftxui::color(style_.foreground) | ftxui::center;
+         decorator;
 }
 
 /* ********************************************************************************************** */
