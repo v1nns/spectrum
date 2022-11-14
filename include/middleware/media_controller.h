@@ -139,9 +139,10 @@ class MediaController : public interface::Listener, public interface::Notifier {
   //! Actions received from Player and sent to UI
 
   /**
-   * @brief Inform UI to clear song information
+   * @brief Notify UI to clear any info about the song that was playing previously
+   * @param playing Last media state
    */
-  void ClearSongInformation() override;
+  void ClearSongInformation(bool playing) override;
 
   /**
    * @brief Inform UI that Audio player loaded song with success by sending its information

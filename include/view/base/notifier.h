@@ -30,9 +30,10 @@ class Notifier {
   //! Public API
 
   /**
-   * @brief Notify UI to clear any info about the previously song that was playing
+   * @brief Notify UI to clear any info about the song that was playing previously
+   * @param playing Last media state
    */
-  virtual void ClearSongInformation() = 0;
+  virtual void ClearSongInformation(bool playing) = 0;
 
   /**
    * @brief Notify UI with detailed information from the parsed song

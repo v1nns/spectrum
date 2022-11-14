@@ -1,7 +1,7 @@
 #include "audio/player.h"
 
-#include <stdexcept>
 #include <iomanip>
+#include <stdexcept>
 
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
@@ -94,7 +94,7 @@ void Player::AudioHandler() {
 
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {
-      ResetMediaControl(result);
+      ResetMediaControl(result, /* parse_error=*/true);
       continue;  // we don't wanna keep in this loop anymore, so wait for next song!
     }
 
@@ -212,7 +212,7 @@ void Player::AudioHandler() {
 
 /* ********************************************************************************************** */
 
-void Player::ResetMediaControl(error::Code err_code) {
+void Player::ResetMediaControl(error::Code err_code, bool err_parsing) {
   LOG("Reset media control with error code=", err_code);
   media_control_.Reset();
   curr_song_.reset();
@@ -221,7 +221,7 @@ void Player::ResetMediaControl(error::Code err_code) {
   if (!media_notifier) return;
 
   // Clear any song information from UI
-  media_notifier->ClearSongInformation();
+  media_notifier->ClearSongInformation(!err_parsing);
 
   // And in case of error, notify about it
   if (err_code != error::kSuccess) media_notifier->NotifyError(err_code);

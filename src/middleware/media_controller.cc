@@ -268,8 +268,8 @@ void MediaController::SeekBackwardPosition(int value) {
 
 /* ********************************************************************************************** */
 
-void MediaController::ClearSongInformation() {
-  sync_data_.Push(Command::RunClearAnimationWithoutRegain);
+void MediaController::ClearSongInformation(bool playing) {
+  if (playing) sync_data_.Push(Command::RunClearAnimationWithoutRegain);
 
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) return;

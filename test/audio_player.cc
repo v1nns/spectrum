@@ -130,7 +130,7 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
 
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Play, .position = 0}));
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -208,7 +208,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(5); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] { syncer.NotifyStep(5); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -281,7 +281,7 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     EXPECT_CALL(*playback, Stop());
 
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(AtMost(1));
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -351,7 +351,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
                                                  expected_position)));
 
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -396,7 +396,7 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
     EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
 
     // Only these should be called
-    EXPECT_CALL(*notifier, ClearSongInformation());
+    EXPECT_CALL(*notifier, ClearSongInformation(false));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
@@ -445,7 +445,7 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
     EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
 
     // Only these should be called
-    EXPECT_CALL(*notifier, ClearSongInformation());
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kUnknownError))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
@@ -547,7 +547,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
     EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(2);
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(2);
 
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -636,7 +636,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(3); }));
 
-    EXPECT_CALL(*notifier, ClearSongInformation()).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);

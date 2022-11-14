@@ -97,8 +97,9 @@ class Player : public AudioControl {
   /**
    * @brief Reset all media controls to default value
    * @param err_code Application error code from internal operation
+   * @param err_parsing Flag to indicate if error occurred on file parsing
    */
-  void ResetMediaControl(error::Code err_code = error::kSuccess);
+  void ResetMediaControl(error::Code err_code, bool err_parsing = false);
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream
