@@ -91,7 +91,7 @@ class Alsa : public Playback {
    * @brief Get period size (previously filled by ALSA API)
    * @return uint32_t Period size
    */
-  uint32_t GetPeriodSize() const override { return period_size_; }
+  uint32_t GetPeriodSize() const override { return (uint32_t)period_size_; }
 
   /* ******************************************************************************************** */
   //! Utility

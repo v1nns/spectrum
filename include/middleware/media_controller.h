@@ -204,7 +204,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
      */
     const std::vector<double> GetBuffer(int size) {
       std::unique_lock<std::mutex> lock(mutex);
-      if (size > buffer.size()) size = buffer.size();
+      if (size > buffer.size()) size = (int)buffer.size();
 
       std::vector<double>::const_iterator first = buffer.begin();
       std::vector<double>::const_iterator last = buffer.begin() + size;

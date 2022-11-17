@@ -67,7 +67,7 @@ struct Volume {
   // and lots more, for *, /, unary +/-, etc...
 
   // convenient conversion to int
-  explicit operator int() { return round(percentage * 100); }
+  explicit operator int() { return (int)round(percentage * 100); }
 
   // convenient conversion to float
   explicit operator float() { return percentage; }
