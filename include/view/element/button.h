@@ -36,7 +36,7 @@ class Button {
    * @param styles Color style for button
    * @param on_click Callback function for click event
    */
-  explicit Button(ButtonStyles style, Callback on_click);
+  explicit Button(const ButtonStyles& style, Callback on_click);
 
  public:
   /**
@@ -57,6 +57,14 @@ class Button {
    * @return std::shared_ptr<Button> New instance to Stop button
    */
   static std::shared_ptr<Button> make_button_stop(Callback on_click);
+
+  /**
+   * @brief Create button for the border of the block window
+   * @param content Text content to show
+   * @param on_click Callback function for click event
+   * @return std::shared_ptr<Button> New instance to Stop button
+   */
+  static std::shared_ptr<Button> make_button_for_window(const std::string& content, Callback on_click);
 
   /**
    * @brief Renders the component

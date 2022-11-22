@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iterator>
 
+#include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
@@ -15,8 +16,13 @@ namespace interface {
 
 AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, Identifier::AudioVisualizer, interface::Size{.width = 0, .height = 0}},
-      data_{},
-      curr_anim_{Animation::HorizontalMirror} {}
+      btn_help_{nullptr},
+      curr_anim_{Animation::HorizontalMirror},
+      data_{} {
+  btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
+    // TODO: implement event for terminal to handle
+  });
+}
 
 /* ********************************************************************************************** */
 
@@ -33,12 +39,17 @@ ftxui::Element AudioVisualizer::Render() {
       break;
 
     case LAST:
-      ERROR("Audio visualizer current animation contais value equal to LAST");
+      ERROR("Audio visualizer current animation contains invalid value");
       curr_anim_ = HorizontalMirror;
       break;
   }
 
-  return ftxui::window(ftxui::text(" visualizer "), bar_visualizer | ftxui::yflex);
+  auto teste = ftxui::hbox({
+      ftxui::text(" visualizer "),
+      ftxui::filler(),
+      std::move(btn_help_->Render()),
+  });
+  return ftxui::window(teste, bar_visualizer | ftxui::yflex);
 }
 
 /* ********************************************************************************************** */

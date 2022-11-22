@@ -2,7 +2,7 @@
 
 namespace interface {
 
-Button::Button(ButtonStyles style, Callback on_click)
+Button::Button(const ButtonStyles& style, Callback on_click)
     : box_{}, focused_{false}, clicked_{false}, style_{style}, on_click_{on_click} {}
 
 /* ********************************************************************************************** */
@@ -56,7 +56,7 @@ void Button::ResetState() { clicked_ = false; }
 std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
   class Play : public Button {
    public:
-    explicit Play(ButtonStyles style, Callback on_click) : Button(style, on_click) {}
+    explicit Play(const ButtonStyles& style, Callback on_click) : Button(style, on_click) {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
@@ -126,7 +126,7 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
 std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
   class Stop : public Button {
    public:
-    explicit Stop(ButtonStyles style, Callback on_click) : Button(style, on_click) {}
+    explicit Stop(const ButtonStyles& style, Callback on_click) : Button(style, on_click) {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
@@ -155,6 +155,37 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
   };
 
   return std::make_shared<Stop>(style, on_click);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button_for_window(const std::string& content,
+                                                       Callback on_click) {
+  class WindowButton : public Button {
+   public:
+    explicit WindowButton(const ButtonStyles& style, const std::string& content, Callback on_click)
+        : Button(style, on_click), content_{content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      auto left = ftxui::text("[") | ftxui::bold;
+      auto right = ftxui::text("]") | ftxui::bold;
+      auto content = ftxui::text(content_);
+
+      return ftxui::hbox({left, content, right});
+    }
+
+    std::string content_;
+  };
+
+  // TODO: use it...
+  auto style = ButtonStyles{
+      .content = ftxui::Color::Red,
+      .border_normal = ftxui::Color::GrayDark,
+      .border_focused = ftxui::Color::SteelBlue3,
+  };
+
+  return std::make_shared<WindowButton>(style, content, on_click);
 }
 
 }  // namespace interface

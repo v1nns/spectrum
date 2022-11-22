@@ -9,8 +9,11 @@
 #include <memory>
 
 #include "view/base/block.h"
+#include "view/element/button.h"
 
 namespace interface {
+
+using WindowButton = std::shared_ptr<Button>;
 
 /**
  * @brief Component with audio spectrum in realtime from current music playing
@@ -66,8 +69,9 @@ class AudioVisualizer : public Block {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::vector<double> data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
+  WindowButton btn_help_;     //!< Button located on the upper-right border of block window
   Animation curr_anim_;       //!< Flag to control which animation to draw
+  std::vector<double> data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
 };
 
 }  // namespace interface
