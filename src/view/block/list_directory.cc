@@ -217,7 +217,8 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
       event.mouse().button == ftxui::Mouse::WheelUp)
     return OnMouseWheel(event);
 
-  if (event.mouse().button != ftxui::Mouse::Left) return false;
+  if (event.mouse().button != ftxui::Mouse::Left && event.mouse().button != ftxui::Mouse::None)
+    return false;
 
   if (!CaptureMouse(event)) return false;
 
@@ -229,6 +230,7 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
 
     TakeFocus();
     *focused = i;
+
     if (event.mouse().button == ftxui::Mouse::Left &&
         event.mouse().motion == ftxui::Mouse::Released) {
       LOG("Handle left click mouse event on entry=", i);
