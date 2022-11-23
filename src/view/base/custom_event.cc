@@ -102,6 +102,14 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
     case CustomEvent::Identifier::ChangeBarAnimation:
       out << "ChangeBarAnimation";
       break;
+
+    case CustomEvent::Identifier::ShowHelper:
+      out << "ShowHelper";
+      break;
+
+    case CustomEvent::Identifier::Exit:
+      out << "Exit";
+      break;
   }
   return out;
 }
@@ -276,6 +284,26 @@ CustomEvent CustomEvent::ChangeBarAnimation(int animation) {
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::ChangeBarAnimation,
       .content = animation,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::ShowHelper() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowHelper,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::Exit() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::Exit,
   };
 }
 

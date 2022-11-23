@@ -41,7 +41,7 @@ TEST_F(AudioVisualizerTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ visualizer ──────────────────────────────────────────────────╮
+╭ visualizer ───────────────────────────────────[F1:help]───[X]╮
 │                                                              │
 │                                                              │
 │                                                              │
@@ -74,7 +74,7 @@ TEST_F(AudioVisualizerTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ visualizer ──────────────────────────────────────────────────╮
+╭ visualizer ───────────────────────────────────[F1:help]───[X]╮
 │                                                              │
 │                                                              │
 │                                                              │
@@ -115,7 +115,7 @@ TEST_F(AudioVisualizerTest, AnimationVerticalMirror) {
 
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
-╭ visualizer ──────────────────────────────────────────────────╮
+╭ visualizer ───────────────────────────────────[F1:help]───[X]╮
 │                                                              │
 │                                                              │
 │                                                       ▅▅▅    │

@@ -298,6 +298,16 @@ void Terminal::OnCustomEvent() {
       continue;  // skip to next while-loop
     }
 
+    if (event == CustomEvent::Identifier::ShowHelper) {
+      helper_->Show();
+      continue;  // skip to next while-loop
+    }
+
+    if (event == CustomEvent::Identifier::Exit) {
+      Exit();
+      return;
+    }
+
     // Otherwise, send it to children blocks
     for (auto& child : children_) {
       auto block = std::static_pointer_cast<Block>(child);

@@ -47,6 +47,8 @@ struct CustomEvent {
     // Events from interface to interface
     Refresh = 70000,
     ChangeBarAnimation = 70001,
+    ShowHelper = 70002,
+    Exit = 70003,
   };
 
   //! Overloaded operators
@@ -77,6 +79,8 @@ struct CustomEvent {
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
   static CustomEvent ChangeBarAnimation(int animation);
+  static CustomEvent ShowHelper();
+  static CustomEvent Exit();
 
   //! Possible types for content
   using Content =

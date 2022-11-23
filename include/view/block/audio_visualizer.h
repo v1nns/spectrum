@@ -63,14 +63,18 @@ class AudioVisualizer : public Block {
   /* ******************************************************************************************** */
   //! Private methods
  private:
+  //! Handle mouse event
+  bool OnMouseEvent(ftxui::Event event);
+
+  //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
   void DrawAnimationVerticalMirror(ftxui::Element& visualizer);
 
   /* ******************************************************************************************** */
   //! Variables
  private:
-  WindowButton btn_help_;     //!< Button located on the upper-right border of block window
-  Animation curr_anim_;       //!< Flag to control which animation to draw
+  WindowButton btn_help_, btn_exit_;  //!< Buttons located on the upper-right border of block window
+  Animation curr_anim_;               //!< Flag to control which animation to draw
   std::vector<double> data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
 };
 

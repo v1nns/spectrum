@@ -172,17 +172,18 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
       auto right = ftxui::text("]") | ftxui::bold;
       auto content = ftxui::text(content_);
 
-      return ftxui::hbox({left, content, right});
+      ftxui::Decorator decorator = ftxui::nothing;
+      if (focused_) decorator = ftxui::color(style_.content) | ftxui::inverted;
+
+      return ftxui::hbox({left, std::move(content), right}) | decorator | ftxui::reflect(box_);
     }
 
     std::string content_;
   };
 
-  // TODO: use it...
   auto style = ButtonStyles{
-      .content = ftxui::Color::Red,
-      .border_normal = ftxui::Color::GrayDark,
-      .border_focused = ftxui::Color::SteelBlue3,
+      .content = ftxui::Color::White,
+      // not using the rest...
   };
 
   return std::make_shared<WindowButton>(style, content, on_click);

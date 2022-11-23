@@ -17,10 +17,25 @@ namespace interface {
 AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, Identifier::AudioVisualizer, interface::Size{.width = 0, .height = 0}},
       btn_help_{nullptr},
+      btn_exit_{nullptr},
       curr_anim_{Animation::HorizontalMirror},
       data_{} {
   btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
-    // TODO: implement event for terminal to handle
+    LOG("Handle left click mouse event on Help button");
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::ShowHelper();
+      dispatcher->SendEvent(event);
+    }
+  });
+
+  btn_exit_ = Button::make_button_for_window(std::string("X"), [&]() {
+    LOG("Handle left click mouse event on Exit button");
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::Exit();
+      dispatcher->SendEvent(event);
+    }
   });
 }
 
@@ -47,7 +62,9 @@ ftxui::Element AudioVisualizer::Render() {
   auto teste = ftxui::hbox({
       ftxui::text(" visualizer "),
       ftxui::filler(),
-      std::move(btn_help_->Render()),
+      btn_help_->Render(),
+      ftxui::text(" ") | ftxui::border, // dummy space between buttons
+      btn_exit_->Render(),
   });
   return ftxui::window(teste, bar_visualizer | ftxui::yflex);
 }
@@ -55,6 +72,8 @@ ftxui::Element AudioVisualizer::Render() {
 /* ********************************************************************************************** */
 
 bool AudioVisualizer::OnEvent(ftxui::Event event) {
+  if (event.is_mouse()) return OnMouseEvent(event);
+
   // Send new animation to terminal
   if (event == ftxui::Event::Character('a')) {
     auto dispatcher = dispatcher_.lock();
@@ -79,6 +98,16 @@ bool AudioVisualizer::OnCustomEvent(const CustomEvent& event) {
     data_ = event.GetContent<std::vector<double>>();
     return true;
   }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool AudioVisualizer::OnMouseEvent(ftxui::Event event) {
+  if (btn_help_->OnEvent(event)) return true;
+
+  if (btn_exit_->OnEvent(event)) return true;
 
   return false;
 }
