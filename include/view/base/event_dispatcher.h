@@ -40,6 +40,7 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
   virtual void SendEvent(const CustomEvent& event) = 0;
   virtual void ProcessEvent(const CustomEvent& event) = 0;
   virtual void SetApplicationError(error::Code id) = 0;
+  virtual int CalculateNumberBars() = 0; // TODO: remove from here
 };
 
 }  // namespace interface

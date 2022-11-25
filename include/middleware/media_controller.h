@@ -29,6 +29,10 @@ namespace audio {
 class Player;
 }
 
+namespace {
+class MediaControllerTest;
+}
+
 namespace middleware {
 
 /**
@@ -52,14 +56,14 @@ class MediaController : public interface::Listener, public interface::Notifier {
  public:
   /**
    * @brief Factory method: Create, initialize internal components and return MediaController object
-   * @param dispatcher Event dispatcher for Interface
+   * @param terminal Event dispatcher for Interface
    * @param player Interface to Audio player
    * @param asynchronous Run Audio Analysis as a thread (default is true)
    * @return std::shared_ptr<MediaController> MediaController instance
    */
   static std::shared_ptr<MediaController> Create(
-      const std::shared_ptr<interface::Terminal>& terminal,
-      const std::shared_ptr<audio::Player>& player, bool asynchronous = true);
+      const std::shared_ptr<interface::EventDispatcher>& terminal,
+      const std::shared_ptr<audio::AudioControl>& player, bool asynchronous = true);
 
   /**
    * @brief Destroy the MediaController object
@@ -316,6 +320,10 @@ class MediaController : public interface::Listener, public interface::Notifier {
   std::thread analysis_loop_;  //!< Execute audio-analysis function as a thread
 
   AnalysisDataSynced sync_data_;  //!< Controls the audio data synchronization
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+  friend class ::MediaControllerTest;
 };
 
 }  // namespace middleware

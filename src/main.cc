@@ -61,6 +61,10 @@ int main(int argc, char** argv) {
   // Create and initialize a new middleware for terminal and player
   auto middleware = middleware::MediaController::Create(terminal, player);
 
+  // Register callbacks to Terminal and Player
+  terminal->RegisterInterfaceListener(middleware);
+  player->RegisterInterfaceNotifier(middleware);
+
   // Create a full-size screen and register callbacks
   ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
 

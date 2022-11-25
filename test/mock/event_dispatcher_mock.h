@@ -17,6 +17,7 @@ class EventDispatcherMock final : public interface::EventDispatcher {
   MOCK_METHOD(void, SendEvent, (const interface::CustomEvent& event), (override));
   MOCK_METHOD(void, ProcessEvent, (const interface::CustomEvent& event), (override));
   MOCK_METHOD(void, SetApplicationError, (error::Code id), (override));
+  MOCK_METHOD(int, CalculateNumberBars, (), (override));
 };
 
 }  // namespace

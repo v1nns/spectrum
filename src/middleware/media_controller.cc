@@ -15,8 +15,8 @@
 namespace middleware {
 
 std::shared_ptr<MediaController> MediaController::Create(
-    const std::shared_ptr<interface::Terminal>& terminal,
-    const std::shared_ptr<audio::Player>& player, bool asynchronous) {
+    const std::shared_ptr<interface::EventDispatcher>& terminal,
+    const std::shared_ptr<audio::AudioControl>& player, bool asynchronous) {
   LOG("Create new instance of media controller");
 
   // Instantiate FFTW to run audio analysis
@@ -26,15 +26,10 @@ std::shared_ptr<MediaController> MediaController::Create(
   auto controller =
       std::shared_ptr<MediaController>(new MediaController(terminal, player, std::move(analyzer)));
 
+  // TODO: remove this from here, move to main?
   // Use terminal maximum width as input to decide how many bars should display on audio visualizer
   auto number_bars = terminal->CalculateNumberBars();
   controller->Init(number_bars, asynchronous);
-
-  // Register callbacks to Terminal
-  terminal->RegisterInterfaceListener(controller);
-
-  // Register callbacks to Player
-  player->RegisterInterfaceNotifier(controller);
 
   // TODO: Think of a better way to do this...
   model::Volume value = player->GetAudioVolume();

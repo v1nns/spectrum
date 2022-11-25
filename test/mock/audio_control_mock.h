@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief  Mock class for Player API
+ * \brief  Mock class for Audio Control API
  */
 
-#ifndef INCLUDE_TEST_MOCK_PLAYER_MOCK_H_
-#define INCLUDE_TEST_MOCK_PLAYER_MOCK_H_
+#ifndef INCLUDE_TEST_MOCK_AUDIO_CONTROL_MOCK_H_
+#define INCLUDE_TEST_MOCK_AUDIO_CONTROL_MOCK_H_
 
 #include <gmock/gmock-function-mocker.h>
 
@@ -12,7 +12,7 @@
 
 namespace {
 
-class PlayerMock final : public audio::AudioControl {
+class AudioControlMock final : public audio::AudioControl {
  public:
   MOCK_METHOD(void, Play, (const std::string& filepath), (override));
   MOCK_METHOD(void, PauseOrResume, (), (override));
@@ -25,4 +25,4 @@ class PlayerMock final : public audio::AudioControl {
 };
 
 }  // namespace
-#endif  // INCLUDE_TEST_MOCK_PLAYER_MOCK_H_
+#endif  // INCLUDE_TEST_MOCK_AUDIO_CONTROL_MOCK_H_
