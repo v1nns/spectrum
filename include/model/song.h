@@ -50,6 +50,8 @@ struct Song {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const Song& s);
+  bool operator==(const Song& other) const;
+  bool operator!=(const Song& other) const;
 };
 
 /**

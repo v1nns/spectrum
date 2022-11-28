@@ -202,15 +202,6 @@ void MediaController::NotifyFileSelection(const std::filesystem::path& filepath)
 
 /* ********************************************************************************************** */
 
-void MediaController::ClearCurrentSong() {
-  auto player = player_ctl_.lock();
-  if (!player) return;
-
-  player->Stop();
-}
-
-/* ********************************************************************************************** */
-
 void MediaController::PauseOrResume() {
   auto player = player_ctl_.lock();
   if (!player) return;
@@ -221,6 +212,15 @@ void MediaController::PauseOrResume() {
 /* ********************************************************************************************** */
 
 void MediaController::Stop() {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->Stop();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::ClearCurrentSong() {
   auto player = player_ctl_.lock();
   if (!player) return;
 

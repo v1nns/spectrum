@@ -13,12 +13,21 @@
 namespace model {
 
 bool Song::CurrentInformation::operator==(const Song::CurrentInformation& other) const {
-  return std::tie(state, position) == std ::tie(other.state, position);
+  return std::tie(state, position) == std::tie(other.state, position);
 }
 
 bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other) const {
   return !operator==(other);
 }
+
+bool Song::operator==(const Song& other) const {
+  return std::tie(filepath, artist, title, num_channels, sample_rate, bit_rate, bit_depth, duration,
+                  curr_info) == std::tie(other.filepath, other.artist, other.title,
+                                         other.num_channels, other.sample_rate, other.bit_rate,
+                                         other.bit_depth, other.duration, other.curr_info);
+}
+
+bool Song::operator!=(const Song& other) const { return !operator==(other); }
 
 //! Song::MediaState pretty print
 std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {

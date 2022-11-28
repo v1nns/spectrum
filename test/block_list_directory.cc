@@ -59,8 +59,8 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -92,8 +92,8 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -114,12 +114,12 @@ TEST_F(ListDirectoryTest, NavigateToMockDir) {
 ╭ files ───────────────────────╮
 │mock                          │
 │> ..                          │
+│  audio_control_mock.h        │
 │  decoder_mock.h              │
 │  event_dispatcher_mock.h     │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -151,8 +151,8 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
-│                              │
 │Search:                       │
 ╰──────────────────────────────╯)";
 
@@ -180,7 +180,7 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
-│                              │
+│  middleware_controller.cc    │
 │                              │
 │                              │
 │Search:e                      │
@@ -204,12 +204,12 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 ╭ files ───────────────────────╮
 │mock                          │
 │> ..                          │
+│  audio_control_mock.h        │
 │  decoder_mock.h              │
 │  event_dispatcher_mock.h     │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -273,8 +273,8 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -309,8 +309,8 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -349,9 +349,9 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
 │> this_is_a_really_long_pathna│
-│                              │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -378,9 +378,9 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
 │> is_a_really_long_pathname.mp│
-│                              │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -479,12 +479,12 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
+│  middleware_controller.cc    │
 │  mock                        │
 │  some_music_0.mp3            │
 │  some_music_1.mp3            │
@@ -521,18 +521,18 @@ TEST_F(ListDirectoryTest, TabMenuOnBigList) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
+│  mock                        │
 │  some_music_0.mp3            │
 │  some_music_1.mp3            │
 │  some_music_2.mp3            │
 │  some_music_3.mp3            │
-│  some_music_4.mp3            │
-│> some_music_5.mp3            │
+│> some_music_4.mp3            │
+│  some_music_5.mp3            │
 │  some_music_6.mp3            │
 │  some_music_7.mp3            │
 │  some_music_8.mp3            │
 │  some_music_9.mp3            │
 │  some_music_10.mp3           │
-│  some_music_11.mp3           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
