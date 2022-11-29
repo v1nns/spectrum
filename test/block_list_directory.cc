@@ -19,8 +19,13 @@
 
 namespace {
 
+using ::testing::AllOf;
 using ::testing::Field;
 using ::testing::StrEq;
+using ::testing::VariantWith;
+
+//! Create custom matcher to compare only filename from std::filesystem::path
+MATCHER_P(IsSameFilename, n, "") { return arg.filename() == n; }
 
 /**
  * @brief Tests with ListDirectory class
@@ -285,9 +290,12 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 
 TEST_F(ListDirectoryTest, NotifyFileSelection) {
   // Setup expectation for event sending
+  std::filesystem::path file{"audio_player.cc"};
   EXPECT_CALL(*dispatcher,
-              SendEvent(Field(&interface::CustomEvent::id,
-                              interface::CustomEvent::Identifier::NotifyFileSelection)))
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::filesystem::path>(IsSameFilename(file))))))
       .Times(1);
 
   block->OnEvent(ftxui::Event::ArrowDown);

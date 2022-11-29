@@ -7,8 +7,10 @@
 
 namespace {
 
+using ::testing::AllOf;
 using ::testing::Field;
 using ::testing::StrEq;
+using ::testing::VariantWith;
 
 /**
  * @brief Tests with AudioVisualizer class
@@ -101,8 +103,11 @@ TEST_F(AudioVisualizerTest, AnimationVerticalMirror) {
 
   // Expect block to send an event to terminal when 'a' is pressed
   EXPECT_CALL(*dispatcher,
-              SendEvent(Field(&interface::CustomEvent::id,
-                              interface::CustomEvent::Identifier::ChangeBarAnimation)));
+              SendEvent(AllOf(
+                  Field(&interface::CustomEvent::id,
+                        interface::CustomEvent::Identifier::ChangeBarAnimation),
+                  Field(&interface::CustomEvent::content,
+                        VariantWith<int>(interface::AudioVisualizer::Animation::VerticalMirror)))));
 
   block->OnEvent(ftxui::Event::Character('a'));
 
