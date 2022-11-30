@@ -6,9 +6,11 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "general/sync_testing.h"
 #include "middleware/media_controller.h"
+#include "mock/analyzer_mock.h"
 #include "mock/audio_control_mock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "model/application_error.h"
@@ -22,6 +24,8 @@ using ::testing::AllOf;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
+using ::testing::Invoke;
+using ::testing::Return;
 using ::testing::VariantWith;
 
 using testing::TestSyncer;
@@ -34,6 +38,7 @@ class MediaControllerTest : public ::testing::Test {
   using MediaController = std::shared_ptr<middleware::MediaController>;
   using EventDispatcher = std::shared_ptr<EventDispatcherMock>;
   using AudioControl = std::shared_ptr<AudioControlMock>;
+  using Analyzer = std::unique_ptr<AnalyzerMock>;
 
  protected:
   void SetUp() override { Init(); }
@@ -41,13 +46,16 @@ class MediaControllerTest : public ::testing::Test {
   void TearDown() override { controller.reset(); }
 
   void Init(bool asynchronous = false) {
+    // Create mocks
     dispatcher = std::make_shared<EventDispatcherMock>();
     audio_ctl = std::make_shared<AudioControlMock>();
+    AnalyzerMock* an_mock = new AnalyzerMock();
 
     // Setup init expectations
     InSequence seq;
 
-    EXPECT_CALL(*dispatcher, CalculateNumberBars());
+    EXPECT_CALL(*dispatcher, CalculateNumberBars()).WillOnce(Return(kNumberBars));
+    EXPECT_CALL(*an_mock, Init(Eq(kNumberBars)));
     EXPECT_CALL(*audio_ctl, GetAudioVolume());
     EXPECT_CALL(*dispatcher, ProcessEvent(Field(&interface::CustomEvent::id,
                                                 interface::CustomEvent::Identifier::UpdateVolume)));
@@ -56,19 +64,7 @@ class MediaControllerTest : public ::testing::Test {
                                    interface::CustomEvent::Identifier::DrawAudioSpectrum)));
 
     // Create Controller
-    controller = middleware::MediaController::Create(dispatcher, audio_ctl, asynchronous);
-  }
-
-  //! Getter for Event Dispatcher (necessary as inner variable is an unique_ptr)
-  auto GetEventDispatcher() -> EventDispatcherMock* {
-    auto dummy = controller->dispatcher_.lock();
-    return reinterpret_cast<EventDispatcherMock*>(dummy.get());
-  }
-
-  //! Getter for Audio Player (necessary as inner variable is an unique_ptr)
-  auto GetAudioControl() -> AudioControlMock* {
-    auto dummy = controller->player_ctl_.lock();
-    return reinterpret_cast<AudioControlMock*>(dummy.get());
+    controller = middleware::MediaController::Create(dispatcher, audio_ctl, an_mock, asynchronous);
   }
 
   //! Getter for Interface Listener
@@ -82,6 +78,23 @@ class MediaControllerTest : public ::testing::Test {
     return static_cast<interface::Notifier*>(controller.get());
   }
 
+  //! Getter for Event Dispatcher (necessary as inner variable is an weak_ptr)
+  auto GetEventDispatcher() -> EventDispatcherMock* {
+    auto dummy = controller->dispatcher_.lock();
+    return reinterpret_cast<EventDispatcherMock*>(dummy.get());
+  }
+
+  //! Getter for Audio Player (necessary as inner variable is an weak_ptr)
+  auto GetAudioControl() -> AudioControlMock* {
+    auto dummy = controller->player_ctl_.lock();
+    return reinterpret_cast<AudioControlMock*>(dummy.get());
+  }
+
+  //! Getter for Analyzer (necessary as inner variable is an unique_ptr)
+  auto GetAnalyzer() -> AnalyzerMock* {
+    return reinterpret_cast<AnalyzerMock*>(controller->analyzer_.get());
+  }
+
   //! Run analysis loop (same one executed as a thread in the real-life)
   void RunAnalysisLoop() { controller->AnalysisHandler(); }
 
@@ -89,6 +102,8 @@ class MediaControllerTest : public ::testing::Test {
   EventDispatcher dispatcher;  //!< Base class for terminal (graphical interface)
   AudioControl audio_ctl;      //!< Base class for audio player
   MediaController controller;  //!< Middleware between audio player and graphical interface
+
+  static constexpr int kNumberBars = 8;  //!< Default number of bars
 };
 
 /* ********************************************************************************************** */
@@ -108,10 +123,11 @@ TEST_F(MediaControllerTestThread, CreateDummyController) {
 TEST_F(MediaControllerTest, ExecuteAllMethodsFromListener) {
   auto listener = GetListener();
   auto audio_ctl = GetAudioControl();
+  auto analyzer = GetAnalyzer();
 
   InSequence seq;
 
-  std::filesystem::path music{"/stairway/to/heaven.mp3"};
+  std::filesystem::path music{"/stairway/to/heaven.flac"};
   EXPECT_CALL(*audio_ctl, Play(Eq(music)));
   listener->NotifyFileSelection(music);
 
@@ -129,7 +145,7 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromListener) {
   listener->SetVolume(volume);
 
   int number_bars = 16;
-  // TODO: Fix some expectation here
+  EXPECT_CALL(*analyzer, Init(Eq(number_bars)));
   listener->ResizeAnalysisOutput(number_bars);
 
   int skip_seconds = 25;
@@ -184,6 +200,55 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromNotifier) {
   error::Code error = error::kUnknownError;
   EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error)));
   notifier->NotifyError(error);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
+  int sample_size = 16;
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    // Setup all expectations
+    InSequence seq;
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillOnce(Return(sample_size));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillOnce(Return(kNumberBars));
+
+    // Thread received a new command, create expectation to analyze and send its result back to UI
+    EXPECT_CALL(*analyzer, Execute(_, Eq(sample_size), _))
+        .WillOnce(Invoke([&](double*, int, double*) {
+          syncer.NotifyStep(2);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(
+                    Field(&interface::CustomEvent::id,
+                          interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                    Field(&interface::CustomEvent::content, VariantWith<std::vector<double>>(_)))));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetNotifier();
+
+    // Send random data to the thread to analyze it
+    syncer.WaitForStep(1);
+    std::vector<int> buffer(sample_size, 1);
+    notifier->SendAudioRaw(buffer.data(), buffer.size());
+
+    // Wait for Analysis to finish before exiting from controller
+    syncer.WaitForStep(2);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
 }
 
 }  // namespace

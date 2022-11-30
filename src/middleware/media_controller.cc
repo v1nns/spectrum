@@ -16,15 +16,17 @@ namespace middleware {
 
 std::shared_ptr<MediaController> MediaController::Create(
     const std::shared_ptr<interface::EventDispatcher>& terminal,
-    const std::shared_ptr<audio::AudioControl>& player, bool asynchronous) {
+    const std::shared_ptr<audio::AudioControl>& player, driver::Analyzer* analyzer,
+    bool asynchronous) {
   LOG("Create new instance of media controller");
 
   // Instantiate FFTW to run audio analysis
-  std::unique_ptr<driver::Analyzer> analyzer(new driver::FFTW);
+  auto an = analyzer != nullptr ? std::unique_ptr<driver::Analyzer>(std::move(analyzer))
+                                : std::make_unique<driver::FFTW>();
 
   // Create and initialize media controller
   auto controller =
-      std::shared_ptr<MediaController>(new MediaController(terminal, player, std::move(analyzer)));
+      std::shared_ptr<MediaController>(new MediaController(terminal, player, std::move(an)));
 
   // TODO: remove this from here, move to main?
   // Use terminal maximum width as input to decide how many bars should display on audio visualizer
