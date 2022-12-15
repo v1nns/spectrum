@@ -2,16 +2,16 @@
 # External dependencies
 
 # Audio Library for parsing files (FFMPEG)
-pkg_check_modules(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
-pkg_check_modules(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
-pkg_check_modules(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
-pkg_check_modules(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
+pkg_search_module(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
+pkg_search_module(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
+pkg_search_module(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
+pkg_search_module(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
 
 # Audio Library for Playback (using direclty ALSA)
-pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
+pkg_search_module(ALSA REQUIRED IMPORTED_TARGET alsa)
 
 # DSP Processing (FFTW3)
-pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
+pkg_search_module(FFTW REQUIRED IMPORTED_TARGET fftw3)
 
 # GUI Library (FTXUI)
 FetchContent_Declare(
@@ -63,7 +63,7 @@ target_include_directories(
     spectrum-lib
     PUBLIC ${CMAKE_SOURCE_DIR}/include $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
            $<BUILD_INTERFACE:${expected_SOURCE_DIR}/include> ${ALSA_INCLUDE_DIRS}
-           ${AVCODEC_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS})
+           ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS})
 
 target_link_libraries(
     spectrum-lib

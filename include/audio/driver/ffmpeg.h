@@ -10,6 +10,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/version.h>
 #include <libswresample/swresample.h>
 }
 
@@ -71,10 +72,6 @@ class FFmpeg : public Decoder {
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
  private:
-  struct ChannelLayoutDeleter {
-    void operator()(AVChannelLayout* p) const { av_channel_layout_uninit(p); }
-  };
-
   struct FormatContextDeleter {
     void operator()(AVFormatContext* p) const { avformat_close_input(&p); }
   };
@@ -104,8 +101,6 @@ class FFmpeg : public Decoder {
   struct DataBufferDeleter {
     void operator()(uint8_t* p) const { free(p); }
   };
-
-  using ChannelLayout = std::unique_ptr<AVChannelLayout, ChannelLayoutDeleter>;
 
   using FormatContext = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
   using CodecContext = std::unique_ptr<AVCodecContext, CodecContextDeleter>;
@@ -149,7 +144,16 @@ class FFmpeg : public Decoder {
   /* ******************************************************************************************** */
   //! Variables
 
+#if LIBAVUTIL_VERSION_MAJOR > 56
+  struct ChannelLayoutDeleter {
+    void operator()(AVChannelLayout* p) const { av_channel_layout_uninit(p); }
+  };
+
+  using ChannelLayout = std::unique_ptr<AVChannelLayout, ChannelLayoutDeleter>;
   ChannelLayout ch_layout_;  //!< Default channel layout to use on decoding
+#else
+  static constexpr int kChannelLayout = AV_CH_LAYOUT_STEREO;
+#endif
 
   FormatContext input_stream_;  //!< Input stream from file
   CodecContext decoder_;        //!< Specific codec compatible with the input stream

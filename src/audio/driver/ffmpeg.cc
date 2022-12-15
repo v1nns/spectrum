@@ -1,21 +1,17 @@
 #include "audio/driver/ffmpeg.h"
 
-#include <libavutil/channel_layout.h>
-
 #include <iomanip>
 
 #include "util/logger.h"
 
 namespace driver {
 
-FFmpeg::FFmpeg()
-    : ch_layout_{new AVChannelLayout{}},
-      input_stream_{},
-      decoder_{},
-      resampler_{},
-      stream_index_{} {
+FFmpeg::FFmpeg() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
+#if LIBAVUTIL_VERSION_MAJOR > 56
+  ch_layout_{new AVChannelLayout{}};
   // Set output channel layout to stereo (2-channel)
   av_channel_layout_default(ch_layout_.get(), 2);
+#endif
 
   // TODO: Control this with a parameter
   av_log_set_level(AV_LOG_QUIET);
@@ -72,11 +68,27 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kUnknownError;
   }
 
+#if LIBAVUTIL_VERSION_MAJOR > 56
   // Force to use stereo as channel layout
   if (!codec->ch_layouts) {
     auto dummy = (AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO;
     av_channel_layout_copy(&decoder_->ch_layout, &dummy);
   }
+#else
+  if (decoder_->channel_layout == 0) {
+    decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
+    // switch (decoder_->channels) {
+    //   case 1:
+    //     decoder_->channel_layout = AV_CH_LAYOUT_MONO;
+    //     break;
+    //   case 2:
+    //     decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
+    //     break;
+    //   default:
+    //     return error::kUnknownError;
+    // }
+  }
+#endif
 
   if (avcodec_open2(decoder_.get(), codec, nullptr) < 0) {
     ERROR("Could not initialize audio decoder");
@@ -90,11 +102,18 @@ error::Code FFmpeg::ConfigureDecoder() {
 
 error::Code FFmpeg::ConfigureResampler() {
   LOG("Configure audio resampler");
+
+#if LIBAVUTIL_VERSION_MAJOR > 56
   SwrContext *dummy{};
   swr_alloc_set_opts2(&dummy, ch_layout_.get(), kSampleFormat, kSampleRate, &decoder_->ch_layout,
                       decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr);
 
   resampler_.reset(std::move(dummy));
+#else
+  resampler_ = CustomSwrContext{swr_alloc_set_opts(
+      nullptr, kChannelLayout, kSampleFormat, kSampleRate, decoder_->channel_layout,
+      decoder_->sample_fmt, decoder_->sample_rate, 0, nullptr)};
+#endif
 
   if (!resampler_ || swr_init(resampler_.get()) < 0) {
     ERROR("Could not initialize audio resampler");
@@ -125,9 +144,13 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
 
   const AVCodecParameters *audio_stream = input_stream_->streams[stream_index_]->codecpar;
 
-  audio_info->num_channels = (uint16_t)audio_stream->ch_layout.nb_channels,
+#if LIBAVUTIL_VERSION_MAJOR > 56
+  audio_info->num_channels = (uint16_t)audio_stream->ch_layout.nb_channels;
+#else
+  audio_info->num_channels = (uint16_t)audio_stream->channels;
+#endif
   audio_info->sample_rate = (uint32_t)audio_stream->sample_rate;
-  audio_info->bit_rate = (uint32_t)audio_stream->bit_rate,
+  audio_info->bit_rate = (uint32_t)audio_stream->bit_rate;
   audio_info->bit_depth = (uint32_t)sample_fmt_info[audio_stream->format].bits;
   audio_info->duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
 }
@@ -160,8 +183,14 @@ error::Code FFmpeg::OpenFile(model::Song *audio_info) {
 
 error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   LOG("Decode song using maximum sample=", samples);
+
+#if LIBAVUTIL_VERSION_MAJOR > 56
   int max_buffer_size = av_samples_get_buffer_size(nullptr, decoder_->ch_layout.nb_channels,
                                                    samples, decoder_->sample_fmt, 1);
+#else
+  int max_buffer_size =
+      av_samples_get_buffer_size(nullptr, decoder_->channels, samples, decoder_->sample_fmt, 1);
+#endif
 
   Packet packet = Packet{av_packet_alloc()};
   Frame frame = Frame{av_frame_alloc()};
