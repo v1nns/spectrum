@@ -119,13 +119,13 @@ TEST_F(ListDirectoryTest, NavigateToMockDir) {
 ╭ files ───────────────────────╮
 │mock                          │
 │> ..                          │
+│  analyzer_mock.h             │
 │  audio_control_mock.h        │
 │  decoder_mock.h              │
 │  event_dispatcher_mock.h     │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
 │                              │
 │                              │
 │                              │
@@ -209,13 +209,13 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 ╭ files ───────────────────────╮
 │mock                          │
 │> ..                          │
+│  analyzer_mock.h             │
 │  audio_control_mock.h        │
 │  decoder_mock.h              │
 │  event_dispatcher_mock.h     │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
 │                              │
 │                              │
 │                              │
