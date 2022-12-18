@@ -25,6 +25,7 @@ using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::Ne;
 using ::testing::Return;
 using ::testing::VariantWith;
 
@@ -245,6 +246,91 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
     // Wait for Analysis to finish before exiting from controller
     syncer.WaitForStep(2);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
+  int sample_size = 16;
+  model::Song::CurrentInformation info{.state = model::Song::MediaState::Pause, .position = 12};
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(sample_size));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
+
+    {
+      // Create expectation to analyze data and send its result back to UI
+      EXPECT_CALL(*analyzer, Execute(_, Eq(sample_size), _))
+          .WillOnce(Invoke([&](double* input, int, double* output) {
+            std::copy(input, input + kNumberBars, reinterpret_cast<double*>(output));
+            syncer.NotifyStep(2);
+            return error::kSuccess;
+          }));
+
+      EXPECT_CALL(
+          *dispatcher,
+          SendEvent(
+              AllOf(Field(&interface::CustomEvent::id,
+                          interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                    Field(&interface::CustomEvent::content,
+                          VariantWith<std::vector<double>>(std::vector<double>(kNumberBars, 1))))));
+    }
+
+    {
+      // Create expectation to execute Clear Animation and send it to UI
+      EXPECT_CALL(*dispatcher,
+                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                        interface::CustomEvent::Identifier::UpdateSongState),
+                                  Field(&interface::CustomEvent::content,
+                                        VariantWith<model::Song::CurrentInformation>(info)))));
+
+      // As we can get a lot of DrawAudioSpectrum events, use the NotEqual(vector<1>) to match the
+      // result values from ClearAnimation (and differentiate from analyze and last update values)
+      EXPECT_CALL(
+          *dispatcher,
+          SendEvent(AllOf(
+              Field(&interface::CustomEvent::id,
+                    interface::CustomEvent::Identifier::DrawAudioSpectrum),
+              Field(&interface::CustomEvent::content,
+                    VariantWith<std::vector<double>>(Ne(std::vector<double>(kNumberBars, 1)))))))
+          .Times(10);
+
+      // Last update from thread with zeroed values for UI
+      std::vector<double> last_update(kNumberBars, 0.001);
+      EXPECT_CALL(*dispatcher,
+                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                        interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                  Field(&interface::CustomEvent::content,
+                                        VariantWith<std::vector<double>>(last_update)))))
+          .WillOnce(Invoke([&]() { syncer.NotifyStep(3); }));
+    }
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetNotifier();
+
+    // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
+    syncer.WaitForStep(1);
+    std::vector<int> buffer(sample_size, 1);
+    notifier->SendAudioRaw(buffer.data(), buffer.size());
+
+    // Send a Pause notification to run ClearAnimation
+    syncer.WaitForStep(2);
+    notifier->NotifySongState(info);
+
+    // Wait for Analysis to finish before exiting from controller
+    syncer.WaitForStep(3);
     controller->Exit();
   };
 
