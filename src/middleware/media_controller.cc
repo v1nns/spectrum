@@ -169,8 +169,6 @@ void MediaController::AnalysisHandler() {
         std::vector<double> bars;
 
         for (int i = 1; i <= 10; i++) {
-          bars.clear();
-
           // Each time this loop is executed, it will increase spectrum bar values in a step of 10%
           // based on its previous values (this value was also decided based on feeling)
           for (auto& value : output) bars.push_back((value / 10) * i);
@@ -184,6 +182,8 @@ void MediaController::AnalysisHandler() {
           auto timeout = std::chrono::system_clock::now() + 0.01s;
           bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout);
           if (exit_animation) break;
+
+          bars.clear();
         }
       } break;
 

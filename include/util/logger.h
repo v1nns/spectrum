@@ -10,6 +10,7 @@
 #include <cstring>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -17,26 +18,6 @@
 #include <thread>
 
 namespace util {
-
-//! Forward declaration
-class Logger;
-
-/**
- * @brief Get unique instance of Logger (singleton pattern)
- * @return Logger instance
- */
-inline Logger& get_logger() {
-  static std::unique_ptr<Logger> singleton = std::make_unique<Logger>();
-  return *singleton;
-}
-
-/**
- * @brief Get current timestamp in a formatted string
- * @return String containing timestamp
- */
-std::string get_timestamp();
-
-/* ********************************************************************************************** */
 
 /**
  * @brief Responsible for message logging (thread-safe) to a defined filepath
@@ -48,11 +29,7 @@ class Logger {
    * @param filepath Full path for file to write log messages
    * @return Logger unique instance
    */
-  static Logger& Configure(const std::string& filepath) {
-    auto& logger = get_logger();
-    logger.filepath_ = filepath;
-    return logger;
-  }
+  static Logger& Configure(const std::string& filepath);
 
   /**
    * @brief Construct a new Logger object
@@ -62,7 +39,7 @@ class Logger {
   /**
    * @brief Destroy the Logger object
    */
-  ~Logger() = default;
+  virtual ~Logger();
 
   //! Remove these
   Logger(const Logger& other) = delete;             // copy constructor
@@ -73,15 +50,17 @@ class Logger {
   /* ******************************************************************************************** */
   //! Utility
  private:
-  void OpenFileStream(const std::string& timestamp);
-  void CloseFileStream();
-  void WriteToFile(const std::string& timestamp, const std::string& message);
+  virtual void OpenStream();
+  virtual void CloseStream();
+  virtual bool IsLoggingEnabled();
+
+  void Write(const std::string& message);
 
   /* ******************************************************************************************** */
   //! Public API
  public:
   /**
-   * @brief Concatenate all arguments into a single log message and write it to file
+   * @brief Concatenate all arguments into a single log message and write it to output stream
    * @tparam ...Args Splitted arguments
    * @param filename Current file name
    * @param line Current line number
@@ -89,30 +68,76 @@ class Logger {
    */
   template <typename... Args>
   void Log(const char* filename, int line, Args&&... args) {
-    // Logging is optional, so if no path has been provided, do nothing
-    if (filepath_.empty()) return;
+    if (!IsLoggingEnabled()) return;
 
     // Otherwise, build log message and write it to file
     std::ostringstream ss;
-    std::string timestamp = get_timestamp();
 
-    ss << "[" << timestamp << "] ";
     ss << "[" << std::hex << std::this_thread::get_id() << std::dec << "] ";
     ss << "[" << filename << ":" << line << "] ";
     (ss << ... << std::forward<Args>(args)) << "\n";
 
-    WriteToFile(timestamp, std::move(ss).str());
+    Write(std::move(ss).str());
   }
 
   /* ******************************************************************************************** */
   //! Variables
+ protected:
+  std::mutex mutex_;                          //!< Control access for internal resources
+  std::shared_ptr<std::ostream> out_stream_;  //!< Output stream to write logs
+};
+
+/* ********************************************************************************************** */
+
+class FileLogger : public Logger {
+ public:
+  /**
+   * @brief Construct a new FileLogger object
+   */
+  FileLogger();
+
+  /**
+   * @brief Destroy the FileLogger object
+   */
+  virtual ~FileLogger() = default;
+
+  //! Remove these
+  FileLogger(const FileLogger& other) = delete;             // copy constructor
+  FileLogger(FileLogger&& other) = delete;                  // move constructor
+  FileLogger& operator=(const FileLogger& other) = delete;  // copy assignment
+  FileLogger& operator=(FileLogger&& other) = delete;       // move assignment
+
+  //! Override utilities
+  void OpenStream() override;
+  void CloseStream() override;
+  bool IsLoggingEnabled() override;
+
+  void SetFilepath(const std::string& filepath) { filepath_ = filepath; }
+
+  /* ******************************************************************************************** */
+  //! Variables
  private:
-  std::mutex mutex_;                                   //!< Control access for internal resources
   std::string filepath_;                               //!< Absolute path for log file
-  std::ofstream file_;                                 //!< Output stream to operate on log file
   std::chrono::seconds reopen_interval_;               //!< Interval to reopen file
   std::chrono::system_clock::time_point last_reopen_;  //!< Last timestamp that file was (re)opened
 };
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Get unique instance of Logger (singleton pattern)
+ * @return Logger instance
+ */
+inline Logger& get_logger() {
+  static std::unique_ptr<Logger> singleton{new FileLogger()};
+  return *singleton;
+}
+
+/**
+ * @brief Get current timestamp in a formatted string
+ * @return String containing timestamp
+ */
+std::string get_timestamp();
 
 }  // namespace util
 
@@ -120,7 +145,7 @@ class Logger {
 /*                                           PUBLIC API                                           */
 /* ---------------------------------------------------------------------------------------------- */
 
-//! Parse pre-processing macro to get only filename instead of absolute path
+//! Parse pre-processing macro to get only filename instead of absolute path from source file
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 //! Macro to log messages (this was the only way found to append "filename:line" in the output)
