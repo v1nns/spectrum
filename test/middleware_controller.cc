@@ -21,6 +21,7 @@ namespace {
 
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::ElementsAreArray;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
@@ -265,7 +266,12 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
     EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(sample_size));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
+    std::vector<double> values(kNumberBars, 1);
+
     {
+      // To better readability, split into two scopes to treat each thread command separately
+      InSequence seq;
+
       // Create expectation to analyze data and send its result back to UI
       EXPECT_CALL(*analyzer, Execute(_, Eq(sample_size), _))
           .WillOnce(Invoke([&](double* input, int, double* output) {
@@ -276,11 +282,10 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
       EXPECT_CALL(
           *dispatcher,
-          SendEvent(
-              AllOf(Field(&interface::CustomEvent::id,
-                          interface::CustomEvent::Identifier::DrawAudioSpectrum),
-                    Field(&interface::CustomEvent::content,
-                          VariantWith<std::vector<double>>(std::vector<double>(kNumberBars, 1))))));
+          SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                          Field(&interface::CustomEvent::content,
+                                VariantWith<std::vector<double>>(ElementsAreArray(values))))));
     }
 
     {
@@ -291,24 +296,32 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
                                   Field(&interface::CustomEvent::content,
                                         VariantWith<model::Song::CurrentInformation>(info)))));
 
-      // As we can get a lot of DrawAudioSpectrum events, use the NotEqual(vector<1>) to match the
-      // result values from ClearAnimation (and differentiate from analyze and last update values)
-      EXPECT_CALL(
-          *dispatcher,
-          SendEvent(AllOf(
-              Field(&interface::CustomEvent::id,
-                    interface::CustomEvent::Identifier::DrawAudioSpectrum),
-              Field(&interface::CustomEvent::content,
-                    VariantWith<std::vector<double>>(Ne(std::vector<double>(kNumberBars, 1)))))))
-          .Times(10);
+      // This sequence is placed after UpdateSongState event because this specific event is fired
+      // from Player thread and not from Analysis thread (in the "real life")
+      InSequence seq;
+
+      // As we can get a lot of DrawAudioSpectrum events, calculate result and create expectations
+      // Each loop will reduce its previous value by 45%
+      for (int i = 0; i < 10; i++) {
+        std::transform(values.begin(), values.end(), values.begin(),
+                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
+
+        EXPECT_CALL(
+            *dispatcher,
+            SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                  interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                            Field(&interface::CustomEvent::content,
+                                  VariantWith<std::vector<double>>(ElementsAreArray(values))))));
+      }
 
       // Last update from thread with zeroed values for UI
       std::vector<double> last_update(kNumberBars, 0.001);
-      EXPECT_CALL(*dispatcher,
-                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                        interface::CustomEvent::Identifier::DrawAudioSpectrum),
-                                  Field(&interface::CustomEvent::content,
-                                        VariantWith<std::vector<double>>(last_update)))))
+      EXPECT_CALL(
+          *dispatcher,
+          SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                          Field(&interface::CustomEvent::content,
+                                VariantWith<std::vector<double>>(ElementsAreArray(last_update))))))
           .WillOnce(Invoke([&]() { syncer.NotifyStep(3); }));
     }
 
