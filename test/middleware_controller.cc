@@ -14,6 +14,7 @@
 #include "mock/audio_control_mock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "model/application_error.h"
+#include "util/logger.h"
 #include "view/base/listener.h"
 #include "view/base/notifier.h"
 
@@ -43,6 +44,8 @@ class MediaControllerTest : public ::testing::Test {
   using Analyzer = std::unique_ptr<AnalyzerMock>;
 
  protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
   void SetUp() override { Init(); }
 
   void TearDown() override { controller.reset(); }

@@ -3,6 +3,7 @@
 #include "general/block.h"
 #include "general/utils.h"  // for FilterAnsiCommands
 #include "mock/event_dispatcher_mock.h"
+#include "util/logger.h"
 #include "view/block/file_info.h"
 
 namespace {
@@ -14,6 +15,8 @@ using ::testing::StrEq;
  */
 class FileInfoTest : public ::BlockTest {
  protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(32, 15);

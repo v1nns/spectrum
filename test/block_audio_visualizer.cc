@@ -3,6 +3,7 @@
 #include "general/block.h"
 #include "general/utils.h"  // for FilterAnsiCommands
 #include "mock/event_dispatcher_mock.h"
+#include "util/logger.h"
 #include "view/block/audio_visualizer.h"
 
 namespace {
@@ -17,6 +18,8 @@ using ::testing::VariantWith;
  */
 class AudioVisualizerTest : public ::BlockTest {
  protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(64, 15);

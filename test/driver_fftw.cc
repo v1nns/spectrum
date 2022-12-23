@@ -10,6 +10,7 @@
 
 #include "audio/driver/fftw.h"
 #include "model/application_error.h"
+#include "util/logger.h"
 
 namespace {
 
@@ -24,6 +25,8 @@ class FftwTest : public ::testing::Test {
   using Fftw = std::unique_ptr<driver::FFTW>;
 
  protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
   void SetUp() override { Init(); }
 
   void TearDown() override { analyzer.reset(); }

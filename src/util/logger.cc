@@ -23,31 +23,20 @@ std::string get_timestamp() {
 
 /* ********************************************************************************************** */
 
-Logger& Logger::Configure(const std::string& filepath) {
-  auto& logger = reinterpret_cast<FileLogger&>(get_logger());
-  logger.SetFilepath(filepath);
-  return logger;
+void Logger::Configure(const std::string& path) {
+  sink_ = std::make_unique<FileSink>(path);
+
+  // Write initial message to log
+  std::ostringstream ss;
+  std::string header(15, '-');
+
+  ss << header << " Initializing log file " << header << "\n";
+  Write(std::move(ss).str());
 }
 
 /* ********************************************************************************************** */
 
-Logger::Logger() : mutex_{}, out_stream_{nullptr} {}
-
-/* ********************************************************************************************** */
-
-Logger::~Logger() { CloseStream(); }
-
-/* ********************************************************************************************** */
-
-void Logger::OpenStream() {}
-
-/* ********************************************************************************************** */
-
-void Logger::CloseStream() {}
-
-/* ********************************************************************************************** */
-
-bool Logger::IsLoggingEnabled() { return false; }
+void Logger::Configure() { sink_ = std::make_unique<ConsoleSink>(); }
 
 /* ********************************************************************************************** */
 
@@ -56,41 +45,30 @@ void Logger::Write(const std::string& message) {
   std::scoped_lock<std::mutex> lock{mutex_};
 
   // Check if should (re)open stream
-  OpenStream();
+  sink_->OpenStream();
 
-  if (out_stream_) {
-    // Write to output stream
-    *out_stream_ << "[" << get_timestamp() << "] ";
-    *out_stream_ << message << std::flush;
-  }
+  // Write to output stream
+  *sink_ << "[" << get_timestamp() << "] ";
+  *sink_ << message;
 }
 
 /* ********************************************************************************************** */
 
-FileLogger::FileLogger()
-    : filepath_{}, reopen_interval_{std::chrono::seconds(300)}, last_reopen_{} {}
+FileSink::FileSink(const std::string& path)
+    : Sink(), path_{path}, reopen_interval_{std::chrono::seconds(300)}, last_reopen_{} {}
 
 /* ********************************************************************************************** */
 
-void FileLogger::OpenStream() {
+void FileSink::OpenStream() {
   auto now = std::chrono::system_clock::now();
 
   if ((now - last_reopen_) > reopen_interval_) {
     CloseStream();
 
     try {
-      bool first_message = last_reopen_ == std::chrono::system_clock::time_point();
-
       // Open file
-      out_stream_.reset(new std::ofstream(filepath_, std::ofstream::out | std::ofstream::app));
+      out_stream_.reset(new std::ofstream(path_, std::ofstream::out | std::ofstream::app));
       last_reopen_ = now;
-
-      // In case of first time opening file, write initial message to log
-      if (first_message) {
-        std::string header(15, '-');
-        *out_stream_ << "[" << get_timestamp() << "] ";
-        *out_stream_ << header << " Initializing log file " << header << "\n";
-      }
     } catch (std::exception& e) {
       CloseStream();
       throw e;
@@ -100,7 +78,7 @@ void FileLogger::OpenStream() {
 
 /* ********************************************************************************************** */
 
-void FileLogger::CloseStream() {
+void FileSink::CloseStream() {
   try {
     out_stream_.reset();
   } catch (...) {
@@ -109,9 +87,20 @@ void FileLogger::CloseStream() {
 
 /* ********************************************************************************************** */
 
-bool FileLogger::IsLoggingEnabled() {
-  // Logging is optional, so if no path has been provided, do nothing
-  return !filepath_.empty();
+void ConsoleSink::OpenStream() {
+  if (!out_stream_) {
+    // No-operation deleter, otherwise we will get in trouble
+    out_stream_.reset(&std::cout, [](void*) {});
+  }
+}
+
+/* ********************************************************************************************** */
+
+void ConsoleSink::CloseStream() {
+  try {
+    out_stream_.reset();
+  } catch (...) {
+  }
 }
 
 }  // namespace util

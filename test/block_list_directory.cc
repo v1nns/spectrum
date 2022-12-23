@@ -16,6 +16,7 @@
 #include "gtest/gtest_pred_impl.h"  // for SuiteApiResolver, TEST_F
 #include "mock/event_dispatcher_mock.h"
 #include "mock/list_directory_mock.h"
+#include "util/logger.h"
 
 namespace {
 
@@ -32,6 +33,8 @@ MATCHER_P(IsSameFilename, n, "") { return arg.filename() == n; }
  */
 class ListDirectoryTest : public ::BlockTest {
  protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(32, 15);

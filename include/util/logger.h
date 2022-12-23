@@ -20,26 +20,66 @@
 namespace util {
 
 /**
- * @brief Responsible for message logging (thread-safe) to a defined filepath
+ * @brief Responsible for controlling the output streambuffer where log messages will be written
+ */
+class Sink {
+ protected:
+  //! Construct a new Sink object (only done by derived classes)
+  Sink() = default;
+
+ public:
+  //! Destroy the Sink object
+  virtual ~Sink() { CloseStream(); };
+
+  //! Remove these
+  Sink(const Sink& other) = delete;             // copy constructor
+  Sink(Sink&& other) = delete;                  // move constructor
+  Sink& operator=(const Sink& other) = delete;  // copy assignment
+  Sink& operator=(Sink&& other) = delete;       // move assignment
+
+  /**
+   * @brief Forward argument to inner output stream object
+   * @tparam T Argument typename definition
+   * @param t Argument
+   * @return Sink object
+   */
+  template <typename T>
+  Sink& operator<<(T&& t) {
+    if (out_stream_) {
+      *out_stream_ << std::forward<T>(t);
+      out_stream_->flush();  // In order to ensure that message will be written even if application
+                             // crashes, force a flush to output stream buffer
+    }
+    return *this;
+  }
+
+  /* ******************************************************************************************** */
+  //! Override these methods on derived classes
+
+  virtual void OpenStream() {}
+  virtual void CloseStream() {}
+
+  /* ******************************************************************************************** */
+  //! Variables
+ protected:
+  std::shared_ptr<std::ostream> out_stream_;  //!< Output stream buffer to write messages
+};
+
+/**
+ * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
- public:
-  /**
-   * @brief Get a new unique instance of Logger and enable logging to specified path
-   * @param filepath Full path for file to write log messages
-   * @return Logger unique instance
-   */
-  static Logger& Configure(const std::string& filepath);
-
+ protected:
   /**
    * @brief Construct a new Logger object
    */
-  Logger();
+  Logger() = default;
 
+ public:
   /**
    * @brief Destroy the Logger object
    */
-  virtual ~Logger();
+  ~Logger() = default;
 
   //! Remove these
   Logger(const Logger& other) = delete;             // copy constructor
@@ -48,19 +88,30 @@ class Logger {
   Logger& operator=(Logger&& other) = delete;       // move assignment
 
   /* ******************************************************************************************** */
-  //! Utility
- private:
-  virtual void OpenStream();
-  virtual void CloseStream();
-  virtual bool IsLoggingEnabled();
-
-  void Write(const std::string& message);
-
-  /* ******************************************************************************************** */
   //! Public API
  public:
   /**
-   * @brief Concatenate all arguments into a single log message and write it to output stream
+   * @brief Get unique instance of Logger
+   * @return Logger instance
+   */
+  static Logger& GetInstance() {
+    static std::unique_ptr<Logger> singleton{new Logger()};
+    return *singleton;
+  }
+
+  /**
+   * @brief Enable logging with customized settings
+   * @param path Log filepath
+   */
+  void Configure(const std::string& path);
+
+  /**
+   * @brief Enable logging to stdout
+   */
+  void Configure();
+
+  /**
+   * @brief Concatenate all arguments into a single string and write it to output stream
    * @tparam ...Args Splitted arguments
    * @param filename Current file name
    * @param line Current line number
@@ -68,9 +119,10 @@ class Logger {
    */
   template <typename... Args>
   void Log(const char* filename, int line, Args&&... args) {
-    if (!IsLoggingEnabled()) return;
+    // Do nothing if sink is not configured
+    if (!sink_) return;
 
-    // Otherwise, build log message and write it to file
+    // Build log message and write it to output stream
     std::ostringstream ss;
 
     ss << "[" << std::hex << std::this_thread::get_id() << std::dec << "] ";
@@ -81,57 +133,56 @@ class Logger {
   }
 
   /* ******************************************************************************************** */
-  //! Variables
- protected:
-  std::mutex mutex_;                          //!< Control access for internal resources
-  std::shared_ptr<std::ostream> out_stream_;  //!< Output stream to write logs
-};
-
-/* ********************************************************************************************** */
-
-class FileLogger : public Logger {
- public:
+  //! Utility
+ private:
   /**
-   * @brief Construct a new FileLogger object
+   * @brief Write message to output stream buffer
+   * @param message String message
    */
-  FileLogger();
-
-  /**
-   * @brief Destroy the FileLogger object
-   */
-  virtual ~FileLogger() = default;
-
-  //! Remove these
-  FileLogger(const FileLogger& other) = delete;             // copy constructor
-  FileLogger(FileLogger&& other) = delete;                  // move constructor
-  FileLogger& operator=(const FileLogger& other) = delete;  // copy assignment
-  FileLogger& operator=(FileLogger&& other) = delete;       // move assignment
-
-  //! Override utilities
-  void OpenStream() override;
-  void CloseStream() override;
-  bool IsLoggingEnabled() override;
-
-  void SetFilepath(const std::string& filepath) { filepath_ = filepath; }
+  void Write(const std::string& message);
 
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::string filepath_;                               //!< Absolute path for log file
+  std::mutex mutex_;            //!< Control access for internal resources
+  std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
+};
+
+/* ---------------------------------------------------------------------------------------------- */
+/*                                           FILE LOGGER                                          */
+/* ---------------------------------------------------------------------------------------------- */
+
+class FileSink : public Sink {
+ public:
+  explicit FileSink(const std::string& path);
+  virtual ~FileSink(){};
+
+  //! Overriden methods
+  void OpenStream() override;
+  void CloseStream() override;
+
+  /* ******************************************************************************************** */
+  //! Variables
+ private:
+  std::string path_;                                   //!< Absolute path for log file
   std::chrono::seconds reopen_interval_;               //!< Interval to reopen file
   std::chrono::system_clock::time_point last_reopen_;  //!< Last timestamp that file was (re)opened
 };
 
-/* ********************************************************************************************** */
+/* ---------------------------------------------------------------------------------------------- */
+/*                                          STDOUT LOGGER                                         */
+/* ---------------------------------------------------------------------------------------------- */
 
-/**
- * @brief Get unique instance of Logger (singleton pattern)
- * @return Logger instance
- */
-inline Logger& get_logger() {
-  static std::unique_ptr<Logger> singleton{new FileLogger()};
-  return *singleton;
-}
+class ConsoleSink : public Sink {
+ public:
+  using Sink::Sink;
+
+  //! Overriden methods
+  void OpenStream() override;
+  void CloseStream() override;
+};
+
+/* ********************************************************************************************** */
 
 /**
  * @brief Get current timestamp in a formatted string
@@ -149,9 +200,9 @@ std::string get_timestamp();
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
 //! Macro to log messages (this was the only way found to append "filename:line" in the output)
-#define LOG(...) util::get_logger().Log(__FILENAME__, __LINE__, __VA_ARGS__)
+#define LOG(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
 
 //! Macro to log error messages
-#define ERROR(...) util::get_logger().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+#define ERROR(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
 
 #endif  // INCLUDE_UTIL_LOGGER_H_

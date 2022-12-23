@@ -31,7 +31,7 @@ bool parse(int argc, char** argv) {
     // Check if contains filepath for logging
     if (parsed_args.find("log") != parsed_args.end()) {
       // Enable logging to specified path
-      util::Logger::Configure(parsed_args["log"]);
+      util::Logger::GetInstance().Configure(parsed_args["log"]);
     }
 
   } catch (...) {
