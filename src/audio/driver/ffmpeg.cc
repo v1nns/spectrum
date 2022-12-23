@@ -8,7 +8,7 @@ namespace driver {
 
 FFmpeg::FFmpeg() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
 #if LIBAVUTIL_VERSION_MAJOR > 56
-  ch_layout_{new AVChannelLayout{}};
+  ch_layout_.reset(new AVChannelLayout{});
   // Set output channel layout to stereo (2-channel)
   av_channel_layout_default(ch_layout_.get(), 2);
 #endif

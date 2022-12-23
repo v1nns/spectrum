@@ -25,7 +25,7 @@ if(NOT ftxui_POPULATED)
     add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-# Multithreading
+# Enable multithreading
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -61,9 +61,12 @@ target_sources(
 
 target_include_directories(
     spectrum-lib
-    PUBLIC ${CMAKE_SOURCE_DIR}/include $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
-           $<BUILD_INTERFACE:${expected_SOURCE_DIR}/include> ${ALSA_INCLUDE_DIRS}
-           ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS})
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
+           $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
+           ${ALSA_INCLUDE_DIRS}
+           ${AVCODEC_INCLUDE_DIRS}
+           ${AVUTIL_INCLUDE_DIRS}
+           ${FFTW_INCLUDE_DIRS})
 
 target_link_libraries(
     spectrum-lib
