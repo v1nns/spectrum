@@ -620,6 +620,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
           callback(0, 0, 0, position);
 
           syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
 
           for (int i = 0; i <= 3; i++) {
             position++;
@@ -647,10 +648,10 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
 
     EXPECT_CALL(*notifier,
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
-        .WillOnce(Invoke([&] { syncer.NotifyStep(3); }));
+        .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
-      syncer.NotifyStep(4);
+      syncer.NotifyStep(5);
     }));
 
     // Notify that expectations are set, and run audio loop
@@ -668,8 +669,9 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     // Wait until Player starts decoding to pause
     syncer.WaitForStep(2);
     player_ctl->PauseOrResume();
+    syncer.NotifyStep(3);
 
-    syncer.WaitForStep(3);
+    syncer.WaitForStep(4);
     player_ctl->SeekForwardPosition(1);
     player_ctl->SeekForwardPosition(1);
     player_ctl->SeekForwardPosition(1);
@@ -678,7 +680,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     player_ctl->PauseOrResume();
 
     // Wait for Player to finish playing song before client asks to exit
-    syncer.WaitForStep(4);
+    syncer.WaitForStep(5);
     player_ctl->Exit();
   };
 

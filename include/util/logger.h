@@ -65,6 +65,8 @@ class Sink {
   std::shared_ptr<std::ostream> out_stream_;  //!< Output stream buffer to write messages
 };
 
+/* ********************************************************************************************** */
+
 /**
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
