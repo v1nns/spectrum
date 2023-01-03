@@ -96,10 +96,22 @@ class Player : public AudioControl {
 
   /**
    * @brief Reset all media controls to default value
-   * @param err_code Application error code from internal operation
-   * @param err_parsing Flag to indicate if error occurred on file parsing
+   * @param result Application error code from internal operation
+   * @param error_parsing Flag to indicate if error occurred on file parsing
    */
-  void ResetMediaControl(error::Code err_code, bool err_parsing = false);
+  void ResetMediaControl(error::Code result, bool error_parsing = false);
+
+  /**
+   * @brief Handle an audio command from internal queue
+   * @param buffer Audio buffer
+   * @param max_size Maximum buffer size
+   * @param actual_size Actual buffer size used
+   * @param new_position Latest position in the song (in seconds)
+   * @param last_position Last position to control when current position has changed
+   * @return True if player should keep playing audio, False if not
+   */
+  bool HandleCommand(void* buffer, int max_size, int actual_size, int64_t& new_position,
+                     int& last_position);
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream

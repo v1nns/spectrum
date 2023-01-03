@@ -102,13 +102,13 @@ class FFTW : public Analyzer {
   void CreateHannWindow(FreqAnalysis &analysis);
   void CreateFftwStructure(FreqAnalysis &analysis);
   void CreateBuffers();
-  void CalculateFreqs();
+  void CalculateFrequencies();
 
   // From execute
   void FillInputBuffer(double *in, int &size, int &silence);
   void ApplyFft(FreqAnalysis &analysis);
   void SeparateFreqBands(double *out);
-  void SmoothingResults(double *out, int silence);
+  void AdjustResults(double *out, int silence);
 
   /* ******************************************************************************************** */
   //! Default Constants

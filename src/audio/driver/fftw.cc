@@ -62,7 +62,7 @@ error::Code FFTW::Init(int output_size) {
   CreateBuffers();
 
   // Calculate cutoff frequencies and equalize result
-  CalculateFreqs();
+  CalculateFrequencies();
 
   return error::kSuccess;
 }
@@ -84,7 +84,7 @@ error::Code FFTW::Execute(double* in, int size, double* out) {
   SeparateFreqBands(out);
 
   // Smoothing results with sensitivity adjustment
-  SmoothingResults(out, silence);
+  AdjustResults(out, silence);
 
   return error::kSuccess;
 }
@@ -149,7 +149,7 @@ void FFTW::CreateBuffers() {
 
 /* ********************************************************************************************** */
 
-void FFTW::CalculateFreqs() {
+void FFTW::CalculateFrequencies() {
   // Use lower cut off frequencies, to give a better resolution while keeping the responsiveness
   int bass_reference = 100;
   int treble_reference = 500;
@@ -364,7 +364,7 @@ void FFTW::SeparateFreqBands(double* out) {
 
 /* ********************************************************************************************** */
 
-void FFTW::SmoothingResults(double* out, int silence) {
+void FFTW::AdjustResults(double* out, int silence) {
   // Applying sensitivity adjustment
   for (int n = 0; n < output_size_; n++) {
     out[n] *= sensitivity_;
