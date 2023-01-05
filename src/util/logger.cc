@@ -14,8 +14,8 @@ std::string get_timestamp() {
       (tp - std::chrono::system_clock::from_time_t(tt)) + std::chrono::seconds(gmt.tm_sec);
 
   // Format the string
-  std::string buffer("year-mo-dy hr:mn:sc.xxxxxx");
-  sprintf(&buffer.front(), "%04d-%02d-%02d %02d:%02d:%09.6f", gmt.tm_year + 1900, gmt.tm_mon + 1,
+  std::string buffer("[year-mo-dy hr:mn:sc.xxxxxx] ");
+  sprintf(&buffer.front(), "[%04d-%02d-%02d %02d:%02d:%09.6f] ", gmt.tm_year + 1900, gmt.tm_mon + 1,
           gmt.tm_mday, gmt.tm_hour, gmt.tm_min, fractional_seconds.count());
 
   return buffer;
@@ -48,22 +48,25 @@ void Logger::Write(const std::string& message) {
   sink_->OpenStream();
 
   // Write to output stream
-  *sink_ << "[" << get_timestamp() << "] ";
-  *sink_ << message;
+  sink_->WriteToStream(get_timestamp());
+  sink_->WriteToStream(message);
 }
 
 /* ********************************************************************************************** */
 
 FileSink::FileSink(const std::string& path)
-    : Sink(), path_{path}, reopen_interval_{std::chrono::seconds(300)}, last_reopen_{} {}
+    : ImplSink<FileSink>(),
+      path_{path},
+      reopen_interval_{std::chrono::seconds(300)},
+      last_reopen_{} {}
 
 /* ********************************************************************************************** */
 
-void FileSink::OpenStream() {
+void FileSink::Open() {
   auto now = std::chrono::system_clock::now();
 
   if ((now - last_reopen_) > reopen_interval_) {
-    CloseStream();
+    Close();
 
     try {
       // Open file
@@ -78,7 +81,7 @@ void FileSink::OpenStream() {
 
 /* ********************************************************************************************** */
 
-void FileSink::CloseStream() {
+void FileSink::Close() {
   try {
     out_stream_.reset();
   } catch (...) {
@@ -87,7 +90,7 @@ void FileSink::CloseStream() {
 
 /* ********************************************************************************************** */
 
-void ConsoleSink::OpenStream() {
+void ConsoleSink::Open() {
   if (!out_stream_) {
     // No-operation deleter, otherwise we will get in trouble
     out_stream_.reset(&std::cout, [](void*) {});
@@ -96,7 +99,7 @@ void ConsoleSink::OpenStream() {
 
 /* ********************************************************************************************** */
 
-void ConsoleSink::CloseStream() {
+void ConsoleSink::Close() {
   try {
     out_stream_.reset();
   } catch (...) {

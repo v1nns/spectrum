@@ -121,7 +121,7 @@ void Terminal::RegisterExitCallback(Callback cb) { cb_exit_ = cb; }
 /* ********************************************************************************************** */
 
 ftxui::Element Terminal::Render() {
-  if (children_.size() == 0 || children_.size() != 4) {
+  if (children_.empty() || children_.size() != 4) {
     // TODO: this is an error, should exit...
     return ftxui::text("Empty container");
   }

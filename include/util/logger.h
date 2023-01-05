@@ -20,22 +20,18 @@
 namespace util {
 
 /**
- * @brief Responsible for controlling the output streambuffer where log messages will be written
+ * @brief Interface to manage Sink
  */
 class Sink {
- protected:
-  //! Construct a new Sink object (only done by derived classes)
-  Sink() = default;
-
  public:
-  //! Destroy the Sink object
-  virtual ~Sink() { CloseStream(); };
+  virtual ~Sink() = default;
 
-  //! Remove these
-  Sink(const Sink& other) = delete;             // copy constructor
-  Sink(Sink&& other) = delete;                  // move constructor
-  Sink& operator=(const Sink& other) = delete;  // copy assignment
-  Sink& operator=(Sink&& other) = delete;       // move assignment
+  /* ******************************************************************************************** */
+  //! Public API
+
+  virtual void OpenStream() = 0;
+  virtual void CloseStream() = 0;
+  virtual void WriteToStream([[maybe_unused]] const std::string& message){};
 
   /**
    * @brief Forward argument to inner output stream object
@@ -43,21 +39,49 @@ class Sink {
    * @param t Argument
    * @return Sink object
    */
-  template <typename T>
-  Sink& operator<<(T&& t) {
+  template <typename Arg>
+  Sink& operator<<(Arg&& t) {
+    WriteToStream(std::forward<Arg>(t));
+  }
+};
+
+/**
+ * @brief Responsible for controlling the output streambuffer where log messages will be written
+ * P.S. using CRTP pattern
+ */
+template <typename T>
+class ImplSink : public Sink {
+ protected:
+  //! Construct a new ImplSink object (only done by derived classes)
+  ImplSink() = default;
+
+ public:
+  //! Destroy the ImplSink object
+  virtual ~ImplSink() { CloseStream(); };
+
+  //! Remove these
+  ImplSink(const ImplSink& other) = delete;             // copy constructor
+  ImplSink(ImplSink&& other) = delete;                  // move constructor
+  ImplSink& operator=(const ImplSink& other) = delete;  // copy assignment
+  ImplSink& operator=(ImplSink&& other) = delete;       // move assignment
+
+  /* ******************************************************************************************** */
+  //! Overriden methods
+
+  //! Write message to output stream
+  void WriteToStream(const std::string& message) override final {
     if (out_stream_) {
-      *out_stream_ << std::forward<T>(t);
+      *out_stream_ << message;
       out_stream_->flush();  // In order to ensure that message will be written even if application
                              // crashes, force a flush to output stream buffer
     }
-    return *this;
   }
 
-  /* ******************************************************************************************** */
-  //! Override these methods on derived classes
+  //! Open output stream
+  void OpenStream() override final { static_cast<T&>(*this).Open(); }
 
-  virtual void OpenStream() {}
-  virtual void CloseStream() {}
+  //! Close output stream
+  void CloseStream() override final { static_cast<T&>(*this).Close(); }
 
   /* ******************************************************************************************** */
   //! Variables
@@ -154,14 +178,14 @@ class Logger {
 /*                                           FILE LOGGER                                          */
 /* ---------------------------------------------------------------------------------------------- */
 
-class FileSink : public Sink {
+class FileSink : public ImplSink<FileSink> {
  public:
   explicit FileSink(const std::string& path);
   virtual ~FileSink(){};
 
-  //! Overriden methods
-  void OpenStream() override;
-  void CloseStream() override;
+  //!  Required methods
+  void Open();
+  void Close();
 
   /* ******************************************************************************************** */
   //! Variables
@@ -175,13 +199,13 @@ class FileSink : public Sink {
 /*                                          STDOUT LOGGER                                         */
 /* ---------------------------------------------------------------------------------------------- */
 
-class ConsoleSink : public Sink {
+class ConsoleSink : public ImplSink<ConsoleSink> {
  public:
-  using Sink::Sink;
+  using ImplSink<ConsoleSink>::ImplSink;
 
-  //! Overriden methods
-  void OpenStream() override;
-  void CloseStream() override;
+  //!  Required methods
+  void Open();
+  void Close();
 };
 
 /* ********************************************************************************************** */
