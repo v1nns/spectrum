@@ -31,7 +31,6 @@ class Sink {
 
   virtual void OpenStream() = 0;
   virtual void CloseStream() = 0;
-  virtual void WriteToStream([[maybe_unused]] const std::string& message){};
 
   /**
    * @brief Forward argument to inner output stream object
@@ -42,7 +41,13 @@ class Sink {
   template <typename Arg>
   Sink& operator<<(Arg&& t) {
     WriteToStream(std::forward<Arg>(t));
+    return *this;
   }
+
+  /* ******************************************************************************************** */
+  //! Internal methods
+ protected:
+  virtual void WriteToStream([[maybe_unused]] const std::string& message){};
 };
 
 /**
@@ -66,8 +71,15 @@ class ImplSink : public Sink {
   ImplSink& operator=(ImplSink&& other) = delete;       // move assignment
 
   /* ******************************************************************************************** */
-  //! Overriden methods
+  //! Overridden methods
 
+  //! Open output stream
+  void OpenStream() override final { static_cast<T&>(*this).Open(); }
+
+  //! Close output stream
+  void CloseStream() override final { static_cast<T&>(*this).Close(); }
+
+ private:
   //! Write message to output stream
   void WriteToStream(const std::string& message) override final {
     if (out_stream_) {
@@ -76,12 +88,6 @@ class ImplSink : public Sink {
                              // crashes, force a flush to output stream buffer
     }
   }
-
-  //! Open output stream
-  void OpenStream() override final { static_cast<T&>(*this).Open(); }
-
-  //! Close output stream
-  void CloseStream() override final { static_cast<T&>(*this).Close(); }
 
   /* ******************************************************************************************** */
   //! Variables

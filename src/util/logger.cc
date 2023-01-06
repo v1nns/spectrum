@@ -48,8 +48,7 @@ void Logger::Write(const std::string& message) {
   sink_->OpenStream();
 
   // Write to output stream
-  sink_->WriteToStream(get_timestamp());
-  sink_->WriteToStream(message);
+  *sink_ << get_timestamp() << message;
 }
 
 /* ********************************************************************************************** */

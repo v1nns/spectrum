@@ -123,7 +123,7 @@ class ListDirectory : public Block {
   //! Clamp both selected and focused indexes
   void Clamp();
 
-  //! Getter for Title (for testing purposes, may be overriden)
+  //! Getter for Title (for testing purposes, may be overridden)
   virtual std::string GetTitle();
 
   /* ******************************************************************************************** */
