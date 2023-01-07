@@ -57,16 +57,13 @@ target_sources(
             view/element/error_dialog.cc
             view/element/help.cc
             # logger
-            util/logger.cc)
+            util/logger.cc
+            util/sink.cc)
 
 target_include_directories(
     spectrum-lib
-    PUBLIC ${CMAKE_SOURCE_DIR}/include
-           $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
-           ${ALSA_INCLUDE_DIRS}
-           ${AVCODEC_INCLUDE_DIRS}
-           ${AVUTIL_INCLUDE_DIRS}
-           ${FFTW_INCLUDE_DIRS})
+    PUBLIC ${CMAKE_SOURCE_DIR}/include $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
+           ${ALSA_INCLUDE_DIRS} ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS})
 
 target_link_libraries(
     spectrum-lib

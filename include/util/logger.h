@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  Class for logging
+ * \brief  Class for logging with the possibility to choose which output stream to use
  */
 
 #ifndef INCLUDE_UTIL_LOGGER_H_
@@ -17,85 +17,9 @@
 #include <string>
 #include <thread>
 
+#include "util/sink.h"
+
 namespace util {
-
-/**
- * @brief Interface to manage Sink
- */
-class Sink {
- public:
-  virtual ~Sink() = default;
-
-  /* ******************************************************************************************** */
-  //! Public API
-
-  virtual void OpenStream() = 0;
-  virtual void CloseStream() = 0;
-
-  /**
-   * @brief Forward argument to inner output stream object
-   * @tparam T Argument typename definition
-   * @param t Argument
-   * @return Sink object
-   */
-  template <typename Arg>
-  Sink& operator<<(Arg&& t) {
-    WriteToStream(std::forward<Arg>(t));
-    return *this;
-  }
-
-  /* ******************************************************************************************** */
-  //! Internal methods
- protected:
-  virtual void WriteToStream([[maybe_unused]] const std::string& message){};
-};
-
-/**
- * @brief Responsible for controlling the output streambuffer where log messages will be written
- * P.S. using CRTP pattern
- */
-template <typename T>
-class ImplSink : public Sink {
- protected:
-  //! Construct a new ImplSink object (only done by derived classes)
-  ImplSink() = default;
-
- public:
-  //! Destroy the ImplSink object
-  virtual ~ImplSink() { CloseStream(); };
-
-  //! Remove these
-  ImplSink(const ImplSink& other) = delete;             // copy constructor
-  ImplSink(ImplSink&& other) = delete;                  // move constructor
-  ImplSink& operator=(const ImplSink& other) = delete;  // copy assignment
-  ImplSink& operator=(ImplSink&& other) = delete;       // move assignment
-
-  /* ******************************************************************************************** */
-  //! Overridden methods
-
-  //! Open output stream
-  void OpenStream() override final { static_cast<T&>(*this).Open(); }
-
-  //! Close output stream
-  void CloseStream() override final { static_cast<T&>(*this).Close(); }
-
- private:
-  //! Write message to output stream
-  void WriteToStream(const std::string& message) override final {
-    if (out_stream_) {
-      *out_stream_ << message;
-      out_stream_->flush();  // In order to ensure that message will be written even if application
-                             // crashes, force a flush to output stream buffer
-    }
-  }
-
-  /* ******************************************************************************************** */
-  //! Variables
- protected:
-  std::shared_ptr<std::ostream> out_stream_;  //!< Output stream buffer to write messages
-};
-
-/* ********************************************************************************************** */
 
 /**
  * @brief Responsible for message logging (thread-safe) to a defined output stream
@@ -178,40 +102,6 @@ class Logger {
  private:
   std::mutex mutex_;            //!< Control access for internal resources
   std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
-};
-
-/* ---------------------------------------------------------------------------------------------- */
-/*                                           FILE LOGGER                                          */
-/* ---------------------------------------------------------------------------------------------- */
-
-class FileSink : public ImplSink<FileSink> {
- public:
-  explicit FileSink(const std::string& path);
-  virtual ~FileSink(){};
-
-  //!  Required methods
-  void Open();
-  void Close();
-
-  /* ******************************************************************************************** */
-  //! Variables
- private:
-  std::string path_;                                   //!< Absolute path for log file
-  std::chrono::seconds reopen_interval_;               //!< Interval to reopen file
-  std::chrono::system_clock::time_point last_reopen_;  //!< Last timestamp that file was (re)opened
-};
-
-/* ---------------------------------------------------------------------------------------------- */
-/*                                          STDOUT LOGGER                                         */
-/* ---------------------------------------------------------------------------------------------- */
-
-class ConsoleSink : public ImplSink<ConsoleSink> {
- public:
-  using ImplSink<ConsoleSink>::ImplSink;
-
-  //!  Required methods
-  void Open();
-  void Close();
 };
 
 /* ********************************************************************************************** */
