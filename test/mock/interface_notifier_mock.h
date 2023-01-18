@@ -17,7 +17,7 @@ class InterfaceNotifierMock final : public interface::Notifier {
   MOCK_METHOD(void, ClearSongInformation, (bool playing), (override));
   MOCK_METHOD(void, NotifySongInformation, (const model::Song& info), (override));
   MOCK_METHOD(void, NotifySongState, (const model::Song::CurrentInformation& new_state), (override));
-  MOCK_METHOD(void, SendAudioRaw, (int* buffer, int buffer_size), (override));
+  MOCK_METHOD(void, SendAudioRaw, (uint8_t* buffer, int buffer_size), (override));
   MOCK_METHOD(void, NotifyError, (error::Code code), (override));
 };
 

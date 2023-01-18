@@ -245,7 +245,7 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
     // Send random data to the thread to analyze it
     syncer.WaitForStep(1);
-    std::vector<int> buffer(sample_size, 1);
+    std::vector<uint8_t> buffer(sample_size, 1);
     notifier->SendAudioRaw(buffer.data(), buffer.size());
 
     // Wait for Analysis to finish before exiting from controller
@@ -338,7 +338,7 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
     // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
     syncer.WaitForStep(1);
-    std::vector<int> buffer(sample_size, 1);
+    std::vector<uint8_t> buffer(sample_size, 1);
     notifier->SendAudioRaw(buffer.data(), buffer.size());
 
     // Send a Pause notification to run ClearAnimation

@@ -185,12 +185,13 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   LOG("Decode song using maximum sample=", samples);
 
 #if LIBAVUTIL_VERSION_MAJOR > 56
-  int max_buffer_size = av_samples_get_buffer_size(nullptr, decoder_->ch_layout.nb_channels,
-                                                   samples, decoder_->sample_fmt, 1);
+  int channels = decoder_->ch_layout.nb_channels;
 #else
-  int max_buffer_size =
-      av_samples_get_buffer_size(nullptr, decoder_->channels, samples, decoder_->sample_fmt, 1);
+  int channels = decoder_->channels;
 #endif
+
+  int max_buffer_size =
+      av_samples_get_buffer_size(nullptr, channels, samples, decoder_->sample_fmt, 1);
 
   Packet packet = Packet{av_packet_alloc()};
   Frame frame = Frame{av_frame_alloc()};

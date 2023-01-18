@@ -170,7 +170,7 @@ bool Player::HandleCommand(void* buffer, int max_size, int actual_size, int64_t&
 
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
-    media_notifier->SendAudioRaw((int*)buffer, actual_size);
+    media_notifier->SendAudioRaw((uint8_t*)buffer, actual_size);
   }
 
   // Write samples to playback

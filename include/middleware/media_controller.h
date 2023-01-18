@@ -167,7 +167,7 @@ class MediaController : public interface::Listener, public interface::Notifier {
    * @param buffer Audio samples
    * @param buff_size Sample count
    */
-  void SendAudioRaw(int* buffer, int buffer_size) override;
+  void SendAudioRaw(uint8_t* buffer, int buffer_size) override;
 
   /**
    * @brief Notify UI with error code from some background operation
@@ -227,11 +227,11 @@ class MediaController : public interface::Listener, public interface::Notifier {
      * @param input Array with raw data
      * @param size Array size
      */
-    void Append(int* input, int size) {
+    void Append(uint8_t* input, int size) {
       std::unique_lock<std::mutex> lock(mutex);
       std::vector<double>::const_iterator end = buffer.end();
 
-      buffer.insert(end, input, input + size);
+      buffer.insert(end, (int*)input, (int*)input + size);
 
       queue.push(Command::Analyze);
       notifier.notify_one();

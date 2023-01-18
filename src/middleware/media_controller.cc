@@ -310,7 +310,7 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& sta
 
 /* ********************************************************************************************** */
 
-void MediaController::SendAudioRaw(int* buffer, int buffer_size) {
+void MediaController::SendAudioRaw(uint8_t* buffer, int buffer_size) {
   // Append audio data to be analyzed by thread
   sync_data_.Append(buffer, buffer_size);
 }
