@@ -6,7 +6,7 @@
 
 namespace driver {
 
-FFmpeg::FFmpeg() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{} {
+FFmpeg::FFmpeg() : input_stream_{}, decoder_{}, resampler_{}, stream_index_{}, volume_{1.f} {
 #if LIBAVUTIL_VERSION_MAJOR > 56
   ch_layout_.reset(new AVChannelLayout{});
   // Set output channel layout to stereo (2-channel)
@@ -119,6 +119,15 @@ error::Code FFmpeg::ConfigureResampler() {
     ERROR("Could not initialize audio resampler");
     return error::kUnknownError;
   }
+
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::ConfigureVolume() {
+  LOG("Configure filter to control audio volume");
+  // TODO: implement
 
   return error::kSuccess;
 }
@@ -269,5 +278,16 @@ void FFmpeg::ClearCache() {
 
   stream_index_ = 0;
 }
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::SetVolume(model::Volume value) {
+  volume_ = value;
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+model::Volume FFmpeg::GetVolume() const { return volume_; }
 
 }  // namespace driver

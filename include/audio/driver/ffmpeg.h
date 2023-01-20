@@ -18,6 +18,7 @@ extern "C" {
 #include <string>
 
 #include "audio/base/decoder.h"
+#include "audio/base/equalizer.h"
 #include "model/application_error.h"
 #include "model/song.h"
 
@@ -26,7 +27,7 @@ namespace driver {
 /**
  * @brief Decode and resample audio samples using FFmpeg libraries
  */
-class FFmpeg : public Decoder {
+class FFmpeg : public Decoder, public Equalizer {
  public:
   /**
    * @brief Construct a new FFmpeg object
@@ -44,6 +45,7 @@ class FFmpeg : public Decoder {
   error::Code OpenInputStream(const std::string& filepath);
   error::Code ConfigureDecoder();
   error::Code ConfigureResampler();
+  error::Code ConfigureVolume();
 
   void FillAudioInformation(model::Song* audio_info);
 
@@ -68,6 +70,20 @@ class FFmpeg : public Decoder {
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache
    */
   void ClearCache() override;
+
+  /**
+   * @brief Set volume on playback stream
+   *
+   * @param value Desired volume (in a range between 0.f and 1.f)
+   * @return error::Code Playback error converted to application error code
+   */
+  virtual error::Code SetVolume(model::Volume value) override;
+
+  /**
+   * @brief Get volume from playback stream
+   * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
+   */
+  virtual model::Volume GetVolume() const override;
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -160,6 +176,8 @@ class FFmpeg : public Decoder {
   CustomSwrContext resampler_;  //!< Resample audio data to desired sample format and rate
 
   int stream_index_;  //!< Audio stream index read in input stream
+
+  model::Volume volume_;  //!< Playback stream volume
 };
 
 }  // namespace driver

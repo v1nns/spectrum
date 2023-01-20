@@ -3,6 +3,7 @@
 
 # Audio Library for parsing files (FFMPEG)
 pkg_search_module(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
+pkg_search_module(AVFILTER REQUIRED IMPORTED_TARGET libavfilter)
 pkg_search_module(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
 pkg_search_module(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
 pkg_search_module(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
@@ -62,13 +63,21 @@ target_sources(
 
 target_include_directories(
     spectrum-lib
-    PUBLIC ${CMAKE_SOURCE_DIR}/include $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
-           ${ALSA_INCLUDE_DIRS} ${AVCODEC_INCLUDE_DIRS} ${AVUTIL_INCLUDE_DIRS} ${FFTW_INCLUDE_DIRS})
+    PUBLIC ${CMAKE_SOURCE_DIR}/include
+           $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>
+           ${ALSA_INCLUDE_DIRS}
+           ${AVCODEC_INCLUDE_DIRS}
+           ${AVFILTER_INCLUDE_DIRS}
+           ${AVFORMAT_INCLUDE_DIRS}
+           ${AVUTIL_INCLUDE_DIRS}
+           ${SWRESAMPLE_INCLUDE_DIRS}
+           ${FFTW_INCLUDE_DIRS})
 
 target_link_libraries(
     spectrum-lib
     PRIVATE
     INTERFACE PkgConfig::AVCODEC
+    INTERFACE PkgConfig::AVFILTER
     INTERFACE PkgConfig::AVFORMAT
     INTERFACE PkgConfig::AVUTIL
     INTERFACE PkgConfig::SWRESAMPLE
