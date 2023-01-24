@@ -18,7 +18,7 @@ error::Code Alsa::CreatePlaybackStream() {
   // Create playback stream on ALSA
   snd_pcm_t *pcm_handle = nullptr;
   if (snd_pcm_open(&pcm_handle, kDevice, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-    ERROR("Could not open playback stream");
+    ERROR("Cannot open playback stream");
     return error::kUnknownError;
   }
 
@@ -32,7 +32,7 @@ error::Code Alsa::CreatePlaybackStream() {
   snd_mixer_selem_register(mixer_handle, NULL, NULL);
 
   if (snd_mixer_load(mixer_handle) < 0) {
-    ERROR("Could not create mixer for control");
+    ERROR("Cannot create mixer for control");
     return error::kUnknownError;
   }
 
@@ -49,13 +49,13 @@ error::Code Alsa::ConfigureParameters() {
   // with latency as 92900us, we get a period size equal to 1024
   if (snd_pcm_set_params(playback_handle_.get(), kSampleFormat, SND_PCM_ACCESS_RW_INTERLEAVED,
                          kChannels, kSampleRate, 0, 92900) < 0) {
-    ERROR("Could not set parameters on playback stream");
+    ERROR("Cannot set parameters on playback stream");
     return error::kUnknownError;
   }
 
   snd_pcm_uframes_t buffer_size = 0;
   if (snd_pcm_get_params(playback_handle_.get(), &buffer_size, &period_size_) < 0) {
-    ERROR("Could not get parameters from playback stream");
+    ERROR("Cannot get parameters from playback stream");
     return error::kUnknownError;
   }
 
@@ -68,7 +68,7 @@ error::Code Alsa::Prepare() {
   LOG("Prepare playback stream to play audio");
 
   if (snd_pcm_prepare(playback_handle_.get()) < 0) {
-    ERROR("Could not prepare playback stream");
+    ERROR("Cannot prepare playback stream");
     return error::kUnknownError;
   }
 
@@ -81,7 +81,7 @@ error::Code Alsa::Pause() {
   LOG("Pause playback stream");
 
   if (snd_pcm_drop(playback_handle_.get()) < 0) {
-    ERROR("Could not pause playback stream and clear remaining frames on buffer");
+    ERROR("Cannot pause playback stream and clear remaining frames on buffer");
     return error::kUnknownError;
   }
 
@@ -94,7 +94,7 @@ error::Code Alsa::Stop() {
   LOG("Stop playback stream");
 
   if (snd_pcm_drain(playback_handle_.get()) < 0) {
-    ERROR("Could not stop playback stream and preserve remaining frames on buffer");
+    ERROR("Cannot stop playback stream and preserve remaining frames on buffer");
     return error::kUnknownError;
   }
 
@@ -108,7 +108,7 @@ error::Code Alsa::AudioCallback(void *buffer, int max_size, int actual_size) {
   int ret = snd_pcm_writei(playback_handle_.get(), buffer, actual_size);
 
   if (ret < 0) {
-    ERROR("Could not write buffer to playback stream, received error=", ret);
+    ERROR("Cannot write buffer to playback stream, received error=", ret);
     if ((ret = snd_pcm_recover(playback_handle_.get(), ret, 1)) == 0) {
       // TODO: do something?
       LOG("Recovered playback stream from error (overrun/underrun");
@@ -141,7 +141,7 @@ error::Code Alsa::SetVolume(model::Volume value) {
 
   auto master = GetMasterPlayback();
   if (master == nullptr) {
-    ERROR("Could not get master playback");
+    ERROR("Cannot get master playback");
     return error::kUnknownError;
   }
 
@@ -164,7 +164,7 @@ model::Volume Alsa::GetVolume() {
 
   auto master = GetMasterPlayback();
   if (master == nullptr) {
-    ERROR("Could not get master playback");
+    ERROR("Cannot get master playback");
     return model::Volume();
   }
 

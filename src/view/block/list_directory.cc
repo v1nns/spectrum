@@ -438,7 +438,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
       tmp.emplace_back(entry);
     }
   } catch (std::exception& e) {
-    ERROR("Could not access directory, exception=", e.what());
+    ERROR("Cannot access directory, exception=", e.what());
     auto dispatcher = dispatcher_.lock();
     dispatcher->SetApplicationError(error::kAccessDirFailed);
     return;

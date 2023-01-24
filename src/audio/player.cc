@@ -61,14 +61,14 @@ void Player::Init(bool asynchronous) {
   error::Code result = playback_->CreatePlaybackStream();
 
   if (result != error::kSuccess) {
-    throw std::runtime_error("Could not initialize playback stream in player");
+    throw std::runtime_error("Cannot initialize playback stream in player");
   }
 
   // Configure desired parameters for playback
   result = playback_->ConfigureParameters();
 
   if (result != error::kSuccess) {
-    throw std::runtime_error("Could not set parameters in player");
+    throw std::runtime_error("Cannot set parameters in player");
   }
 
   // This value is used to decide buffer size for song decoding

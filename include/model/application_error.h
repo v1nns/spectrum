@@ -55,9 +55,9 @@ class ApplicationError {
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
   static constexpr std::array<Message, 13> kErrorMap{{
-      {kTerminalInitialization, "Could not initialize screen"},
+      {kTerminalInitialization, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, "No support to change colors"},
-      {kAccessDirFailed, "Could not access directory"},
+      {kAccessDirFailed, "Cannot access directory"},
       {kInvalidFile, "Invalid file"},
       {kFileNotSupported, "File not supported"},
       {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
@@ -65,9 +65,9 @@ class ApplicationError {
        "File does not seem to be neither mono nor stereo (perhaps multi-track or corrupted)"},
       {kInconsistentHeaderInfo, "Header data is inconsistent"},
       {kCorruptedData, "File is corrupted"},
-      {kSetupAudioParamsFailed, "Could not set audio parameters"},
-      {kDecodeFileFailed, "Could not decode song"},
-      {kSeekFrameFailed, "Could not seek frame in song"},
+      {kSetupAudioParamsFailed, "Cannot set audio parameters"},
+      {kDecodeFileFailed, "Cannot decode song"},
+      {kSeekFrameFailed, "Cannot seek frame in song"},
       {kUnknownError, "Unknown error used for almost everything during development =)"},
   }};
 
