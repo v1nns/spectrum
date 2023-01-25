@@ -124,12 +124,12 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, driver::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
           return error::kSuccess;
         }));
 
     EXPECT_CALL(*notifier, SendAudioRaw(_, _));
-    EXPECT_CALL(*playback, AudioCallback(_, _, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _));
 
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Play, .position = 0}));
@@ -184,7 +184,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           // Starts playing
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
 
           // Notify other thread to ask for pause and wait for it
           syncer.NotifyStep(2);
@@ -192,7 +192,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
 
           // Pause and wait to resume
           position++;
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
 
           return error::kSuccess;
         }));
@@ -200,7 +200,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     EXPECT_CALL(*playback, Pause());
 
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
-    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
 
     // Using-declaration to improve readability
     using State = model::Song::MediaState;
@@ -278,13 +278,13 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
           syncer.WaitForStep(3);
 
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
 
           return error::kSuccess;
         }));
 
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
-    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
     EXPECT_CALL(*playback, Stop());
 
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(AtMost(1));
@@ -345,13 +345,13 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           int64_t position = 1;
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
 
           return error::kSuccess;
         }));
 
     EXPECT_CALL(*notifier, SendAudioRaw(_, _));
-    EXPECT_CALL(*playback, AudioCallback(_, _, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _));
 
     // In this case, decoder will tell us that the current timestamp matches some position other
     // than zero (this value is represented in seconds). And for this, we should notify Media Player
@@ -404,7 +404,7 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
     EXPECT_CALL(*playback, Prepare()).Times(0);
     EXPECT_CALL(*decoder, Decode(_, _)).Times(0);
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
-    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
 
     // Only these should be called
     EXPECT_CALL(*notifier, ClearSongInformation(false));
@@ -453,7 +453,7 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
     EXPECT_CALL(*decoder, Decode(_, _)).WillOnce(Return(error::kUnknownError));
 
     // This should not be called in this situation
-    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
 
     // Only these should be called
     EXPECT_CALL(*notifier, ClearSongInformation(true));
@@ -539,12 +539,12 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           int64_t position = 0;
           syncer.NotifyStep(2);
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
           syncer.WaitForStep(3);
 
           for (int i = 0; i <= 3; i++) {
             position++;
-            callback(0, 0, 0, position);
+            callback(0, 0, position);
           }
 
           // This value is considering the seek backward/forward commands + sum in the for-loop
@@ -555,7 +555,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
 
     // These methods should be called only one time because of seek backward/forward command
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
-    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(2);
 
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
@@ -617,14 +617,14 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           for (int i = 0; i <= 3; i++) {
             position++;
-            callback(0, 0, 0, position);
+            callback(0, 0, position);
           }
 
           // This value is considering the seek backward/forward commands + sum in the for-loop
@@ -636,7 +636,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     EXPECT_CALL(*playback, Pause());
 
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(5);
-    EXPECT_CALL(*playback, AudioCallback(_, _, _)).Times(5);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(5);
 
     // Using-declaration to improve readability
     using State = model::Song::MediaState;

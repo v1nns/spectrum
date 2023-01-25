@@ -35,7 +35,7 @@ class Decoder {
    * @brief Function invoked after resample is available.
    * (for better understanding: take a look at Audio Loop from Player, and also Playback class)
    */
-  using AudioCallback = std::function<bool(void*, int, int, int64_t&)>;
+  using AudioCallback = std::function<bool(void*, int, int64_t&)>;
 
   /**
    * @brief Open file as input stream and check for codec compatibility for decoding

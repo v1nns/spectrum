@@ -70,7 +70,7 @@ struct Volume {
   explicit operator int() { return (int)round(percentage * 100); }
 
   // convenient conversion to float
-  explicit operator float() { return percentage; }
+  explicit operator float() const { return percentage; }
 
   // for comparisons
   bool operator==(const Volume other) const { return percentage == other.percentage; }
@@ -85,6 +85,17 @@ struct Volume {
  private:
   float percentage;
 };
+
+/**
+ * @brief Util method to pretty print Volume structure
+ * @param arg Volume struct
+ * @return std::string Formatted string with properties from Volume
+ */
+inline std::string to_string(const Volume& arg) {
+  std::ostringstream ss;
+  ss << (float)arg;
+  return std::move(ss).str();
+}
 
 }  // namespace model
 #endif  // INCLUDE_MODEL_VOLUME_H_

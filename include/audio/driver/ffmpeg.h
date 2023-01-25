@@ -8,10 +8,13 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavfilter/avfilter.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
 #include <libavformat/avformat.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/opt.h>
 #include <libavutil/version.h>
-#include <libswresample/swresample.h>
 }
 
 #include <memory>
@@ -25,7 +28,7 @@ extern "C" {
 namespace driver {
 
 /**
- * @brief Decode and resample audio samples using FFmpeg libraries
+ * @brief Decode and equalize audio samples using FFmpeg libraries
  */
 class FFmpeg : public Decoder, public Equalizer {
  public:
@@ -44,8 +47,15 @@ class FFmpeg : public Decoder, public Equalizer {
  private:
   error::Code OpenInputStream(const std::string& filepath);
   error::Code ConfigureDecoder();
-  error::Code ConfigureResampler();
-  error::Code ConfigureVolume();
+  error::Code ConfigureFilters();
+
+  //! These are ffmpeg-specific filters
+  error::Code CreateFilterAbufferSrc();
+  error::Code CreateFilterVolume();
+  error::Code CreateFilterAformat();
+  error::Code CreateFilterAbufferSink();
+
+  error::Code ConnectFilters();
 
   void FillAudioInformation(model::Song* audio_info);
 
@@ -96,10 +106,6 @@ class FFmpeg : public Decoder, public Equalizer {
     void operator()(AVCodecContext* p) const { avcodec_free_context(&p); }
   };
 
-  struct SwrContextDeleter {
-    void operator()(SwrContext* p) const { swr_free(&p); }
-  };
-
   struct PacketDeleter {
     void operator()(AVPacket* p) const {
       av_packet_unref(p);
@@ -114,18 +120,27 @@ class FFmpeg : public Decoder, public Equalizer {
     }
   };
 
-  struct DataBufferDeleter {
-    void operator()(uint8_t* p) const { free(p); }
+  struct FilterGraphDeleter {
+    void operator()(AVFilterGraph* p) { avfilter_graph_free(&p); }
+  };
+
+  struct FilterContextDeleter {
+    void operator()(AVFilterContext* p) { avfilter_free(p); }
+  };
+
+  struct FilterInOutDeleter {
+    void operator()(AVFilterInOut* p) { avfilter_inout_free(&p); }
   };
 
   using FormatContext = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
   using CodecContext = std::unique_ptr<AVCodecContext, CodecContextDeleter>;
-  using CustomSwrContext = std::unique_ptr<SwrContext, SwrContextDeleter>;
 
   using Packet = std::unique_ptr<AVPacket, PacketDeleter>;
   using Frame = std::unique_ptr<AVFrame, FrameDeleter>;
 
-  using DataBuffer = std::unique_ptr<uint8_t, DataBufferDeleter>;
+  using FilterGraph = std::unique_ptr<AVFilterGraph, FilterGraphDeleter>;
+  using FilterContext = std::unique_ptr<AVFilterContext, FilterContextDeleter>;
+  using FilterInOut = std::unique_ptr<AVFilterInOut, FilterInOutDeleter>;
 
   /* ******************************************************************************************** */
   //! Default Constants
@@ -133,6 +148,9 @@ class FFmpeg : public Decoder, public Equalizer {
   static constexpr int kChannels = 2;
   static constexpr int kSampleRate = 44100;
   static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;
+
+  static constexpr char kFilterVolume[] = "volume";
+  static constexpr char kFilterAformat[] = "aformat";
 
   /* ******************************************************************************************** */
   //! Utilities
@@ -158,6 +176,52 @@ class FFmpeg : public Decoder, public Equalizer {
   };
 
   /* ******************************************************************************************** */
+  //! Decoding
+
+  /**
+   * @brief An structure for shared use between Decode and ProcessFrame functions
+   */
+  struct DecodingData {
+    AVRational time_base;  //!< Unit of time from input stream
+    int64_t position;      //!< Current audio position
+
+    Packet packet;         //!< Raw audio data read from input stream
+    Frame frame_decoded;   //!< Frame received from decoder
+    Frame frame_filtered;  //!< Frame received from filtergraph
+
+    error::Code result;  //!< Error code for decoding audio operation
+    bool keep_playing;   //!< Control flag for playing audio
+
+    /**
+     * @brief Clear packet content
+     */
+    void ClearPacket() { av_packet_unref(packet.get()); }
+
+    /**
+     * @brief Clear content from all frames
+     */
+    void ClearFrames() {
+      av_frame_unref(frame_decoded.get());
+      av_frame_unref(frame_filtered.get());
+    }
+
+    /**
+     * @brief Check condition to keep executing audio decoding operation
+     */
+    bool KeepDecoding() { return result == error::kSuccess && keep_playing; }
+  };
+
+  /**
+   * @brief Receive decoded frame and send it to be processed by filter chain (filtergraph), if
+   * everything is fine, send output buffer to Player API callback
+   *
+   * @param samples Maximum number of samples to send to Audio Player API callback
+   * @param callback Audio Player API callback
+   * @param data Shared structure to hold internal decoding structures
+   */
+  void ProcessFrame(int samples, AudioCallback callback, DecodingData& data);
+
+  /* ******************************************************************************************** */
   //! Variables
 
 #if LIBAVUTIL_VERSION_MAJOR > 56
@@ -173,11 +237,14 @@ class FFmpeg : public Decoder, public Equalizer {
 
   FormatContext input_stream_;  //!< Input stream from file
   CodecContext decoder_;        //!< Specific codec compatible with the input stream
-  CustomSwrContext resampler_;  //!< Resample audio data to desired sample format and rate
 
   int stream_index_;  //!< Audio stream index read in input stream
 
   model::Volume volume_;  //!< Playback stream volume
+
+  FilterGraph filter_graph_;      //!< Directed graph of connected filters
+  FilterContext buffersrc_ctx_;   //!< Input buffer for audio frames in the filter chain
+  FilterContext buffersink_ctx_;  //!< Output buffer from filter chain
 };
 
 }  // namespace driver

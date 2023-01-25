@@ -63,11 +63,10 @@ class Playback {
    * @brief Directly write audio buffer to playback stream (this should be called by decoder)
    *
    * @param buffer Audio data buffer
-   * @param max_size Maximum size for buffer
-   * @param actual_size Actual size for buffer
+   * @param size Buffer size
    * @return error::Code Playback error converted to application error code
    */
-  virtual error::Code AudioCallback(void* buffer, int max_size, int actual_size) = 0;
+  virtual error::Code AudioCallback(void* buffer, int size) = 0;
 
   /**
    * @brief Set volume on playback stream

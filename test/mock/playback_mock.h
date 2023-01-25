@@ -19,8 +19,7 @@ class PlaybackMock final : public driver::Playback {
   MOCK_METHOD(error::Code, Prepare, (), (override));
   MOCK_METHOD(error::Code, Pause, (), (override));
   MOCK_METHOD(error::Code, Stop, (), (override));
-  MOCK_METHOD(error::Code, AudioCallback, (void* buffer, int max_size, int actual_size),
-              (override));
+  MOCK_METHOD(error::Code, AudioCallback, (void* buffer, int size), (override));
   MOCK_METHOD(error::Code, SetVolume, (model::Volume), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (override));
   MOCK_METHOD(uint32_t, GetPeriodSize, (), (const override));

@@ -99,8 +99,7 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
 /* ********************************************************************************************** */
 
-bool Player::HandleCommand(void* buffer, int max_size, int actual_size, int64_t& new_position,
-                           int& last_position) {
+bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& last_position) {
   auto command = media_control_.Pop();
   auto media_notifier = notifier_.lock();
 
@@ -170,11 +169,11 @@ bool Player::HandleCommand(void* buffer, int max_size, int actual_size, int64_t&
 
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
-    media_notifier->SendAudioRaw((uint8_t*)buffer, actual_size);
+    media_notifier->SendAudioRaw((uint8_t*)buffer, size);
   }
 
   // Write samples to playback
-  playback_->AudioCallback(buffer, max_size, actual_size);
+  playback_->AudioCallback(buffer, size);
 
   // Notify song state to graphical interface
   if (last_position != new_position) {
@@ -221,10 +220,9 @@ void Player::AudioHandler() {
     int position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(
-        period_size_, [&](void* buffer, int max_size, int actual_size, int64_t& new_position) {
-          return HandleCommand(buffer, max_size, actual_size, new_position, position);
-        });
+    result = decoder_->Decode(period_size_ / 2, [&](void* buffer, int size, int64_t& new_position) {
+      return HandleCommand(buffer, size, new_position, position);
+    });
 
     // Reached the end of song, originated from one of these situations:
     // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
