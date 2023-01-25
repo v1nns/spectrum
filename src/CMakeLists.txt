@@ -105,8 +105,5 @@ target_compile_options(
             -Wfatal-errors)
 
 # **************************************************************************************************
-# For prototyping add_subdirectory(prototype)
-
-# **************************************************************************************************
 # Install executable
 install(TARGETS spectrum DESTINATION ${CMAKE_BINARY_DIR}/bin/)
