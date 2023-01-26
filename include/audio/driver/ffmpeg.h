@@ -21,16 +21,16 @@ extern "C" {
 #include <string>
 
 #include "audio/base/decoder.h"
-#include "audio/base/equalizer.h"
 #include "model/application_error.h"
 #include "model/song.h"
+#include "model/volume.h"
 
 namespace driver {
 
 /**
  * @brief Decode and equalize audio samples using FFmpeg libraries
  */
-class FFmpeg : public Decoder, public Equalizer {
+class FFmpeg : public Decoder {
  public:
   /**
    * @brief Construct a new FFmpeg object
@@ -151,6 +151,8 @@ class FFmpeg : public Decoder, public Equalizer {
 
   static constexpr char kFilterVolume[] = "volume";
   static constexpr char kFilterAformat[] = "aformat";
+
+  static constexpr int kResponseSize = 64;
 
   /* ******************************************************************************************** */
   //! Utilities

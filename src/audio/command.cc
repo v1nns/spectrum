@@ -23,6 +23,9 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
     case Command::Identifier::SeekBackward:
       out << " SeekBackward ";
       break;
+    case Command::Identifier::SetVolume:
+      out << " SetVolume ";
+      break;
     case Command::Identifier::Exit:
       out << " Exit ";
       break;
@@ -63,6 +66,7 @@ Command Command::PauseOrResume() {
       .id = Identifier::PauseOrResume,
   };
 }
+
 /* ********************************************************************************************** */
 
 // Static
@@ -71,6 +75,7 @@ Command Command::Stop() {
       .id = Identifier::Stop,
   };
 }
+
 /* ********************************************************************************************** */
 
 // Static
@@ -80,6 +85,7 @@ Command Command::SeekForward(int offset) {
       .content = offset,
   };
 }
+
 /* ********************************************************************************************** */
 
 // Static
@@ -89,6 +95,17 @@ Command Command::SeekBackward(int offset) {
       .content = offset,
   };
 }
+
+/* ********************************************************************************************** */
+
+// Static
+Command Command::SetVolume(const model::Volume& value) {
+  return Command{
+      .id = Identifier::SetVolume,
+      .content = value,
+  };
+}
+
 /* ********************************************************************************************** */
 
 // Static

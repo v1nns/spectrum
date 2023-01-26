@@ -9,6 +9,8 @@
 #include <iostream>
 #include <variant>
 
+#include "model/volume.h"
+
 namespace audio {
 
 /**
@@ -23,7 +25,8 @@ struct Command {
     Stop = 8003,
     SeekForward = 8004,
     SeekBackward = 8005,
-    Exit = 8006,
+    SetVolume = 8006,
+    Exit = 8007,
   };
 
   //! Overloaded operators
@@ -44,10 +47,11 @@ struct Command {
   static Command Stop();
   static Command SeekForward(int offset);
   static Command SeekBackward(int offset);
+  static Command SetVolume(const model::Volume& value);
   static Command Exit();
 
   //! Possible types for content
-  using Content = std::variant<int>;
+  using Content = std::variant<int, model::Volume>;
 
   //! Getter for command identifier
   Identifier GetId() const { return id; }

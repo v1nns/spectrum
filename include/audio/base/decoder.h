@@ -10,11 +10,13 @@
 
 #include "model/application_error.h"
 #include "model/song.h"
+#include "model/volume.h"
 
 namespace driver {
 
 /**
- * @brief Common interface to read audio file as an input stream and parse its samples
+ * @brief Common interface to read audio file as an input stream, decode it, apply IIR filters on
+ * extracted audio data and finally, send the result to audio callback
  */
 class Decoder {
  public:
@@ -29,7 +31,7 @@ class Decoder {
   virtual ~Decoder() = default;
 
   /* ******************************************************************************************** */
-  //! Public API
+  //! Public API for Decoder
 
   /**
    * @brief Function invoked after resample is available.
@@ -56,6 +58,23 @@ class Decoder {
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache
    */
   virtual void ClearCache() = 0;
+
+  /* ******************************************************************************************** */
+  //! Public API for Equalizer
+
+  /**
+   * @brief Set volume on playback stream
+   *
+   * @param value Desired volume (in a range between 0.f and 1.f)
+   * @return error::Code Playback error converted to application error code
+   */
+  virtual error::Code SetVolume(model::Volume value) = 0;
+
+  /**
+   * @brief Get volume from playback stream
+   * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
+   */
+  virtual model::Volume GetVolume() const = 0;
 };
 
 }  // namespace driver

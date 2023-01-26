@@ -26,9 +26,7 @@ FFmpeg::FFmpeg()
       volume_{1.f},
       filter_graph_{},
       buffersrc_ctx_{},
-      buffersink_ctx_{}
-
-{
+      buffersink_ctx_{} {
 #if LIBAVUTIL_VERSION_MAJOR > 56
   ch_layout_.reset(new AVChannelLayout{});
   // Set output channel layout to stereo (2-channel)
@@ -279,7 +277,7 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
   }
 
   // This filter takes no options
-  if (avfilter_init_str(buffersink_ctx_.get(), NULL) < 0) {
+  if (avfilter_init_str(buffersink_ctx_.get(), nullptr) < 0) {
     ERROR("Could not initialize the abuffersink instance");
     return error::kUnknownError;
   }
@@ -447,8 +445,24 @@ void FFmpeg::ClearCache() {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::SetVolume(model::Volume value) {
+  LOG("Set volume to new value=", value);
   volume_ = value;
-  // TODO: update filter volume
+
+  // Filtergraph is not created yet and there is no need to do anything further
+  if (!filter_graph_) return error::kSuccess;
+
+  // Otherwise, it means that some music is playing, so we gotta update the running filtergraph
+  LOG("Found volume filter, update value");
+  std::string volume = model::to_string(volume_);
+  std::string response(kResponseSize, ' ');
+
+  // Set filter option
+  if (avfilter_graph_send_command(filter_graph_.get(), kFilterVolume, "volume", volume.c_str(),
+                                  response.data(), kResponseSize, AV_OPT_SEARCH_CHILDREN)) {
+    ERROR("Cannot set new value for volume filter, returned:", response);
+    return error::kUnknownError;
+  }
+
   return error::kSuccess;
 }
 

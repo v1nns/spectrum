@@ -485,19 +485,19 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
 /* ********************************************************************************************** */
 
 TEST_F(PlayerTest, ChangeVolume) {
-  auto playback = GetPlayback();
+  auto decoder = GetDecoder();
   auto player_ctl = GetAudioControl();
 
-  // As playback is just an interface, use this variable to hold volume information and setup
-  // expectation for playback from player to always return the same variable
+  // As decoder is just an interface, use this variable to hold volume information and setup
+  // expectation for decoder from player to always return the same variable
   model::Volume value;
-  EXPECT_CALL(*playback, GetVolume()).WillRepeatedly(Invoke([&] { return value; }));
+  EXPECT_CALL(*decoder, GetVolume()).WillRepeatedly(Invoke([&] { return value; }));
 
   // Setup expectation for default value on volume
   EXPECT_THAT(player_ctl->GetAudioVolume(), Eq(model::Volume{1.f}));
 
-  // Setup expectation for playback and set new volume on player
-  EXPECT_CALL(*playback, SetVolume(_)).WillOnce(Invoke([&](model::Volume other) {
+  // Setup expectation for decoder and set new volume on player
+  EXPECT_CALL(*decoder, SetVolume(_)).WillOnce(Invoke([&](model::Volume other) {
     value = other;
     return error::kSuccess;
   }));

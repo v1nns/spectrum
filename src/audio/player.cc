@@ -103,6 +103,10 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
   auto command = media_control_.Pop();
   auto media_notifier = notifier_.lock();
 
+  if (media_control_.state == State::Stop || media_control_.state == State::Exit) {
+    return false;
+  }
+
   switch (command.GetId()) {
     case Command::Identifier::PauseOrResume: {
       LOG("Audio handler received command to pause song");
@@ -161,6 +165,12 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
         new_position -= offset;
         return true;
       }
+    } break;
+
+    case Command::Identifier::SetVolume: {
+      model::Volume value = command.GetContent<model::Volume>();
+      LOG("Audio handler received command to set volume with value=", value);
+      decoder_->SetVolume(value);
     } break;
 
     default:
@@ -263,16 +273,23 @@ void Player::Stop() {
 
 /* ********************************************************************************************** */
 
-void Player::SetAudioVolume(model::Volume value) {
+void Player::SetAudioVolume(const model::Volume& value) {
   LOG("Set audio volume with value=", value);
-  playback_->SetVolume(value);
+  // If state is idle, there is no music playing
+  if(media_control_.state == State::Idle){
+    decoder_->SetVolume(value);
+  }
+
+  // Otherwise, add command to queue
+  media_control_.Push(Command::SetVolume(value));
 }
 
 /* ********************************************************************************************** */
 
-model::Volume Player::GetAudioVolume() {
+model::Volume Player::GetAudioVolume() const {
   LOG("Get audio volume");
-  return playback_->GetVolume();
+  //   return playback_->GetVolume();
+  return decoder_->GetVolume();
 }
 
 /* ********************************************************************************************** */

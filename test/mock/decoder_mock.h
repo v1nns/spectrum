@@ -10,6 +10,7 @@
 
 #include "audio/base/decoder.h"
 #include "model/song.h"
+#include "model/volume.h"
 
 namespace {
 
@@ -18,6 +19,8 @@ class DecoderMock final : public driver::Decoder {
   MOCK_METHOD(error::Code, OpenFile, (model::Song * audio_info), (override));
   MOCK_METHOD(error::Code, Decode, (int samples, AudioCallback callback), (override));
   MOCK_METHOD(void, ClearCache, (), (override));
+  MOCK_METHOD(error::Code, SetVolume, (model::Volume value), (override));
+  MOCK_METHOD(model::Volume, GetVolume, (), (const, override));
 };
 
 }  // namespace

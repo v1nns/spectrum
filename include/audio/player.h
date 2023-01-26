@@ -42,8 +42,8 @@ class AudioControl {
   virtual void Play(const std::string& filepath) = 0;
   virtual void PauseOrResume() = 0;
   virtual void Stop() = 0;
-  virtual void SetAudioVolume(model::Volume value) = 0;
-  virtual model::Volume GetAudioVolume() = 0;
+  virtual void SetAudioVolume(const model::Volume& value) = 0;
+  virtual model::Volume GetAudioVolume() const = 0;
   virtual void SeekForwardPosition(int value) = 0;
   virtual void SeekBackwardPosition(int value) = 0;
   virtual void Exit() = 0;
@@ -148,13 +148,13 @@ class Player : public AudioControl {
    * @brief Set Audio Volume on playback
    * @param value Sound volume
    */
-  void SetAudioVolume(model::Volume value) override;
+  void SetAudioVolume(const model::Volume& value) override;
 
   /**
    * @brief Get Audio Volume information from playback
    * @return Sound volume
    */
-  model::Volume GetAudioVolume() override;
+  model::Volume GetAudioVolume() const override;
 
   /**
    * @brief Inform audio loop to seek forward position on current playing song

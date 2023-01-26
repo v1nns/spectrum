@@ -29,7 +29,7 @@ error::Code Alsa::CreatePlaybackStream() {
 
   snd_mixer_open(&mixer_handle, 0);
   snd_mixer_attach(mixer_handle, kDevice);
-  snd_mixer_selem_register(mixer_handle, NULL, NULL);
+  snd_mixer_selem_register(mixer_handle, nullptr, nullptr);
 
   if (snd_mixer_load(mixer_handle) < 0) {
     ERROR("Cannot create mixer for control");
