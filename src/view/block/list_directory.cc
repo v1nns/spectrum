@@ -105,7 +105,7 @@ ftxui::Element ListDirectory::Render() {
   int* focused = GetFocused();
 
   // Title
-  ftxui::Element curr_dir_title = ftxui::text(GetTitle().c_str()) | ftxui::bold;
+  ftxui::Element curr_dir_title = ftxui::text(GetTitle()) | ftxui::bold;
 
   // Fill list with entries
   for (int i = 0; i < Size(); ++i) {

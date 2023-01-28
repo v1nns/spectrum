@@ -33,11 +33,6 @@ std::shared_ptr<MediaController> MediaController::Create(
   auto number_bars = terminal->CalculateNumberBars();
   controller->Init(number_bars, asynchronous);
 
-  // TODO: Think of a better way to do this...
-  model::Volume value = player->GetAudioVolume();
-  auto event_volume = interface::CustomEvent::UpdateVolume(value);
-  terminal->ProcessEvent(event_volume);
-
   auto event_bars =
       interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(number_bars, 0.001));
   terminal->ProcessEvent(event_bars);
