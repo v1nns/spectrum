@@ -17,6 +17,7 @@ extern "C" {
 #include <libavutil/version.h>
 }
 
+#include <map>
 #include <memory>
 #include <string>
 
@@ -54,9 +55,22 @@ class FFmpeg : public Decoder {
   error::Code CreateFilterVolume();
   error::Code CreateFilterAformat();
   error::Code CreateFilterAbufferSink();
+  error::Code CreateFilterEqualizer(const std::string& name, const model::AudioFilter& filter);
 
+  /**
+   * @brief Connect all filters created in the filtergraph as a linear chain
+   * P.S. in general, this is the filter chain:
+   *            _________    ________    ______________    _________    _____________
+   * RAW DATA->| abuffer |->| volume |->| equalizer(s) |->| aformat |->| abuffersink |-> OUTPUT
+   *            ---------    --------    --------------    ---------    -------------
+   * @return error::Code Application error code
+   */
   error::Code ConnectFilters();
 
+  /**
+   * @brief Extract all metadata from current song and fill the structure with it
+   * @param audio_info Audio information structure
+   */
   void FillAudioInformation(model::Song* audio_info);
 
   /* ******************************************************************************************** */
@@ -85,7 +99,7 @@ class FFmpeg : public Decoder {
    * @brief Set volume on playback stream
    *
    * @param value Desired volume (in a range between 0.f and 1.f)
-   * @return error::Code Playback error converted to application error code
+   * @return error::Code Decoder error converted to application error code
    */
   virtual error::Code SetVolume(model::Volume value) override;
 
@@ -94,6 +108,14 @@ class FFmpeg : public Decoder {
    * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
    */
   virtual model::Volume GetVolume() const override;
+
+  /**
+   * @brief Add new audio filter to filterchain (used for equalization)
+   *
+   * @param filter Audio filter
+   * @return error::Code Decoder error converted to application error code
+   */
+  virtual error::Code InsertFilter(model::AudioFilter filter) override;
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -125,11 +147,8 @@ class FFmpeg : public Decoder {
   };
 
   struct FilterContextDeleter {
-    void operator()(AVFilterContext* p) { avfilter_free(p); }
-  };
-
-  struct FilterInOutDeleter {
-    void operator()(AVFilterInOut* p) { avfilter_inout_free(&p); }
+    //! P.S.: there is no need to do anything at all, because FilterGraphDeleter clears the resource
+    void operator()(AVFilterContext*) const noexcept {}
   };
 
   using FormatContext = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
@@ -140,7 +159,6 @@ class FFmpeg : public Decoder {
 
   using FilterGraph = std::unique_ptr<AVFilterGraph, FilterGraphDeleter>;
   using FilterContext = std::unique_ptr<AVFilterContext, FilterContextDeleter>;
-  using FilterInOut = std::unique_ptr<AVFilterInOut, FilterInOutDeleter>;
 
   /* ******************************************************************************************** */
   //! Default Constants
@@ -247,6 +265,9 @@ class FFmpeg : public Decoder {
   FilterGraph filter_graph_;      //!< Directed graph of connected filters
   FilterContext buffersrc_ctx_;   //!< Input buffer for audio frames in the filter chain
   FilterContext buffersink_ctx_;  //!< Output buffer from filter chain
+
+  using FilterName = std::string;
+  std::map<FilterName, model::AudioFilter> audio_filters_;  //!< Equalization filters
 };
 
 }  // namespace driver

@@ -45,6 +45,7 @@ target_sources(
             # middleware
             middleware/media_controller.cc
             # model
+            model/audio_filter.cc
             model/song.cc
             # view
             view/base/block.cc

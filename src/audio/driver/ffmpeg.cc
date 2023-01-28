@@ -26,7 +26,8 @@ FFmpeg::FFmpeg()
       volume_{1.f},
       filter_graph_{},
       buffersrc_ctx_{},
-      buffersink_ctx_{} {
+      buffersink_ctx_{},
+      audio_filters_{} {
 #if LIBAVUTIL_VERSION_MAJOR > 56
   ch_layout_.reset(new AVChannelLayout{});
   // Set output channel layout to stereo (2-channel)
@@ -133,6 +134,12 @@ error::Code FFmpeg::ConfigureFilters() {
   result = CreateFilterVolume();
   if (result != error::kSuccess) return result;
 
+  // Create and configure all equalizer filters
+  for (const auto &entry : audio_filters_) {
+    result = CreateFilterEqualizer(entry.first, entry.second);
+    if (result != error::kSuccess) return result;
+  }
+
   // Create and configure aformat filter
   result = CreateFilterAformat();
   if (result != error::kSuccess) return result;
@@ -151,18 +158,20 @@ error::Code FFmpeg::ConfigureFilters() {
 
 error::Code FFmpeg::CreateFilterAbufferSrc() {
   LOG("Create abuffer filter");
-  const AVFilter *abuffersrc = nullptr;
 
-  // Create abuffer filter, it will be used for feeding data into the filter graph
-  abuffersrc = avfilter_get_by_name("abuffer");
+  // Find abuffer filter
+  const AVFilter *abuffersrc = avfilter_get_by_name("abuffer");
+
   if (!abuffersrc) {
-    ERROR("Could not find the abuffer filter");
+    ERROR("Cannot find the abuffer filter");
     return error::kUnknownError;
   }
 
+  // Create an instance of abuffer filter, it will be used for feeding data into the filter graph
   buffersrc_ctx_.reset(avfilter_graph_alloc_filter(filter_graph_.get(), abuffersrc, "src"));
+
   if (!buffersrc_ctx_) {
-    ERROR("Could not allocate the buffersrc instance");
+    ERROR("Cannot allocate the buffersrc instance");
     return error::kUnknownError;
   }
 
@@ -180,7 +189,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
 
   // Initialize filter
   if (avfilter_init_str(buffersrc_ctx_.get(), nullptr) < 0) {
-    ERROR("Could not initialize the abuffer filter");
+    ERROR("Cannot initialize the abuffer filter");
     return error::kUnknownError;
   }
 
@@ -191,19 +200,21 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
 
 error::Code FFmpeg::CreateFilterVolume() {
   LOG("Create volume filter");
-  const AVFilter *volume = nullptr;
-  AVFilterContext *volume_ctx = nullptr;
 
-  // Create volume filter
-  volume = avfilter_get_by_name(kFilterVolume);
+  // Find volume filter
+  const AVFilter *volume = avfilter_get_by_name(kFilterVolume);
+
   if (!volume) {
-    ERROR("Could not find the volume filter");
+    ERROR("Cannot find the volume filter");
     return error::kUnknownError;
   }
 
-  volume_ctx = avfilter_graph_alloc_filter(filter_graph_.get(), volume, kFilterVolume);
+  // Create an instance of volume filter
+  AVFilterContext *volume_ctx =
+      avfilter_graph_alloc_filter(filter_graph_.get(), volume, kFilterVolume);
+
   if (!volume_ctx) {
-    ERROR("Could not allocate the volume instance");
+    ERROR("Cannot allocate the volume instance");
     return error::kUnknownError;
   }
 
@@ -212,7 +223,7 @@ error::Code FFmpeg::CreateFilterVolume() {
 
   // Initialize filter
   if (avfilter_init_str(volume_ctx, nullptr) < 0) {
-    ERROR("Could not initialize the volume filter");
+    ERROR("Cannot initialize the volume filter");
     return error::kUnknownError;
   }
 
@@ -223,19 +234,21 @@ error::Code FFmpeg::CreateFilterVolume() {
 
 error::Code FFmpeg::CreateFilterAformat() {
   LOG("Create aformat filter");
-  const AVFilter *aformat = nullptr;
-  AVFilterContext *aformat_ctx = nullptr;
 
-  // Create aformat filter, it ensures that the output is of the format we want
-  aformat = avfilter_get_by_name(kFilterAformat);
+  // Find aformat filter
+  const AVFilter *aformat = avfilter_get_by_name(kFilterAformat);
+
   if (!aformat) {
-    ERROR("Could not find the aformat filter");
+    ERROR("Cannot find the aformat filter");
     return error::kUnknownError;
   }
 
-  aformat_ctx = avfilter_graph_alloc_filter(filter_graph_.get(), aformat, kFilterAformat);
+  // Create an instance of aformat filter, it ensures that the output is of the format we want
+  AVFilterContext *aformat_ctx =
+      avfilter_graph_alloc_filter(filter_graph_.get(), aformat, kFilterAformat);
+
   if (!aformat_ctx) {
-    ERROR("Could not allocate the aformat instance");
+    ERROR("Cannot allocate the aformat instance");
     return error::kUnknownError;
   }
 
@@ -250,7 +263,7 @@ error::Code FFmpeg::CreateFilterAformat() {
 
   // Initialize filter
   if (avfilter_init_str(aformat_ctx, nullptr) < 0) {
-    ERROR("Could not initialize the aformat filter");
+    ERROR("Cannot initialize the aformat filter");
     return error::kUnknownError;
   }
 
@@ -261,24 +274,66 @@ error::Code FFmpeg::CreateFilterAformat() {
 
 error::Code FFmpeg::CreateFilterAbufferSink() {
   LOG("Create abuffersink filter");
-  const AVFilter *abuffersink = nullptr;
 
-  // Finally create abuffersink filter, it will be used to get filtered data out of the graph
-  abuffersink = avfilter_get_by_name("abuffersink");
+  // Find abuffersink filter
+  const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+
   if (!abuffersink) {
-    ERROR("Could not find the abuffersink filter");
+    ERROR("Cannot find the abuffersink filter");
     return error::kUnknownError;
   }
 
+  // Create an instance of abuffersink filter, it will be used to get filtered data out of the graph
   buffersink_ctx_.reset(avfilter_graph_alloc_filter(filter_graph_.get(), abuffersink, "sink"));
+
   if (!buffersink_ctx_) {
-    ERROR("Could not allocate the abuffersink instance");
+    ERROR("Cannot allocate the abuffersink instance");
     return error::kUnknownError;
   }
 
   // This filter takes no options
   if (avfilter_init_str(buffersink_ctx_.get(), nullptr) < 0) {
-    ERROR("Could not initialize the abuffersink instance");
+    ERROR("Cannot initialize the abuffersink instance");
+    return error::kUnknownError;
+  }
+
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::CreateFilterEqualizer(const std::string &name,
+                                          const model::AudioFilter &filter) {
+  LOG("Create new equalizer filter");
+
+  // Find equalizer filter
+  const AVFilter *equalizer = avfilter_get_by_name("equalizer");
+
+  if (!equalizer) {
+    ERROR("Cannot find the equalizer filter");
+    return error::kUnknownError;
+  }
+
+  // Create an instance of equalizer filter
+  AVFilterContext *equalizer_ctx =
+      avfilter_graph_alloc_filter(filter_graph_.get(), equalizer, name.c_str());
+
+  if (!equalizer_ctx) {
+    ERROR("Cannot allocate the equalizer instance");
+    return error::kUnknownError;
+  }
+
+  // Set filter options
+  av_opt_set_double(equalizer_ctx, "frequency", filter.frequency, AV_OPT_SEARCH_CHILDREN);
+  av_opt_set(equalizer_ctx, "width_type", "q", AV_OPT_SEARCH_CHILDREN);
+  av_opt_set_double(equalizer_ctx, "width", filter.Q, AV_OPT_SEARCH_CHILDREN);
+  av_opt_set_double(equalizer_ctx, "gain", filter.gain, AV_OPT_SEARCH_CHILDREN);
+  av_opt_set(equalizer_ctx, "transform", "dii", AV_OPT_SEARCH_CHILDREN);
+  av_opt_set(equalizer_ctx, "precision", "auto", AV_OPT_SEARCH_CHILDREN);
+
+  // Initialize filter
+  if (avfilter_init_str(equalizer_ctx, nullptr) < 0) {
+    ERROR("Cannot initialize the equalizer filter");
     return error::kUnknownError;
   }
 
@@ -294,7 +349,24 @@ error::Code FFmpeg::ConnectFilters() {
 
   // Connect the filters, in this case the filters just form a linear chain
   int err = avfilter_link(buffersrc_ctx_.get(), 0, volume_ctx, 0);
-  if (err >= 0) err = avfilter_link(volume_ctx, 0, aformat_ctx, 0);
+
+  if (audio_filters_.size() > 0) {
+    AVFilterContext *previous_ctx = volume_ctx;
+
+    for (const auto &entry : audio_filters_) {
+      AVFilterContext *filter_ctx =
+          avfilter_graph_get_filter(filter_graph_.get(), entry.first.c_str());
+
+      if (err >= 0) err = avfilter_link(previous_ctx, 0, filter_ctx, 0);
+      previous_ctx = filter_ctx;
+    }
+
+    if (err >= 0) err = avfilter_link(previous_ctx, 0, aformat_ctx, 0);
+
+  } else {
+    if (err >= 0) err = avfilter_link(volume_ctx, 0, aformat_ctx, 0);
+  }
+
   if (err >= 0) err = avfilter_link(aformat_ctx, 0, buffersink_ctx_.get(), 0);
   if (err < 0) {
     ERROR("Error connecting filters");
@@ -437,6 +509,8 @@ void FFmpeg::ClearCache() {
   decoder_.reset();
   buffersrc_ctx_.reset();
   buffersink_ctx_.reset();
+  audio_filters_.clear();
+
   filter_graph_.reset();
 
   stream_index_ = 0;
@@ -469,6 +543,24 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
 /* ********************************************************************************************** */
 
 model::Volume FFmpeg::GetVolume() const { return volume_; }
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::InsertFilter(model::AudioFilter filter) {
+  LOG("Add new audio filter to internal structure");
+
+  if (filter.frequency == 0 || filter.Q == 0 || filter.gain) {
+    ERROR("Zeroed filter is not permitted");
+    return error::kUnknownError;
+  }
+
+  // TODO: check if another filter with same frequency already exists
+
+  std::string name{filter.ToString()};
+  audio_filters_[name] = filter;
+
+  return error::kSuccess;
+}
 
 /* ********************************************************************************************** */
 

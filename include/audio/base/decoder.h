@@ -9,14 +9,15 @@
 #include <functional>
 
 #include "model/application_error.h"
+#include "model/audio_filter.h"
 #include "model/song.h"
 #include "model/volume.h"
 
 namespace driver {
 
 /**
- * @brief Common interface to read audio file as an input stream, decode it, apply IIR filters on
- * extracted audio data and finally, send the result to audio callback
+ * @brief Common interface to read audio file as an input stream, decode it, apply biquad IIR
+ * filters on extracted audio data and finally, send the result to audio callback
  */
 class Decoder {
  public:
@@ -60,13 +61,13 @@ class Decoder {
   virtual void ClearCache() = 0;
 
   /* ******************************************************************************************** */
-  //! Public API for Equalizer
+  //! Public API for Equalizer TODO: split into a new header along with FFmpeg class
 
   /**
    * @brief Set volume on playback stream
    *
    * @param value Desired volume (in a range between 0.f and 1.f)
-   * @return error::Code Playback error converted to application error code
+   * @return error::Code Decoder error converted to application error code
    */
   virtual error::Code SetVolume(model::Volume value) = 0;
 
@@ -75,6 +76,14 @@ class Decoder {
    * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
    */
   virtual model::Volume GetVolume() const = 0;
+
+  /**
+   * @brief Add new audio filter to filterchain (used for equalization)
+   *
+   * @param filter Audio filter
+   * @return error::Code Decoder error converted to application error code
+   */
+  virtual error::Code InsertFilter(model::AudioFilter filter) = 0;
 };
 
 }  // namespace driver

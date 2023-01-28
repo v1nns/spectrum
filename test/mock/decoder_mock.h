@@ -21,6 +21,7 @@ class DecoderMock final : public driver::Decoder {
   MOCK_METHOD(void, ClearCache, (), (override));
   MOCK_METHOD(error::Code, SetVolume, (model::Volume value), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (const, override));
+  MOCK_METHOD(error::Code, InsertFilter, (model::AudioFilter filter), (override));
 };
 
 }  // namespace
