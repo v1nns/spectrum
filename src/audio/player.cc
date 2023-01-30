@@ -260,6 +260,7 @@ void Player::Play(const std::string& filepath) {
 /* ********************************************************************************************** */
 
 void Player::PauseOrResume() {
+  // TODO: if state = idle, do not add to media_control?
   LOG("Add command to queue: ", media_control_.state == State::Play ? "Pause" : "Resume");
   media_control_.Push(Command::PauseOrResume());
 }
@@ -276,7 +277,7 @@ void Player::Stop() {
 void Player::SetAudioVolume(const model::Volume& value) {
   LOG("Set audio volume with value=", value);
   // If state is idle, there is no music playing
-  if(media_control_.state == State::Idle){
+  if (media_control_.state == State::Idle) {
     decoder_->SetVolume(value);
   }
 
