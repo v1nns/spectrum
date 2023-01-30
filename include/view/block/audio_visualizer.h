@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "model/audio_filter.h"
 #include "view/base/block.h"
 #include "view/element/button.h"
 
@@ -52,6 +53,15 @@ class AudioVisualizer : public Block {
   bool OnCustomEvent(const CustomEvent& event) override;
 
   /**
+   * @brief Possible views to render on this block
+   */
+  enum class TabView {
+    Visualizer,  //!< Display spectrum visualizer (default)
+    Equalizer,   //!< Display audio equalizer
+    LAST,
+  };
+
+  /**
    * @brief Possible bar animations for spectrum visualizer
    */
   enum Animation {
@@ -66,16 +76,31 @@ class AudioVisualizer : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
+  /* ******************************************************************************************** */
+  //! Visualizer view
+
+  //! Draw audio spectrum bars
+  ftxui::Element DrawVisualizer();
+
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
   void DrawAnimationVerticalMirror(ftxui::Element& visualizer);
 
   /* ******************************************************************************************** */
+  //! Equalizer view
+
+  //! Draw audio frequency gauges for equalization
+  ftxui::Element DrawEqualizer();
+
+  /* ******************************************************************************************** */
   //! Variables
  private:
+  TabView active_view_;               //!< Current view displayed on screen
   WindowButton btn_help_, btn_exit_;  //!< Buttons located on the upper-right border of block window
   Animation curr_anim_;               //!< Flag to control which animation to draw
-  std::vector<double> data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
+  std::vector<double> spectrum_data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
+
+  std::vector<model::AudioFilter> filter_bars_;  //!< Audio frequency gauges for equalization
 };
 
 }  // namespace interface

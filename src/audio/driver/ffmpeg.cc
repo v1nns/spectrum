@@ -556,7 +556,7 @@ error::Code FFmpeg::InsertFilter(model::AudioFilter filter) {
 
   // TODO: check if another filter with same frequency already exists
 
-  std::string name{filter.ToString()};
+  std::string name{filter.GetName()};
   audio_filters_[name] = filter;
 
   return error::kSuccess;
