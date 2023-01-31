@@ -11,6 +11,7 @@
 #include "model/audio_filter.h"
 #include "view/base/block.h"
 #include "view/element/button.h"
+#include "view/element/frequency_bar.h"
 
 namespace interface {
 
@@ -97,10 +98,14 @@ class AudioVisualizer : public Block {
  private:
   TabView active_view_;               //!< Current view displayed on screen
   WindowButton btn_help_, btn_exit_;  //!< Buttons located on the upper-right border of block window
-  Animation curr_anim_;               //!< Flag to control which animation to draw
-  std::vector<double> spectrum_data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
 
-  std::vector<model::AudioFilter> filter_bars_;  //!< Audio frequency gauges for equalization
+  //! Visualizer-related
+  Animation curr_anim_;  //!< Flag to control which animation to draw
+  std::vector<double>
+      spectrum_data_;  //!< Audio spectrum for stereo (each entry represents a frequency bar)
+
+  //! Equalizer-related
+  std::vector<std::unique_ptr<FrequencyBar>> bars_;  //!< Audio frequency bars for equalization
 };
 
 }  // namespace interface

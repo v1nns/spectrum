@@ -58,6 +58,7 @@ target_sources(
             view/element/button.cc
             view/element/error_dialog.cc
             view/element/help.cc
+            view/element/frequency_bar.cc
             # logger
             util/logger.cc
             util/sink.cc)

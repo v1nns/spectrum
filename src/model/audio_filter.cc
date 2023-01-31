@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include <algorithm>
 #include <string>
 #include <tuple>
 
@@ -52,15 +53,31 @@ std::string AudioFilter::GetFrequency() const { return util::format_with_prefix(
 
 std::string AudioFilter::GetGain() const {
   std::ostringstream ss;
-  ss << " " << util::to_string_with_precision(gain, 0) << " dB ";
+
+  std::string gain_str{util::to_string_with_precision(gain, 0)};
+
+  // Maximum length for output string to GUI
+  int max_length = gain < 0 ? 6 : 7;
+
+  // Create a dummy margin
+  std::string spaces((max_length - gain_str.length()) / 2, ' ');
+
+  ss << spaces << gain_str << " dB" << spaces;
   return std::move(ss).str();
 }
 
 /* ********************************************************************************************** */
 
 float AudioFilter::GetGainAsPercentage() const {
-  return float(gain - model::AudioFilter::kMinGain) /
-         float(model::AudioFilter::kMaxGain - model::AudioFilter::kMinGain);
+  float value = float(gain - kMinGain) / float(kMaxGain - kMinGain);
+  // in case of gain equals to zero, return a small value for GUI aesthetics
+  return value > 0 ? value : 0.001f;
+}
+
+/* ********************************************************************************************** */
+
+void AudioFilter::SetNormalizedGain(double value) {
+  gain = std::max(kMinGain, std::min(kMaxGain, value));
 }
 
 };  // namespace model

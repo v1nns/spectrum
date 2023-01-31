@@ -23,8 +23,8 @@ namespace model {
  */
 struct AudioFilter {
   //! Constants
-  static constexpr int kMinGain = -12;  //!< Minimum value of gain
-  static constexpr int kMaxGain = 12;   //!< Maximum value of gain
+  static constexpr double kMinGain = -12;  //!< Minimum value of gain
+  static constexpr double kMaxGain = 12;   //!< Maximum value of gain
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const AudioFilter& a);
@@ -63,6 +63,12 @@ struct AudioFilter {
    * @return A percentage value of gain (0~1)
    */
   float GetGainAsPercentage() const;
+
+  /**
+   * @brief Set new value for gain and normalize it based on the range between minimum and maximum
+   * @param value New value for gain
+   */
+  void SetNormalizedGain(double value);
 
   /* ******************************************************************************************** */
   //! Variables

@@ -21,7 +21,7 @@ AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatc
       btn_exit_{nullptr},
       curr_anim_{Animation::HorizontalMirror},
       spectrum_data_{},
-      filter_bars_{model::AudioFilter::Create()} {
+      bars_{} {
   btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
     LOG("Handle left click mouse event on Help button");
     auto dispatcher = dispatcher_.lock();
@@ -39,6 +39,14 @@ AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatc
       dispatcher->SendEvent(event);
     }
   });
+
+  // Fill vector of frequency bars for equalizer
+  std::vector<model::AudioFilter> filters{model::AudioFilter::Create()};
+  bars_.reserve(filters.size());
+
+  for (auto& filter : filters) {
+    bars_.push_back(std::make_unique<FrequencyBar>(filter));
+  }
 }
 
 /* ********************************************************************************************** */
@@ -131,6 +139,12 @@ bool AudioVisualizer::OnMouseEvent(ftxui::Event event) {
   if (btn_help_->OnEvent(event)) return true;
 
   if (btn_exit_->OnEvent(event)) return true;
+
+  if (active_view_ == TabView::Equalizer) {
+    for (auto& bar : bars_) {
+      if (bar->OnEvent(event)) return true;
+    }
+  }
 
   return false;
 }
@@ -226,30 +240,17 @@ ftxui::Element AudioVisualizer::DrawEqualizer() {
 
   frequencies.push_back(ftxui::filler());
 
-  auto gen_slider = [](double value) {
-    return ftxui::gaugeUp(value) | ftxui::yflex_grow |
-           ftxui::bgcolor(ftxui::Color::LightSteelBlue3) | ftxui::color(ftxui::Color::SteelBlue3);
-  };
-
-  // Iterate through all audio filters
-  for (const auto& filter : filter_bars_) {
-    float gain = filter.GetGainAsPercentage();
-
-    frequencies.push_back(ftxui::vbox({
-        ftxui::text(""),
-        ftxui::text(filter.GetFrequency()) | ftxui::hcenter,
-        ftxui::text(""),
-        ftxui::hbox({gen_slider(gain), gen_slider(gain)}) | ftxui::hcenter | ftxui::yflex_grow,
-        ftxui::text(""),
-        ftxui::text(filter.GetGain()) | ftxui::inverted | ftxui::hcenter |
-            ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, 7),
-        ftxui::text(""),
-    }));
-
+  // Iterate through all frequency bars
+  for (const auto& bar : bars_) {
+    frequencies.push_back(bar->Render());
     frequencies.push_back(ftxui::filler());
   }
 
-  return ftxui::hbox(frequencies);
+  // TODO: Create real buttons
+  return ftxui::vbox(ftxui::hbox(frequencies) | ftxui::flex_grow,
+                     ftxui::hbox(ftxui::Button("Apply", nullptr)->Render() | ftxui::inverted,
+                                 ftxui::Button("Reset", nullptr)->Render() | ftxui::inverted) |
+                         ftxui::center);
 }
 
 }  // namespace interface
