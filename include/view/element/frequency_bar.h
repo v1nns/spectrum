@@ -57,6 +57,11 @@ class FrequencyBar {
    */
   model::AudioFilter GetAudioFilter() const;
 
+  /**
+   * @brief Reset gain to default value (zero)
+   */
+  void ResetGain();
+
   /* ******************************************************************************************** */
   //! Variables
  private:

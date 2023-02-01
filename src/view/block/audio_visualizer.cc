@@ -21,7 +21,9 @@ AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatc
       btn_exit_{nullptr},
       curr_anim_{Animation::HorizontalMirror},
       spectrum_data_{},
-      bars_{} {
+      bars_{},
+      btn_apply_{nullptr},
+      btn_reset_{nullptr} {
   btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
     LOG("Handle left click mouse event on Help button");
     auto dispatcher = dispatcher_.lock();
@@ -47,6 +49,42 @@ AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatc
   for (auto& filter : filters) {
     bars_.push_back(std::make_unique<FrequencyBar>(filter));
   }
+
+  btn_apply_ = Button::make_button(std::string("Apply"), [&]() {
+    LOG("Handle left click mouse event on Equalizer apply button");
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      // Fill vector of frequency bars and send to player
+      std::vector<model::AudioFilter> frequencies;
+      frequencies.reserve(bars_.size());
+
+      for (const auto& bar : bars_) {
+        frequencies.push_back(bar->GetAudioFilter());
+      }
+
+      auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
+      dispatcher->SendEvent(event);
+    }
+  });
+
+  btn_reset_ = Button::make_button(std::string("Reset"), [&]() {
+    LOG("Handle left click mouse event on Equalizer reset button");
+    // Fill vector of frequency bars and send to player
+    std::vector<model::AudioFilter> frequencies;
+    frequencies.reserve(bars_.size());
+
+    // Reset gain in all frequency bars
+    for (auto& bar : bars_) {
+      bar->ResetGain();
+      frequencies.push_back(bar->GetAudioFilter());
+    }
+
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
+      dispatcher->SendEvent(event);
+    }
+  });
 }
 
 /* ********************************************************************************************** */
@@ -141,6 +179,10 @@ bool AudioVisualizer::OnMouseEvent(ftxui::Event event) {
   if (btn_exit_->OnEvent(event)) return true;
 
   if (active_view_ == TabView::Equalizer) {
+    if (btn_apply_->OnEvent(event)) return true;
+
+    if (btn_reset_->OnEvent(event)) return true;
+
     for (auto& bar : bars_) {
       if (bar->OnEvent(event)) return true;
     }
@@ -235,7 +277,6 @@ void AudioVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer) {
 /* ********************************************************************************************** */
 
 ftxui::Element AudioVisualizer::DrawEqualizer() {
-  // TODO: implement
   ftxui::Elements frequencies;
 
   frequencies.push_back(ftxui::filler());
@@ -246,11 +287,8 @@ ftxui::Element AudioVisualizer::DrawEqualizer() {
     frequencies.push_back(ftxui::filler());
   }
 
-  // TODO: Create real buttons
   return ftxui::vbox(ftxui::hbox(frequencies) | ftxui::flex_grow,
-                     ftxui::hbox(ftxui::Button("Apply", nullptr)->Render() | ftxui::inverted,
-                                 ftxui::Button("Reset", nullptr)->Render() | ftxui::inverted) |
-                         ftxui::center);
+                     ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center);
 }
 
 }  // namespace interface

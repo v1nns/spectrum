@@ -10,6 +10,7 @@
 #include <variant>
 #include <vector>
 
+#include "model/audio_filter.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -44,6 +45,7 @@ struct CustomEvent {
     ResizeAnalysis = 60005,
     SeekForwardPosition = 60006,
     SeekBackwardPosition = 60007,
+    ApplyAudioFilters = 60008,
     // Events from interface to interface
     Refresh = 70000,
     ChangeBarAnimation = 70001,
@@ -75,6 +77,7 @@ struct CustomEvent {
   static CustomEvent ResizeAnalysis(int bars);
   static CustomEvent SeekForwardPosition(int offset);
   static CustomEvent SeekBackwardPosition(int offset);
+  static CustomEvent ApplyAudioFilters(const std::vector<model::AudioFilter> filters);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
@@ -83,9 +86,9 @@ struct CustomEvent {
   static CustomEvent Exit();
 
   //! Possible types for content
-  using Content =
-      std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
-                   std::filesystem::path, std::vector<double>, int>;
+  using Content = std::variant<std::monostate, model::Song, model::Volume,
+                               model::Song::CurrentInformation, std::filesystem::path,
+                               std::vector<double>, int, std::vector<model::AudioFilter>>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

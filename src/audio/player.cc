@@ -289,7 +289,6 @@ void Player::SetAudioVolume(const model::Volume& value) {
 
 model::Volume Player::GetAudioVolume() const {
   LOG("Get audio volume");
-  //   return playback_->GetVolume();
   return decoder_->GetVolume();
 }
 
@@ -305,6 +304,25 @@ void Player::SeekForwardPosition(int value) {
 void Player::SeekBackwardPosition(int value) {
   LOG("Add command to queue: SeekBackward (with value=", value, ")");
   media_control_.Push(Command::SeekBackward(value));
+}
+
+/* ********************************************************************************************** */
+
+void Player::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
+  LOG("Apply updated audio filters");
+  if (media_control_.state == State::Idle) {
+    error::Code result = decoder_->UpdateFilters(filters);
+
+    // And in case of error, notify about it
+    if (result != error::kSuccess) {
+      auto media_notifier = notifier_.lock();
+      if (media_notifier) media_notifier->NotifyError(result);
+    }
+  } else
+    LOG("TODO: WIP");
+
+  // TODO: Otherwise, add command to queue
+  //   media_control_.Push(Command::SetVolume(value));
 }
 
 /* ********************************************************************************************** */

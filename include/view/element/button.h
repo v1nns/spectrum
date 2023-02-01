@@ -22,10 +22,12 @@ class Button {
   using Callback = std::function<void()>;
 
   //! Style for each part of the button
-  struct ButtonStyles {
+  struct ButtonStyle {
     ftxui::Color content;
     ftxui::Color border_normal;
     ftxui::Color border_focused;
+
+    int height, width;
   };
 
  protected:
@@ -36,13 +38,16 @@ class Button {
    * @param styles Color style for button
    * @param on_click Callback function for click event
    */
-  explicit Button(const ButtonStyles& style, Callback on_click);
+  explicit Button(const ButtonStyle& style, Callback on_click);
 
  public:
   /**
    * @brief Destroy Button object
    */
   virtual ~Button() = default;
+
+  /* ******************************************************************************************** */
+  //! Button creation based on factory pattern
 
   /**
    * @brief Create a Play button
@@ -62,9 +67,21 @@ class Button {
    * @brief Create button for the border of the block window
    * @param content Text content to show
    * @param on_click Callback function for click event
-   * @return std::shared_ptr<Button> New instance to Stop button
+   * @return std::shared_ptr<Button> New instance to Window button
    */
-  static std::shared_ptr<Button> make_button_for_window(const std::string& content, Callback on_click);
+  static std::shared_ptr<Button> make_button_for_window(const std::string& content,
+                                                        Callback on_click);
+
+  /**
+   * @brief Create generic button
+   * @param content Text content to show
+   * @param on_click Callback function for click event
+   * @return std::shared_ptr<Button> New instance to button
+   */
+  static std::shared_ptr<Button> make_button(const std::string& content, Callback on_click);
+
+  /* ******************************************************************************************** */
+  //! Public API for Button
 
   /**
    * @brief Renders the component
@@ -100,11 +117,17 @@ class Button {
   ftxui::Box box_;  //!< Box to control if mouse cursor is over the button
   bool focused_;    //!< Flag to indicate if button is focused
   bool clicked_;    //!< Flag to indicate if button was clicked
+  bool pressed_;    //!< Flag to indicate if button is pressed
 
-  ButtonStyles style_;  //!< Color style for each part of the button
+  ButtonStyle style_;  //!< Color style for each part of the button
 
   Callback on_click_;  //!< Callback function to trigger when button is clicked
 };
+
+//! For readability
+using MediaButton = std::shared_ptr<Button>;
+using WindowButton = std::shared_ptr<Button>;
+using GenericButton = std::shared_ptr<Button>;
 
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_BUTTON_H_

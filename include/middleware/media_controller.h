@@ -141,6 +141,12 @@ class MediaController : public interface::Listener, public interface::Notifier {
    */
   void SeekBackwardPosition(int value) override;
 
+  /**
+   * @brief Notify Audio Player to apply audio filters in the audio chain
+   * @param frequencies Vector of audio filters
+   */
+  void ApplyAudioFilters(const std::vector<model::AudioFilter>& frequencies) override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

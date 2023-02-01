@@ -8,6 +8,8 @@
 
 #include <gmock/gmock-function-mocker.h>
 
+#include <vector>
+
 #include "audio/base/decoder.h"
 #include "model/song.h"
 #include "model/volume.h"
@@ -21,7 +23,8 @@ class DecoderMock final : public driver::Decoder {
   MOCK_METHOD(void, ClearCache, (), (override));
   MOCK_METHOD(error::Code, SetVolume, (model::Volume value), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (const, override));
-  MOCK_METHOD(error::Code, InsertFilter, (model::AudioFilter filter), (override));
+  MOCK_METHOD(error::Code, UpdateFilters, (const std::vector<model::AudioFilter>& filters),
+              (override));
 };
 
 }  // namespace

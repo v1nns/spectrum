@@ -21,6 +21,8 @@ class AudioControlMock final : public audio::AudioControl {
   MOCK_METHOD(model::Volume, GetAudioVolume, (), (const, override));
   MOCK_METHOD(void, SeekForwardPosition, (int value), (override));
   MOCK_METHOD(void, SeekBackwardPosition, (int value), (override));
+  MOCK_METHOD(void, ApplyAudioFilters, (const std::vector<model::AudioFilter>& filters),
+              (override));
   MOCK_METHOD(void, Exit, (), (override));
 };
 

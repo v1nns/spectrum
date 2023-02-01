@@ -18,6 +18,10 @@ struct ContentVisitor {
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
   void operator()(const std::filesystem::path& p) const { out << p.c_str(); }
   void operator()(const std::vector<double>& v) const { out << "{vector data...}"; }
+  void operator()(const std::vector<model::AudioFilter>& f) const {
+    // TODO: maybe implement detailed info here
+    out << "{audio filter data...}";
+  }
 
   std::ostream& out;
 };
@@ -93,6 +97,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::SeekBackwardPosition:
       out << "SeekBackwardPosition";
+      break;
+
+    case CustomEvent::Identifier::ApplyAudioFilters:
+      out << "ApplyAudioFilters";
       break;
 
     case CustomEvent::Identifier::Refresh:
@@ -263,6 +271,17 @@ CustomEvent CustomEvent::SeekBackwardPosition(int offset) {
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::SeekBackwardPosition,
       .content = offset,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::ApplyAudioFilters(const std::vector<model::AudioFilter> filters) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::ApplyAudioFilters,
+      .content = filters,
   };
 }
 

@@ -13,6 +13,7 @@
 #include <queue>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "audio/base/decoder.h"
 #include "audio/base/playback.h"
@@ -20,7 +21,9 @@
 #include "driver/alsa.h"
 #include "driver/ffmpeg.h"
 #include "model/application_error.h"
+#include "model/audio_filter.h"
 #include "model/song.h"
+#include "model/volume.h"
 #include "util/logger.h"
 
 //! Forward declaration
@@ -46,6 +49,7 @@ class AudioControl {
   virtual model::Volume GetAudioVolume() const = 0;
   virtual void SeekForwardPosition(int value) = 0;
   virtual void SeekBackwardPosition(int value) = 0;
+  virtual void ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) = 0;
   virtual void Exit() = 0;
 };
 
@@ -167,6 +171,12 @@ class Player : public AudioControl {
    * @param value Offset position
    */
   void SeekBackwardPosition(int value) override;
+
+  /**
+   * @brief Inform audio loop to update audio filters in the filter chain
+   * @param frequencies Vector of audio filters
+   */
+  void ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) override;
 
   /**
    * @brief Exit from Audio loop

@@ -2,8 +2,13 @@
 
 namespace interface {
 
-Button::Button(const ButtonStyles& style, Callback on_click)
-    : box_{}, focused_{false}, clicked_{false}, style_{style}, on_click_{on_click} {}
+Button::Button(const ButtonStyle& style, Callback on_click)
+    : box_{},
+      focused_{false},
+      clicked_{false},
+      pressed_{false},
+      style_{style},
+      on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 
@@ -13,27 +18,33 @@ bool Button::OnEvent(ftxui::Event event) {
     return false;
   }
 
-  if (event.mouse().button != ftxui::Mouse::None && event.mouse().button != ftxui::Mouse::Left) {
-    return false;
-  }
+  //   if (event.mouse().button != ftxui::Mouse::None && event.mouse().button != ftxui::Mouse::Left)
+  //   {
+  //     return false;
+  //   }
 
   //   if (!CaptureMouse(event)) return false;
 
   if (box_.Contain(event.mouse().x, event.mouse().y)) {
     focused_ = true;
+    if (event.mouse().button == ftxui::Mouse::Left) {
+      if (event.mouse().motion == ftxui::Mouse::Pressed) {
+        pressed_ = true;
+      }
 
-    if (event.mouse().button == ftxui::Mouse::Left &&
-        event.mouse().motion == ftxui::Mouse::Released) {
-      ToggleState();
+      if (event.mouse().motion == ftxui::Mouse::Released) {
+        pressed_ = false;
+        ToggleState();
 
-      // Mouse click on menu entry
-      if (on_click_ != nullptr) on_click_();
+        // Mouse click on menu entry
+        if (on_click_ != nullptr) on_click_();
 
-      return true;
+        return true;
+      }
     }
-
   } else {
     focused_ = false;
+    pressed_ = false;
   }
 
   return false;
@@ -56,7 +67,7 @@ void Button::ResetState() { clicked_ = false; }
 std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
   class Play : public Button {
    public:
-    explicit Play(const ButtonStyles& style, Callback on_click) : Button(style, on_click) {}
+    explicit Play(const ButtonStyle& style, Callback on_click) : Button(style, on_click) {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
@@ -112,7 +123,7 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
     }
   };
 
-  auto style = ButtonStyles{
+  auto style = ButtonStyle{
       .content = ftxui::Color::SpringGreen2,
       .border_normal = ftxui::Color::GrayDark,
       .border_focused = ftxui::Color::SteelBlue3,
@@ -126,7 +137,7 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
 std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
   class Stop : public Button {
    public:
-    explicit Stop(const ButtonStyles& style, Callback on_click) : Button(style, on_click) {}
+    explicit Stop(const ButtonStyle& style, Callback on_click) : Button(style, on_click) {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
@@ -148,7 +159,7 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
     }
   };
 
-  auto style = ButtonStyles{
+  auto style = ButtonStyle{
       .content = ftxui::Color::Red,
       .border_normal = ftxui::Color::GrayDark,
       .border_focused = ftxui::Color::SteelBlue3,
@@ -163,7 +174,7 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
                                                        Callback on_click) {
   class WindowButton : public Button {
    public:
-    explicit WindowButton(const ButtonStyles& style, const std::string& content, Callback on_click)
+    explicit WindowButton(const ButtonStyle& style, const std::string& content, Callback on_click)
         : Button(style, on_click), content_{content} {}
 
     //! Override base class method to implement custom rendering
@@ -181,12 +192,52 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
     std::string content_;
   };
 
-  auto style = ButtonStyles{
+  auto style = ButtonStyle{
       .content = ftxui::Color::White,
       // not using the rest...
   };
 
   return std::make_shared<WindowButton>(style, content, on_click);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button(const std::string& content, Callback on_click) {
+  class GenericButton : public Button {
+   public:
+    explicit GenericButton(const ButtonStyle& style, const std::string& content, Callback on_click)
+        : Button(style, on_click), content_{content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      using ftxui::HEIGHT, ftxui::WIDTH, ftxui::EQUAL;
+
+      auto content = ftxui::text(content_);
+
+      // default decorator
+      ftxui::Decorator decorator = ftxui::center;
+
+      decorator = decorator | ftxui::borderLight;
+      if (style_.height) decorator = decorator | ftxui::size(HEIGHT, EQUAL, style_.height);
+      if (style_.width) decorator = decorator | ftxui::size(WIDTH, EQUAL, style_.width);
+      if (focused_) decorator = decorator | ftxui::color(style_.content) | ftxui::inverted;
+      // TODO: think about this
+      //   if (pressed_) decorator = decorator | ftxui::bgcolor(ftxui::Color::Aquamarine1);
+
+      return ftxui::hbox(std::move(content)) | decorator | ftxui::reflect(box_);
+    }
+
+    std::string content_;
+  };
+
+  auto style = ButtonStyle{
+      .content = ftxui::Color::White,
+      .border_normal = ftxui::Color::GrayDark,
+      .border_focused = ftxui::Color::SteelBlue3,
+      .width = 15,
+  };
+
+  return std::make_shared<GenericButton>(style, content, on_click);
 }
 
 }  // namespace interface

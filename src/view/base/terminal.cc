@@ -268,6 +268,11 @@ void Terminal::OnCustomEvent() {
           media_ctl->SeekBackwardPosition(content);
         } break;
 
+        case CustomEvent::Identifier::ApplyAudioFilters: {
+          auto content = event.GetContent<std::vector<model::AudioFilter>>();
+          media_ctl->ApplyAudioFilters(content);
+        } break;
+
         default:
           break;
       }

@@ -260,6 +260,15 @@ void MediaController::SeekBackwardPosition(int value) {
 
 /* ********************************************************************************************** */
 
+void MediaController::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->ApplyAudioFilters(filters);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimationWithoutRegain);
 

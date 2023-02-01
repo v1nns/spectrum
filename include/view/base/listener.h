@@ -7,7 +7,9 @@
 #define INCLUDE_VIEW_BASE_LISTENER_H_
 
 #include <filesystem>
+#include <vector>
 
+#include "model/audio_filter.h"
 #include "model/volume.h"
 
 namespace interface {
@@ -74,6 +76,12 @@ class Listener {
    * @param value Offset value
    */
   virtual void SeekBackwardPosition(int value) = 0;
+
+  /**
+   * @brief Notify Audio Player to apply audio filters in the audio chain
+   * @param frequencies Vector of audio filters
+   */
+  virtual void ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) = 0;
 };
 
 }  // namespace interface

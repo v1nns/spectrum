@@ -546,18 +546,18 @@ model::Volume FFmpeg::GetVolume() const { return volume_; }
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::InsertFilter(model::AudioFilter filter) {
-  LOG("Add new audio filter to internal structure");
+error::Code FFmpeg::UpdateFilters(const std::vector<model::AudioFilter> &filters) {
+  LOG("Update audio filters in the internal structure");
 
-  if (filter.frequency == 0 || filter.Q == 0 || filter.gain) {
-    ERROR("Zeroed filter is not permitted");
-    return error::kUnknownError;
+  for (const auto &filter : filters) {
+    if (filter.frequency == 0 || filter.Q == 0) {
+      ERROR("Zeroed filter is not permitted");
+      return error::kUnknownError;
+    }
+
+    std::string name{filter.GetName()};
+    audio_filters_[name] = filter;
   }
-
-  // TODO: check if another filter with same frequency already exists
-
-  std::string name{filter.GetName()};
-  audio_filters_[name] = filter;
 
   return error::kSuccess;
 }

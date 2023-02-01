@@ -7,6 +7,7 @@
 #define INCLUDE_AUDIO_BASE_DECODER_H_
 
 #include <functional>
+#include <vector>
 
 #include "model/application_error.h"
 #include "model/audio_filter.h"
@@ -78,12 +79,12 @@ class Decoder {
   virtual model::Volume GetVolume() const = 0;
 
   /**
-   * @brief Add new audio filter to filterchain (used for equalization)
+   * @brief Update audio filters in the filter chain (used for equalization)
    *
-   * @param filter Audio filter
+   * @param filters Audio filters
    * @return error::Code Decoder error converted to application error code
    */
-  virtual error::Code InsertFilter(model::AudioFilter filter) = 0;
+  virtual error::Code UpdateFilters(const std::vector<model::AudioFilter>& filters) = 0;
 };
 
 }  // namespace driver

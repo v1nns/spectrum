@@ -99,4 +99,8 @@ bool FrequencyBar::OnEvent(ftxui::Event event) {
 
 model::AudioFilter FrequencyBar::GetAudioFilter() const { return filter_bar_; }
 
+/* ********************************************************************************************** */
+
+void FrequencyBar::ResetGain() { filter_bar_.gain = 0; }
+
 }  // namespace interface

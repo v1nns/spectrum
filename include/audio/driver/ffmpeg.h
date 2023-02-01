@@ -101,21 +101,21 @@ class FFmpeg : public Decoder {
    * @param value Desired volume (in a range between 0.f and 1.f)
    * @return error::Code Decoder error converted to application error code
    */
-  virtual error::Code SetVolume(model::Volume value) override;
+  error::Code SetVolume(model::Volume value) override;
 
   /**
    * @brief Get volume from playback stream
    * @return model::Volume Volume percentage (in a range between 0.f and 1.f)
    */
-  virtual model::Volume GetVolume() const override;
+  model::Volume GetVolume() const override;
 
   /**
-   * @brief Add new audio filter to filterchain (used for equalization)
+   * @brief Update audio filters in the filter chain (used for equalization)
    *
-   * @param filter Audio filter
+   * @param filters Audio filters
    * @return error::Code Decoder error converted to application error code
    */
-  virtual error::Code InsertFilter(model::AudioFilter filter) override;
+  error::Code UpdateFilters(const std::vector<model::AudioFilter>& filters) override;
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters

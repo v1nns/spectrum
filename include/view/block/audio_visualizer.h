@@ -15,8 +15,6 @@
 
 namespace interface {
 
-using WindowButton = std::shared_ptr<Button>;
-
 /**
  * @brief Component with audio spectrum in realtime from current music playing
  */
@@ -106,6 +104,7 @@ class AudioVisualizer : public Block {
 
   //! Equalizer-related
   std::vector<std::unique_ptr<FrequencyBar>> bars_;  //!< Audio frequency bars for equalization
+  GenericButton btn_apply_, btn_reset_;              //!< Buttons for applying equalization
 };
 
 }  // namespace interface

@@ -17,8 +17,6 @@
 
 namespace interface {
 
-using MediaButton = std::shared_ptr<Button>;
-
 /**
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
