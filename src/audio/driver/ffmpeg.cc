@@ -160,7 +160,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
   LOG("Create abuffer filter");
 
   // Find abuffer filter
-  const AVFilter *abuffersrc = avfilter_get_by_name("abuffer");
+  const AVFilter *abuffersrc = avfilter_get_by_name(kFilterAbufferSrc);
 
   if (!abuffersrc) {
     ERROR("Cannot find the abuffer filter");
@@ -276,7 +276,7 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
   LOG("Create abuffersink filter");
 
   // Find abuffersink filter
-  const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+  const AVFilter *abuffersink = avfilter_get_by_name(kFilterAbufferSink);
 
   if (!abuffersink) {
     ERROR("Cannot find the abuffersink filter");
@@ -307,7 +307,7 @@ error::Code FFmpeg::CreateFilterEqualizer(const std::string &name,
   LOG("Create new equalizer filter");
 
   // Find equalizer filter
-  const AVFilter *equalizer = avfilter_get_by_name("equalizer");
+  const AVFilter *equalizer = avfilter_get_by_name(kFilterEqualizer);
 
   if (!equalizer) {
     ERROR("Cannot find the equalizer filter");
@@ -347,36 +347,42 @@ error::Code FFmpeg::ConnectFilters() {
   AVFilterContext *volume_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterVolume);
   AVFilterContext *aformat_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterAformat);
 
-  // Connect the filters, in this case the filters just form a linear chain
-  int err = avfilter_link(buffersrc_ctx_.get(), 0, volume_ctx, 0);
+  // Filters will be linked considering the ordination in this vector
+  std::vector<AVFilterContext *> filters_to_link;
+  filters_to_link.reserve(kDefaultFilterCount + audio_filters_.size());
 
-  if (audio_filters_.size() > 0) {
-    AVFilterContext *previous_ctx = volume_ctx;
+  // Add both abuffer and volume filters
+  filters_to_link.insert(filters_to_link.end(), {buffersrc_ctx_.get(), volume_ctx});
 
-    for (const auto &entry : audio_filters_) {
-      AVFilterContext *filter_ctx =
-          avfilter_graph_get_filter(filter_graph_.get(), entry.first.c_str());
-
-      if (err >= 0) err = avfilter_link(previous_ctx, 0, filter_ctx, 0);
-      previous_ctx = filter_ctx;
-    }
-
-    if (err >= 0) err = avfilter_link(previous_ctx, 0, aformat_ctx, 0);
-
-  } else {
-    if (err >= 0) err = avfilter_link(volume_ctx, 0, aformat_ctx, 0);
+  // Add equalizer filters
+  for (const auto &entry : audio_filters_) {
+    filters_to_link.push_back(avfilter_graph_get_filter(filter_graph_.get(), entry.first.c_str()));
   }
 
-  if (err >= 0) err = avfilter_link(aformat_ctx, 0, buffersink_ctx_.get(), 0);
-  if (err < 0) {
-    ERROR("Error connecting filters");
+  // Add aformat and abuffersink filters
+  filters_to_link.insert(filters_to_link.end(), {aformat_ctx, buffersink_ctx_.get()});
+
+  // Link all the filters, it will form a linear chain
+  int error;
+  for (auto it = filters_to_link.begin(); it != filters_to_link.end() && error >= 0;) {
+    auto next = it + 1;
+
+    if (next != filters_to_link.end()) {
+      error = avfilter_link(*it, 0, *next, 0);
+    }
+
+    ++it;
+  }
+
+  if (error < 0) {
+    ERROR("Error connecting filters, error=", error);
     return error::kUnknownError;
   }
 
   // Configure the graph
-  err = avfilter_graph_config(filter_graph_.get(), nullptr);
-  if (err < 0) {
-    ERROR("Error configuring the filter graph");
+  error = avfilter_graph_config(filter_graph_.get(), nullptr);
+  if (error < 0) {
+    ERROR("Error configuring the filter graph, error=", error);
     return error::kUnknownError;
   }
 
@@ -549,6 +555,9 @@ model::Volume FFmpeg::GetVolume() const { return volume_; }
 error::Code FFmpeg::UpdateFilters(const std::vector<model::AudioFilter> &filters) {
   LOG("Update audio filters in the internal structure");
 
+  // Clear internal structure
+  audio_filters_.clear();
+
   for (const auto &filter : filters) {
     if (filter.frequency == 0 || filter.Q == 0) {
       ERROR("Zeroed filter is not permitted");
@@ -558,6 +567,9 @@ error::Code FFmpeg::UpdateFilters(const std::vector<model::AudioFilter> &filters
     std::string name{filter.GetName()};
     audio_filters_[name] = filter;
   }
+
+  // TODO: implement this when music is playing
+  //   if (filter_graph_) return ConfigureFilters();
 
   return error::kSuccess;
 }

@@ -167,9 +167,14 @@ class FFmpeg : public Decoder {
   static constexpr int kSampleRate = 44100;
   static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;
 
+  //! All filters used from AVFilter library
+  static constexpr char kFilterAbufferSrc[] = "abuffer";
   static constexpr char kFilterVolume[] = "volume";
   static constexpr char kFilterAformat[] = "aformat";
+  static constexpr char kFilterEqualizer[] = "equalizer";
+  static constexpr char kFilterAbufferSink[] = "abuffersink";
 
+  static constexpr int kDefaultFilterCount = 4;
   static constexpr int kResponseSize = 64;
 
   /* ******************************************************************************************** */
