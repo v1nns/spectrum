@@ -509,7 +509,7 @@ void ListDirectory::UpdateActiveEntry() {
   if (Size() > 0) {
     // Check text length of active entry
     int* selected = GetSelected();
-    std::string text = GetEntry(*selected).filename().string();
+    std::string text{GetEntry(*selected).filename().string().append(" ")};
     int max_chars = text.length() + kMaxIconColumns;
 
     // Start animation thread
