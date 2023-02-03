@@ -8,8 +8,10 @@
 
 #include <iostream>
 #include <variant>
+#include <vector>
 
 #include "model/volume.h"
+#include "model/audio_filter.h"
 
 namespace audio {
 
@@ -26,7 +28,8 @@ struct Command {
     SeekForward = 8004,
     SeekBackward = 8005,
     SetVolume = 8006,
-    Exit = 8007,
+    UpdateAudioFilters = 8007,
+    Exit = 8008,
   };
 
   //! Overloaded operators
@@ -48,10 +51,11 @@ struct Command {
   static Command SeekForward(int offset);
   static Command SeekBackward(int offset);
   static Command SetVolume(const model::Volume& value);
+  static Command UpdateAudioFilters(const std::vector<model::AudioFilter>& filters);
   static Command Exit();
 
   //! Possible types for content
-  using Content = std::variant<int, model::Volume>;
+  using Content = std::variant<int, model::Volume, std::vector<model::AudioFilter>>;
 
   //! Getter for command identifier
   Identifier GetId() const { return id; }

@@ -26,6 +26,9 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
     case Command::Identifier::SetVolume:
       out << " SetVolume ";
       break;
+    case Command::Identifier::UpdateAudioFilters:
+      out << " UpdateAudioFilter ";
+      break;
     case Command::Identifier::Exit:
       out << " Exit ";
       break;
@@ -103,6 +106,16 @@ Command Command::SetVolume(const model::Volume& value) {
   return Command{
       .id = Identifier::SetVolume,
       .content = value,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+Command Command::UpdateAudioFilters(const std::vector<model::AudioFilter>& filters) {
+  return Command{
+      .id = Identifier::UpdateAudioFilters,
+      .content = filters,
   };
 }
 

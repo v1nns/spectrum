@@ -173,6 +173,13 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
       decoder_->SetVolume(value);
     } break;
 
+    case Command::Identifier::UpdateAudioFilters: {
+      std::vector<model::AudioFilter> value = command.GetContent<std::vector<model::AudioFilter>>();
+      LOG("Audio handler received command to update audio filters");
+      // TODO: handle error...
+      decoder_->UpdateFilters(value);
+    } break;
+
     default:
       break;
   }
@@ -276,13 +283,30 @@ void Player::Stop() {
 
 void Player::SetAudioVolume(const model::Volume& value) {
   LOG("Set audio volume with value=", value);
-  // If state is idle, there is no music playing
-  if (media_control_.state == State::Idle) {
-    decoder_->SetVolume(value);
-  }
 
-  // Otherwise, add command to queue
-  media_control_.Push(Command::SetVolume(value));
+  switch (media_control_.state) {
+    // If state is idle, there is no music playing
+    case State::Idle: {
+      error::Code result = decoder_->SetVolume(value);
+
+      // Notify error
+      if (result != error::kSuccess) {
+        auto media_notifier = notifier_.lock();
+        if (media_notifier) media_notifier->NotifyError(result);
+      }
+    } break;
+
+    // Otherwise, add command to queue
+    case State::Play:
+    case State::Pause:
+    case State::Stop:
+      media_control_.Push(Command::SetVolume(value));
+      break;
+
+    case State::Exit:
+    default:
+      break;
+  }
 }
 
 /* ********************************************************************************************** */
@@ -310,19 +334,31 @@ void Player::SeekBackwardPosition(int value) {
 
 void Player::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
   LOG("Apply updated audio filters");
-  if (media_control_.state == State::Idle) {
-    error::Code result = decoder_->UpdateFilters(filters);
+  // // And in case of error, notify about it
 
-    // And in case of error, notify about it
-    if (result != error::kSuccess) {
-      auto media_notifier = notifier_.lock();
-      if (media_notifier) media_notifier->NotifyError(result);
-    }
-  } else
-    LOG("TODO: WIP");
+  switch (media_control_.state) {
+    // If state is idle, there is no music playing
+    case State::Idle: {
+      error::Code result = decoder_->UpdateFilters(filters);
 
-  // TODO: Otherwise, add command to queue
-  //   media_control_.Push(Command::SetVolume(value));
+      // Notify error
+      if (result != error::kSuccess) {
+        auto media_notifier = notifier_.lock();
+        if (media_notifier) media_notifier->NotifyError(result);
+      }
+    } break;
+
+    // Otherwise, add command to queue
+    case State::Play:
+    case State::Pause:
+    case State::Stop:
+      media_control_.Push(Command::UpdateAudioFilters(filters));
+      break;
+
+    case State::Exit:
+    default:
+      break;
+  }
 }
 
 /* ********************************************************************************************** */

@@ -214,8 +214,9 @@ class FFmpeg : public Decoder {
     Frame frame_decoded;   //!< Frame received from decoder
     Frame frame_filtered;  //!< Frame received from filtergraph
 
-    error::Code result;  //!< Error code for decoding audio operation
-    bool keep_playing;   //!< Control flag for playing audio
+    error::Code err_code;  //!< Error code for decoding and equalizing audio
+    bool keep_playing;     //!< Control flag for playing audio
+    bool reset_filters;    //!< Control flag for resetting filter graph
 
     /**
      * @brief Clear packet content
@@ -232,8 +233,15 @@ class FFmpeg : public Decoder {
 
     /**
      * @brief Check condition to keep executing audio decoding operation
+     * @return true for all conditions are fine to keep decoding, false otherwise
      */
-    bool KeepDecoding() { return result == error::kSuccess && keep_playing; }
+    bool KeepDecoding() { return err_code == error::kSuccess && keep_playing; }
+
+    /**
+     * @brief Check if internal structures are allocated correctly
+     * @return true for correct allocation, false otherwise
+     */
+    bool CheckAllocations() { return packet && frame_decoded && frame_filtered; }
   };
 
   /**
@@ -242,9 +250,8 @@ class FFmpeg : public Decoder {
    *
    * @param samples Maximum number of samples to send to Audio Player API callback
    * @param callback Audio Player API callback
-   * @param data Shared structure to hold internal decoding structures
    */
-  void ProcessFrame(int samples, AudioCallback callback, DecodingData& data);
+  void ProcessFrame(int samples, AudioCallback callback);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -273,6 +280,8 @@ class FFmpeg : public Decoder {
 
   using FilterName = std::string;
   std::map<FilterName, model::AudioFilter> audio_filters_;  //!< Equalization filters
+
+  DecodingData shared_context_;  //!< Shared context for decoding and equalizing audio data
 };
 
 }  // namespace driver
