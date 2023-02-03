@@ -17,7 +17,7 @@
 #include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/event_dispatcher.h"
-#include "view/base/listener.h"
+#include "audio/base/notifier.h"
 #include "view/base/notifier.h"
 
 //! Forward declaration
@@ -40,10 +40,10 @@ namespace middleware {
  * example, ask for player to play/pause the highlighted song.
  *
  * It is important to highlight that this class is like a middleware to send/receive stuff between
- * UI and Player. And for that, it was decided to split these functionalities into
- * Listener (UI->Player) and Notifier (Player->UI).
+ * UI and Player. And for that, it was designed to split these functionalities into
+ * Audio Notifier (UI->Player) and Interface Notifier (Player->UI).
  */
-class MediaController : public interface::Listener, public interface::Notifier {
+class MediaController : public audio::Notifier, public interface::Notifier {
   /**
    * @brief Construct a new MediaController object
    * @param dispatcher Event dispatcher for Interface

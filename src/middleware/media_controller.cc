@@ -45,7 +45,7 @@ std::shared_ptr<MediaController> MediaController::Create(
 MediaController::MediaController(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
                                  const std::shared_ptr<audio::AudioControl>& player_ctl,
                                  std::unique_ptr<driver::Analyzer>&& analyzer)
-    : interface::Listener(),
+    : audio::Notifier(),
       interface::Notifier(),
       dispatcher_{dispatcher},
       player_ctl_{player_ctl},

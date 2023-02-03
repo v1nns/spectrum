@@ -14,7 +14,6 @@
 #include "ftxui/component/component_base.hpp"  // for ComponentBase
 #include "ftxui/dom/elements.hpp"              // for Element
 #include "view/base/custom_event.h"
-#include "view/base/listener.h"
 
 namespace interface {
 

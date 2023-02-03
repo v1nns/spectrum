@@ -76,10 +76,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Binds and registrations
  public:
   /**
-   * @brief Register listener to receive events from interface
-   * @param listener Interface listener
+   * @brief Register notifier to send events from interface to player
+   * @param notifier Player notifier
    */
-  void RegisterInterfaceListener(const std::shared_ptr<Listener>& listener);
+  void RegisterPlayerNotifier(const std::shared_ptr<audio::Notifier>& notifier);
 
   /**
    * @brief Bind an external send event function to an internal function
@@ -142,8 +142,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::weak_ptr<Listener> listener_;  //!< Outside listener for events from UI
-  error::Code last_error_;            //!< Last application error
+  std::weak_ptr<audio::Notifier> notifier_;  //!< Audio notifier for events from UI
+  error::Code last_error_;                   //!< Last application error
 
   std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show custom messages
   std::unique_ptr<Help> helper_;               //!< Dialog box to show help menu

@@ -48,7 +48,7 @@ std::shared_ptr<Terminal> Terminal::Create() {
 Terminal::Terminal()
     : EventDispatcher{},
       ftxui::ComponentBase{},
-      listener_{},
+      notifier_{},
       last_error_{error::kSuccess},
       error_dialog_{std::make_unique<ErrorDialog>()},
       helper_{std::make_unique<Help>()},
@@ -102,8 +102,8 @@ void Terminal::Exit() {
 
 /* ********************************************************************************************** */
 
-void Terminal::RegisterInterfaceListener(const std::shared_ptr<Listener>& listener) {
-  listener_ = listener;
+void Terminal::RegisterPlayerNotifier(const std::shared_ptr<audio::Notifier>& notifier) {
+  notifier_ = notifier;
 }
 
 /* ********************************************************************************************** */
@@ -221,10 +221,10 @@ void Terminal::OnCustomEvent() {
     // If it is not an ignored event, log it
     if (ignored.find(event.GetId()) == ignored.end()) LOG("Received a new custom event=", event);
 
-    // As this class centralizes any event sending (to an external listener or some child block),
-    // first gotta check if this event is specifically for the outside listener
+    // As this class centralizes any event sending (to an external notifier or some child block),
+    // first gotta check if this event is specifically for the player
     if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
-      auto media_ctl = listener_.lock();
+      auto media_ctl = notifier_.lock();
       if (!media_ctl) {
         // TODO: improve handling here and also for each method call
         continue;  // skip to next while-loop
@@ -283,7 +283,7 @@ void Terminal::OnCustomEvent() {
     // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
     // size and calculate maximum number of bars
     if (event == CustomEvent::Identifier::ChangeBarAnimation) {
-      auto media_ctl = listener_.lock();
+      auto media_ctl = notifier_.lock();
       if (!media_ctl) {
         // TODO: improve handling here and also for each method call
         continue;  // skip to next while-loop

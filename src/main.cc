@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
   auto middleware = middleware::MediaController::Create(terminal, player);
 
   // Register callbacks to Terminal and Player
-  terminal->RegisterInterfaceListener(middleware);
+  terminal->RegisterPlayerNotifier(middleware);
   player->RegisterInterfaceNotifier(middleware);
 
   // Create a full-size screen and register callbacks

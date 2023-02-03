@@ -15,7 +15,7 @@
 #include "mock/event_dispatcher_mock.h"
 #include "model/application_error.h"
 #include "util/logger.h"
-#include "view/base/listener.h"
+#include "audio/base/notifier.h"
 #include "view/base/notifier.h"
 
 namespace {
@@ -70,14 +70,14 @@ class MediaControllerTest : public ::testing::Test {
     controller = middleware::MediaController::Create(dispatcher, audio_ctl, an_mock, asynchronous);
   }
 
-  //! Getter for Interface Listener
-  // P.S.: As controller derives from both Listener and Notifier, must use static_cast for upcasting
-  auto GetListener() -> interface::Listener* {
-    return static_cast<interface::Listener*>(controller.get());
+  //! Getter for Player Notifier
+  // P.S.: As controller derives from both Notifiers, must use static_cast for upcasting
+  auto GetPlayerNotifier() -> audio::Notifier* {
+    return static_cast<audio::Notifier*>(controller.get());
   }
 
   //! Getter for Interface Notifier
-  auto GetNotifier() -> interface::Notifier* {
+  auto GetInterfaceNotifier() -> interface::Notifier* {
     return static_cast<interface::Notifier*>(controller.get());
   }
 
@@ -123,8 +123,8 @@ TEST_F(MediaControllerTestThread, CreateDummyController) {
 
 /* ********************************************************************************************** */
 
-TEST_F(MediaControllerTest, ExecuteAllMethodsFromListener) {
-  auto listener = GetListener();
+TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
+  auto notifier = GetPlayerNotifier();
   auto audio_ctl = GetAudioControl();
   auto analyzer = GetAnalyzer();
 
@@ -132,37 +132,37 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromListener) {
 
   std::filesystem::path music{"/stairway/to/heaven.flac"};
   EXPECT_CALL(*audio_ctl, Play(Eq(music)));
-  listener->NotifyFileSelection(music);
+  notifier->NotifyFileSelection(music);
 
   EXPECT_CALL(*audio_ctl, PauseOrResume());
-  listener->PauseOrResume();
+  notifier->PauseOrResume();
 
   EXPECT_CALL(*audio_ctl, Stop());
-  listener->Stop();
+  notifier->Stop();
 
   EXPECT_CALL(*audio_ctl, Stop());
-  listener->ClearCurrentSong();
+  notifier->ClearCurrentSong();
 
   model::Volume volume{0.7};
   EXPECT_CALL(*audio_ctl, SetAudioVolume(Eq(volume)));
-  listener->SetVolume(volume);
+  notifier->SetVolume(volume);
 
   int number_bars = 16;
   EXPECT_CALL(*analyzer, Init(Eq(number_bars)));
-  listener->ResizeAnalysisOutput(number_bars);
+  notifier->ResizeAnalysisOutput(number_bars);
 
   int skip_seconds = 25;
   EXPECT_CALL(*audio_ctl, SeekForwardPosition(Eq(skip_seconds)));
-  listener->SeekForwardPosition(skip_seconds);
+  notifier->SeekForwardPosition(skip_seconds);
 
   EXPECT_CALL(*audio_ctl, SeekBackwardPosition(Eq(skip_seconds)));
-  listener->SeekBackwardPosition(skip_seconds);
+  notifier->SeekBackwardPosition(skip_seconds);
 }
 
 /* ********************************************************************************************** */
 
-TEST_F(MediaControllerTest, ExecuteAllMethodsFromNotifier) {
-  auto notifier = GetNotifier();
+TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
+  auto notifier = GetInterfaceNotifier();
   auto dispatcher = GetEventDispatcher();
 
   InSequence seq;
@@ -239,7 +239,7 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
   };
 
   auto client = [&](TestSyncer& syncer) {
-    auto notifier = GetNotifier();
+    auto notifier = GetInterfaceNotifier();
 
     // Send random data to the thread to analyze it
     syncer.WaitForStep(1);
@@ -336,7 +336,7 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
   };
 
   auto client = [&](TestSyncer& syncer) {
-    auto notifier = GetNotifier();
+    auto notifier = GetInterfaceNotifier();
 
     // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
     syncer.WaitForStep(1);

@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief  Interface class to listen for actions from blocks
+ * \brief  Interface class for sending actions from GUI to Audio Player
  */
 
-#ifndef INCLUDE_VIEW_BASE_LISTENER_H_
-#define INCLUDE_VIEW_BASE_LISTENER_H_
+#ifndef INCLUDE_AUDIO_BASE_NOTIFIER_H_
+#define INCLUDE_AUDIO_BASE_NOTIFIER_H_
 
 #include <filesystem>
 #include <vector>
@@ -12,44 +12,44 @@
 #include "model/audio_filter.h"
 #include "model/volume.h"
 
-namespace interface {
+namespace audio {
 
 /**
- * @brief Interface class to receive an interface action
+ * @brief Interface class to notify an action to Audio Player
  */
-class Listener {
+class Notifier {
  public:
   /**
-   * @brief Construct a new Action Listener object
+   * @brief Construct a new Notifier object
    */
-  Listener() = default;
+  Notifier() = default;
 
   /**
-   * @brief Destroy the Action Listener object
+   * @brief Destroy the Notifier object
    */
-  virtual ~Listener() = default;
+  virtual ~Notifier() = default;
 
   /* ******************************************************************************************** */
   //! Public API
 
   /**
-   * @brief Notify Audio thread about file selected by user on Terminal User Interface (TUI)
+   * @brief Notify Audio Player about file selected by user on Terminal User Interface (TUI)
    * @param file Full path to file (may be a song or not)
    */
   virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
 
   /**
-   * @brief Notify Audio thread to stop playing the current song
+   * @brief Notify Audio Player to stop playing the current song
    */
   virtual void ClearCurrentSong() = 0;
 
   /**
-   * @brief Notify Audio thread to pause/resume the current song
+   * @brief Notify Audio Player to pause/resume the current song
    */
   virtual void PauseOrResume() = 0;
 
   /**
-   * @brief Notify Audio thread to stop the current song
+   * @brief Notify Audio Player to stop the current song
    */
   virtual void Stop() = 0;
 
@@ -85,4 +85,4 @@ class Listener {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BASE_LISTENER_H_
+#endif  // INCLUDE_AUDIO_BASE_NOTIFIER_H_

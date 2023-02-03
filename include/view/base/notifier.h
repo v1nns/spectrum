@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief  Interface class for notify interface with information
+ * \brief  Interface class to notify GUI with information
  */
 
 #ifndef INCLUDE_VIEW_BASE_NOTIFIER_H_
