@@ -37,8 +37,9 @@ class Button {
    *
    * @param styles Color style for button
    * @param on_click Callback function for click event
+   * @param active Button state (if it is clickable or not)
    */
-  explicit Button(const ButtonStyle& style, Callback on_click);
+  explicit Button(const ButtonStyle& style, Callback on_click, bool active);
 
  public:
   /**
@@ -76,9 +77,11 @@ class Button {
    * @brief Create generic button
    * @param content Text content to show
    * @param on_click Callback function for click event
+   * @param active Button state (if it is clickable or not)
    * @return std::shared_ptr<Button> New instance to button
    */
-  static std::shared_ptr<Button> make_button(const std::string& content, Callback on_click);
+  static std::shared_ptr<Button> make_button(const std::string& content, Callback on_click,
+                                             bool active = true);
 
   /* ******************************************************************************************** */
   //! Public API for Button
@@ -112,12 +115,23 @@ class Button {
    */
   void ResetState();
 
+  /**
+   * @brief Set button state to active
+   */
+  void SetActive();
+
+  /**
+   * @brief Set button state to inactive
+   */
+  void SetInactive();
+
   /* ******************************************************************************************** */
  protected:
   ftxui::Box box_;  //!< Box to control if mouse cursor is over the button
-  bool focused_;    //!< Flag to indicate if button is focused
-  bool clicked_;    //!< Flag to indicate if button was clicked
-  bool pressed_;    //!< Flag to indicate if button is pressed
+  bool active_;     //!< Flag to indicate if button is activated (can be clicked)
+  bool focused_;    //!< Flag to indicate if button is focused (mouse on hover)
+  bool clicked_;    //!< Flag to indicate if button was clicked (mouse click)
+  bool pressed_;    //!< Flag to indicate if button is pressed (mouse hold click)
 
   ButtonStyle style_;  //!< Color style for each part of the button
 

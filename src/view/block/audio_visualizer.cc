@@ -50,41 +50,50 @@ AudioVisualizer::AudioVisualizer(const std::shared_ptr<EventDispatcher>& dispatc
     bars_.push_back(std::make_unique<FrequencyBar>(filter));
   }
 
-  btn_apply_ = Button::make_button(std::string("Apply"), [&]() {
-    LOG("Handle left click mouse event on Equalizer apply button");
-    auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      // Fill vector of frequency bars and send to player
-      std::vector<model::AudioFilter> frequencies;
-      frequencies.reserve(bars_.size());
+  btn_apply_ = Button::make_button(
+      std::string("Apply"),
+      [&]() {
+        LOG("Handle left click mouse event on Equalizer apply button");
+        auto dispatcher = dispatcher_.lock();
+        if (dispatcher) {
+          // Fill vector of frequency bars and send to player
+          std::vector<model::AudioFilter> frequencies;
+          frequencies.reserve(bars_.size());
 
-      for (const auto& bar : bars_) {
-        frequencies.push_back(bar->GetAudioFilter());
-      }
+          for (const auto& bar : bars_) {
+            frequencies.push_back(bar->GetAudioFilter());
+          }
 
-      auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
-      dispatcher->SendEvent(event);
-    }
-  });
+          auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
+          dispatcher->SendEvent(event);
+          btn_apply_->SetInactive();
+        }
+      },
+      false);
 
-  btn_reset_ = Button::make_button(std::string("Reset"), [&]() {
-    LOG("Handle left click mouse event on Equalizer reset button");
-    // Fill vector of frequency bars and send to player
-    std::vector<model::AudioFilter> frequencies;
-    frequencies.reserve(bars_.size());
+  btn_reset_ = Button::make_button(
+      std::string("Reset"),
+      [&]() {
+        LOG("Handle left click mouse event on Equalizer reset button");
+        // Fill vector of frequency bars and send to player
+        std::vector<model::AudioFilter> frequencies;
+        frequencies.reserve(bars_.size());
 
-    // Reset gain in all frequency bars
-    for (auto& bar : bars_) {
-      bar->ResetGain();
-      frequencies.push_back(bar->GetAudioFilter());
-    }
+        // Reset gain in all frequency bars
+        for (auto& bar : bars_) {
+          bar->ResetGain();
+          frequencies.push_back(bar->GetAudioFilter());
+        }
 
-    auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
-      dispatcher->SendEvent(event);
-    }
-  });
+        auto dispatcher = dispatcher_.lock();
+        if (dispatcher) {
+          auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
+          dispatcher->SendEvent(event);
+          btn_apply_->SetInactive();
+          btn_reset_->SetInactive();
+        }
+      },
+      false);
 }
 
 /* ********************************************************************************************** */
@@ -184,7 +193,11 @@ bool AudioVisualizer::OnMouseEvent(ftxui::Event event) {
     if (btn_reset_->OnEvent(event)) return true;
 
     for (auto& bar : bars_) {
-      if (bar->OnEvent(event)) return true;
+      if (bar->OnEvent(event)) {
+        btn_apply_->SetActive();
+        btn_reset_->SetActive();
+        return true;
+      }
     }
   }
 
