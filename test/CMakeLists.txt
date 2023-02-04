@@ -24,10 +24,10 @@ add_executable(test)
 target_sources(
     test
     PRIVATE audio_player.cc
-            block_audio_visualizer.cc
             block_file_info.cc
             block_list_directory.cc
             block_media_player.cc
+            block_tab_viewer.cc
             driver_fftw.cc
             middleware_media_controller.cc)
 

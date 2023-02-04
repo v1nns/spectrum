@@ -37,10 +37,10 @@ add_library(spectrum-lib OBJECT)
 target_sources(
     spectrum-lib
     PRIVATE # audio
+            audio/command.cc
             audio/driver/alsa.cc
             audio/driver/ffmpeg.cc
             audio/driver/fftw.cc
-            audio/command.cc
             audio/player.cc
             # middleware
             middleware/media_controller.cc
@@ -51,14 +51,17 @@ target_sources(
             view/base/block.cc
             view/base/custom_event.cc
             view/base/terminal.cc
-            view/block/list_directory.cc
             view/block/file_info.cc
+            view/block/list_directory.cc
             view/block/media_player.cc
-            view/block/audio_visualizer.cc
+            view/block/tab_item/audio_equalizer.cc
+            view/block/tab_item/spectrum_visualizer.cc
+            view/block/tab_viewer.cc
             view/element/button.cc
             view/element/error_dialog.cc
-            view/element/help.cc
             view/element/frequency_bar.cc
+            view/element/help.cc
+            view/element/tab_item.cc
             # logger
             util/logger.cc
             util/sink.cc)

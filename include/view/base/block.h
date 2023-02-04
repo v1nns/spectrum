@@ -10,9 +10,9 @@
 #include <string>   // for string, operator==
 #include <utility>  // for move
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/component/component_base.hpp"  // for ComponentBase
-#include "ftxui/dom/elements.hpp"              // for Element
+#include "ftxui/component/component_base.hpp"
+#include "ftxui/component/event.hpp"
+#include "ftxui/dom/elements.hpp"
 #include "view/base/custom_event.h"
 
 namespace interface {
@@ -34,9 +34,8 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   enum class Identifier {
     ListDirectory = 201,
     FileInfo = 202,
-    AudioVisualizer = 203,
+    TabViewer = 203,
     MediaPlayer = 204,
-    ErrorDialog = 205,
   };
 
   /**

@@ -37,7 +37,7 @@ ftxui::Element Help::Render() {
 
   auto decorator = ftxui::size(HEIGHT, EQUAL, kMaxLines) | ftxui::size(WIDTH, EQUAL, kMaxColumns) |
                    ftxui::borderDouble | ftxui::bgcolor(style_.background) |
-                   ftxui::color(style_.foreground) | ftxui::center;
+                   ftxui::color(style_.foreground) | ftxui::clear_under | ftxui::center;
 
   return ftxui::gridbox({
              // Column 1

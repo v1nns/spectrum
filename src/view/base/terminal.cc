@@ -14,11 +14,12 @@
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "ftxui/screen/terminal.hpp"
 #include "util/logger.h"
-#include "view/base/block.h"  // for Block, BlockEvent
-#include "view/block/audio_visualizer.h"
-#include "view/block/file_info.h"       // for FileInfo
-#include "view/block/list_directory.h"  // for ListDirectory
+#include "view/base/block.h"
+#include "view/block/file_info.h"
+#include "view/block/list_directory.h"
 #include "view/block/media_player.h"
+#include "view/block/tab_item/spectrum_visualizer.h"  // TODO: remove it
+#include "view/block/tab_viewer.h"
 
 namespace interface {
 
@@ -79,13 +80,13 @@ void Terminal::Init() {
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
-  auto audio_visualizer = std::make_shared<AudioVisualizer>(dispatcher);
+  auto tab_viewer = std::make_shared<TabViewer>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
 
   // Make every block as a child of this terminal
   Add(list_dir);
   Add(file_info);
-  Add(audio_visualizer);
+  Add(tab_viewer);
   Add(media_player);
 }
 
@@ -143,13 +144,13 @@ ftxui::Element Terminal::Render() {
   // Render each block
   ftxui::Element list_dir = children_.at(0)->Render();
   ftxui::Element file_info = children_.at(1)->Render();
-  ftxui::Element audio_visualizer = children_.at(2)->Render();
+  ftxui::Element tab_viewer = children_.at(2)->Render();
   ftxui::Element audio_player = children_.at(3)->Render();
 
   // Glue everything together
   ftxui::Element terminal = ftxui::hbox({
       ftxui::vbox({std::move(list_dir), std::move(file_info)}),
-      ftxui::vbox({std::move(audio_visualizer), std::move(audio_player)}) | ftxui::xflex_grow,
+      ftxui::vbox({std::move(tab_viewer), std::move(audio_player)}) | ftxui::xflex_grow,
   });
 
   // Render dialog box as overlay
@@ -293,7 +294,7 @@ void Terminal::OnCustomEvent() {
       int number_bars = CalculateNumberBars();
 
       int animation = event.GetContent<int>();
-      if (animation == AudioVisualizer::Animation::VerticalMirror) {
+      if (animation == SpectrumVisualizer::Animation::VerticalMirror) {
         number_bars *= 2;
       }
 
