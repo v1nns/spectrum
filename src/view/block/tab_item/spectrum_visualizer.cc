@@ -5,7 +5,7 @@
 namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(dispatcher, "1:visualizer"), curr_anim_{HorizontalMirror}, spectrum_data_{} {}
+    : TabItem(dispatcher), curr_anim_{HorizontalMirror}, spectrum_data_{} {}
 
 /* ********************************************************************************************** */
 
@@ -33,8 +33,7 @@ ftxui::Element SpectrumVisualizer::Render() {
 /* ********************************************************************************************** */
 
 bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
-  // Notify terminal to recalculate new size for spectrum data, for later receive data based
-  // on animation
+  // Notify terminal to recalculate new size for spectrum data
   if (event == ftxui::Event::Character('a')) {
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
@@ -50,10 +49,6 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
 
   return false;
 }
-
-/* ********************************************************************************************** */
-
-bool SpectrumVisualizer::OnMouseEvent(ftxui::Event event) { return false; }
 
 /* ********************************************************************************************** */
 

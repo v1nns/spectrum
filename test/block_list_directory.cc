@@ -60,10 +60,10 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -93,10 +93,10 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
-│  block_audio_visualizer.cc   │
-│> block_file_info.cc          │
-│  block_list_directory.cc     │
+│  block_file_info.cc          │
+│> block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -152,10 +152,10 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -181,10 +181,10 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 ╭ files ───────────────────────╮
 │test                          │
 │> audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -274,10 +274,10 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │test                          │
 │> ..                          │
 │  audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -313,10 +313,10 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │test                          │
 │  ..                          │
 │> audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -353,10 +353,10 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -382,10 +382,10 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │test                          │
 │  ..                          │
 │  audio_player.cc             │
-│  block_audio_visualizer.cc   │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -490,8 +490,8 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  block_list_directory.cc     │
 │  block_media_player.cc       │
+│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │

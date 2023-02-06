@@ -14,6 +14,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
       btn_exit_{nullptr},
       active_{View::Visualizer},
       views_{} {
+  // Initialize window buttons
   btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
     LOG("Handle left click mouse event on Help button");
     auto dispatcher = dispatcher_.lock();
@@ -33,8 +34,29 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
   });
 
   // Add tab views
-  views_[View::Visualizer] = std::make_unique<SpectrumVisualizer>(dispatcher);
-  views_[View::Equalizer] = std::make_unique<AudioEqualizer>(dispatcher);
+  views_[View::Visualizer] = Tab{
+      .key = std::string{"1"},
+      .button = Button::make_button_for_window(
+          std::string{"1:visualizer"},
+          [&]() {
+            LOG("Handle left click mouse event on Tab button for visualizer");
+            active_ = View::Visualizer;
+          },
+          Button::Delimiters{"", ""}),
+      .item = std::make_unique<SpectrumVisualizer>(dispatcher),
+  };
+
+  views_[View::Equalizer] = Tab{
+      .key = std::string{"2"},
+      .button = Button::make_button_for_window(
+          std::string{"2:equalizer"},
+          [&]() {
+            LOG("Handle left click mouse event on Tab button for equalizer");
+            active_ = View::Equalizer;
+          },
+          Button::Delimiters{"", ""}),
+      .item = std::make_unique<AudioEqualizer>(dispatcher),
+  };
 }
 
 /* ********************************************************************************************** */
@@ -44,14 +66,14 @@ ftxui::Element TabViewer::Render() {
     return (active_ == v) ? ftxui::nothing : ftxui::color(ftxui::Color::GrayDark);
   };
 
-  auto visualizer = views_[View::Visualizer]->GetTitle();
-  auto equalizer = views_[View::Equalizer]->GetTitle();
+  auto btn_visualizer = views_[View::Visualizer].button->Render();
+  auto btn_equalizer = views_[View::Equalizer].button->Render();
 
   ftxui::Element title_border = ftxui::hbox({
       ftxui::text(" "),
-      ftxui::text(visualizer) | get_decorator_for(View::Visualizer),
+      btn_visualizer | get_decorator_for(View::Visualizer),
       ftxui::text(" "),
-      ftxui::text(equalizer) | get_decorator_for(View::Equalizer),
+      btn_equalizer | get_decorator_for(View::Equalizer),
       ftxui::text(" "),
       ftxui::filler(),
       btn_help_->Render(),
@@ -59,7 +81,7 @@ ftxui::Element TabViewer::Render() {
       btn_exit_->Render(),
   });
 
-  ftxui::Element view = views_[active_]->Render();
+  ftxui::Element view = views_[active_].item->Render();
 
   return ftxui::window(title_border, view | ftxui::yflex);
 }
@@ -69,25 +91,24 @@ ftxui::Element TabViewer::Render() {
 bool TabViewer::OnEvent(ftxui::Event event) {
   if (event.is_mouse()) return OnMouseEvent(event);
 
-  // Change active view to visualizer
-  if (event == ftxui::Event::Character('1') && active_ != View::Visualizer) {
-    active_ = View::Visualizer;
+  // Check if event is equal to a registered keybinding for any of the tab items
+  auto found = std::find_if(views_.begin(), views_.end(),
+                            [event](auto&& t) { return t.second.key == event.character(); });
+
+  // Found some mapped keybinding, now check if this is already the active view
+  if (found != views_.end() && active_ != found->first) {
+    active_ = found->first;
     return true;
   }
 
-  // Change active view to equalizer
-  if (event == ftxui::Event::Character('2') && active_ != View::Equalizer) {
-    active_ = View::Equalizer;
-    return true;
-  }
-
-  return views_[active_]->OnEvent(event);
+  // Otherwise, let item handle it
+  return views_[active_].item->OnEvent(event);
 }
 
 /* ********************************************************************************************** */
 
 bool TabViewer::OnCustomEvent(const CustomEvent& event) {
-  return views_[active_]->OnCustomEvent(event);
+  return views_[active_].item->OnCustomEvent(event);
 }
 
 /* ********************************************************************************************** */
@@ -97,7 +118,11 @@ bool TabViewer::OnMouseEvent(ftxui::Event event) {
 
   if (btn_exit_->OnEvent(event)) return true;
 
-  return views_[active_]->OnMouseEvent(event);
+  for (auto& view : views_) {
+    if (view.second.button->OnEvent(event)) return true;
+  }
+
+  return views_[active_].item->OnMouseEvent(event);
 }
 
 }  // namespace interface

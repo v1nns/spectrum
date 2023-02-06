@@ -73,9 +73,17 @@ class TabViewer : public Block {
 
   //! For readability
   using Item = std::unique_ptr<TabItem>;
+  using Keybinding = std::string;
 
-  View active_;                           //!< Current view displayed on block
-  std::unordered_map<View, Item> views_;  //!< All possible views to render in this component
+  //! Represent a single tab item entry
+  struct Tab {
+    Keybinding key;       //!< Keybinding to set item as active
+    WindowButton button;  //!< Button to render in the tab border
+    Item item;            //!< View to render in the tab content
+  };
+
+  View active_;                          //!< Current view displayed on block
+  std::unordered_map<View, Tab> views_;  //!< All possible views to render in this component
 };
 
 }  // namespace interface

@@ -40,13 +40,6 @@ class SpectrumVisualizer : public TabItem {
   bool OnEvent(ftxui::Event event) override;
 
   /**
-   * @brief Handles an event (from mouse)
-   * @param event Received event from screen
-   * @return true if event was handled, otherwise false
-   */
-  bool OnMouseEvent(ftxui::Event event) override;
-
-  /**
    * @brief Handles a custom event
    * @param event Received event (probably sent by Audio thread)
    * @return true if event was handled, otherwise false

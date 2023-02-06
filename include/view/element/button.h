@@ -7,6 +7,8 @@
 #define INCLUDE_VIEW_ELEMENT_BUTTON_H_
 
 #include <memory>
+#include <string>
+#include <tuple>
 #include <utility>
 
 #include "ftxui/component/event.hpp"  // for Event
@@ -18,9 +20,13 @@ namespace interface {
  * @brief Interface for customized button using Canvas internally to draw content
  */
 class Button {
+ public:
   //! Just to make life easier
   using Callback = std::function<void()>;
+  using Delimiter = std::string;
+  using Delimiters = std::tuple<Delimiter, Delimiter>;  //! Left and right
 
+ private:
   //! Style for each part of the button
   struct ButtonStyle {
     ftxui::Color content;
@@ -28,6 +34,7 @@ class Button {
     ftxui::Color border_focused;
 
     int height, width;
+    Delimiters delimiters;
   };
 
  protected:
@@ -68,10 +75,12 @@ class Button {
    * @brief Create button for the border of the block window
    * @param content Text content to show
    * @param on_click Callback function for click event
+   * @param delimiter Character delimiter to use as border
    * @return std::shared_ptr<Button> New instance to Window button
    */
-  static std::shared_ptr<Button> make_button_for_window(const std::string& content,
-                                                        Callback on_click);
+  static std::shared_ptr<Button> make_button_for_window(
+      const std::string& content, Callback on_click,
+      const Delimiters& delimiters = std::make_tuple("[", "]"));
 
   /**
    * @brief Create generic button

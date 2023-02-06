@@ -189,7 +189,8 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_for_window(const std::string& content,
-                                                       Callback on_click) {
+                                                       Callback on_click,
+                                                       const Delimiters& delimiters) {
   class WindowButton : public Button {
    public:
     explicit WindowButton(const ButtonStyle& style, const std::string& content, Callback on_click)
@@ -197,8 +198,8 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
-      auto left = ftxui::text("[") | ftxui::bold;
-      auto right = ftxui::text("]") | ftxui::bold;
+      auto left = ftxui::text(std::get<0>(style_.delimiters)) | ftxui::bold;
+      auto right = ftxui::text(std::get<1>(style_.delimiters)) | ftxui::bold;
       auto content = ftxui::text(content_);
 
       ftxui::Decorator decorator = ftxui::nothing;
@@ -211,7 +212,7 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
   };
 
   auto style = ButtonStyle{
-      .content = ftxui::Color::White,
+      .content = ftxui::Color::White, .delimiters = delimiters,
       // not using the rest...
   };
 

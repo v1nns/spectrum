@@ -24,9 +24,8 @@ class TabItem {
   /**
    * @brief Construct a new TabItem object (only called by derived classes)
    * @param dispatcher Event dispatcher
-   * @param title Title for tab item
    */
-  explicit TabItem(const std::shared_ptr<EventDispatcher>& dispatcher, const std::string& title);
+  explicit TabItem(const std::shared_ptr<EventDispatcher>& dispatcher);
 
  public:
   /**
@@ -41,22 +40,22 @@ class TabItem {
   TabItem& operator=(const TabItem& other) = delete;  // copy assignment
   TabItem& operator=(TabItem&& other) = delete;       // move assignment
 
-  //! Get title
-  std::string GetTitle() const { return title_; }
-
   /* ******************************************************************************************** */
-  //! These must be implemented by derived class
+  //! Must be implemented by derived class
 
   virtual ftxui::Element Render() = 0;
-  virtual bool OnEvent(ftxui::Event) = 0;
-  virtual bool OnMouseEvent(ftxui::Event event) = 0;
-  virtual bool OnCustomEvent(const CustomEvent&) = 0;
+
+  /* ******************************************************************************************** */
+  //! Implementation by derived is optional
+
+  virtual bool OnEvent(ftxui::Event);
+  virtual bool OnMouseEvent(ftxui::Event event);
+  virtual bool OnCustomEvent(const CustomEvent&);
 
   /* ******************************************************************************************** */
   //! Variables
  protected:
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-  std::string title_;                          //!< Tab item title
 };
 
 }  // namespace interface

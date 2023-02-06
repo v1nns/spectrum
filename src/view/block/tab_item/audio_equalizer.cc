@@ -5,7 +5,7 @@
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(dispatcher, "2:equalizer"), bars_{}, btn_apply_{nullptr}, btn_reset_{nullptr} {
+    : TabItem(dispatcher), bars_{}, btn_apply_{nullptr}, btn_reset_{nullptr} {
   // Fill vector of frequency bars for equalizer
   std::vector<model::AudioFilter> filters{model::AudioFilter::Create()};
   bars_.reserve(filters.size());
@@ -90,8 +90,13 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event event) {
 
   for (auto& bar : bars_) {
     if (bar->OnEvent(event)) {
-      btn_apply_->SetActive();
-      btn_reset_->SetActive();
+      // TODO: set inactive when all gains are zero
+      model::AudioFilter filter = bar->GetAudioFilter();
+      if (filter.gain != 0) {
+        btn_apply_->SetActive();
+        btn_reset_->SetActive();
+      }
+
       return true;
     }
   }
