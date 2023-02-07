@@ -46,7 +46,7 @@ class Decoder {
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  virtual error::Code OpenFile(model::Song* audio_info) = 0;
+  virtual error::Code OpenFile(model::Song& audio_info) = 0;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate

@@ -392,7 +392,7 @@ error::Code FFmpeg::ConnectFilters() {
 
 /* ********************************************************************************************** */
 
-void FFmpeg::FillAudioInformation(model::Song *audio_info) {
+void FFmpeg::FillAudioInformation(model::Song &audio_info) {
   LOG("Fill song structure with audio information");
 
   // use this to get all metadata associated to this audio file
@@ -403,35 +403,35 @@ void FFmpeg::FillAudioInformation(model::Song *audio_info) {
 
   // Get track name
   tag = av_dict_get(input_stream_->metadata, "title", tag, AV_DICT_IGNORE_SUFFIX);
-  if (tag) audio_info->title = std::string{tag->value};
+  if (tag) audio_info.title = std::string{tag->value};
 
   // Get artist name
   tag = av_dict_get(input_stream_->metadata, "artist", tag, AV_DICT_IGNORE_SUFFIX);
-  if (tag) audio_info->artist = std::string{tag->value};
+  if (tag) audio_info.artist = std::string{tag->value};
 
   const AVCodecParameters *audio_stream = input_stream_->streams[stream_index_]->codecpar;
 
 #if LIBAVUTIL_VERSION_MAJOR > 56
-  audio_info->num_channels = (uint16_t)audio_stream->ch_layout.nb_channels;
+  audio_info.num_channels = (uint16_t)audio_stream->ch_layout.nb_channels;
 #else
-  audio_info->num_channels = (uint16_t)audio_stream->channels;
+  audio_info.num_channels = (uint16_t)audio_stream->channels;
 #endif
-  audio_info->sample_rate = (uint32_t)audio_stream->sample_rate;
-  audio_info->bit_rate = (uint32_t)audio_stream->bit_rate;
-  audio_info->bit_depth = (uint32_t)sample_fmt_info[audio_stream->format].bits;
-  audio_info->duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
+  audio_info.sample_rate = (uint32_t)audio_stream->sample_rate;
+  audio_info.bit_rate = (uint32_t)audio_stream->bit_rate;
+  audio_info.bit_depth = (uint32_t)sample_fmt_info[audio_stream->format].bits;
+  audio_info.duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
 }
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::OpenFile(model::Song *audio_info) {
+error::Code FFmpeg::OpenFile(model::Song &audio_info) {
   LOG("Open file and try to decode as song");
   auto clean_up_and_return = [&](error::Code error_code) {
     ClearCache();
     return error_code;
   };
 
-  error::Code result = OpenInputStream(audio_info->filepath);
+  error::Code result = OpenInputStream(audio_info.filepath);
   if (result != error::kSuccess) return clean_up_and_return(result);
 
   result = ConfigureDecoder();

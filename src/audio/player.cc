@@ -217,7 +217,7 @@ void Player::AudioHandler() {
     LOG("Audio handler received new song to play");
 
     // First, try to parse file (it may be or not a support file extension to decode)
-    error::Code result = decoder_->OpenFile(curr_song_.get());
+    error::Code result = decoder_->OpenFile(*curr_song_);
 
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {

@@ -71,7 +71,7 @@ class FFmpeg : public Decoder {
    * @brief Extract all metadata from current song and fill the structure with it
    * @param audio_info Audio information structure
    */
-  void FillAudioInformation(model::Song* audio_info);
+  void FillAudioInformation(model::Song& audio_info);
 
   /* ******************************************************************************************** */
  public:
@@ -80,7 +80,7 @@ class FFmpeg : public Decoder {
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  error::Code OpenFile(model::Song* audio_info) override;
+  error::Code OpenFile(model::Song& audio_info) override;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
