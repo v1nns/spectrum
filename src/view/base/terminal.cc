@@ -301,6 +301,11 @@ void Terminal::OnCustomEvent() {
       // Send content directly to audio analysis thread
       media_ctl->ResizeAnalysisOutput(number_bars);
 
+      // Update UI with new size
+      auto event_bars =
+          interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(number_bars, 0.001));
+      ProcessEvent(event_bars);
+
       continue;  // skip to next while-loop
     }
 
