@@ -243,7 +243,14 @@ class Player : public AudioControl {
      */
     void Reset() {
       if (state != State::Exit) state = State::Idle;
-      std::queue<Command>().swap(queue);
+
+      // Check if there is a new song request
+      // TODO: improve this condition
+      bool new_song_request =
+          queue.size() == 1 && queue.front().GetId() == Command::Identifier::Play;
+
+      // Only clear queue if it doesn't exist a new song request to play
+      if (!new_song_request) std::queue<Command>().swap(queue);
     }
 
     /**
@@ -300,19 +307,20 @@ class Player : public AudioControl {
         std::vector<Command> expected = {Command::Exit(), cmds...};
         while (!queue.empty()) {
           Command current = queue.front();
-          queue.pop();
-
           LOG("Received command:", current);
 
           // Check if it matches with some command from list
           for (auto cmd : expected) {
             if (current == cmd) {
-              // In case of match, update state and clear queue
+              // In case of match, update state and unblock thread
               state = TranslateCommand(current);
-              std::queue<Command>().swap(queue);
+
+              // Only clear queue if this command is not a request to play song
+              if (current != Command::Identifier::Play) std::queue<Command>().swap(queue);
               return true;
             }
           }
+          queue.pop();
         }
 
         // No command in queue or didn't match expect command in list

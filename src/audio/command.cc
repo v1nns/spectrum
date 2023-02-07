@@ -55,9 +55,10 @@ Command Command::None() {
 /* ********************************************************************************************** */
 
 // Static
-Command Command::Play() {
+Command Command::Play(const std::string& filepath) {
   return Command{
       .id = Identifier::Play,
+      .content = filepath,
   };
 }
 

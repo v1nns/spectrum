@@ -7,11 +7,12 @@
 #define INCLUDE_AUDIO_COMMAND_H_
 
 #include <iostream>
+#include <string>
 #include <variant>
 #include <vector>
 
-#include "model/volume.h"
 #include "model/audio_filter.h"
+#include "model/volume.h"
 
 namespace audio {
 
@@ -45,7 +46,7 @@ struct Command {
  public:
   //! Possible commands to be handled by audio player
   static Command None();
-  static Command Play();
+  static Command Play(const std::string& filepath = "");
   static Command PauseOrResume();
   static Command Stop();
   static Command SeekForward(int offset);
@@ -55,7 +56,8 @@ struct Command {
   static Command Exit();
 
   //! Possible types for content
-  using Content = std::variant<int, model::Volume, std::vector<model::AudioFilter>>;
+  using Content = std::variant<std::monostate, std::string, int, model::Volume,
+                               std::vector<model::AudioFilter>>;
 
   //! Getter for command identifier
   Identifier GetId() const { return id; }

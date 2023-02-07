@@ -108,6 +108,17 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
   }
 
   switch (command.GetId()) {
+    case Command::Identifier::Play: {
+      LOG("Audio handler received command requesting to play a new song");
+      // Add play request back to queue
+      media_control_.Push(command);
+
+      // Stop current song
+      media_control_.state = State::Stop;
+      playback_->Stop();
+      return false;
+    } break;
+
     case Command::Identifier::PauseOrResume: {
       LOG("Audio handler received command to pause song");
       media_control_.state = TranslateCommand(command);
@@ -216,6 +227,11 @@ void Player::AudioHandler() {
   while (media_control_.WaitFor(Command::Play())) {
     LOG("Audio handler received new song to play");
 
+    // Get filepath from command and initialize current song
+    curr_song_ = std::make_unique<model::Song>(model::Song{
+        .filepath = media_control_.Pop().GetContent<std::string>(),
+    });
+
     // First, try to parse file (it may be or not a support file extension to decode)
     error::Code result = decoder_->OpenFile(*curr_song_);
 
@@ -260,8 +276,7 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 
 void Player::Play(const std::string& filepath) {
   LOG("Add command to queue: Play (with filepath=", std::quoted(filepath), ")");
-  curr_song_ = std::make_unique<model::Song>(model::Song{.filepath = filepath});
-  media_control_.Push(Command::Play());
+  media_control_.Push(Command::Play(filepath));
 }
 
 /* ********************************************************************************************** */
@@ -284,6 +299,7 @@ void Player::Stop() {
 void Player::SetAudioVolume(const model::Volume& value) {
   LOG("Set audio volume with value=", value);
 
+  // Set volume direcly or add new command to audio queue, based on current media state
   switch (media_control_.state) {
     // If state is idle, there is no music playing
     case State::Idle: {
@@ -334,8 +350,8 @@ void Player::SeekBackwardPosition(int value) {
 
 void Player::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
   LOG("Apply updated audio filters");
-  // // And in case of error, notify about it
 
+  // Set audio filters direcly or add new command to audio queue, based on current media state
   switch (media_control_.state) {
     // If state is idle, there is no music playing
     case State::Idle: {
