@@ -11,13 +11,14 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <queue>
 
 #include "audio/base/analyzer.h"
+#include "audio/base/notifier.h"
 #include "audio/player.h"
 #include "model/application_error.h"
 #include "model/song.h"
 #include "view/base/event_dispatcher.h"
-#include "audio/base/notifier.h"
 #include "view/base/notifier.h"
 
 //! Forward declaration

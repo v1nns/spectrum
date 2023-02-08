@@ -803,4 +803,139 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
   testing::RunAsyncTest({player, client});
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Received filepaths to play
+    const std::string expected_filename1{"Ookay - Thief"};
+    const std::string expected_filename2{"Tame Impala - Elephant"};
+
+    /* ****************************************************************************************** */
+    // Setup expectation for first song
+    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename1)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare() should be called only once, because when we receive a new Play command,
+    // it should exit from loop
+    EXPECT_CALL(*playback, Prepare()).Times(1).WillRepeatedly(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          int64_t position = 1;
+          callback(0, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // This next callback call will be blocked until receives some of the expected commands
+          // for Paused state
+          position++;
+          callback(0, 0, position);
+
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*playback, Pause());
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _));
+
+    EXPECT_CALL(*playback, Stop());
+
+    // In this case, decoder will tell us that the current timestamp matches some position other
+    // than zero (this value is represented in seconds). And for this, we should notify Media
+    // Player to update its graphical interface
+    uint32_t expected_position = 1;
+    EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
+                                                 expected_position)));
+
+    EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::state,
+                                                 model::Song::MediaState::Pause)));
+
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      /* ************************************************************************************** */
+      // ATTENTION: this is the workaround found to iterate in a new audio loop to play (using the
+      // invoke function to call it from the previous loop)
+
+      // Setup expectation for second song
+      EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename2)))
+          .WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+      // Prepare is called before start playing
+      EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+      // In this case, this won't even play at all, it will wait for the Exit command from client
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+
+            syncer.NotifyStep(4);
+            syncer.WaitForStep(5);
+
+            callback(0, 0, position);
+            return error::kSuccess;
+          }));
+
+      EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
+      EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
+
+      expected_position = 0;
+      EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
+                                                   expected_position)))
+          .Times(0);
+
+      EXPECT_CALL(*notifier, ClearSongInformation(true));
+    }));
+
+    /* ****************************************************************************************** */
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    const std::string filename1{"Ookay - Thief"};
+    const std::string filename2{"Tame Impala - Elephant"};
+
+    // Ask Audio Player to play file
+    player_ctl->Play(filename1);
+
+    // Wait until Player starts decoding to pause
+    syncer.WaitForStep(2);
+    player_ctl->PauseOrResume();
+    syncer.NotifyStep(3);
+
+    // Wait a bit, just until Player pauses
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Send any command, just to check that it will be ignored by audio thread
+    player_ctl->SeekForwardPosition(1);
+    player_ctl->SeekBackwardPosition(1);
+    player_ctl->SetAudioVolume({0.5f});
+
+    // Now send a new song request
+    player_ctl->Play(filename2);
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+    syncer.NotifyStep(5);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
 }  // namespace

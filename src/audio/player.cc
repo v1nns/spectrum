@@ -134,12 +134,23 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
       }
 
       // Block thread until receives one of the informed commands
-      bool keep_executing = media_control_.WaitFor(Command::PauseOrResume(), Command::Stop());
+      bool keep_executing =
+          media_control_.WaitFor(Command::Play(), Command::PauseOrResume(), Command::Stop());
 
       // TODO: NotifySongState for stop
 
-      if (!keep_executing || media_control_.state == State::Stop) {
-        LOG("Audio handler received command to stop song");
+      auto command_after_wait = media_control_.Pop();
+
+      if (!keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
+        LOG("Audio handler received command to", command_after_wait);
+
+        if (command_after_wait == Command::Identifier::Play) {
+          LOG("Re-adding command to play new song in the queue");
+          media_control_.Push(command_after_wait);
+        }
+
+        // Stop current song
+        media_control_.state = TranslateCommand(command_after_wait);
         playback_->Stop();
         return false;
       }
@@ -151,8 +162,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
     case Command::Identifier::Stop:
     case Command::Identifier::Exit: {
-      LOG("Audio handler received command to ",
-          command == Command::Identifier::Stop ? "stop song" : "exit");
+      LOG("Audio handler received command to", command);
       media_control_.state = TranslateCommand(command);
       playback_->Stop();
       return false;
@@ -227,9 +237,13 @@ void Player::AudioHandler() {
   while (media_control_.WaitFor(Command::Play())) {
     LOG("Audio handler received new song to play");
 
+    // Get command from queue and update internal media state
+    auto command_play = media_control_.Pop();
+    media_control_.state = TranslateCommand(command_play);
+
     // Get filepath from command and initialize current song
     curr_song_ = std::make_unique<model::Song>(model::Song{
-        .filepath = media_control_.Pop().GetContent<std::string>(),
+        .filepath = command_play.GetContent<std::string>(),
     });
 
     // First, try to parse file (it may be or not a support file extension to decode)

@@ -8,9 +8,9 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <deque>
 #include <memory>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <thread>
 #include <vector>
@@ -235,22 +235,25 @@ class Player : public AudioControl {
     std::mutex mutex;                  //!< Control access for internal resources
     std::condition_variable notifier;  //!< Conditional variable to block thread
 
-    std::queue<Command> queue;  //!< Queue with media control commands
+    std::deque<Command> queue;  //!< Queue with media control commands
     std::atomic<State> state;   //!< Current state
 
     /**
      * @brief Reset media controls
      */
     void Reset() {
-      if (state != State::Exit) state = State::Idle;
+      // Copy queue and clear it
+      std::deque<Command> dummy;
+      dummy.swap(queue);
 
-      // Check if there is a new song request
-      // TODO: improve this condition
-      bool new_song_request =
-          queue.size() == 1 && queue.front().GetId() == Command::Identifier::Play;
+      if (state != State::Exit) {
+        // Set state to idle
+        state = State::Idle;
 
-      // Only clear queue if it doesn't exist a new song request to play
-      if (!new_song_request) std::queue<Command>().swap(queue);
+        // Re-add to queue only new requests to play song
+        std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue),
+                     [](Command c) { return c == Command::Identifier::Play; });
+      }
     }
 
     /**
@@ -263,11 +266,11 @@ class Player : public AudioControl {
 
         // Clear queue in case of exit request
         if (cmd == Command::Identifier::Exit) {
-          std::queue<Command>().swap(queue);
+          std::deque<Command>().swap(queue);
           state = State::Exit;
         }
 
-        queue.push(std::move(cmd));
+        queue.push_back(std::move(cmd));
       }
       notifier.notify_one();
     }
@@ -281,7 +284,7 @@ class Player : public AudioControl {
       if (queue.empty()) return Command::None();
 
       auto cmd = queue.front();
-      queue.pop();
+      queue.pop_front();
 
       return cmd;
     }
@@ -304,23 +307,25 @@ class Player : public AudioControl {
         if (state == State::Exit) return true;
 
         // Pop commands from queue
-        std::vector<Command> expected = {Command::Exit(), cmds...};
+        std::vector<Command> expected = {cmds...};
         while (!queue.empty()) {
           Command current = queue.front();
           LOG("Received command:", current);
 
-          // Check if it matches with some command from list
-          for (auto cmd : expected) {
-            if (current == cmd) {
-              // In case of match, update state and unblock thread
-              state = TranslateCommand(current);
-
-              // Only clear queue if this command is not a request to play song
-              if (current != Command::Identifier::Play) std::queue<Command>().swap(queue);
-              return true;
-            }
+          if (current == Command::Exit()) {
+            // In case of exit, update state
+            state = TranslateCommand(current);
+            return true;
           }
-          queue.pop();
+
+          // Check if it matches with some command from list
+          if (std::find(expected.begin(), expected.end(), current) != expected.end()) {
+            // Found expected command, now unblock thread
+            return true;
+          }
+
+          // Pop command from queue
+          queue.pop_front();
         }
 
         // No command in queue or didn't match expect command in list
