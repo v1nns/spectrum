@@ -148,6 +148,61 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
 
 /* ********************************************************************************************** */
 
+TEST_F(TabViewerTest, AnimationMono) {
+  std::vector<double> values{
+      0.1, 0.2, 0.3, 0.4, 0.5, 0.4, 0.3, 0.2, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95,
+      0.1, 0.2, 0.3, 0.4, 0.5, 0.4, 0.3, 0.2, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95,
+  };
+
+  // Expect block to send an event to terminal for each time that 'a' is pressed
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id,
+                interface::CustomEvent::Identifier::ChangeBarAnimation),
+          Field(&interface::CustomEvent::content,
+                VariantWith<int>(interface::SpectrumVisualizer::Animation::VerticalMirror)))));
+
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                            interface::CustomEvent::Identifier::ChangeBarAnimation),
+                      Field(&interface::CustomEvent::content,
+                            VariantWith<int>(interface::SpectrumVisualizer::Animation::Mono)))));
+
+  block->OnEvent(ftxui::Event::Character('a'));
+  block->OnEvent(ftxui::Event::Character('a'));
+
+  // Send event to fill internal data to use it later for rendering animation
+  auto event_bars = interface::CustomEvent::DrawAudioSpectrum(values);
+  Process(event_bars);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer 2:equalizer ─────────────────────────────────────────[F1:help]───[X]╮
+│                                                                         ▃▃▃      │
+│                                                                     ▆▆▆ ███      │
+│                                                                 ▄▄▄ ███ ███      │
+│                                                             ▁▁▁ ███ ███ ███      │
+│                                                             ███ ███ ███ ███      │
+│                                                         ▇▇▇ ███ ███ ███ ███      │
+│                     ▄▄▄                             ▄▄▄ ███ ███ ███ ███ ███      │
+│                 ▂▂▂ ███ ▂▂▂                     ▂▂▂ ███ ███ ███ ███ ███ ███      │
+│                 ███ ███ ███                     ███ ███ ███ ███ ███ ███ ███      │
+│             ███ ███ ███ ███ ███             ███ ███ ███ ███ ███ ███ ███ ███      │
+│         ▅▅▅ ███ ███ ███ ███ ███ ▅▅▅     ▅▅▅ ███ ███ ███ ███ ███ ███ ███ ███      │
+│     ▃▃▃ ███ ███ ███ ███ ███ ███ ███ ▃▃▃ ███ ███ ███ ███ ███ ███ ███ ███ ███      │
+│     ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███      │
+╰──────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(TabViewerTest, RenderEqualizer) {
   auto event_bars =
       interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(kNumberBars, 0.001));

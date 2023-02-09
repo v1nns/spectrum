@@ -290,11 +290,12 @@ void Terminal::OnCustomEvent() {
         continue;  // skip to next while-loop
       }
 
-      // Recalculate maximum number of bars to show in spectrum graphic
+      // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
 
       int animation = event.GetContent<int>();
-      if (animation == SpectrumVisualizer::Animation::VerticalMirror) {
+      if (animation == SpectrumVisualizer::Animation::VerticalMirror ||
+          animation == SpectrumVisualizer::Animation::Mono) {
         number_bars *= 2;
       }
 

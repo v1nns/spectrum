@@ -1,5 +1,7 @@
 #include "view/block/tab_item/spectrum_visualizer.h"
 
+#include <algorithm>
+
 #include "util/logger.h"
 
 namespace interface {
@@ -19,6 +21,10 @@ ftxui::Element SpectrumVisualizer::Render() {
 
     case Animation::VerticalMirror:
       DrawAnimationVerticalMirror(bar_visualizer);
+      break;
+
+    case Animation::Mono:
+      DrawAnimationMono(bar_visualizer);
       break;
 
     case Animation::LAST:
@@ -119,6 +125,45 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
 
   visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
                            ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
+  int size = spectrum_data_.size();
+  if (size == 0) return;
+
+  // As total size is equal to the sum of both channels, this animation is the average of both
+  // channels, so divide size by 2
+  size /= 2;
+
+  // Split data by channel
+  std::vector<double>::const_iterator first = spectrum_data_.begin();
+  std::vector<double>::const_iterator middle = spectrum_data_.begin() + size;
+  std::vector<double>::const_iterator last = spectrum_data_.end();
+
+  std::vector<double> left(first, middle), right(middle, last), average(size, 0);
+
+  // Get average of each frequency from channels
+  std::transform(left.begin(), left.end(),  // Left channel
+                 right.begin(),             // Right channel
+                 average.begin(),           // Average of the sum from both
+                 [](double a, double b) { return (a + b) / 2; });
+
+  ftxui::Elements entries;
+
+  // Preallocate memory
+  int total_size = size * 4;
+  entries.reserve(total_size);
+
+  for (int i = 0; i < size; i++) {
+    entries.push_back(ftxui::gaugeUp(average[i]) | ftxui::color(ftxui::Color::SteelBlue3));
+    entries.push_back(ftxui::gaugeUp(average[i]) | ftxui::color(ftxui::Color::SteelBlue3));
+    entries.push_back(ftxui::gaugeUp(average[i]) | ftxui::color(ftxui::Color::SteelBlue3));
+    entries.push_back(ftxui::text(" "));
+  }
+
+  visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;
 }
 
 }  // namespace interface

@@ -52,6 +52,7 @@ class SpectrumVisualizer : public TabItem {
   enum Animation {
     HorizontalMirror,  //!< Both channels (L/R) are mirrored horizontally (default)
     VerticalMirror,    //!< Both channels (L/R) are mirrored vertically
+    Mono,              //!< Average from the sum of both channels (L/R)
     LAST,
   };
 
@@ -61,6 +62,7 @@ class SpectrumVisualizer : public TabItem {
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
   void DrawAnimationVerticalMirror(ftxui::Element& visualizer);
+  void DrawAnimationMono(ftxui::Element& visualizer);
 
   /* ******************************************************************************************** */
   //! Variables
