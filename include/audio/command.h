@@ -74,7 +74,7 @@ struct Command {
 
   //! Variables
   // P.S. removed private keyword, otherwise wouldn't be possible to use C++ brace initialization
-  Identifier id;    //!< Unique type identifier for Event
+  Identifier id;    //!< Unique type identifier for Command
   Content content;  //!< Wrapper for content
 };
 

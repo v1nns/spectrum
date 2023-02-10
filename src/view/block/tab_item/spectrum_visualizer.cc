@@ -7,7 +7,7 @@
 namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(dispatcher), curr_anim_{HorizontalMirror}, spectrum_data_{} {}
+    : TabItem(dispatcher), curr_anim_{model::BarAnimation::HorizontalMirror}, spectrum_data_{} {}
 
 /* ********************************************************************************************** */
 
@@ -15,21 +15,21 @@ ftxui::Element SpectrumVisualizer::Render() {
   ftxui::Element bar_visualizer = ftxui::text("");
 
   switch (curr_anim_) {
-    case Animation::HorizontalMirror:
+    case model::BarAnimation::HorizontalMirror:
       DrawAnimationHorizontalMirror(bar_visualizer);
       break;
 
-    case Animation::VerticalMirror:
+    case model::BarAnimation::VerticalMirror:
       DrawAnimationVerticalMirror(bar_visualizer);
       break;
 
-    case Animation::Mono:
+    case model::BarAnimation::Mono:
       DrawAnimationMono(bar_visualizer);
       break;
 
-    case Animation::LAST:
+    case model::BarAnimation::LAST:
       ERROR("Audio visualizer current animation contains invalid value");
-      curr_anim_ = HorizontalMirror;
+      curr_anim_ = model::BarAnimation::HorizontalMirror;
       break;
   }
 
@@ -45,7 +45,7 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
     if (!dispatcher) return false;
 
     spectrum_data_.clear();
-    curr_anim_ = static_cast<Animation>((curr_anim_ + 1) % Animation::LAST);
+    curr_anim_ = static_cast<model::BarAnimation>((curr_anim_ + 1) % model::BarAnimation::LAST);
 
     auto event = CustomEvent::ChangeBarAnimation(curr_anim_);
     dispatcher->SendEvent(event);

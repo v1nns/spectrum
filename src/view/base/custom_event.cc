@@ -298,7 +298,7 @@ CustomEvent CustomEvent::Refresh() {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::ChangeBarAnimation(int animation) {
+CustomEvent CustomEvent::ChangeBarAnimation(model::BarAnimation animation) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::ChangeBarAnimation,

@@ -108,13 +108,12 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
   };
 
   // Expect block to send an event to terminal when 'a' is pressed
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(AllOf(
-          Field(&interface::CustomEvent::id,
-                interface::CustomEvent::Identifier::ChangeBarAnimation),
-          Field(&interface::CustomEvent::content,
-                VariantWith<int>(interface::SpectrumVisualizer::Animation::VerticalMirror)))));
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(
+                  Field(&interface::CustomEvent::id,
+                        interface::CustomEvent::Identifier::ChangeBarAnimation),
+                  Field(&interface::CustomEvent::content,
+                        VariantWith<model::BarAnimation>(model::BarAnimation::VerticalMirror)))));
 
   block->OnEvent(ftxui::Event::Character('a'));
 
@@ -155,20 +154,18 @@ TEST_F(TabViewerTest, AnimationMono) {
   };
 
   // Expect block to send an event to terminal for each time that 'a' is pressed
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(AllOf(
-          Field(&interface::CustomEvent::id,
-                interface::CustomEvent::Identifier::ChangeBarAnimation),
-          Field(&interface::CustomEvent::content,
-                VariantWith<int>(interface::SpectrumVisualizer::Animation::VerticalMirror)))));
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(
+                  Field(&interface::CustomEvent::id,
+                        interface::CustomEvent::Identifier::ChangeBarAnimation),
+                  Field(&interface::CustomEvent::content,
+                        VariantWith<model::BarAnimation>(model::BarAnimation::VerticalMirror)))));
 
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                            interface::CustomEvent::Identifier::ChangeBarAnimation),
-                      Field(&interface::CustomEvent::content,
-                            VariantWith<int>(interface::SpectrumVisualizer::Animation::Mono)))));
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ChangeBarAnimation),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::BarAnimation>(model::BarAnimation::Mono)))));
 
   block->OnEvent(ftxui::Event::Character('a'));
   block->OnEvent(ftxui::Event::Character('a'));

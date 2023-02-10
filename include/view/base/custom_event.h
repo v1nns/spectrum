@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "model/audio_filter.h"
+#include "model/bar_animation.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -81,14 +82,15 @@ struct CustomEvent {
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
-  static CustomEvent ChangeBarAnimation(int animation);
+  static CustomEvent ChangeBarAnimation(model::BarAnimation animation);
   static CustomEvent ShowHelper();
   static CustomEvent Exit();
 
   //! Possible types for content
-  using Content = std::variant<std::monostate, model::Song, model::Volume,
-                               model::Song::CurrentInformation, std::filesystem::path,
-                               std::vector<double>, int, std::vector<model::AudioFilter>>;
+  using Content =
+      std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
+                   std::filesystem::path, std::vector<double>, int, std::vector<model::AudioFilter>,
+                   model::BarAnimation>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

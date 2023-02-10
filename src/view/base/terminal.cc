@@ -13,12 +13,12 @@
 #include "ftxui/component/event.hpp"               // for Event
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "ftxui/screen/terminal.hpp"
+#include "model/bar_animation.h"
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/block/file_info.h"
 #include "view/block/list_directory.h"
 #include "view/block/media_player.h"
-#include "view/block/tab_item/spectrum_visualizer.h"  // TODO: remove it
 #include "view/block/tab_viewer.h"
 
 namespace interface {
@@ -293,9 +293,9 @@ void Terminal::OnCustomEvent() {
       // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
 
-      int animation = event.GetContent<int>();
-      if (animation == SpectrumVisualizer::Animation::VerticalMirror ||
-          animation == SpectrumVisualizer::Animation::Mono) {
+      int animation = event.GetContent<model::BarAnimation>();
+      if (animation == model::BarAnimation::VerticalMirror ||
+          animation == model::BarAnimation::Mono) {
         number_bars *= 2;
       }
 

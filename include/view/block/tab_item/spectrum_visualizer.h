@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_VISUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_VISUALIZER_H_
 
+#include "model/bar_animation.h"
 #include "view/element/tab_item.h"
 
 namespace interface {
@@ -46,16 +47,6 @@ class SpectrumVisualizer : public TabItem {
    */
   bool OnCustomEvent(const CustomEvent& event) override;
 
-  /**
-   * @brief Possible bar animations for audio spectrum visualizer
-   */
-  enum Animation {
-    HorizontalMirror,  //!< Both channels (L/R) are mirrored horizontally (default)
-    VerticalMirror,    //!< Both channels (L/R) are mirrored vertically
-    Mono,              //!< Average from the sum of both channels (L/R)
-    LAST,
-  };
-
   /* ******************************************************************************************** */
   // Private methods
  private:
@@ -67,7 +58,7 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  Animation curr_anim_;                //!< Flag to control which animation to draw
+  model::BarAnimation curr_anim_;      //!< control which bar animation to draw
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
 };
 
