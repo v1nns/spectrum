@@ -136,9 +136,9 @@ ftxui::Element Terminal::Render() {
     // Recalculate maximum number of bars to show in spectrum graphic
     int number_bars = CalculateNumberBars();
 
-    // Send event to audio analysis thread
-    auto event_resize = CustomEvent::ResizeAnalysis(number_bars);
-    SendEvent(event_resize);
+    // Send value to spectrum visualizer
+    auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);
+    SendEvent(event_calculate);
   }
 
   // Render each block
@@ -168,6 +168,7 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
 
   // Or if helper is opened
+  // TODO: do not use return
   if (helper_->IsVisible()) return helper_->OnEvent(event);
 
   // Treat any pending custom event
@@ -256,7 +257,14 @@ void Terminal::OnCustomEvent() {
 
         case CustomEvent::Identifier::ResizeAnalysis: {
           auto content = event.GetContent<int>();
+          // Send content directly to audio analysis thread
           media_ctl->ResizeAnalysisOutput(content);
+
+          // Update UI with new size
+          auto event_bars =
+              interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(content, 0.001));
+          ProcessEvent(event_bars);
+
         } break;
 
         case CustomEvent::Identifier::SeekForwardPosition: {
@@ -293,19 +301,9 @@ void Terminal::OnCustomEvent() {
       // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
 
-      int animation = event.GetContent<model::BarAnimation>();
-      if (animation == model::BarAnimation::VerticalMirror ||
-          animation == model::BarAnimation::Mono) {
-        number_bars *= 2;
-      }
-
-      // Send content directly to audio analysis thread
-      media_ctl->ResizeAnalysisOutput(number_bars);
-
-      // Update UI with new size
-      auto event_bars =
-          interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(number_bars, 0.001));
-      ProcessEvent(event_bars);
+      // Pass this new value to spectrum visualizer calculate based on the current animation
+      auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);
+      ProcessEvent(event_calculate);
 
       continue;  // skip to next while-loop
     }

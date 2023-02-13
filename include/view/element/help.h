@@ -54,7 +54,7 @@ class Help {
   /**
    * @brief Reset dialog state to initial value
    */
-  void Clear();
+  void Close();
 
   /**
    * @brief Indicates if dialog is visible
@@ -73,7 +73,6 @@ class Help {
 
   DialogStyle style_;    //!< Color style
   bool opened_;          //!< Flag to indicate dialog visilibity
-  std::string message_;  //!< Custom error message
 };
 
 }  // namespace interface

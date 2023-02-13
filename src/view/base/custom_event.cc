@@ -115,6 +115,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "ShowHelper";
       break;
 
+    case CustomEvent::Identifier::CalculateNumberOfBars:
+      out << "CalculateNumberOfBars";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -313,6 +317,17 @@ CustomEvent CustomEvent::ShowHelper() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::ShowHelper,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::CalculateNumberOfBars(int number) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::CalculateNumberOfBars,
+      .content = number,
   };
 }
 

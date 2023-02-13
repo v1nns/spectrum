@@ -7,8 +7,7 @@ Help::Help()
           .background = ftxui::Color::BlueLight,
           .foreground = ftxui::Color::Grey93,
       }},
-      opened_{false},
-      message_{} {}
+      opened_{false} {}
 
 /* ********************************************************************************************** */
 
@@ -105,7 +104,7 @@ ftxui::Element Help::Render() {
 bool Help::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
       event == ftxui::Event::Character('q')) {
-    Clear();
+    Close();
   }
 
   // This is to ensure that no one else will treat any event while helper is opened
@@ -118,9 +117,6 @@ void Help::Show() { opened_ = true; }
 
 /* ********************************************************************************************** */
 
-void Help::Clear() {
-  opened_ = false;
-  message_.clear();
-}
+void Help::Close() { opened_ = false; }
 
 }  // namespace interface

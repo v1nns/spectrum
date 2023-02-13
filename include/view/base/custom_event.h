@@ -51,7 +51,8 @@ struct CustomEvent {
     Refresh = 70000,
     ChangeBarAnimation = 70001,
     ShowHelper = 70002,
-    Exit = 70003,
+    CalculateNumberOfBars = 70003,
+    Exit = 70004,
   };
 
   //! Overloaded operators
@@ -84,6 +85,7 @@ struct CustomEvent {
   static CustomEvent Refresh();
   static CustomEvent ChangeBarAnimation(model::BarAnimation animation);
   static CustomEvent ShowHelper();
+  static CustomEvent CalculateNumberOfBars(int number);
   static CustomEvent Exit();
 
   //! Possible types for content

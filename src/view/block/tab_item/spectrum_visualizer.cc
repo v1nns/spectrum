@@ -45,7 +45,9 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
     if (!dispatcher) return false;
 
     spectrum_data_.clear();
-    curr_anim_ = static_cast<model::BarAnimation>((curr_anim_ + 1) % model::BarAnimation::LAST);
+    curr_anim_ = curr_anim_ < model::BarAnimation::Mono
+                     ? static_cast<model::BarAnimation>(curr_anim_ + 1)  // get next
+                     : model::BarAnimation::HorizontalMirror;            // reset to first one
 
     auto event = CustomEvent::ChangeBarAnimation(curr_anim_);
     dispatcher->SendEvent(event);
@@ -59,8 +61,27 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
+  // Store spectrum audio data to render later
   if (event == CustomEvent::Identifier::DrawAudioSpectrum) {
     spectrum_data_ = event.GetContent<std::vector<double>>();
+    return true;
+  }
+
+  // Calculate new number of bars based on current animation
+  if (event == CustomEvent::Identifier::CalculateNumberOfBars) {
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return false;
+
+    int number_bars = event.GetContent<int>();
+
+    if (curr_anim_ == model::BarAnimation::VerticalMirror ||
+        curr_anim_ == model::BarAnimation::Mono) {
+      number_bars *= 2;
+    }
+
+    auto event_resize = CustomEvent::ResizeAnalysis(number_bars);
+    dispatcher->SendEvent(event_resize);
+
     return true;
   }
 
