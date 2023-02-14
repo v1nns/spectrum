@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
 
+#include "model/audio_filter.h"
 #include "view/element/button.h"
 #include "view/element/frequency_bar.h"
 #include "view/element/tab_item.h"
@@ -56,8 +57,17 @@ class AudioEqualizer : public TabItem {
   bool OnCustomEvent(const CustomEvent& event) override;
 
   /* ******************************************************************************************** */
+  //! Private methods
+ private:
+  /**
+   * @brief Update UI components state based on internal cache
+   */
+  void UpdateInterfaceState();
+
+  /* ******************************************************************************************** */
   //! Variables
  private:
+  std::vector<model::AudioFilter> cache_;            //!< Last applied filters
   std::vector<std::unique_ptr<FrequencyBar>> bars_;  //!< Audio frequency bars
   GenericButton btn_apply_, btn_reset_;              //!< Buttons to setup equalization
 };
