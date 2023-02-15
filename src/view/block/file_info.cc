@@ -45,7 +45,8 @@ ftxui::Element FileInfo::Render() {
   ftxui::Element content = ftxui::vbox(std::move(lines));
 
   using ftxui::HEIGHT, ftxui::EQUAL;
-  return ftxui::window(ftxui::text(" information "), std::move(content)) |
+  return ftxui::window(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()),
+                       std::move(content)) |
          ftxui::size(HEIGHT, EQUAL, kMaxRows);
 }
 

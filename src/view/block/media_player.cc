@@ -112,8 +112,9 @@ ftxui::Element MediaPlayer::Render() {
   });
 
   using ftxui::HEIGHT, ftxui::EQUAL;
-  return ftxui::window(ftxui::text(" player "), content | ftxui::vcenter | ftxui::flex |
-                                                    ftxui::size(HEIGHT, EQUAL, kMaxRows));
+  return ftxui::window(
+      ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
+      content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows));
 }
 
 /* ********************************************************************************************** */

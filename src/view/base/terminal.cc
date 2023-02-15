@@ -83,6 +83,9 @@ void Terminal::Init() {
   auto tab_viewer = std::make_shared<TabViewer>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
 
+  // As default, make ListDirectory focused to receive input commands
+  list_dir->SetFocused(true);
+
   // Make every block as a child of this terminal
   Add(list_dir);
   Add(file_info);

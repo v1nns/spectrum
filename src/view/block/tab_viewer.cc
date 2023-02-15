@@ -42,7 +42,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
             LOG("Handle left click mouse event on Tab button for visualizer");
             active_ = View::Visualizer;
           },
-          Button::Delimiters{"", ""}),
+          Button::Delimiters{" ", " "}),
       .item = std::make_unique<SpectrumVisualizer>(dispatcher),
   };
 
@@ -54,7 +54,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
             LOG("Handle left click mouse event on Tab button for equalizer");
             active_ = View::Equalizer;
           },
-          Button::Delimiters{"", ""}),
+          Button::Delimiters{" ", " "}),
       .item = std::make_unique<AudioEqualizer>(dispatcher),
   };
 }
@@ -63,18 +63,15 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
 
 ftxui::Element TabViewer::Render() {
   auto get_decorator_for = [&](const View& v) {
-    return (active_ == v) ? ftxui::nothing : ftxui::color(ftxui::Color::GrayDark);
+    return (active_ == v) ? GetTitleDecorator() : ftxui::color(ftxui::Color::GrayDark);
   };
 
   auto btn_visualizer = views_[View::Visualizer].button->Render();
   auto btn_equalizer = views_[View::Equalizer].button->Render();
 
   ftxui::Element title_border = ftxui::hbox({
-      ftxui::text(" "),
       btn_visualizer | get_decorator_for(View::Visualizer),
-      ftxui::text(" "),
       btn_equalizer | get_decorator_for(View::Equalizer),
-      ftxui::text(" "),
       ftxui::filler(),
       btn_help_->Render(),
       ftxui::text(" ") | ftxui::border,  // dummy space between buttons

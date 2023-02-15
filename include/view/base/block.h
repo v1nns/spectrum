@@ -58,9 +58,16 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   //! Block size
   Size GetSize() { return size_; }
 
+  //! Set focused state
+  void SetFocused(bool focused);
+
+ protected:
+  //! Get decorator style for title based on internal state
+  ftxui::Decorator GetTitleDecorator();
+
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
-
+ public:
   virtual ftxui::Element Render() = 0;
   virtual bool OnEvent(ftxui::Event) = 0;
   virtual bool OnCustomEvent(const CustomEvent&) = 0;
@@ -73,6 +80,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  private:
   Identifier id_;  //!< Block identification
   Size size_;      //!< Block size
+  bool focused_;   //!< Control flag for focus state, to help with UI navigation
 };
 
 }  // namespace interface

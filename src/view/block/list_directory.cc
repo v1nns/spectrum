@@ -149,8 +149,9 @@ ftxui::Element ListDirectory::Render() {
     content.push_back(std::move(search_box));
   }
 
-  return ftxui::window(ftxui::text(" files "), ftxui::vbox(std::move(content)) | ftxui::flex |
-                                                   ftxui::size(WIDTH, EQUAL, kMaxColumns));
+  return ftxui::window(
+      ftxui::hbox(ftxui::text(" files ") | GetTitleDecorator()),
+      ftxui::vbox(std::move(content)) | ftxui::flex | ftxui::size(WIDTH, EQUAL, kMaxColumns));
 }
 
 /* ********************************************************************************************** */
