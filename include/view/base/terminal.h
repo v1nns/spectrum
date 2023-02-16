@@ -140,12 +140,17 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   int CalculateNumberBars() override;
 
   /* ******************************************************************************************** */
+  //! Default Constants
+
+  static constexpr int kMaxBlocks = 4; //!< Maximum number of blocks (used for focus control)
+
+  /* ******************************************************************************************** */
   //! Variables
  private:
   std::weak_ptr<audio::Notifier> notifier_;  //!< Audio notifier for events from UI
   error::Code last_error_;                   //!< Last application error
 
-  std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show custom messages
+  std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages
   std::unique_ptr<Help> helper_;               //!< Dialog box to show help menu
 
   ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
@@ -155,6 +160,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   Callback cb_exit_;             //!< Function to exit from graphical interface
 
   ftxui::Dimensions size_;  //!< Terminal maximum size
+  int focused_index_;       //!< Index of focused block
 };
 
 }  // namespace interface

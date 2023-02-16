@@ -47,7 +47,7 @@ TEST_F(TabViewerTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer 2:equalizer ─────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                  │
 │                                                                                  │
 │                                                                                  │
@@ -80,7 +80,7 @@ TEST_F(TabViewerTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer 2:equalizer ─────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                  │
 │                                                                                  │
 │                                     ▅▅▅ ▅▅▅                                      │
@@ -126,7 +126,7 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
 
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
-╭ 1:visualizer 2:equalizer ─────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
 │                                                                     ▄▄▄ ▆▆▆      │
 │                                                             ▂▂▂ ▇▇▇ ███ ███      │
 │                                                         ▅▅▅ ███ ███ ███ ███      │
@@ -179,7 +179,7 @@ TEST_F(TabViewerTest, AnimationMono) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer 2:equalizer ─────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
 │                                                                         ▃▃▃      │
 │                                                                     ▆▆▆ ███      │
 │                                                                 ▄▄▄ ███ ███      │
@@ -212,7 +212,7 @@ TEST_F(TabViewerTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer 2:equalizer ─────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                  │
 │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz    16 kHz  │
 │                                                                                  │

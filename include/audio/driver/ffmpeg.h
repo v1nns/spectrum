@@ -163,9 +163,9 @@ class FFmpeg : public Decoder {
   /* ******************************************************************************************** */
   //! Default Constants
 
-  static constexpr int kChannels = 2;
-  static constexpr int kSampleRate = 44100;
-  static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;
+  static constexpr int kChannels = 2;                                 //!< Output number of channels
+  static constexpr int kSampleRate = 44100;                           //!< Output sample rate
+  static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;  //!< Output sample format
 
   //! All filters used from AVFilter library
   static constexpr char kFilterAbufferSrc[] = "abuffer";
@@ -174,8 +174,9 @@ class FFmpeg : public Decoder {
   static constexpr char kFilterEqualizer[] = "equalizer";
   static constexpr char kFilterAbufferSink[] = "abuffersink";
 
-  static constexpr int kDefaultFilterCount = 4;
-  static constexpr int kResponseSize = 64;
+  static constexpr int kDefaultFilterCount =
+      4;  //!< Number of filters without considering equalizer filters
+  static constexpr int kResponseSize = 64;  //!< Response message size from AVFilter command
 
   /* ******************************************************************************************** */
   //! Utilities

@@ -119,6 +119,14 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "CalculateNumberOfBars";
       break;
 
+    case CustomEvent::Identifier::SetPreviousActive:
+      out << "SetPreviousActive";
+      break;
+
+    case CustomEvent::Identifier::SetNextActive:
+      out << "SetNextActive";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -328,6 +336,26 @@ CustomEvent CustomEvent::CalculateNumberOfBars(int number) {
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::CalculateNumberOfBars,
       .content = number,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SetPreviousActive() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SetPreviousActive,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SetNextActive() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SetNextActive,
   };
 }
 

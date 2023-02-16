@@ -57,7 +57,8 @@ Terminal::Terminal()
       sender_{receiver_->MakeSender()},
       cb_send_event_{},
       cb_exit_{},
-      size_{ftxui::Terminal::Size()} {}
+      size_{ftxui::Terminal::Size()},
+      focused_index_{0} {}
 
 /* ********************************************************************************************** */
 
@@ -311,6 +312,36 @@ void Terminal::OnCustomEvent() {
       continue;  // skip to next while-loop
     }
 
+    if (event == CustomEvent::Identifier::SetPreviousActive) {
+      // Remove focus from old block
+      auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
+      old_focused->SetFocused(false);
+
+      // Calculate new block index to be focused
+      focused_index_ = focused_index_ == 0 ? (kMaxBlocks - 1) : focused_index_ - 1;
+
+      // Set focus on new block
+      auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
+      new_focused->SetFocused(true);
+
+      continue;  // skip to next while-loop
+    }
+
+    if (event == CustomEvent::Identifier::SetNextActive) {
+      // Remove focus from old block
+      auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
+      old_focused->SetFocused(false);
+
+      // Calculate new block index to be focused
+      focused_index_ = focused_index_ == 3 ? 0 : focused_index_ + 1;
+
+      // Set focus on new block
+      auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
+      new_focused->SetFocused(true);
+
+      continue;  // skip to next while-loop
+    }
+
     if (event == CustomEvent::Identifier::ShowHelper) {
       helper_->Show();
       continue;  // skip to next while-loop
@@ -318,7 +349,7 @@ void Terminal::OnCustomEvent() {
 
     if (event == CustomEvent::Identifier::Exit) {
       Exit();
-      return;
+      return; // exit from while-loop
     }
 
     // Otherwise, send it to children blocks
