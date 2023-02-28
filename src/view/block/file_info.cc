@@ -6,13 +6,15 @@
 
 #include "ftxui/component/event.hpp"  // for Event
 #include "util/logger.h"
+#include "view/base/event_dispatcher.h"
 
 namespace interface {
 
 /* ********************************************************************************************** */
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::FileInfo, interface::Size{.width = 0, .height = kMaxRows}},
+    : Block{dispatcher, model::BlockIdentifier::FileInfo,
+            interface::Size{.width = 0, .height = kMaxRows}},
       audio_info_{} {}
 
 /* ********************************************************************************************** */

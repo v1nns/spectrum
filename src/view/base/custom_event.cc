@@ -22,6 +22,8 @@ struct ContentVisitor {
     // TODO: maybe implement detailed info here
     out << "{audio filter data...}";
   }
+  void operator()(const model::BarAnimation& a) const { out << a; }
+  void operator()(const model::BlockIdentifier& i) const { out << i; }
 
   std::ostream& out;
 };
@@ -119,12 +121,16 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "CalculateNumberOfBars";
       break;
 
-    case CustomEvent::Identifier::SetPreviousActive:
-      out << "SetPreviousActive";
+    case CustomEvent::Identifier::SetPreviousFocused:
+      out << "SetPreviousFocused";
       break;
 
-    case CustomEvent::Identifier::SetNextActive:
-      out << "SetNextActive";
+    case CustomEvent::Identifier::SetNextFocused:
+      out << "SetNextFocused";
+      break;
+
+    case CustomEvent::Identifier::SetFocused:
+      out << "SetFocused";
       break;
 
     case CustomEvent::Identifier::Exit:
@@ -310,7 +316,7 @@ CustomEvent CustomEvent::Refresh() {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::ChangeBarAnimation(model::BarAnimation animation) {
+CustomEvent CustomEvent::ChangeBarAnimation(const model::BarAnimation& animation) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::ChangeBarAnimation,
@@ -342,20 +348,31 @@ CustomEvent CustomEvent::CalculateNumberOfBars(int number) {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::SetPreviousActive() {
+CustomEvent CustomEvent::SetPreviousFocused() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
-      .id = Identifier::SetPreviousActive,
+      .id = Identifier::SetPreviousFocused,
   };
 }
 
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::SetNextActive() {
+CustomEvent CustomEvent::SetNextFocused() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
-      .id = Identifier::SetNextActive,
+      .id = Identifier::SetNextFocused,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SetFocused(const model::BlockIdentifier& id) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SetFocused,
+      .content = id,
   };
 }
 

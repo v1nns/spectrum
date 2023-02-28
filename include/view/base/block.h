@@ -13,6 +13,7 @@
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "model/block_identifier.h"
 #include "view/base/custom_event.h"
 
 namespace interface {
@@ -30,21 +31,14 @@ struct Size {
  */
 class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  protected:
-  //! Unique ID for each block
-  enum class Identifier {
-    ListDirectory = 201,
-    FileInfo = 202,
-    TabViewer = 203,
-    MediaPlayer = 204,
-  };
-
   /**
    * @brief Construct a new Block object (only called by derived classes)
    * @param dispatcher Event dispatcher
    * @param id Unique ID for block
    * @param size Block dimensions
    */
-  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id, const Size& size);
+  Block(const std::shared_ptr<EventDispatcher>& dispatcher, const model::BlockIdentifier& id,
+        const Size& size);
 
  public:
   /**
@@ -53,13 +47,16 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   virtual ~Block() = default;
 
   //! Unique ID
-  Identifier GetId() { return id_; }
+  model::BlockIdentifier GetId() const { return id_; }
 
   //! Block size
-  Size GetSize() { return size_; }
+  Size GetSize() const { return size_; }
 
-  //! Set focused state
+  //! Set focus state
   void SetFocused(bool focused);
+
+  //! Get focus state
+  bool IsFocused() const { return focused_; }
 
  protected:
   //! Get decorator style for title based on internal state
@@ -78,9 +75,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
 
  private:
-  Identifier id_;  //!< Block identification
-  Size size_;      //!< Block size
-  bool focused_;   //!< Control flag for focus state, to help with UI navigation
+  model::BlockIdentifier id_;  //!< Block identification
+  Size size_;                  //!< Block size
+  bool focused_;               //!< Control flag for focus state, to help with UI navigation
 };
 
 }  // namespace interface

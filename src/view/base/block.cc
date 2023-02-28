@@ -1,10 +1,11 @@
 #include "view/base/block.h"
 
+#include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 
 namespace interface {
 
-Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const Identifier id,
+Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const model::BlockIdentifier& id,
              const Size& size)
     : ftxui::ComponentBase{}, id_{id}, dispatcher_{dispatcher}, size_{size}, focused_{false} {}
 

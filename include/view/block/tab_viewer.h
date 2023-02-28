@@ -66,14 +66,17 @@ class TabViewer : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
+  //! For readability
+  using Item = std::unique_ptr<TabItem>;
+  using Keybinding = std::string;
+
+  //! Get active tabview
+  Item& active() { return views_[active_].item; }
+
   /* ******************************************************************************************** */
   //! Variables
  private:
   WindowButton btn_help_, btn_exit_;  //!< Buttons located on the upper-right border of block window
-
-  //! For readability
-  using Item = std::unique_ptr<TabItem>;
-  using Keybinding = std::string;
 
   //! Represent a single tab item entry
   struct Tab {

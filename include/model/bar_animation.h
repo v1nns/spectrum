@@ -7,7 +7,6 @@
 #define INCLUDE_MODEL_BAR_ANIMATION_H_
 
 #include <iostream>
-#include <string>
 
 namespace model {
 
@@ -22,7 +21,7 @@ enum BarAnimation {
 };
 
 //! BarAnimation pretty print
-std::ostream& operator<<(std::ostream& out, const BarAnimation& a);
+std::ostream& operator<<(std::ostream& out, const BarAnimation& animation);
 
 }  // namespace model
 

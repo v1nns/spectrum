@@ -12,6 +12,7 @@
 
 #include "model/audio_filter.h"
 #include "model/bar_animation.h"
+#include "model/block_identifier.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -52,9 +53,10 @@ struct CustomEvent {
     ChangeBarAnimation = 70001,
     ShowHelper = 70002,
     CalculateNumberOfBars = 70003,
-    SetPreviousActive = 70004,
-    SetNextActive = 70005,
-    Exit = 70006,
+    SetPreviousFocused = 70004,
+    SetNextFocused = 70005,
+    SetFocused = 70006,
+    Exit = 70007,
   };
 
   //! Overloaded operators
@@ -85,11 +87,12 @@ struct CustomEvent {
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
-  static CustomEvent ChangeBarAnimation(model::BarAnimation animation);
+  static CustomEvent ChangeBarAnimation(const model::BarAnimation& animation);
   static CustomEvent ShowHelper();
   static CustomEvent CalculateNumberOfBars(int number);
-  static CustomEvent SetPreviousActive();
-  static CustomEvent SetNextActive();
+  static CustomEvent SetPreviousFocused();
+  static CustomEvent SetNextFocused();
+  static CustomEvent SetFocused(const model::BlockIdentifier& id);
 
   static CustomEvent Exit();
 
@@ -97,7 +100,7 @@ struct CustomEvent {
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, std::vector<model::AudioFilter>,
-                   model::BarAnimation>;
+                   model::BarAnimation, model::BlockIdentifier>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

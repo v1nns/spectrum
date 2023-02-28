@@ -178,8 +178,10 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Treat any pending custom event
   OnCustomEvent();
 
+  // Global commands
   if (OnGlobalModeEvent(event)) return true;
 
+  // Block commands
   for (auto& child : children_) {
     if (child->OnEvent(event)) return true;
   }
@@ -312,7 +314,7 @@ void Terminal::OnCustomEvent() {
       continue;  // skip to next while-loop
     }
 
-    if (event == CustomEvent::Identifier::SetPreviousActive) {
+    if (event == CustomEvent::Identifier::SetPreviousFocused) {
       // Remove focus from old block
       auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       old_focused->SetFocused(false);
@@ -327,13 +329,36 @@ void Terminal::OnCustomEvent() {
       continue;  // skip to next while-loop
     }
 
-    if (event == CustomEvent::Identifier::SetNextActive) {
+    if (event == CustomEvent::Identifier::SetNextFocused) {
       // Remove focus from old block
       auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       old_focused->SetFocused(false);
 
       // Calculate new block index to be focused
       focused_index_ = focused_index_ == 3 ? 0 : focused_index_ + 1;
+
+      // Set focus on new block
+      auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
+      new_focused->SetFocused(true);
+
+      continue;  // skip to next while-loop
+    }
+
+    if (event == CustomEvent::Identifier::SetFocused) {
+      auto content = event.GetContent<model::BlockIdentifier>();
+      int new_index = GetIndexFromBlockIdentifier(content);
+
+      if (focused_index_ == new_index) {
+        // do nothing
+        continue;
+      }
+
+      // Remove focus from old block
+      auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
+      old_focused->SetFocused(false);
+
+      // Update new block index to be focused
+      focused_index_ = new_index;
 
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
@@ -349,7 +374,7 @@ void Terminal::OnCustomEvent() {
 
     if (event == CustomEvent::Identifier::Exit) {
       Exit();
-      return; // exit from while-loop
+      return;  // exit from while-loop
     }
 
     // Otherwise, send it to children blocks
@@ -376,6 +401,26 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   if (event == ftxui::Event::F1) {
     LOG("Handle key to show helper");
     helper_->Show();
+    return true;
+  }
+
+  if (event == ftxui::Event::Tab) {
+    LOG("Handle key to focus next UI block");
+
+    // Send event to focus next UI block
+    auto focus_event = interface::CustomEvent::SetNextFocused();
+    SendEvent(focus_event);
+
+    return true;
+  }
+
+  if (event == ftxui::Event::TabReverse) {
+    LOG("Handle key to focus previous UI block");
+
+    // Send event to focus next/previous UI block
+    auto focus_event = interface::CustomEvent::SetPreviousFocused();
+    SendEvent(focus_event);
+
     return true;
   }
 
@@ -408,6 +453,23 @@ void Terminal::SetApplicationError(error::Code id) {
   error_dialog_->SetErrorMessage(message);
 
   last_error_ = id;
+}
+
+/* ********************************************************************************************** */
+
+int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) {
+  switch (id) {
+    case model::BlockIdentifier::ListDirectory:
+      return 0;
+    case model::BlockIdentifier::FileInfo:
+      return 1;
+    case model::BlockIdentifier::TabViewer:
+      return 2;
+    case model::BlockIdentifier::MediaPlayer:
+      return 3;
+    default:
+      return 0;
+  }
 }
 
 }  // namespace interface

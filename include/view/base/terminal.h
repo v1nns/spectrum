@@ -14,6 +14,7 @@
 #include "ftxui/component/receiver.hpp"
 #include "middleware/media_controller.h"
 #include "model/application_error.h"
+#include "model/block_identifier.h"
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
@@ -140,9 +141,16 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   int CalculateNumberBars() override;
 
   /* ******************************************************************************************** */
-  //! Default Constants
+  //! Utils
+ private:
 
-  static constexpr int kMaxBlocks = 4; //!< Maximum number of blocks (used for focus control)
+  //! Get internal block index based on block identifier
+  int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id);
+
+  /* ******************************************************************************************** */
+  //! Default Constants
+ private:
+  static constexpr int kMaxBlocks = 4;  //!< Maximum number of blocks (used for focus control)
 
   /* ******************************************************************************************** */
   //! Variables

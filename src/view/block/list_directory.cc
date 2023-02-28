@@ -58,7 +58,7 @@ static std::string EventToString(const ftxui::Event& e) {
 
 ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                              const std::string& optional_path)
-    : Block{dispatcher, Identifier::ListDirectory,
+    : Block{dispatcher, model::BlockIdentifier::ListDirectory,
             interface::Size{.width = kMaxColumns, .height = 0}},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
                                     : std::filesystem::path(optional_path)},
@@ -163,7 +163,11 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
     return OnMouseEvent(event);
   }
 
-  // if (Focused()) {
+  // If block is not focused, do not even try to handle event
+  if (!IsFocused()) {
+    return false;
+  }
+
   if (mode_search_ && OnSearchModeEvent(event)) {
     return true;
   }
@@ -186,7 +190,7 @@ bool ListDirectory::OnEvent(ftxui::Event event) {
     UpdateActiveEntry();
     return true;
   }
-  // }
+
   return false;
 }
 
@@ -289,8 +293,8 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
   if (event == ftxui::Event::PageDown) (*selected) += box_.y_max - box_.y_min;
   if (event == ftxui::Event::Home) (*selected) = 0;
   if (event == ftxui::Event::End) (*selected) = Size() - 1;
-  if (event == ftxui::Event::Tab) *selected = (*selected + 5) % Size();
-  if (event == ftxui::Event::TabReverse) *selected = (*selected + Size() - 5) % Size();
+  //   if (event == ftxui::Event::Tab) *selected = (*selected + 5) % Size();
+  //   if (event == ftxui::Event::TabReverse) *selected = (*selected + Size() - 5) % Size();
 
   if (*selected != old_selected) {
     *selected = clamp(*selected, 0, Size() - 1);

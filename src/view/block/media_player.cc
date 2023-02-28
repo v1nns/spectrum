@@ -17,7 +17,8 @@ namespace interface {
 /* ********************************************************************************************** */
 
 MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, Identifier::MediaPlayer, interface::Size{.width = 0, .height = kMaxRows}},
+    : Block{dispatcher, model::BlockIdentifier::MediaPlayer,
+            interface::Size{.width = 0, .height = kMaxRows}},
       btn_play_{nullptr},
       btn_stop_{nullptr},
       song_{},
