@@ -11,7 +11,8 @@ AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatche
       cache_{model::AudioFilter::Create()},
       bars_{},
       btn_apply_{nullptr},
-      btn_reset_{nullptr} {
+      btn_reset_{nullptr},
+      focused_{kInvalidIndex} {
   // Fill vector of frequency bars for equalizer
   bars_.reserve(cache_.size());
 
@@ -90,7 +91,59 @@ ftxui::Element AudioEqualizer::Render() {
 
 /* ********************************************************************************************** */
 
-bool AudioEqualizer::OnEvent(ftxui::Event event) { return false; }
+bool AudioEqualizer::OnEvent(ftxui::Event event) {
+  // Navigate on frequency bars
+  if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
+    int old_index = focused_;
+
+    // Calculate new index based on upper bound
+    focused_ += focused_ < (static_cast<int>(bars_.size()) - 1) ? 1 : 0;
+
+    if (old_index != focused_) {
+      UpdateFocus(old_index);
+    }
+
+    return true;
+  }
+
+  // Navigate on frequency bars
+  if (event == ftxui::Event::ArrowLeft || event == ftxui::Event::Character('h')) {
+    int old_index = focused_;
+
+    // Calculate new index based on lower bound
+    focused_ -= focused_ > (kInvalidIndex + 1) ? 1 : 0;
+
+    if (old_index != focused_) {
+      UpdateFocus(old_index);
+    }
+
+    return true;
+  }
+
+  // Change gain on frequency bar focused
+  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+    if (focused_ == kInvalidIndex) return false;
+
+    // Increment value and update UI
+    bars_[focused_]->IncreaseGain();
+    UpdateInterfaceState();
+
+    return true;
+  }
+
+  // Change gain on frequency bar focused
+  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+    if (focused_ == kInvalidIndex) return false;
+
+    // Increment value and update UI
+    bars_[focused_]->DecreaseGain();
+    UpdateInterfaceState();
+
+    return true;
+  }
+
+  return false;
+}
 
 /* ********************************************************************************************** */
 
@@ -154,6 +207,16 @@ void AudioEqualizer::UpdateInterfaceState() {
   } else {
     btn_reset_->SetInactive();
   }
+}
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::UpdateFocus(int old_index) {
+  // Remove focus from old focused frequency bar
+  if (old_index != kInvalidIndex) bars_[old_index]->ResetFocus();
+
+  // Set focus on newly-focused frequency bar
+  if (focused_ != kInvalidIndex) bars_[focused_]->SetFocus();
 }
 
 }  // namespace interface

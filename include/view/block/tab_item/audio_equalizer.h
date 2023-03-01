@@ -17,6 +17,8 @@ namespace interface {
  * @brief Component to control multiple frequency bars, in order to setup audio equalization
  */
 class AudioEqualizer : public TabItem {
+  static constexpr int kInvalidIndex = -1;  //!< Invalid index (to use it when no bar is focused)
+
  public:
   /**
    * @brief Construct a new AudioEqualizer object
@@ -59,10 +61,11 @@ class AudioEqualizer : public TabItem {
   /* ******************************************************************************************** */
   //! Private methods
  private:
-  /**
-   * @brief Update UI components state based on internal cache
-   */
+  //! Update UI components state based on internal cache
   void UpdateInterfaceState();
+
+  //! Update focus state in both old and new frequency bar focused
+  void UpdateFocus(int old_index);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -70,6 +73,8 @@ class AudioEqualizer : public TabItem {
   std::vector<model::AudioFilter> cache_;            //!< Last applied filters
   std::vector<std::unique_ptr<FrequencyBar>> bars_;  //!< Audio frequency bars
   GenericButton btn_apply_, btn_reset_;              //!< Buttons to setup equalization
+
+  int focused_;  //!< Index to current bar focused
 };
 
 }  // namespace interface

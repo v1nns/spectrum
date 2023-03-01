@@ -16,7 +16,7 @@ namespace interface {
  * @brief Customized element to draw and control a frequency bar
  */
 class FrequencyBar {
-  static constexpr int kMaxGainLength = 8;  //!< Maximum rows for the Component
+  static constexpr int kMaxGainLength = 8;  //!< Maximum string length in the input box for gain
 
  public:
   /**
@@ -58,9 +58,29 @@ class FrequencyBar {
   model::AudioFilter GetAudioFilter() const;
 
   /**
+   * @brief Set frequency bar state as focused
+   */
+  void SetFocus();
+
+  /**
+   * @brief Increment gain value by 1 dB
+   */
+  void IncreaseGain();
+
+  /**
+   * @brief Decrement gain value by 1 dB
+   */
+  void DecreaseGain();
+
+  /**
    * @brief Reset gain to default value (zero)
    */
   void ResetGain();
+
+  /**
+   * @brief Reset focus to default value (not focused)
+   */
+  void ResetFocus();
 
   /* ******************************************************************************************** */
   //! Variables
@@ -71,11 +91,11 @@ class FrequencyBar {
     ftxui::Color foreground;
   };
 
-  BarStyle style_normal_, style_focused_;  //!< Color style
+  BarStyle style_normal_, style_hovered_;  //!< Color style
   ftxui::Box box_;                         //!< Box to control if mouse cursor is over the bar
-  bool active_;                            //!< Flag to indicate if bar is active
-  bool focused_;                           //!< Flag to indicate if bar is focused
+  bool hovered_;                           //!< Flag to indicate if bar is hovered (by mouse)
   bool clicked_;                           //!< Flag to indicate if bar was clicked
+  bool focused_;                           //!< Flag to indicate if bar is focused
 
   model::AudioFilter filter_bar_;  //!< Audio frequency gauge for equalization
 };
