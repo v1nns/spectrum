@@ -66,8 +66,12 @@ error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
 
 error::Code FFmpeg::ConfigureDecoder() {
   LOG("Configure audio decoder for opened input stream");
+
+#if LIBAVFORMAT_VERSION_MAJOR > 58
   const AVCodec *codec = nullptr;
-  AVCodecParameters *parameters = nullptr;
+#else
+  AVCodec *codec = nullptr;
+#endif
 
   // select the audio stream
   stream_index_ = av_find_best_stream(input_stream_.get(), AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
@@ -77,7 +81,7 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kFileNotSupported;
   }
 
-  parameters = input_stream_->streams[stream_index_]->codecpar;
+  AVCodecParameters *parameters = input_stream_->streams[stream_index_]->codecpar;
   decoder_ = CodecContext{avcodec_alloc_context3(codec)};
 
   if (!decoder_ || avcodec_parameters_to_context(decoder_.get(), parameters) < 0) {
@@ -178,8 +182,16 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
 
   char ch_layout[64];
 
+// Get channel layout description
+#if LIBAVUTIL_VERSION_MAJOR > 56
   // Set filter options through the AVOptions API
   av_channel_layout_describe(&decoder_->ch_layout, ch_layout, sizeof(ch_layout));
+#else
+  // Set filter options through the AVOptions API
+  av_get_channel_layout_string(ch_layout, sizeof(ch_layout), decoder_->channels,
+                               decoder_->channel_layout);
+#endif
+
   av_opt_set(buffersrc_ctx_.get(), "channel_layout", ch_layout, AV_OPT_SEARCH_CHILDREN);
   av_opt_set(buffersrc_ctx_.get(), "sample_fmt", av_get_sample_fmt_name(decoder_->sample_fmt),
              AV_OPT_SEARCH_CHILDREN);
@@ -255,8 +267,15 @@ error::Code FFmpeg::CreateFilterAformat() {
 
   char ch_layout[64];
 
-  // Set filter options
-  av_channel_layout_describe(ch_layout_.get(), ch_layout, sizeof(ch_layout));
+// Get channel layout description
+#if LIBAVUTIL_VERSION_MAJOR > 56
+  av_channel_layout_describe(&decoder_->ch_layout, ch_layout, sizeof(ch_layout));
+#else
+  av_get_channel_layout_string(ch_layout, sizeof(ch_layout), decoder_->channels,
+                               decoder_->channel_layout);
+#endif
+
+  // Set filter options through the AVOptions API
   av_opt_set(aformat_ctx, "channel_layout", ch_layout, AV_OPT_SEARCH_CHILDREN);
   av_opt_set(aformat_ctx, "sample_fmts", av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
              AV_OPT_SEARCH_CHILDREN);
@@ -455,9 +474,9 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   shared_context_ = DecodingData{
       .time_base = input_stream_->streams[stream_index_]->time_base,
       .position = 0,
-      .packet{av_packet_alloc()},
-      .frame_decoded{av_frame_alloc()},
-      .frame_filtered{av_frame_alloc()},
+      .packet{Packet(av_packet_alloc())},
+      .frame_decoded{Frame(av_frame_alloc())},
+      .frame_filtered{Frame(av_frame_alloc())},
       .err_code = error::kSuccess,
       .keep_playing = true,
       .reset_filters = false,
