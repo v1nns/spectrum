@@ -59,14 +59,15 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    * @brief Factory method: Create, initialize internal components and return MediaController object
    * @param terminal Event dispatcher for Interface
    * @param player Interface to Audio player
+   * @param bars Maximum number of bars that will be returned as output from the Audio Analysis
    * @param analyzer Pass analyzer to be used within Analysis thread (optional)
    * @param asynchronous Run Audio Analysis as a thread (default is true)
    * @return std::shared_ptr<MediaController> MediaController instance
    */
   static std::shared_ptr<MediaController> Create(
       const std::shared_ptr<interface::EventDispatcher>& terminal,
-      const std::shared_ptr<audio::AudioControl>& player, driver::Analyzer* analyzer = nullptr,
-      bool asynchronous = true);
+      const std::shared_ptr<audio::AudioControl>& player, int number_bars,
+      driver::Analyzer* analyzer = nullptr, bool asynchronous = true);
 
   /**
    * @brief Destroy the MediaController object

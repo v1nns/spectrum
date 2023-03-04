@@ -110,6 +110,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   bool OnEvent(ftxui::Event event) override;
 
+  /**
+   * @brief Based on maximum terminal size, calculate how many bars can be shown in spectrum window
+   * @return Number of bars
+   */
+  int CalculateNumberBars();
+
   /* ******************************************************************************************** */
   //! Internal event handling
  private:
@@ -137,13 +143,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Set application error (can be originated from controller or any interface::block)
   void SetApplicationError(error::Code id) override;
 
-  //! Based on maximum terminal size, calculate how many bars can be shown in spectrum window
-  int CalculateNumberBars() override;
-
   /* ******************************************************************************************** */
   //! Utils
  private:
-
   //! Get internal block index based on block identifier
   int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id);
 

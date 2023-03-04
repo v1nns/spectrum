@@ -58,8 +58,11 @@ int main(int argc, char** argv) {
   // Create and initialize a new terminal window
   auto terminal = interface::Terminal::Create();
 
+  // Use terminal maximum width as input to decide how many bars should display on audio visualizer
+  int number_bars = terminal->CalculateNumberBars();
+
   // Create and initialize a new middleware for terminal and player
-  auto middleware = middleware::MediaController::Create(terminal, player);
+  auto middleware = middleware::MediaController::Create(terminal, player, number_bars);
 
   // Register callbacks to Terminal and Player
   terminal->RegisterPlayerNotifier(middleware);

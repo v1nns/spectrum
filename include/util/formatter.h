@@ -13,6 +13,8 @@
 #include <sstream>
 #include <tuple>
 
+#include "ftxui/component/event.hpp"  // for Event
+
 namespace util {
 
 using Prefix = std::pair<int, std::string_view>;
@@ -66,6 +68,27 @@ std::string to_string_with_precision(const T value, const int n = 6) {
   ss.precision(n);
   ss << std::fixed << value;
   return std::move(ss).str();
+}
+
+/**
+ * @brief Convert ftxui::Event to an user-friendly string
+ * @param e UI event (mouse/keyboard input)
+ * @return Formatted string
+ */
+inline std::string EventToString(const ftxui::Event& e) {
+  if (e.is_character()) return e.character();
+
+  if (e == ftxui::Event::ArrowUp) return "ArrowUp";
+  if (e == ftxui::Event::ArrowDown) return "ArrowDown";
+  if (e == ftxui::Event::PageUp) return "PageUp";
+  if (e == ftxui::Event::PageDown) return "PageDown";
+  if (e == ftxui::Event::Home) return "Home";
+  if (e == ftxui::Event::End) return "End";
+  if (e == ftxui::Event::Tab) return "Tab";
+  if (e == ftxui::Event::TabReverse) return "Shift+Tab";
+  if (e == ftxui::Event::Return) return "Return";
+
+  return "Unknown";
 }
 
 }  // namespace util

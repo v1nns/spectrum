@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 
+#include "audio/base/notifier.h"
 #include "general/sync_testing.h"
 #include "middleware/media_controller.h"
 #include "mock/analyzer_mock.h"
@@ -15,7 +16,6 @@
 #include "mock/event_dispatcher_mock.h"
 #include "model/application_error.h"
 #include "util/logger.h"
-#include "audio/base/notifier.h"
 #include "view/base/notifier.h"
 
 namespace {
@@ -59,7 +59,6 @@ class MediaControllerTest : public ::testing::Test {
     // Setup init expectations
     InSequence seq;
 
-    EXPECT_CALL(*dispatcher, CalculateNumberBars()).WillOnce(Return(kNumberBars));
     EXPECT_CALL(*an_mock, Init(Eq(kNumberBars)));
 
     EXPECT_CALL(*dispatcher,
@@ -67,7 +66,8 @@ class MediaControllerTest : public ::testing::Test {
                                    interface::CustomEvent::Identifier::DrawAudioSpectrum)));
 
     // Create Controller
-    controller = middleware::MediaController::Create(dispatcher, audio_ctl, an_mock, asynchronous);
+    controller = middleware::MediaController::Create(dispatcher, audio_ctl, kNumberBars, an_mock,
+                                                     asynchronous);
   }
 
   //! Getter for Player Notifier
@@ -258,7 +258,8 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
 TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
   int sample_size = 16;
-//   model::Song::CurrentInformation info{.state = model::Song::MediaState::Pause, .position = 12};
+  //   model::Song::CurrentInformation info{.state = model::Song::MediaState::Pause, .position =
+  //   12};
 
   auto analysis = [&](TestSyncer& syncer) {
     auto analyzer = GetAnalyzer();
@@ -276,8 +277,8 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
       // Create expectation to analyze data and send its result back to UI
       EXPECT_CALL(*analyzer, Execute(_, Eq(sample_size), _))
           .WillOnce(Invoke([&](double* input, int, double* output) {
-            for(int i = 0; i < kNumberBars; i++){
-                std::cout<< input[i] << " ";
+            for (int i = 0; i < kNumberBars; i++) {
+              std::cout << input[i] << " ";
             }
             std::cout << std::endl;
             std::copy(input, input + kNumberBars, output);
@@ -305,7 +306,8 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
     //   // from Player thread and not from Analysis thread (in the "real life")
     //   InSequence seq;
 
-    //   // As we can get a lot of DrawAudioSpectrum events, calculate result and create expectations
+    //   // As we can get a lot of DrawAudioSpectrum events, calculate result and create
+    //   expectations
     //   // Each loop will reduce its previous value by 45%
     //   for (int i = 0; i < 10; i++) {
     //     std::transform(values.begin(), values.end(), values.begin(),

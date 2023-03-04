@@ -16,7 +16,7 @@ namespace middleware {
 
 std::shared_ptr<MediaController> MediaController::Create(
     const std::shared_ptr<interface::EventDispatcher>& terminal,
-    const std::shared_ptr<audio::AudioControl>& player, driver::Analyzer* analyzer,
+    const std::shared_ptr<audio::AudioControl>& player, int number_bars, driver::Analyzer* analyzer,
     bool asynchronous) {
   LOG("Create new instance of media controller");
 
@@ -28,11 +28,9 @@ std::shared_ptr<MediaController> MediaController::Create(
   auto controller =
       std::shared_ptr<MediaController>(new MediaController(terminal, player, std::move(an)));
 
-  // TODO: remove this from here, move to main?
-  // Use terminal maximum width as input to decide how many bars should display on audio visualizer
-  auto number_bars = terminal->CalculateNumberBars();
   controller->Init(number_bars, asynchronous);
 
+  // As we have no audio analysis output at this point, simply create a dummy output to show in UI
   auto event_bars =
       interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(number_bars, 0.001));
   terminal->ProcessEvent(event_bars);

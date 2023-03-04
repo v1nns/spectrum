@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "util/formatter.h"
 #include "util/logger.h"
 
 namespace interface {
@@ -94,6 +95,7 @@ ftxui::Element AudioEqualizer::Render() {
 bool AudioEqualizer::OnEvent(ftxui::Event event) {
   // Navigate on frequency bars
   if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
     int old_index = focused_;
 
     // Calculate new index based on upper bound
@@ -108,6 +110,7 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
 
   // Navigate on frequency bars
   if (event == ftxui::Event::ArrowLeft || event == ftxui::Event::Character('h')) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
     int old_index = focused_;
 
     // Calculate new index based on lower bound
@@ -124,6 +127,8 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
     if (focused_ == kInvalidIndex) return false;
 
+    LOG("Handle menu navigation key=", util::EventToString(event));
+
     // Increment value and update UI
     bars_[focused_]->IncreaseGain();
     UpdateInterfaceState();
@@ -134,6 +139,8 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
   // Change gain on frequency bar focused
   if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
     if (focused_ == kInvalidIndex) return false;
+
+    LOG("Handle menu navigation key=", util::EventToString(event));
 
     // Increment value and update UI
     bars_[focused_]->DecreaseGain();
@@ -146,6 +153,7 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Escape) {
     if (focused_ == kInvalidIndex) return false;
 
+    LOG("Handle menu navigation key=", util::EventToString(event));
     int old_index = focused_;
 
     // Invalidate old index for focused

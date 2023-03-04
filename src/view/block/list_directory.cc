@@ -15,6 +15,7 @@
 #include "ftxui/component/mouse.hpp"           // for Mouse
 #include "ftxui/screen/color.hpp"              // for Color
 #include "ftxui/util/ref.hpp"                  // for Ref
+#include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 
@@ -35,23 +36,6 @@ MenuEntryOption Colored(ftxui::Color c) {
 template <class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
   return v < lo ? lo : hi < v ? hi : v;
-}
-
-//! Convert ftxui::Event to an user-friendly string
-static std::string EventToString(const ftxui::Event& e) {
-  if (e.is_character()) return e.character();
-
-  if (e == ftxui::Event::ArrowUp) return "ArrowUp";
-  if (e == ftxui::Event::ArrowDown) return "ArrowDown";
-  if (e == ftxui::Event::PageUp) return "PageUp";
-  if (e == ftxui::Event::PageDown) return "PageDown";
-  if (e == ftxui::Event::Home) return "Home";
-  if (e == ftxui::Event::End) return "End";
-  if (e == ftxui::Event::Tab) return "Tab";
-  if (e == ftxui::Event::TabReverse) return "Shift+Tab";
-  if (e == ftxui::Event::Return) return "Return";
-
-  return "Unknown";
 }
 
 /* ********************************************************************************************** */
@@ -300,7 +284,7 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
     *selected = clamp(*selected, 0, Size() - 1);
 
     if (*selected != old_selected) {
-      LOG("Handle menu navigation key=", EventToString(event));
+      LOG("Handle menu navigation key=", util::EventToString(event));
       *focused = *selected;
       event_handled = true;
 
@@ -314,7 +298,7 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
     auto active = GetActiveEntry();
 
     if (active != nullptr) {
-      LOG("Handle menu navigation key=", EventToString(event));
+      LOG("Handle menu navigation key=", util::EventToString(event));
 
       if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
         new_dir = curr_dir_.parent_path();
