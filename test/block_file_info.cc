@@ -26,6 +26,10 @@ class FileInfoTest : public ::BlockTest {
 
     // Create FileInfo block
     block = ftxui::Make<interface::FileInfo>(dispatcher);
+
+    // Set this block as focused
+    auto dummy = std::static_pointer_cast<interface::Block>(block);
+    dummy->SetFocused(true);
   }
 };
 

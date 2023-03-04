@@ -30,6 +30,10 @@ class TabViewerTest : public ::BlockTest {
 
     // Create TabViewer block
     block = ftxui::Make<interface::TabViewer>(dispatcher);
+
+    // Set this block as focused
+    auto dummy = std::static_pointer_cast<interface::Block>(block);
+    dummy->SetFocused(true);
   }
 
   static constexpr int kNumberBars = 18;

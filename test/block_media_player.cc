@@ -28,6 +28,10 @@ class MediaPlayerTest : public ::BlockTest {
 
     // Create MediaPlayer block
     block = ftxui::Make<interface::MediaPlayer>(dispatcher);
+
+    // Set this block as focused
+    auto dummy = std::static_pointer_cast<interface::Block>(block);
+    dummy->SetFocused(true);
   }
 };
 

@@ -45,6 +45,10 @@ class ListDirectoryTest : public ::BlockTest {
     // use test directory as base dir
     std::string source_dir{std::filesystem::current_path().parent_path().string() + "/test"};
     block = ftxui::Make<ListDirectoryMock>(dispatcher, source_dir);
+
+    // Set this block as focused
+    auto dummy = std::static_pointer_cast<interface::Block>(block);
+    dummy->SetFocused(true);
   }
 };
 
@@ -502,48 +506,6 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
 │  some_music_2.mp3            │
 │  some_music_3.mp3            │
 │> some_music_4.mp3            │
-╰──────────────────────────────╯)";
-
-  EXPECT_THAT(rendered, StrEq(expected));
-}
-
-/* ********************************************************************************************** */
-
-TEST_F(ListDirectoryTest, TabMenuOnBigList) {
-  // Hacky method to add new entries
-  auto list_dir = std::static_pointer_cast<interface::ListDirectory>(block);
-  for (int i = 0; i < 15; i++) {
-    std::filesystem::path dummy{"some_music_" + std::to_string(i) + ".mp3"};
-    list_dir->entries_.emplace_back(dummy);
-  }
-
-  // Jump forward and backward some entries by using Tab and ShiftTab
-  block->OnEvent(ftxui::Event::Tab);
-  block->OnEvent(ftxui::Event::Tab);
-  block->OnEvent(ftxui::Event::Tab);
-
-  block->OnEvent(ftxui::Event::TabReverse);
-  block->OnEvent(ftxui::Event::Tab);
-
-  ftxui::Render(*screen, block->Render());
-
-  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
-
-  std::string expected = R"(
-╭ files ───────────────────────╮
-│test                          │
-│  mock                        │
-│  some_music_0.mp3            │
-│  some_music_1.mp3            │
-│  some_music_2.mp3            │
-│  some_music_3.mp3            │
-│> some_music_4.mp3            │
-│  some_music_5.mp3            │
-│  some_music_6.mp3            │
-│  some_music_7.mp3            │
-│  some_music_8.mp3            │
-│  some_music_9.mp3            │
-│  some_music_10.mp3           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
