@@ -14,7 +14,7 @@ Help::Help()
 ftxui::Element Help::Render() {
   using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
 
-  auto title = [](const std::string& title) {
+  constexpr auto title = [](const std::string& title) {
     return ftxui::vbox({
         ftxui::text(""),
         ftxui::text(title) | ftxui::color(ftxui::Color::Black) | ftxui::bold | ftxui::xflex_grow,
@@ -22,7 +22,7 @@ ftxui::Element Help::Render() {
     });
   };
 
-  auto command = [](const std::string& command, const std::string& description) {
+  constexpr auto command = [](const std::string& command, const std::string& description) {
     return ftxui::hbox({
         ftxui::text(command) | ftxui::color(ftxui::Color::PaleTurquoise1),
         ftxui::text(!command.empty() ? " - " : ""),
@@ -30,7 +30,7 @@ ftxui::Element Help::Render() {
     });
   };
 
-  auto margin = []() { return ftxui::vbox({ftxui::text("   ")}); };
+  constexpr auto margin = []() { return ftxui::vbox({ftxui::text("   ")}); };
 
   auto block_decorator = ftxui::color(ftxui::Color::Black) | ftxui::xflex_grow;
 

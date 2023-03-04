@@ -14,6 +14,10 @@ FrequencyBar::FrequencyBar(const model::AudioFilter& filter)
           .background = ftxui::Color::LightSteelBlue1,
           .foreground = ftxui::Color::SlateBlue1,
       }},
+      style_focused_{BarStyle{
+          .background = ftxui::Color::LightSteelBlue3,
+          .foreground = ftxui::Color::RedLight,
+      }},
       box_{},
       hovered_{false},
       clicked_{false},
@@ -25,18 +29,20 @@ FrequencyBar::FrequencyBar(const model::AudioFilter& filter)
 ftxui::Element FrequencyBar::Render() {
   using ftxui::WIDTH, ftxui::EQUAL;
 
-  auto empty_line = []() { return ftxui::text(""); };
+  constexpr auto empty_line = []() { return ftxui::text(""); };
 
-  auto gen_slider = [&](double value) {
-    ftxui::Decorator color =
-        hovered_
-            ? ftxui::bgcolor(style_hovered_.background) | ftxui::color(style_hovered_.foreground)
-            : ftxui::bgcolor(style_normal_.background) | ftxui::color(style_normal_.foreground);
+  constexpr auto gen_slider = [&](double value, const BarStyle& style) {
+    ftxui::Decorator color = ftxui::bgcolor(style.background) | ftxui::color(style.foreground);
 
-    return ftxui::gaugeUp(value) | ftxui::yflex_grow | color;
+    return ftxui::hbox({
+        ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
+        ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
+    });
   };
 
+  // Get gain value and choose style
   float gain = filter_bar_.GetGainAsPercentage();
+  BarStyle& style = focused_ ? style_focused_ : hovered_ ? style_hovered_ : style_normal_;
 
   return ftxui::vbox({
       // title
@@ -45,10 +51,7 @@ ftxui::Element FrequencyBar::Render() {
       empty_line(),
 
       // frequency gauge
-      // TODO: improve focused handling and styling
-      ftxui::hbox({gen_slider(gain), gen_slider(gain)}) |
-          (focused_ ? ftxui::border : ftxui::nothing) | ftxui::hcenter | ftxui::yflex_grow |
-          ftxui::reflect(box_),
+      gen_slider(gain, style) | ftxui::hcenter | ftxui::yflex_grow | ftxui::reflect(box_),
 
       // gain input
       empty_line(),

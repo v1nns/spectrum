@@ -51,7 +51,7 @@ static std::string EventToString(const ftxui::Event& e) {
   if (e == ftxui::Event::TabReverse) return "Shift+Tab";
   if (e == ftxui::Event::Return) return "Return";
 
-  return "";
+  return "Unknown";
 }
 
 /* ********************************************************************************************** */
@@ -454,7 +454,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   selected_ = 0, focused_ = 0;
 
   // Transform whole string into uppercase
-  auto to_lower = [](char& c) { c = std::tolower(c); };
+  constexpr auto to_lower = [](char& c) { c = std::tolower(c); };
 
   // Created a custom file sort
   auto custom_sort = [&to_lower](const File& a, const File& b) {

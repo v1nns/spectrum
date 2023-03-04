@@ -142,6 +142,22 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
     return true;
   }
 
+  // Remove focus state from frequency bar
+  if (event == ftxui::Event::Escape) {
+    if (focused_ == kInvalidIndex) return false;
+
+    int old_index = focused_;
+
+    // Invalidate old index for focused
+    focused_ = kInvalidIndex;
+
+    // Update UI
+    UpdateFocus(old_index);
+    UpdateInterfaceState();
+
+    return true;
+  }
+
   return false;
 }
 

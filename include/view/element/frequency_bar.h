@@ -91,11 +91,11 @@ class FrequencyBar {
     ftxui::Color foreground;
   };
 
-  BarStyle style_normal_, style_hovered_;  //!< Color style
-  ftxui::Box box_;                         //!< Box to control if mouse cursor is over the bar
-  bool hovered_;                           //!< Flag to indicate if bar is hovered (by mouse)
-  bool clicked_;                           //!< Flag to indicate if bar was clicked
-  bool focused_;                           //!< Flag to indicate if bar is focused
+  BarStyle style_normal_, style_hovered_, style_focused_;  //!< Color style
+  ftxui::Box box_;  //!< Box to control if mouse cursor is over the bar
+  bool hovered_;    //!< Flag to indicate if bar is hovered (by mouse)
+  bool clicked_;    //!< Flag to indicate if bar was clicked
+  bool focused_;    //!< Flag to indicate if bar is focused
 
   model::AudioFilter filter_bar_;  //!< Audio frequency gauge for equalization
 };
