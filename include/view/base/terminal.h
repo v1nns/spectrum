@@ -131,6 +131,27 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   bool OnGlobalModeEvent(const ftxui::Event& event);
 
+  /**
+   * @brief Handle custom events sent from interface to audio thread (music player)
+   * @param event Received custom event
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleEventFromInterfaceToAudioThread(const CustomEvent& event);
+
+  /**
+   * @brief Handle custom events sent from audio thread (music player) to interface
+   * @param event Received custom event
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleEventFromAudioThreadToInterface(const CustomEvent& event);
+
+  /**
+   * @brief Handle custom events sent from interface to interface
+   * @param event Received custom event
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleEventFromInterfaceToInterface(const CustomEvent& event);
+
   /* ******************************************************************************************** */
   //! UI Event dispatching and Interface
  public:

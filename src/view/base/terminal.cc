@@ -231,77 +231,172 @@ void Terminal::OnCustomEvent() {
 
     // As this class centralizes any event sending (to an external notifier or some child block),
     // first gotta check if this event is specifically for the player
-    if (event.type == CustomEvent::Type::FromInterfaceToAudioThread) {
-      auto media_ctl = notifier_.lock();
-      if (!media_ctl) {
-        // TODO: improve handling here and also for each method call
-        continue;  // skip to next while-loop
-      }
+    switch (event.type) {
+      case CustomEvent::Type::FromInterfaceToAudioThread:
+        if (HandleEventFromInterfaceToAudioThread(event)) {
+          // Skip to next while-loop
+          continue;
+        }
+        break;
 
-      switch (event.GetId()) {
-        case CustomEvent::Identifier::NotifyFileSelection: {
-          auto content = event.GetContent<std::filesystem::path>();
-          media_ctl->NotifyFileSelection(content);
-        } break;
+      case CustomEvent::Type::FromAudioThreadToInterface:
+        if (HandleEventFromAudioThreadToInterface(event)) {
+          // Skip to next while-loop
+          continue;
+        }
+        break;
 
-        case CustomEvent::Identifier::PauseOrResumeSong:
-          media_ctl->PauseOrResume();
-          break;
-
-        case CustomEvent::Identifier::StopSong:
-          media_ctl->Stop();
-          break;
-
-        case CustomEvent::Identifier::ClearCurrentSong:
-          media_ctl->ClearCurrentSong();
-          break;
-
-        case CustomEvent::Identifier::SetAudioVolume: {
-          auto content = event.GetContent<model::Volume>();
-          media_ctl->SetVolume(content);
-        } break;
-
-        case CustomEvent::Identifier::ResizeAnalysis: {
-          auto content = event.GetContent<int>();
-          // Send content directly to audio analysis thread
-          media_ctl->ResizeAnalysisOutput(content);
-
-          // Update UI with new size
-          auto event_bars =
-              interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(content, 0.001));
-          ProcessEvent(event_bars);
-
-        } break;
-
-        case CustomEvent::Identifier::SeekForwardPosition: {
-          auto content = event.GetContent<int>();
-          media_ctl->SeekForwardPosition(content);
-        } break;
-
-        case CustomEvent::Identifier::SeekBackwardPosition: {
-          auto content = event.GetContent<int>();
-          media_ctl->SeekBackwardPosition(content);
-        } break;
-
-        case CustomEvent::Identifier::ApplyAudioFilters: {
-          auto content = event.GetContent<std::vector<model::AudioFilter>>();
-          media_ctl->ApplyAudioFilters(content);
-        } break;
-
-        default:
-          break;
-      }
-
-      continue;  // skip to next while-loop
+      case CustomEvent::Type::FromInterfaceToInterface:
+        if (HandleEventFromInterfaceToInterface(event)) {
+          // Skip to next while-loop
+          continue;
+        }
+        break;
     }
 
-    // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
-    // size and calculate maximum number of bars
-    if (event == CustomEvent::Identifier::ChangeBarAnimation) {
+    // Otherwise, send it to children blocks
+    for (auto& child : children_) {
+      auto block = std::static_pointer_cast<Block>(child);
+      if (block->OnCustomEvent(event)) {
+        break;  // Skip from this for-loop
+      }
+    }
+  }
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
+  bool event_handled = false;
+
+  // Exit application
+  if (event == ftxui::Event::Character('q')) {
+    LOG("Handle key to exit");
+    Exit();
+
+    event_handled = true;
+  }
+
+  // Show helper
+  if (event == ftxui::Event::F1) {
+    LOG("Handle key to show helper");
+    helper_->Show();
+
+    event_handled = true;
+  }
+
+  if (event == ftxui::Event::Tab) {
+    LOG("Handle key to focus next UI block");
+
+    // Send event to focus next UI block
+    auto focus_event = interface::CustomEvent::SetNextFocused();
+    SendEvent(focus_event);
+
+    event_handled = true;
+  }
+
+  if (event == ftxui::Event::TabReverse) {
+    LOG("Handle key to focus previous UI block");
+
+    // Send event to focus next/previous UI block
+    auto focus_event = interface::CustomEvent::SetPreviousFocused();
+    SendEvent(focus_event);
+
+    event_handled = true;
+  }
+
+  return event_handled;
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
+  bool event_handled = true;
+
+  auto media_ctl = notifier_.lock();
+  if (!media_ctl) {
+    // TODO: improve handling here and also for each method call
+    return !event_handled;
+  }
+
+  switch (event.GetId()) {
+    case CustomEvent::Identifier::NotifyFileSelection: {
+      auto content = event.GetContent<std::filesystem::path>();
+      media_ctl->NotifyFileSelection(content);
+    } break;
+
+    case CustomEvent::Identifier::PauseOrResumeSong:
+      media_ctl->PauseOrResume();
+      break;
+
+    case CustomEvent::Identifier::StopSong:
+      media_ctl->Stop();
+      break;
+
+    case CustomEvent::Identifier::ClearCurrentSong:
+      media_ctl->ClearCurrentSong();
+      break;
+
+    case CustomEvent::Identifier::SetAudioVolume: {
+      auto content = event.GetContent<model::Volume>();
+      media_ctl->SetVolume(content);
+    } break;
+
+    case CustomEvent::Identifier::ResizeAnalysis: {
+      auto content = event.GetContent<int>();
+      // Send content directly to audio analysis thread
+      media_ctl->ResizeAnalysisOutput(content);
+
+      // Update UI with new size
+      auto event_bars =
+          interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(content, 0.001));
+      ProcessEvent(event_bars);
+    } break;
+
+    case CustomEvent::Identifier::SeekForwardPosition: {
+      auto content = event.GetContent<int>();
+      media_ctl->SeekForwardPosition(content);
+    } break;
+
+    case CustomEvent::Identifier::SeekBackwardPosition: {
+      auto content = event.GetContent<int>();
+      media_ctl->SeekBackwardPosition(content);
+    } break;
+
+    case CustomEvent::Identifier::ApplyAudioFilters: {
+      auto content = event.GetContent<std::vector<model::AudioFilter>>();
+      media_ctl->ApplyAudioFilters(content);
+
+    } break;
+
+    default:
+      event_handled = false;
+      break;
+  }
+
+  return event_handled;
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::HandleEventFromAudioThreadToInterface(const CustomEvent& event) {
+  // Do nothing here, let Blocks handle it
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
+  bool event_handled = true;
+
+  // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
+  // size and calculate maximum number of bars
+  switch (event.GetId()) {
+    case CustomEvent::Identifier::ChangeBarAnimation: {
       auto media_ctl = notifier_.lock();
       if (!media_ctl) {
         // TODO: improve handling here and also for each method call
-        continue;  // skip to next while-loop
+        break;
       }
 
       // Recalculate maximum number of bars to show in spectrum visualizer
@@ -310,11 +405,9 @@ void Terminal::OnCustomEvent() {
       // Pass this new value to spectrum visualizer calculate based on the current animation
       auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);
       ProcessEvent(event_calculate);
+    } break;
 
-      continue;  // skip to next while-loop
-    }
-
-    if (event == CustomEvent::Identifier::SetPreviousFocused) {
+    case CustomEvent::Identifier::SetPreviousFocused: {
       // Remove focus from old block
       auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       old_focused->SetFocused(false);
@@ -325,11 +418,9 @@ void Terminal::OnCustomEvent() {
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       new_focused->SetFocused(true);
+    } break;
 
-      continue;  // skip to next while-loop
-    }
-
-    if (event == CustomEvent::Identifier::SetNextFocused) {
+    case CustomEvent::Identifier::SetNextFocused: {
       // Remove focus from old block
       auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       old_focused->SetFocused(false);
@@ -340,18 +431,14 @@ void Terminal::OnCustomEvent() {
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       new_focused->SetFocused(true);
+    } break;
 
-      continue;  // skip to next while-loop
-    }
-
-    if (event == CustomEvent::Identifier::SetFocused) {
+    case CustomEvent::Identifier::SetFocused: {
       auto content = event.GetContent<model::BlockIdentifier>();
       int new_index = GetIndexFromBlockIdentifier(content);
 
-      if (focused_index_ == new_index) {
-        // do nothing
-        continue;
-      }
+      // Do nothing
+      if (focused_index_ == new_index) break;
 
       // Remove focus from old block
       auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
@@ -363,68 +450,22 @@ void Terminal::OnCustomEvent() {
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       new_focused->SetFocused(true);
+    } break;
 
-      continue;  // skip to next while-loop
-    }
-
-    if (event == CustomEvent::Identifier::ShowHelper) {
+    case CustomEvent::Identifier::ShowHelper: {
       helper_->Show();
-      continue;  // skip to next while-loop
-    }
+    } break;
 
-    if (event == CustomEvent::Identifier::Exit) {
+    case CustomEvent::Identifier::Exit: {
       Exit();
-      return;  // exit from while-loop
-    }
+    } break;
 
-    // Otherwise, send it to children blocks
-    for (auto& child : children_) {
-      auto block = std::static_pointer_cast<Block>(child);
-      if (block->OnCustomEvent(event)) {
-        break;  // skip from this for-loop
-      }
-    }
-  }
-}
-
-/* ********************************************************************************************** */
-
-bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
-  // Exit application
-  if (event == ftxui::Event::Character('q')) {
-    LOG("Handle key to exit");
-    Exit();
-    return true;
+    default:
+      event_handled = false;
+      break;
   }
 
-  // Show helper
-  if (event == ftxui::Event::F1) {
-    LOG("Handle key to show helper");
-    helper_->Show();
-    return true;
-  }
-
-  if (event == ftxui::Event::Tab) {
-    LOG("Handle key to focus next UI block");
-
-    // Send event to focus next UI block
-    auto focus_event = interface::CustomEvent::SetNextFocused();
-    SendEvent(focus_event);
-
-    return true;
-  }
-
-  if (event == ftxui::Event::TabReverse) {
-    LOG("Handle key to focus previous UI block");
-
-    // Send event to focus next/previous UI block
-    auto focus_event = interface::CustomEvent::SetPreviousFocused();
-    SendEvent(focus_event);
-
-    return true;
-  }
-
-  return false;
+  return event_handled;
 }
 
 /* ********************************************************************************************** */
