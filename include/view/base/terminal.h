@@ -125,11 +125,18 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   void OnCustomEvent();
 
   /**
-   * @brief Handles a event when no internal mode has been set
+   * @brief Handle event not associated with any UI block
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
   bool OnGlobalModeEvent(const ftxui::Event& event);
+
+ /**
+   * @brief Handle event to switch block focus
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleEventToSwitchBlockFocus(const ftxui::Event& event);
 
   /**
    * @brief Handle custom events sent from interface to audio thread (music player)

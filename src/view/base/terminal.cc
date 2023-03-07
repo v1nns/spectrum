@@ -267,14 +267,12 @@ void Terminal::OnCustomEvent() {
 /* ********************************************************************************************** */
 
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
-  bool event_handled = false;
-
   // Exit application
   if (event == ftxui::Event::Character('q')) {
     LOG("Handle key to exit");
     Exit();
 
-    event_handled = true;
+    return true;
   }
 
   // Show helper
@@ -282,30 +280,75 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     LOG("Handle key to show helper");
     helper_->Show();
 
-    event_handled = true;
+    return true;
   }
 
+  // Switch focus
   if (event == ftxui::Event::Tab) {
     LOG("Handle key to focus next UI block");
 
     // Send event to focus next UI block
     auto focus_event = interface::CustomEvent::SetNextFocused();
-    SendEvent(focus_event);
+    ProcessEvent(focus_event);
 
-    event_handled = true;
+    return true;
   }
 
+  // Switch focus reverse
   if (event == ftxui::Event::TabReverse) {
     LOG("Handle key to focus previous UI block");
 
     // Send event to focus next/previous UI block
     auto focus_event = interface::CustomEvent::SetPreviousFocused();
-    SendEvent(focus_event);
+    ProcessEvent(focus_event);
 
-    event_handled = true;
+    return true;
   }
 
-  return event_handled;
+  // Switch block focus based on a predefined index
+  if (HandleEventToSwitchBlockFocus(event)) return true;
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::HandleEventToSwitchBlockFocus(const ftxui::Event& event) {
+  if (!event.is_character()) return false;
+
+  // Set ListDirectory block as focused (shift+1)
+  if (event == ftxui::Event::Character('!')) {
+    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::ListDirectory);
+    ProcessEvent(event);
+
+    return true;
+  }
+
+  // Set FileInfo block as focused (shift+2)
+  if (event == ftxui::Event::Character('@')) {
+    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::FileInfo);
+    ProcessEvent(event);
+
+    return true;
+  }
+
+  // Set TabViewer block as focused (shift+3)
+  if (event == ftxui::Event::Character('#')) {
+    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::TabViewer);
+    ProcessEvent(event);
+
+    return true;
+  }
+
+  // Set MediaPlayer block as focused (shift+4)
+  if (event == ftxui::Event::Character('$')) {
+    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::MediaPlayer);
+    ProcessEvent(event);
+
+    return true;
+  }
+
+  return false;
 }
 
 /* ********************************************************************************************** */

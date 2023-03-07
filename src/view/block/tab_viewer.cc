@@ -42,6 +42,13 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
           [&]() {
             LOG("Handle left click mouse event on Tab button for visualizer");
             active_ = View::Visualizer;
+
+            auto dispatcher = dispatcher_.lock();
+            if (dispatcher) {
+              // Set this block as active (focused)
+              auto event = interface::CustomEvent::SetFocused(GetId());
+              dispatcher->SendEvent(event);
+            }
           },
           Button::Delimiters{" ", " "}),
       .item = std::make_unique<SpectrumVisualizer>(dispatcher),
@@ -54,6 +61,13 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
           [&]() {
             LOG("Handle left click mouse event on Tab button for equalizer");
             active_ = View::Equalizer;
+
+            auto dispatcher = dispatcher_.lock();
+            if (dispatcher) {
+              // Set this block as active (focused)
+              auto event = interface::CustomEvent::SetFocused(GetId());
+              dispatcher->SendEvent(event);
+            }
           },
           Button::Delimiters{" ", " "}),
       .item = std::make_unique<AudioEqualizer>(dispatcher),
