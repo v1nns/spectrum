@@ -38,65 +38,66 @@ ftxui::Element Help::Render() {
                    ftxui::borderDouble | ftxui::bgcolor(style_.background) |
                    ftxui::color(style_.foreground) | ftxui::clear_under | ftxui::center;
 
-  return ftxui::gridbox({
-             // Column 1
-             {
+  static ftxui::Element content =
+      ftxui::gridbox({
+          {
+              margin(),
 
-                 margin(),
+              // Column 1
+              ftxui::vbox({
+                  title("block focus"),
+                  command("Shift+1", "files"),
+                  command("Shift+2", "information"),
+                  command("Shift+3", "visualizer/equalizer"),
+                  command("Shift+4", "player"),
+                  command("Tab", "Focus next block"),
+                  command("Shift+Tab", "Focus previous block"),
 
-                 // Block 1
-                 ftxui::vbox({
-                     title("files"),
-                     command("←/↓/↑/→", "Navigate on list"),
-                     command("h/j/k/l", "Navigate on list"),
-                     command("Home", "Go to first entry"),
-                     command("End", "Go to last entry"),
-                     command("Tab", "Jump some entries"),
-                     command("Shift+Tab", "Jump back some entries"),
-                     command("/", "Enter search mode"),
-                     command("Esc", "Cancel search mode"),
-                     command("Return", "Enter directory/play song"),
-                 }) | block_decorator,
+                  title("files"),
+                  command("←/↓/↑/→", "Navigate on list"),
+                  command("h/j/k/l", "Navigate on list"),
+                  command("Home", "Go to first entry"),
+                  command("End", "Go to last entry"),
+                  command("/", "Enter search mode"),
+                  command("Esc", "Cancel search mode"),
+                  command("Return", "Enter directory/play song"),
 
-                 margin(),
+                  title("information"),
+                  command("", "N/A"),
 
-                 // Block 3
-                 ftxui::vbox({
-                     title("visualizer"),
-                     command("a", "Change spectrum animation"),
-                 }) | block_decorator,
+              }) | block_decorator,
 
-                 margin(),
-             },
+              margin(),
 
-             // Column 2
-             {
-                 margin(),
+              // Column 2
+              ftxui::vbox({
+                  title("visualizer"),
+                  command("a", "Change spectrum animation"),
 
-                 // Block 2
-                 ftxui::vbox({
-                     title("information"),
-                     command("", "N/A"),
-                 }) | block_decorator,
+                  margin(),
 
-                 margin(),
+                  title("equalizer"),
+                  command("←/↓/↑/→", "Navigate on frequency bars"),
+                  command("h/j/k/l", "Navigate on frequency bars"),
+                  command("Esc", "Cancel focus"),
 
-                 // Block 4
-                 ftxui::vbox({
-                     title("player"),
-                     command("p", "Pause/Resume current song"),
-                     command("s", "Stop current song"),
-                     command("c", "Clear current song"),
-                     command("+/-", "Increase/decrease volume"),
-                     command("f", "Seek forward position in current song"),
-                     command("b", "Seek backward position in current song"),
-                 }) | block_decorator,
+                  margin(),
 
-                 margin(),
-             },
+                  title("player"),
+                  command("p", "Pause/Resume current song"),
+                  command("s", "Stop current song"),
+                  command("c", "Clear current song"),
+                  command("+/-", "Increase/decrease volume"),
+                  command("f", "Seek forward position in current song"),
+                  command("b", "Seek backward position in current song"),
+              }) | block_decorator,
 
-         }) |
-         decorator;
+              margin(),
+          },
+      }) |
+      decorator;
+
+  return content;
 }
 
 /* ********************************************************************************************** */
