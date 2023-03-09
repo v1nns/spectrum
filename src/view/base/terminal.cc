@@ -168,15 +168,14 @@ ftxui::Element Terminal::Render() {
 /* ********************************************************************************************** */
 
 bool Terminal::OnEvent(ftxui::Event event) {
+  // Treat any pending custom event
+  OnCustomEvent();
+
   // Cannot do anything while dialog box is opened
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
 
   // Or if helper is opened
-  // TODO: do not use return
   if (helper_->IsVisible()) return helper_->OnEvent(event);
-
-  // Treat any pending custom event
-  OnCustomEvent();
 
   // Global commands
   if (OnGlobalModeEvent(event)) return true;
