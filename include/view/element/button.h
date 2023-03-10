@@ -134,6 +134,16 @@ class Button {
    */
   void SetInactive();
 
+  /**
+   * @brief Get button state
+   */
+  bool IsActive() const;
+
+  /**
+   * @brief Execute button callback function
+   */
+  void OnClick();
+
   /* ******************************************************************************************** */
  protected:
   ftxui::Box box_;  //!< Box to control if mouse cursor is over the button

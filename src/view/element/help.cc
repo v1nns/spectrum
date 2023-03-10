@@ -80,6 +80,8 @@ ftxui::Element Help::Render() {
                   command("←/↓/↑/→", "Navigate on frequency bars"),
                   command("h/j/k/l", "Navigate on frequency bars"),
                   command("Esc", "Cancel focus"),
+                  command("a", "Apply equalizer settings"),
+                  command("r", "Reset equalizer settings"),
 
                   margin(),
 

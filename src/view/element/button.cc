@@ -82,6 +82,16 @@ void Button::SetInactive() {
 
 /* ********************************************************************************************** */
 
+bool Button::IsActive() const { return active_; }
+
+/* ********************************************************************************************** */
+
+void Button::OnClick() {
+  if (on_click_ != nullptr) on_click_();
+}
+
+/* ********************************************************************************************** */
+
 std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
   class Play : public Button {
    public:

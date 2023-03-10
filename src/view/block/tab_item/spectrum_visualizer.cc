@@ -41,6 +41,7 @@ ftxui::Element SpectrumVisualizer::Render() {
 bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
   // Notify terminal to recalculate new size for spectrum data
   if (event == ftxui::Event::Character('a')) {
+    LOG("Handle key to change audio animation");
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
 

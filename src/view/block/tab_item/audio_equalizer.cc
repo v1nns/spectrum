@@ -166,6 +166,18 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
     return true;
   }
 
+  // Apply audio filters
+  if (btn_apply_->IsActive() && event == ftxui::Event::Character('a')) {
+    LOG("Handle key to apply audio filters");
+    btn_apply_->OnClick();
+  }
+
+  // Reset audio filters
+  if (btn_reset_->IsActive() && event == ftxui::Event::Character('r')) {
+    LOG("Handle key to reset audio filters");
+    btn_reset_->OnClick();
+  }
+
   return false;
 }
 
