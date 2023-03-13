@@ -24,7 +24,7 @@ AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatche
   btn_apply_ = Button::make_button(
       std::string("Apply"),
       [&]() {
-        LOG("Handle left click mouse event on Equalizer apply button");
+        LOG("Handle callback for Equalizer apply button");
         auto dispatcher = dispatcher_.lock();
         if (dispatcher) {
           // Fill vector of frequency bars and send to player
@@ -35,6 +35,10 @@ AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatche
             frequencies.push_back(bar->GetAudioFilter());
           }
 
+          // Do nothing if they are equal
+          if (cache_ == frequencies) return;
+
+          // Otherwise, send updated values to Audio Player
           auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
           dispatcher->SendEvent(event);
           btn_apply_->SetInactive();
@@ -48,7 +52,7 @@ AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatche
   btn_reset_ = Button::make_button(
       std::string("Reset"),
       [&]() {
-        LOG("Handle left click mouse event on Equalizer reset button");
+        LOG("Handle callback for Equalizer reset button");
         auto dispatcher = dispatcher_.lock();
         if (dispatcher) {
           // Fill vector of frequency bars and send to player
@@ -61,10 +65,16 @@ AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatche
             frequencies.push_back(bar->GetAudioFilter());
           }
 
-          auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
-          dispatcher->SendEvent(event);
+          // Update buttons state
           btn_apply_->SetInactive();
           btn_reset_->SetInactive();
+
+          // Do nothing if they are equal
+          if (cache_ == frequencies) return;
+
+          // Otherwise, send updated values to Audio Player
+          auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
+          dispatcher->SendEvent(event);
 
           // Update cache
           cache_ = frequencies;

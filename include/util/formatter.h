@@ -80,6 +80,8 @@ inline std::string EventToString(const ftxui::Event& e) {
 
   if (e == ftxui::Event::ArrowUp) return "ArrowUp";
   if (e == ftxui::Event::ArrowDown) return "ArrowDown";
+  if (e == ftxui::Event::ArrowRight) return "ArrowRight";
+  if (e == ftxui::Event::ArrowLeft) return "ArrowLeft";
   if (e == ftxui::Event::PageUp) return "PageUp";
   if (e == ftxui::Event::PageDown) return "PageDown";
   if (e == ftxui::Event::Home) return "Home";

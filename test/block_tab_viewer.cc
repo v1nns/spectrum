@@ -9,6 +9,7 @@
 
 namespace {
 
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::Field;
 using ::testing::StrEq;
@@ -205,10 +206,6 @@ TEST_F(TabViewerTest, AnimationMono) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, RenderEqualizer) {
-  auto event_bars =
-      interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(kNumberBars, 0.001));
-  Process(event_bars);
-
   block->OnEvent(ftxui::Event::Character('2'));
 
   ftxui::Render(*screen, block->Render());
@@ -216,6 +213,159 @@ TEST_F(TabViewerTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                  │
+│ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz    16 kHz  │
+│                                                                                  │
+│                                                                                  │
+│                                                                                  │
+│   ██      ██      ██      ██      ██      ██      ██      ██      ██       ██    │
+│   ██      ██      ██      ██      ██      ██      ██      ██      ██       ██    │
+│                                                                                  │
+│   0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB     0 dB  │
+│                                                                                  │
+│                          ┌─────────────┐┌─────────────┐                          │
+│                          │    Apply    ││    Reset    │                          │
+│                          └─────────────┘└─────────────┘                          │
+╰──────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
+  // Setup expectation for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
+
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Change 64Hz frequency (using keybindings for frequency navigation)
+  std::string typed{"llkkkkk"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Change 250Hz frequency
+  typed = "lljj";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Change 1kHz frequency
+  block->OnEvent(ftxui::Event::ArrowRight);
+  block->OnEvent(ftxui::Event::ArrowRight);
+  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  // Change 4kHz frequency
+  typed = "llkkkkkkk";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Setup expectation for event with new audio filters applied
+  using model::AudioFilter;
+  std::vector<AudioFilter> audio_filters{
+      AudioFilter{.frequency = 32},   AudioFilter{.frequency = 64, .gain = 5},
+      AudioFilter{.frequency = 125},  AudioFilter{.frequency = 250, .gain = -2},
+      AudioFilter{.frequency = 500},  AudioFilter{.frequency = 1000, .gain = -3},
+      AudioFilter{.frequency = 2000}, AudioFilter{.frequency = 4000, .gain = 7},
+      AudioFilter{.frequency = 8000}, AudioFilter{.frequency = 16000},
+  };
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ApplyAudioFilters),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::vector<AudioFilter>>(audio_filters)))));
+
+  // Apply EQ
+  block->OnEvent(ftxui::Event::Character('a'));
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                  │
+│ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz    16 kHz  │
+│                                                                                  │
+│                                                           ▂▂                     │
+│           ▇▇                                              ██                     │
+│   ██      ██      ██      ▆▆      ██      ▄▄      ██      ██      ██       ██    │
+│   ██      ██      ██      ██      ██      ██      ██      ██      ██       ██    │
+│                                                                                  │
+│   0 dB    5 dB    0 dB   -2 dB    0 dB   -3 dB    0 dB    7 dB    0 dB     0 dB  │
+│                                                                                  │
+│                          ┌─────────────┐┌─────────────┐                          │
+│                          │    Apply    ││    Reset    │                          │
+│                          └─────────────┘└─────────────┘                          │
+╰──────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
+  // Setup expectation for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
+
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Change 250Hz frequency (using keybindings for frequency navigation)
+  std::string typed{"llllkkkkk"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                  │
+│ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz    16 kHz  │
+│                                                                                  │
+│                                                                                  │
+│                           ▇▇                                                     │
+│   ██      ██      ██      ██      ██      ██      ██      ██      ██       ██    │
+│   ██      ██      ██      ██      ██      ██      ██      ██      ██       ██    │
+│                                                                                  │
+│   0 dB    0 dB    0 dB    5 dB    0 dB    0 dB    0 dB    0 dB    0 dB     0 dB  │
+│                                                                                  │
+│                          ┌─────────────┐┌─────────────┐                          │
+│                          │    Apply    ││    Reset    │                          │
+│                          └─────────────┘└─────────────┘                          │
+╰──────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Setup expectation to check that will not send any audio filters
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ApplyAudioFilters),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::vector<model::AudioFilter>>(_)))))
+      .Times(0);
+
+  // Reset EQ
+  block->OnEvent(ftxui::Event::Character('r'));
+
+  // And try to apply EQ
+  block->OnEvent(ftxui::Event::Character('a'));
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
 ╭ 1:visualizer  2:equalizer ────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                  │
 │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz    16 kHz  │
