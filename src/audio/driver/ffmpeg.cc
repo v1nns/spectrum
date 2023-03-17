@@ -1,6 +1,7 @@
 #include "audio/driver/ffmpeg.h"
 
 #include <iomanip>
+#include <iterator>
 
 #include "util/logger.h"
 
@@ -47,15 +48,17 @@ error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
   LOG("Open input stream from filepath=", std::quoted(filepath));
   AVFormatContext *ptr = nullptr;
 
-  if (avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr) < 0) {
-    ERROR("Cannot open input stream");
+  int result = avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr);
+  if (result < 0) {
+    ERROR("Cannot open input stream, error=", av_err2str(result));
     return error::kFileNotSupported;
   }
 
   input_stream_.reset(std::move(ptr));
 
-  if (avformat_find_stream_info(input_stream_.get(), nullptr) < 0) {
-    ERROR("Cannot find stream info about opened input");
+  result = avformat_find_stream_info(input_stream_.get(), nullptr);
+  if (result < 0) {
+    ERROR("Cannot find stream info about opened input, error=", av_err2str(result));
     return error::kFileNotSupported;
   }
 
@@ -84,8 +87,9 @@ error::Code FFmpeg::ConfigureDecoder() {
   AVCodecParameters *parameters = input_stream_->streams[stream_index_]->codecpar;
   decoder_ = CodecContext{avcodec_alloc_context3(codec)};
 
-  if (!decoder_ || avcodec_parameters_to_context(decoder_.get(), parameters) < 0) {
-    ERROR("Cannot create audio decoder");
+  int result = avcodec_parameters_to_context(decoder_.get(), parameters);
+  if (result < 0) {
+    ERROR("Cannot create audio decoderm, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -110,8 +114,9 @@ error::Code FFmpeg::ConfigureDecoder() {
   }
 #endif
 
-  if (avcodec_open2(decoder_.get(), codec, nullptr) < 0) {
-    ERROR("Cannot initialize audio decoder");
+  result = avcodec_open2(decoder_.get(), codec, nullptr);
+  if (result < 0) {
+    ERROR("Cannot initialize audio decoder, error=", result);
     return error::kUnknownError;
   }
 
@@ -201,8 +206,9 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
                  AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  if (avfilter_init_str(buffersrc_ctx_.get(), nullptr) < 0) {
-    ERROR("Cannot initialize the abuffer filter");
+  int result = avfilter_init_str(buffersrc_ctx_.get(), nullptr);
+  if (result < 0) {
+    ERROR("Cannot initialize the abuffer filter, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -235,8 +241,9 @@ error::Code FFmpeg::CreateFilterVolume() {
   av_opt_set(volume_ctx, "volume", model::to_string(volume_).c_str(), AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  if (avfilter_init_str(volume_ctx, nullptr) < 0) {
-    ERROR("Cannot initialize the volume filter");
+  int result = avfilter_init_str(volume_ctx, nullptr);
+  if (result < 0) {
+    ERROR("Cannot initialize the volume filter, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -282,8 +289,9 @@ error::Code FFmpeg::CreateFilterAformat() {
   av_opt_set_int(aformat_ctx, "sample_rate", kSampleRate, AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  if (avfilter_init_str(aformat_ctx, nullptr) < 0) {
-    ERROR("Cannot initialize the aformat filter");
+  int result = avfilter_init_str(aformat_ctx, nullptr);
+  if (result < 0) {
+    ERROR("Cannot initialize the aformat filter, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -312,8 +320,9 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
   }
 
   // This filter takes no options
-  if (avfilter_init_str(buffersink_ctx_.get(), nullptr) < 0) {
-    ERROR("Cannot initialize the abuffersink instance");
+  int result = avfilter_init_str(buffersink_ctx_.get(), nullptr);
+  if (result < 0) {
+    ERROR("Cannot initialize the abuffersink instance, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -350,8 +359,9 @@ error::Code FFmpeg::CreateFilterEqualizer(const std::string &name,
   av_opt_set(equalizer_ctx, "precision", "auto", AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  if (avfilter_init_str(equalizer_ctx, nullptr) < 0) {
-    ERROR("Cannot initialize the equalizer filter, name=", name);
+  int result = avfilter_init_str(equalizer_ctx, nullptr);
+  if (result < 0) {
+    ERROR("Cannot initialize the equalizer filter (", name, "), error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -383,26 +393,25 @@ error::Code FFmpeg::ConnectFilters() {
   filters_to_link.insert(filters_to_link.end(), {aformat_ctx, buffersink_ctx_.get()});
 
   // Link all the filters, it will form a linear chain
-  int ret;
-  for (auto it = filters_to_link.begin(); it != filters_to_link.end() && ret >= 0;) {
-    auto next = it + 1;
+  int result;
+  for (auto it = filters_to_link.begin(); it != filters_to_link.end() && result >= 0;) {
+    auto next = std::next(it);
 
-    if (next != filters_to_link.end()) {
-      ret = avfilter_link(*it, 0, *next, 0);
-    }
+    if (next == filters_to_link.end()) break;
 
-    ++it;
+    result = avfilter_link(*it, 0, *next, 0);
+    it = next;
   }
 
-  if (ret < 0) {
-    ERROR("Error connecting filters, error=", ret);
+  if (result < 0) {
+    ERROR("Cannot connect filters in the linear chain, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
   // Configure the graph
-  ret = avfilter_graph_config(filter_graph_.get(), nullptr);
-  if (ret < 0) {
-    ERROR("Error configuring the filter graph, error=", ret);
+  result = avfilter_graph_config(filter_graph_.get(), nullptr);
+  if (result < 0) {
+    ERROR("Cannot configure the filter graph for equalization, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -509,6 +518,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
       // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
       shared_context_.position = packet->pts / shared_context_.time_base.den;
 
+      // UI sent event to update audio filters with new parameters, so it is necessary to reset it
       if (shared_context_.reset_filters) {
         shared_context_.err_code = ConfigureFilters();
         shared_context_.reset_filters = false;
@@ -567,7 +577,7 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
   // Set filter option
   if (avfilter_graph_send_command(filter_graph_.get(), kFilterVolume, "volume", volume.c_str(),
                                   response.data(), kResponseSize, AV_OPT_SEARCH_CHILDREN)) {
-    ERROR("Cannot set new value for volume filter, returned:", response);
+    ERROR("Cannot set new value for volume filter, error=", response);
     return error::kUnknownError;
   }
 
@@ -596,7 +606,7 @@ error::Code FFmpeg::UpdateFilters(const std::vector<model::AudioFilter> &filters
     audio_filters_[name] = filter;
   }
 
-  // TODO: implement this when music is playing
+  // In case that music is playing, must reset filter graph
   if (filter_graph_) shared_context_.reset_filters = true;
 
   return error::kSuccess;
@@ -620,12 +630,12 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
     return;
   }
 
-  int ret;
+  int result;
   bool seek_frame = false;
   int64_t old_position = shared_context_.position;
 
   // Pull filtered audio from the filtergraph
-  while ((ret = av_buffersink_get_samples(sink, filtered, samples)) >= 0 &&
+  while ((result = av_buffersink_get_samples(sink, filtered, samples)) >= 0 &&
          shared_context_.KeepDecoding()) {
     // Send filtered audio data to Player
     shared_context_.keep_playing =
@@ -647,8 +657,8 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
   }
 
   // Check if got some critical error
-  if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-    ERROR("Cannot pull data from audio filtergraph");
+  if (result < 0 && result != AVERROR(EAGAIN) && result != AVERROR_EOF) {
+    ERROR("Cannot pull data from audio filtergraph, error=", av_err2str(result));
     shared_context_.err_code = error::kDecodeFileFailed;
   }
 
