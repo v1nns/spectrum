@@ -24,27 +24,32 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       song_{},
       volume_{},
       duration_box_{} {
-  btn_play_ = Button::make_button_play([&]() {
+  btn_play_ = Button::make_button_play([&]() -> bool {
     // TODO: Try to play active entry from list directory
     if (IsPlaying()) {
-      LOG("Handle left click mouse event on Play button");
       auto dispatcher = dispatcher_.lock();
-      if (dispatcher) {
-        auto event = interface::CustomEvent::PauseOrResumeSong();
-        dispatcher->SendEvent(event);
-      }
+      if (!dispatcher) return false;
+
+      LOG("Handle left click mouse event on Play button");
+      auto event = interface::CustomEvent::PauseOrResumeSong();
+      dispatcher->SendEvent(event);
+      return true;
     }
+    return false;
   });
 
-  btn_stop_ = Button::make_button_stop([&]() {
+  btn_stop_ = Button::make_button_stop([&]() -> bool {
     if (IsPlaying()) {
-      LOG("Handle left click mouse event on Stop button");
       auto dispatcher = dispatcher_.lock();
-      if (dispatcher) {
-        auto event = interface::CustomEvent::StopSong();
-        dispatcher->SendEvent(event);
-      }
+      if (!dispatcher) return false;
+
+      LOG("Handle left click mouse event on Stop button");
+      auto event = interface::CustomEvent::StopSong();
+      dispatcher->SendEvent(event);
+
+      return true;
     }
+    return false;
   });
 }
 
@@ -263,8 +268,6 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   // Mouse click on duration box
   if (IsPlaying() && event.mouse().button == ftxui::Mouse::Left &&
       duration_box_.Contain(event.mouse().x, event.mouse().y)) {
-    LOG("Handle left click mouse event on song progress bar");
-
     // Acquire pointer to dispatcher
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return true;
@@ -279,19 +282,20 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
     // Do nothing if result is equal the current position
     if (new_position == song_.curr_info.position) return true;
 
+    LOG("Handle left click mouse event on song progress bar");
+
     // Send event to player
-    interface::CustomEvent event;
-    bool is_forward = false;
+    interface::CustomEvent event_seek = new_position > song_.curr_info.position
+                                            ? interface::CustomEvent::SeekForwardPosition(offset)
+                                            : interface::CustomEvent::SeekBackwardPosition(offset);
 
-    if (new_position > song_.curr_info.position) {
-      event = interface::CustomEvent::SeekForwardPosition(offset);
-      is_forward = true;
-    } else {
-      event = interface::CustomEvent::SeekBackwardPosition(offset);
-    }
+    LOG("Sending event to ", event_seek.GetId(), " with offset=", offset);
+    dispatcher->SendEvent(event_seek);
 
-    LOG("Sending event to seek ", is_forward ? "forward" : "backward", " with an offset=", offset);
-    dispatcher->SendEvent(event);
+    // Set this block as active (focused)
+    auto event_focus = interface::CustomEvent::SetFocused(GetId());
+    dispatcher->SendEvent(event_focus);
+
     return true;
   }
 

@@ -6,8 +6,11 @@
 
 namespace interface {
 
-SpectrumVisualizer::SpectrumVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(dispatcher), curr_anim_{model::BarAnimation::HorizontalMirror}, spectrum_data_{} {}
+SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
+                                       const std::shared_ptr<EventDispatcher>& dispatcher)
+    : TabItem(id, dispatcher),
+      curr_anim_{model::BarAnimation::HorizontalMirror},
+      spectrum_data_{} {}
 
 /* ********************************************************************************************** */
 

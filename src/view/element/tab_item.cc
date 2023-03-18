@@ -4,7 +4,9 @@
 
 namespace interface {
 
-TabItem::TabItem(const std::shared_ptr<EventDispatcher>& dispatcher) : dispatcher_{dispatcher} {}
+TabItem::TabItem(const model::BlockIdentifier& id,
+                 const std::shared_ptr<EventDispatcher>& dispatcher)
+    : dispatcher_{dispatcher}, parent_id_{id} {}
 
 /* ********************************************************************************************** */
 

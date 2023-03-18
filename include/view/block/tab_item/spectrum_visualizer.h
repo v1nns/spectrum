@@ -18,9 +18,11 @@ class SpectrumVisualizer : public TabItem {
  public:
   /**
    * @brief Construct a new SpectrumVisualizer object
+   * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
    */
-  explicit SpectrumVisualizer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit SpectrumVisualizer(const model::BlockIdentifier& id,
+                              const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the SpectrumVisualizer object

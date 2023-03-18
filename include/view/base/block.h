@@ -62,6 +62,9 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   //! Get decorator style for title based on internal state
   ftxui::Decorator GetTitleDecorator();
 
+  //! Dispatch event to set focus
+  void AskForFocus();
+
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
  public:

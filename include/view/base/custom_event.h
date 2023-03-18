@@ -64,6 +64,7 @@ struct CustomEvent {
   bool operator!=(const Identifier& other) const { return !operator==(other); }
 
   //! Output custom event to ostream
+  friend std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& id);
   friend std::ostream& operator<<(std::ostream& out, const CustomEvent& e);
 
  public:

@@ -39,10 +39,11 @@ bool Button::OnEvent(ftxui::Event event) {
       if (event.mouse().motion == ftxui::Mouse::Released) {
         // Update internal state
         pressed_ = false;
-        ToggleState();
 
         // Mouse click on menu entry
-        if (on_click_ != nullptr) on_click_();
+        if (on_click_ != nullptr) {
+          if (on_click_()) ToggleState();
+        }
 
         return true;
       }

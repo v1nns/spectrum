@@ -24,4 +24,15 @@ ftxui::Decorator Block::GetTitleDecorator() {
   return style;
 }
 
+/* ********************************************************************************************** */
+
+void Block::AskForFocus() {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) return;
+
+  // Set this block as active (focused)
+  auto event = interface::CustomEvent::SetFocused(id_);
+  dispatcher->SendEvent(event);
+}
+
 }  // namespace interface

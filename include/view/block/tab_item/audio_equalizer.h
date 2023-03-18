@@ -22,9 +22,11 @@ class AudioEqualizer : public TabItem {
  public:
   /**
    * @brief Construct a new AudioEqualizer object
+   * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
    */
-  explicit AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit AudioEqualizer(const model::BlockIdentifier& id,
+                          const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the AudioEqualizer object

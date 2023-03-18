@@ -17,21 +17,25 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
       views_{} {
   // Initialize window buttons
   btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
-    LOG("Handle left click mouse event on Help button");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::ShowHelper();
-      dispatcher->SendEvent(event);
-    }
+    if (dispatcher) return false;
+
+    LOG("Handle left click mouse event on Help button");
+    auto event = interface::CustomEvent::ShowHelper();
+    dispatcher->SendEvent(event);
+
+    return true;
   });
 
   btn_exit_ = Button::make_button_for_window(std::string("X"), [&]() {
-    LOG("Handle left click mouse event on Exit button");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::Exit();
-      dispatcher->SendEvent(event);
-    }
+    if (!dispatcher) return false;
+
+    LOG("Handle left click mouse event on Exit button");
+    auto event = interface::CustomEvent::Exit();
+    dispatcher->SendEvent(event);
+
+    return true;
   });
 
   // Add tab views
@@ -43,15 +47,13 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
             LOG("Handle left click mouse event on Tab button for visualizer");
             active_ = View::Visualizer;
 
-            auto dispatcher = dispatcher_.lock();
-            if (dispatcher) {
-              // Set this block as active (focused)
-              auto event = interface::CustomEvent::SetFocused(GetId());
-              dispatcher->SendEvent(event);
-            }
+            // Send event to set focus on this block
+            AskForFocus();
+
+            return true;
           },
           Button::Delimiters{" ", " "}),
-      .item = std::make_unique<SpectrumVisualizer>(dispatcher),
+      .item = std::make_unique<SpectrumVisualizer>(GetId(), dispatcher),
   };
 
   views_[View::Equalizer] = Tab{
@@ -62,15 +64,13 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
             LOG("Handle left click mouse event on Tab button for equalizer");
             active_ = View::Equalizer;
 
-            auto dispatcher = dispatcher_.lock();
-            if (dispatcher) {
-              // Set this block as active (focused)
-              auto event = interface::CustomEvent::SetFocused(GetId());
-              dispatcher->SendEvent(event);
-            }
+            // Send event to set focus on this block
+            AskForFocus();
+
+            return true;
           },
           Button::Delimiters{" ", " "}),
-      .item = std::make_unique<AudioEqualizer>(dispatcher),
+      .item = std::make_unique<AudioEqualizer>(GetId(), dispatcher),
   };
 }
 

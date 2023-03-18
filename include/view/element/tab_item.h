@@ -11,6 +11,7 @@
 
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
+#include "model/block_identifier.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
 
@@ -23,9 +24,11 @@ class TabItem {
  protected:
   /**
    * @brief Construct a new TabItem object (only called by derived classes)
+   * @param id Parent block identifier
    * @param dispatcher Event dispatcher
    */
-  explicit TabItem(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit TabItem(const model::BlockIdentifier& id,
+                   const std::shared_ptr<EventDispatcher>& dispatcher);
 
  public:
   /**
@@ -56,6 +59,7 @@ class TabItem {
   //! Variables
  protected:
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  model::BlockIdentifier parent_id_;           //!< Parent block identifier
 };
 
 }  // namespace interface

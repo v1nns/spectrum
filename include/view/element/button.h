@@ -22,9 +22,9 @@ namespace interface {
 class Button {
  public:
   //! Just to make life easier
-  using Callback = std::function<void()>;
-  using Delimiter = std::string;
-  using Delimiters = std::tuple<Delimiter, Delimiter>;  //! Left and right
+  using Callback = std::function<bool()>;  //!< Return true to toggle state, otherwise false
+  using Delimiter = std::string;           //!< Character delimiter for window buttons
+  using Delimiters = std::tuple<Delimiter, Delimiter>;  //!< Left and right
 
  private:
   //! Style for each part of the button

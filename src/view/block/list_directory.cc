@@ -224,6 +224,9 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
         event.mouse().motion == ftxui::Mouse::Released) {
       LOG("Handle left click mouse event on entry=", i);
       if (*selected != i) *selected = i;
+
+      // Send event for setting focus on this block
+      AskForFocus();
       return true;
     }
   }

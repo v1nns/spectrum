@@ -280,6 +280,14 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<std::vector<AudioFilter>>(audio_filters)))));
 
+  // Setup expectation for event to set focus on this tab view again
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
+
   // Apply EQ
   block->OnEvent(ftxui::Event::Character('a'));
 

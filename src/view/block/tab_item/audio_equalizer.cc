@@ -7,8 +7,9 @@
 
 namespace interface {
 
-AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(dispatcher),
+AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
+                               const std::shared_ptr<EventDispatcher>& dispatcher)
+    : TabItem(id, dispatcher),
       cache_{model::AudioFilter::Create()},
       bars_{},
       btn_apply_{nullptr},
@@ -23,62 +24,74 @@ AudioEqualizer::AudioEqualizer(const std::shared_ptr<EventDispatcher>& dispatche
 
   btn_apply_ = Button::make_button(
       std::string("Apply"),
-      [&]() {
-        LOG("Handle callback for Equalizer apply button");
+      [&]() -> bool {
         auto dispatcher = dispatcher_.lock();
-        if (dispatcher) {
-          // Fill vector of frequency bars and send to player
-          std::vector<model::AudioFilter> frequencies;
-          frequencies.reserve(bars_.size());
+        if (!dispatcher) return false;
 
-          for (const auto& bar : bars_) {
-            frequencies.push_back(bar->GetAudioFilter());
-          }
+        LOG("Handle callback for Equalizer apply button");
+        // Fill vector of frequency bars and send to player
+        std::vector<model::AudioFilter> frequencies;
+        frequencies.reserve(bars_.size());
 
-          // Do nothing if they are equal
-          if (cache_ == frequencies) return;
-
-          // Otherwise, send updated values to Audio Player
-          auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
-          dispatcher->SendEvent(event);
-          btn_apply_->SetInactive();
-
-          // Update cache
-          cache_ = frequencies;
+        for (const auto& bar : bars_) {
+          frequencies.push_back(bar->GetAudioFilter());
         }
+
+        // Do nothing if they are equal
+        if (cache_ == frequencies) return false;
+
+        // Otherwise, send updated values to Audio Player
+        auto event_filters = interface::CustomEvent::ApplyAudioFilters(frequencies);
+        dispatcher->SendEvent(event_filters);
+        btn_apply_->SetInactive();
+
+        // Update cache
+        cache_ = frequencies;
+
+        // Set this block as active (focused)
+        auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
+        dispatcher->SendEvent(event_focus);
+
+        return true;
       },
       false);
 
   btn_reset_ = Button::make_button(
       std::string("Reset"),
-      [&]() {
-        LOG("Handle callback for Equalizer reset button");
+      [&]() -> bool {
         auto dispatcher = dispatcher_.lock();
-        if (dispatcher) {
-          // Fill vector of frequency bars and send to player
-          std::vector<model::AudioFilter> frequencies;
-          frequencies.reserve(bars_.size());
+        if (!dispatcher) return false;
 
-          // Reset gain in all frequency bars
-          for (auto& bar : bars_) {
-            bar->ResetGain();
-            frequencies.push_back(bar->GetAudioFilter());
-          }
+        LOG("Handle callback for Equalizer reset button");
+        // Fill vector of frequency bars and send to player
+        std::vector<model::AudioFilter> frequencies;
+        frequencies.reserve(bars_.size());
 
-          // Update buttons state
-          btn_apply_->SetInactive();
-          btn_reset_->SetInactive();
-
-          // Do nothing if they are equal
-          if (cache_ == frequencies) return;
-
-          // Otherwise, send updated values to Audio Player
-          auto event = interface::CustomEvent::ApplyAudioFilters(frequencies);
-          dispatcher->SendEvent(event);
-
-          // Update cache
-          cache_ = frequencies;
+        // Reset gain in all frequency bars
+        for (auto& bar : bars_) {
+          bar->ResetGain();
+          frequencies.push_back(bar->GetAudioFilter());
         }
+
+        // Update buttons state
+        btn_apply_->SetInactive();
+        btn_reset_->SetInactive();
+
+        // Do nothing if they are equal
+        if (cache_ == frequencies) return false;
+
+        // Otherwise, send updated values to Audio Player
+        auto event_filters = interface::CustomEvent::ApplyAudioFilters(frequencies);
+        dispatcher->SendEvent(event_filters);
+
+        // Update cache
+        cache_ = frequencies;
+
+        // Set this block as active (focused)
+        auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
+        dispatcher->SendEvent(event_focus);
+
+        return true;
       },
       false);
 }
@@ -209,7 +222,11 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event event) {
   }
 
   // Event has been handled, so update UI state
-  if (bar_modified) UpdateInterfaceState();
+  if (bar_modified) {
+    UpdateInterfaceState();
+    // TODO: Send event for setting focus on parent block (AskForFocus)
+    // Maybe create onclick callback for frequency bars
+  }
 
   return bar_modified;
 }
