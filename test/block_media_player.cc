@@ -265,6 +265,66 @@ TEST_F(MediaPlayerTest, ChangeVolume) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MediaPlayerTest, ToggleVolumeMute) {
+  // Setup mock calls to send back an UpdateVolume event to block
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::SetAudioVolume)))
+      .WillRepeatedly(Invoke([&](const interface::CustomEvent& event) {
+        auto update_vol = interface::CustomEvent::UpdateVolume(event.GetContent<model::Volume>());
+        Process(update_vol);
+      }));
+
+  // Use toggle volume keybind
+  block->OnEvent(ftxui::Event::Character('m'));
+
+  // Render screen
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume:   0%     │
+│                                                              │
+│                                                              │
+│     --:--                                          --:--     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Use toggle volume keybind again
+  block->OnEvent(ftxui::Event::Character('m'));
+
+  // Render screen
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│                                                              │
+│     --:--                                          --:--     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MediaPlayerTest, StartPlayingAndClear) {
   model::Song audio{
       .filepath = "/another/custom/path/to/music.mp3",

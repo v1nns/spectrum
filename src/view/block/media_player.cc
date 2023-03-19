@@ -80,6 +80,7 @@ ftxui::Element MediaPlayer::Render() {
 
   // Current volume element
   ftxui::Element volume = ftxui::text(vol_info);
+  if(volume_.IsMuted()) volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
 
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(5, ' '));
@@ -190,6 +191,20 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     auto dispatcher = dispatcher_.lock();
     if (dispatcher) {
       volume_++;
+
+      auto event = interface::CustomEvent::SetAudioVolume(volume_);
+      dispatcher->SendEvent(event);
+    }
+
+    return true;
+  }
+
+  // Toggle volume mute
+  if (event == ftxui::Event::Character('m')) {
+    LOG("Handle key to mute/unmute volume");
+    auto dispatcher = dispatcher_.lock();
+    if (dispatcher) {
+      volume_.ToggleMute();
 
       auto event = interface::CustomEvent::SetAudioVolume(volume_);
       dispatcher->SendEvent(event);
