@@ -36,7 +36,7 @@ static constexpr PrefixArray kPrefixes{{
  * @return Formatted string
  */
 template <typename T>
-std::string format_with_prefix(T value, std::string unit) {
+std::string format_with_prefix(const T& value, std::string unit) {
   std::ostringstream ss;
 
   if (value == 0) {
@@ -63,7 +63,7 @@ std::string format_with_prefix(T value, std::string unit) {
  * @return Formatted string
  */
 template <typename T>
-std::string to_string_with_precision(const T value, const int n = 6) {
+std::string to_string_with_precision(const T& value, const int n = 6) {
   std::ostringstream ss;
   ss.precision(n);
   ss << std::fixed << value;

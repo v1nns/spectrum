@@ -219,7 +219,8 @@ int Terminal::CalculateNumberBars() {
 void Terminal::OnCustomEvent() {
   // Events ignored for logging
   static std::set<CustomEvent::Identifier> ignored{CustomEvent::Identifier::DrawAudioSpectrum,
-                                                   CustomEvent::Identifier::Refresh};
+                                                   CustomEvent::Identifier::Refresh,
+                                                   CustomEvent::Identifier::SetFocused};
 
   while (receiver_->HasPending()) {
     CustomEvent event;
@@ -232,24 +233,18 @@ void Terminal::OnCustomEvent() {
     // first gotta check if this event is specifically for the player
     switch (event.type) {
       case CustomEvent::Type::FromInterfaceToAudioThread:
-        if (HandleEventFromInterfaceToAudioThread(event)) {
-          // Skip to next while-loop
-          continue;
-        }
+        // If event is handled, skip to next event
+        if (HandleEventFromInterfaceToAudioThread(event)) continue;
         break;
 
       case CustomEvent::Type::FromAudioThreadToInterface:
-        if (HandleEventFromAudioThreadToInterface(event)) {
-          // Skip to next while-loop
-          continue;
-        }
+        // If event is handled, skip to next event
+        if (HandleEventFromAudioThreadToInterface(event)) continue;
         break;
 
       case CustomEvent::Type::FromInterfaceToInterface:
-        if (HandleEventFromInterfaceToInterface(event)) {
-          // Skip to next while-loop
-          continue;
-        }
+        // If event is handled, skip to next event
+        if (HandleEventFromInterfaceToInterface(event)) continue;
         break;
     }
 
@@ -257,7 +252,7 @@ void Terminal::OnCustomEvent() {
     for (auto& child : children_) {
       auto block = std::static_pointer_cast<Block>(child);
       if (block->OnCustomEvent(event)) {
-        break;  // Skip from this for-loop
+        break;  // Skip to next event
       }
     }
   }
@@ -436,10 +431,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
   switch (event.GetId()) {
     case CustomEvent::Identifier::ChangeBarAnimation: {
       auto media_ctl = notifier_.lock();
-      if (!media_ctl) {
-        // TODO: improve handling here and also for each method call
-        break;
-      }
+      // TODO: improve handling here and also for each method call
+      if (!media_ctl) break;
 
       // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
@@ -460,6 +453,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       new_focused->SetFocused(true);
+
+      LOG("Changed block focus from ", old_focused->GetId(), " to ", new_focused->GetId());
     } break;
 
     case CustomEvent::Identifier::SetNextFocused: {
@@ -473,6 +468,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       new_focused->SetFocused(true);
+
+      LOG("Changed block focus from ", old_focused->GetId(), " to ", new_focused->GetId());
     } break;
 
     case CustomEvent::Identifier::SetFocused: {
@@ -492,6 +489,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
       // Set focus on new block
       auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
       new_focused->SetFocused(true);
+
+      LOG("Changed block focus from ", old_focused->GetId(), " to ", new_focused->GetId());
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
