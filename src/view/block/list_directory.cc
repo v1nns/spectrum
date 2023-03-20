@@ -196,6 +196,19 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     curr_playing_.reset();
   }
 
+  if (event == CustomEvent::Identifier::PlaySong) {
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return false;
+
+    LOG("Received request from media player to play selected file");
+
+    auto active = GetActiveEntry();
+    auto event = interface::CustomEvent::NotifyFileSelection(*active);
+    dispatcher->SendEvent(event);
+
+    return true;
+  }
+
   return false;
 }
 

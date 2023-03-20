@@ -133,6 +133,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "SetFocused";
       break;
 
+    case CustomEvent::Identifier::PlaySong:
+      out << "PlaySong";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -373,6 +377,16 @@ CustomEvent CustomEvent::SetFocused(const model::BlockIdentifier& id) {
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::SetFocused,
       .content = id,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::PlaySong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::PlaySong,
   };
 }
 

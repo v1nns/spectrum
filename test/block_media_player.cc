@@ -581,4 +581,33 @@ TEST_F(MediaPlayerTest, StartPlayingAndStop) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, AttemptToPlay) {
+  // Process keyboard event to play song
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::PlaySong)));
+
+  block->OnEvent(ftxui::Event::Character('p'));
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────╮
+│                                                              │
+│                       ╭──────╮╭──────╮                       │
+│                       │  ⣦⡀  ││ ⣶⣶⣶⣶ │                       │
+│                       │  ⣿⣿⠆ ││ ⣿⣿⣿⣿ │                       │
+│                       │  ⠟⠁  ││ ⠿⠿⠿⠿ │                       │
+│                       ╰──────╯╰──────╯      Volume: 100%     │
+│                                                              │
+│                                                              │
+│     --:--                                          --:--     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

@@ -25,16 +25,25 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       volume_{},
       duration_box_{} {
   btn_play_ = Button::make_button_play([&]() -> bool {
-    // TODO: Try to play active entry from list directory
-    if (IsPlaying()) {
-      auto dispatcher = dispatcher_.lock();
-      if (!dispatcher) return false;
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return false;
 
-      LOG("Handle left click mouse event on Play button");
+    LOG("Handle on_click event on Play button");
+
+    // Send event to set focus on this block
+    AskForFocus();
+
+    if (IsPlaying()) {
       auto event = interface::CustomEvent::PauseOrResumeSong();
       dispatcher->SendEvent(event);
       return true;
     }
+
+    // This event must be handled by ListDirectory, in case the selected file is an audio file, it
+    // will start playing it
+    auto event = interface::CustomEvent::PlaySong();
+    dispatcher->SendEvent(event);
+
     return false;
   });
 
@@ -43,9 +52,12 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       auto dispatcher = dispatcher_.lock();
       if (!dispatcher) return false;
 
-      LOG("Handle left click mouse event on Stop button");
+      LOG("Handle on_click event on Stop button");
       auto event = interface::CustomEvent::StopSong();
       dispatcher->SendEvent(event);
+
+      // Send event to set focus on this block
+      AskForFocus();
 
       return true;
     }
@@ -80,7 +92,7 @@ ftxui::Element MediaPlayer::Render() {
 
   // Current volume element
   ftxui::Element volume = ftxui::text(vol_info);
-  if(volume_.IsMuted()) volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
+  if (volume_.IsMuted()) volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
 
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(5, ' '));
@@ -133,26 +145,28 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('c') && IsPlaying()) {
     LOG("Handle key to clear current song");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::ClearCurrentSong();
-      dispatcher->SendEvent(event);
+    if (!dispatcher) return false;
 
-      btn_play_->ResetState();
-    }
+    auto event = interface::CustomEvent::ClearCurrentSong();
+    dispatcher->SendEvent(event);
+
+    btn_play_->ResetState();
 
     return true;
   }
 
-  // Pause or resume current song
-  if (event == ftxui::Event::Character('p') && IsPlaying()) {
-    LOG("Handle key to pause/resume current song");
+  // Play a song or pause/resume current song
+  if (event == ftxui::Event::Character('p')) {
+    LOG("Handle key to play/pause song");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::PauseOrResumeSong();
-      dispatcher->SendEvent(event);
+    if (!dispatcher) return false;
 
-      btn_play_->ToggleState();
-    }
+    auto event = !IsPlaying() ? interface::CustomEvent::PlaySong()
+                              : interface::CustomEvent::PauseOrResumeSong();
+
+    dispatcher->SendEvent(event);
+
+    if (IsPlaying()) btn_play_->ToggleState();
 
     return true;
   }
@@ -161,12 +175,12 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('s') && IsPlaying()) {
     LOG("Handle key to stop current song");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::StopSong();
-      dispatcher->SendEvent(event);
+    if (!dispatcher) return false;
 
-      btn_stop_->ToggleState();
-    }
+    auto event = interface::CustomEvent::StopSong();
+    dispatcher->SendEvent(event);
+
+    btn_stop_->ToggleState();
 
     return true;
   }
@@ -175,12 +189,12 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('-')) {
     LOG("Handle key to decrease volume");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      volume_--;
+    if (!dispatcher) return false;
 
-      auto event = interface::CustomEvent::SetAudioVolume(volume_);
-      dispatcher->SendEvent(event);
-    }
+    volume_--;
+
+    auto event = interface::CustomEvent::SetAudioVolume(volume_);
+    dispatcher->SendEvent(event);
 
     return true;
   }
@@ -189,12 +203,12 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('+')) {
     LOG("Handle key to increase volume");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      volume_++;
+    if (!dispatcher) return false;
 
-      auto event = interface::CustomEvent::SetAudioVolume(volume_);
-      dispatcher->SendEvent(event);
-    }
+    volume_++;
+
+    auto event = interface::CustomEvent::SetAudioVolume(volume_);
+    dispatcher->SendEvent(event);
 
     return true;
   }
@@ -203,12 +217,12 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('m')) {
     LOG("Handle key to mute/unmute volume");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      volume_.ToggleMute();
+    if (!dispatcher) return false;
 
-      auto event = interface::CustomEvent::SetAudioVolume(volume_);
-      dispatcher->SendEvent(event);
-    }
+    volume_.ToggleMute();
+
+    auto event = interface::CustomEvent::SetAudioVolume(volume_);
+    dispatcher->SendEvent(event);
 
     return true;
   }
@@ -217,10 +231,10 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('f') && IsPlaying()) {
     LOG("Handle key to seek forward in current song");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::SeekForwardPosition(1);
-      dispatcher->SendEvent(event);
-    }
+    if (!dispatcher) return false;
+
+    auto event = interface::CustomEvent::SeekForwardPosition(1);
+    dispatcher->SendEvent(event);
 
     return true;
   }
@@ -229,10 +243,10 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (event == ftxui::Event::Character('b') && IsPlaying()) {
     LOG("Handle key to seek backward in current song");
     auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::SeekBackwardPosition(1);
-      dispatcher->SendEvent(event);
-    }
+    if (!dispatcher) return false;
+
+    auto event = interface::CustomEvent::SeekBackwardPosition(1);
+    dispatcher->SendEvent(event);
 
     return true;
   }

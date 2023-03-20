@@ -56,7 +56,8 @@ struct CustomEvent {
     SetPreviousFocused = 70004,
     SetNextFocused = 70005,
     SetFocused = 70006,
-    Exit = 70007,
+    PlaySong = 70007,
+    Exit = 70008,
   };
 
   //! Overloaded operators
@@ -94,6 +95,7 @@ struct CustomEvent {
   static CustomEvent SetPreviousFocused();
   static CustomEvent SetNextFocused();
   static CustomEvent SetFocused(const model::BlockIdentifier& id);
+  static CustomEvent PlaySong();
 
   static CustomEvent Exit();
 
