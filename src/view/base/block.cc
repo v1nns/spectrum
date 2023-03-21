@@ -27,12 +27,23 @@ ftxui::Decorator Block::GetTitleDecorator() {
 /* ********************************************************************************************** */
 
 void Block::AskForFocus() {
-  auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) return;
+  auto dispatcher = GetDispatcher();
 
   // Set this block as active (focused)
   auto event = interface::CustomEvent::SetFocused(id_);
   dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<EventDispatcher> Block::GetDispatcher() {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) {
+    ERROR("Cannot lock event dispatcher");
+    throw std::runtime_error("Cannot lock event dispatcher");
+  }
+
+  return dispatcher;
 }
 
 }  // namespace interface

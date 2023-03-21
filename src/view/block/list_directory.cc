@@ -63,11 +63,9 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
 
   animation_.cb_update = [&] {
     // Send user action to controller
-    auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      auto event = interface::CustomEvent::Refresh();
-      dispatcher->SendEvent(event);
-    }
+    auto dispatcher = GetDispatcher();
+    auto event = interface::CustomEvent::Refresh();
+    dispatcher->SendEvent(event);
   };
 }
 
@@ -197,8 +195,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   }
 
   if (event == CustomEvent::Identifier::PlaySong) {
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     LOG("Received request from media player to play selected file");
 
@@ -322,11 +319,9 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
         new_dir = curr_dir_ / active->filename();
       } else {
         // Send user action to controller
-        auto dispatcher = dispatcher_.lock();
-        if (dispatcher) {
-          auto event = interface::CustomEvent::NotifyFileSelection(*active);
-          dispatcher->SendEvent(event);
-        }
+        auto dispatcher = GetDispatcher();
+        auto event = interface::CustomEvent::NotifyFileSelection(*active);
+        dispatcher->SendEvent(event);
       }
 
       if (!new_dir.empty()) {
@@ -444,7 +439,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
     }
   } catch (std::exception& e) {
     ERROR("Cannot access directory, exception=", e.what());
-    auto dispatcher = dispatcher_.lock();
+    auto dispatcher = GetDispatcher();
     dispatcher->SetApplicationError(error::kAccessDirFailed);
     return;
   }

@@ -73,14 +73,18 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   virtual bool OnCustomEvent(const CustomEvent&) = 0;
 
   /* ******************************************************************************************** */
-  //! Variables
+  //! Used by derived class
  protected:
-  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  //! Get event dispatcher
+  std::shared_ptr<EventDispatcher> GetDispatcher();
 
+  /* ******************************************************************************************** */
+  //! Variables
  private:
-  model::BlockIdentifier id_;  //!< Block identification
-  Size size_;                  //!< Block size
-  bool focused_;               //!< Control flag for focus state, to help with UI navigation
+  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  model::BlockIdentifier id_;                  //!< Block identification
+  Size size_;                                  //!< Block size
+  bool focused_;  //!< Control flag for focus state, to help with UI navigation
 };
 
 }  // namespace interface

@@ -111,8 +111,7 @@ void MediaController::AnalysisHandler() {
         analyzer_->Execute(input.data(), input.size(), output.data());
         previous = output;
 
-        auto dispatcher = dispatcher_.lock();
-        if (!dispatcher) continue;
+        auto dispatcher = GetDispatcher();
 
         // Send result to UI
         auto event = interface::CustomEvent::DrawAudioSpectrum(output);
@@ -123,8 +122,7 @@ void MediaController::AnalysisHandler() {
       case Command::RunClearAnimationWithRegain:
       case Command::RunClearAnimationWithoutRegain: {
         LOG("Analysis handler received command to run clear animation on audio visualizer");
-        auto dispatcher = dispatcher_.lock();
-        if (!dispatcher) continue;
+        auto dispatcher = GetDispatcher();
 
         for (int i = 0; i < 10; i++) {
           // Each time this loop is executed, it will reduce spectrum bar values to 45% based on its
@@ -156,8 +154,7 @@ void MediaController::AnalysisHandler() {
 
       case Command::RunRegainAnimation: {
         LOG("Analysis handler received command to run regain animation on audio visualizer");
-        auto dispatcher = dispatcher_.lock();
-        if (!dispatcher) continue;
+        auto dispatcher = GetDispatcher();
 
         std::vector<double> bars;
 
@@ -270,9 +267,7 @@ void MediaController::ApplyAudioFilters(const std::vector<model::AudioFilter>& f
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimationWithoutRegain);
 
-  auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) return;
-
+  auto dispatcher = GetDispatcher();
   auto event = interface::CustomEvent::ClearSongInfo();
 
   // Notify File Info block with to clear info about song
@@ -282,9 +277,7 @@ void MediaController::ClearSongInformation(bool playing) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongInformation(const model::Song& info) {
-  auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) return;
-
+  auto dispatcher = GetDispatcher();
   auto event = interface::CustomEvent::UpdateSongInfo(info);
 
   // Notify File Info block with information about the recently loaded song
@@ -301,9 +294,7 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& sta
     sync_data_.Push(Command::RunClearAnimationWithoutRegain);
   }
 
-  auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) return;
-
+  auto dispatcher = GetDispatcher();
   auto event = interface::CustomEvent::UpdateSongState(state);
 
   // Notify Audio Player block with new state information about the current song
@@ -320,11 +311,22 @@ void MediaController::SendAudioRaw(uint8_t* buffer, int buffer_size) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifyError(error::Code code) {
-  auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) return;
+  auto dispatcher = GetDispatcher();
 
   // Notify Terminal about error that has occurred in Audio thread
   dispatcher->SetApplicationError(code);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) {
+    ERROR("Cannot lock event dispatcher");
+    throw std::runtime_error("Cannot lock event dispatcher");
+  }
+
+  return dispatcher;
 }
 
 }  // namespace middleware

@@ -25,10 +25,8 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       volume_{},
       duration_box_{} {
   btn_play_ = Button::make_button_play([&]() -> bool {
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
-
     LOG("Handle on_click event on Play button");
+    auto dispatcher = GetDispatcher();
 
     // Send event to set focus on this block
     AskForFocus();
@@ -49,8 +47,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
 
   btn_stop_ = Button::make_button_stop([&]() -> bool {
     if (IsPlaying()) {
-      auto dispatcher = dispatcher_.lock();
-      if (!dispatcher) return false;
+      auto dispatcher = GetDispatcher();
 
       LOG("Handle on_click event on Stop button");
       auto event = interface::CustomEvent::StopSong();
@@ -144,8 +141,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Clear current song
   if (event == ftxui::Event::Character('c') && IsPlaying()) {
     LOG("Handle key to clear current song");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     auto event = interface::CustomEvent::ClearCurrentSong();
     dispatcher->SendEvent(event);
@@ -158,8 +154,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Play a song or pause/resume current song
   if (event == ftxui::Event::Character('p')) {
     LOG("Handle key to play/pause song");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     auto event = !IsPlaying() ? interface::CustomEvent::PlaySong()
                               : interface::CustomEvent::PauseOrResumeSong();
@@ -174,8 +169,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Stop current song
   if (event == ftxui::Event::Character('s') && IsPlaying()) {
     LOG("Handle key to stop current song");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     auto event = interface::CustomEvent::StopSong();
     dispatcher->SendEvent(event);
@@ -188,8 +182,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Decrease volume
   if (event == ftxui::Event::Character('-')) {
     LOG("Handle key to decrease volume");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     volume_--;
 
@@ -202,8 +195,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Increase volume
   if (event == ftxui::Event::Character('+')) {
     LOG("Handle key to increase volume");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     volume_++;
 
@@ -216,8 +208,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Toggle volume mute
   if (event == ftxui::Event::Character('m')) {
     LOG("Handle key to mute/unmute volume");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     volume_.ToggleMute();
 
@@ -230,8 +221,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Seek forward in current song
   if (event == ftxui::Event::Character('f') && IsPlaying()) {
     LOG("Handle key to seek forward in current song");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     auto event = interface::CustomEvent::SeekForwardPosition(1);
     dispatcher->SendEvent(event);
@@ -242,8 +232,7 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   // Seek backward in current song
   if (event == ftxui::Event::Character('b') && IsPlaying()) {
     LOG("Handle key to seek backward in current song");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     auto event = interface::CustomEvent::SeekBackwardPosition(1);
     dispatcher->SendEvent(event);
@@ -298,8 +287,7 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   if (IsPlaying() && event.mouse().button == ftxui::Mouse::Left &&
       duration_box_.Contain(event.mouse().x, event.mouse().y)) {
     // Acquire pointer to dispatcher
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return true;
+    auto dispatcher = GetDispatcher();
 
     // Calculate new song position based on screen coordinates
     int real_x = event.mouse().x - duration_box_.x_min;

@@ -17,8 +17,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
       views_{} {
   // Initialize window buttons
   btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
-    auto dispatcher = dispatcher_.lock();
-    if (dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     LOG("Handle left click mouse event on Help button");
     auto event = interface::CustomEvent::ShowHelper();
@@ -28,8 +27,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
   });
 
   btn_exit_ = Button::make_button_for_window(std::string("X"), [&]() {
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
+    auto dispatcher = GetDispatcher();
 
     LOG("Handle left click mouse event on Exit button");
     auto event = interface::CustomEvent::Exit();
@@ -109,12 +107,11 @@ bool TabViewer::OnEvent(ftxui::Event event) {
 
   // Found some mapped keybinding, now check if this is already the active view
   if (found != views_.end()) {
-    auto dispatcher = dispatcher_.lock();
-    if (dispatcher) {
-      // Set this block as active (focused)
-      auto event = interface::CustomEvent::SetFocused(GetId());
-      dispatcher->SendEvent(event);
-    }
+    auto dispatcher = GetDispatcher();
+
+    // Set this block as active (focused)
+    auto event = interface::CustomEvent::SetFocused(GetId());
+    dispatcher->SendEvent(event);
 
     // Update active tab
     if (active_ != found->first) active_ = found->first;
