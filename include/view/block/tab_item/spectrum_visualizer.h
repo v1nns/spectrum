@@ -15,6 +15,7 @@ namespace interface {
  * @brief Component to render different animations using audio spectrum data from current song
  */
 class SpectrumVisualizer : public TabItem {
+  static constexpr int kGaugeThickness = 4;  //!< Gauge thickness + empty space
  public:
   /**
    * @brief Construct a new SpectrumVisualizer object
@@ -52,6 +53,12 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   // Private methods
  private:
+  // Gauge directions (not using all options from ftxui)
+  enum class Direction { Up, Down };
+
+  //! Utility to create UI gauge
+  void CreateGauge(float value, Direction direction, ftxui::Elements& elements);
+
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
   void DrawAnimationVerticalMirror(ftxui::Element& visualizer);
@@ -60,7 +67,7 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  model::BarAnimation curr_anim_;      //!< control which bar animation to draw
+  model::BarAnimation curr_anim_;      //!< Control which bar animation to draw
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
 };
 

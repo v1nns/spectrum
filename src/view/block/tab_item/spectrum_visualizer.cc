@@ -64,6 +64,19 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
+void SpectrumVisualizer::CreateGauge(float value, Direction direction, ftxui::Elements& elements) {
+  ftxui::GaugeDirection dir =
+      direction == Direction::Up ? ftxui::GaugeDirection::Up : ftxui::GaugeDirection::Down;
+
+  for (int i = 0; i < kGaugeThickness - 1; i++) {
+    elements.push_back(ftxui::gaugeDirection(value, dir) | ftxui::color(ftxui::Color::SteelBlue3));
+  }
+
+  elements.push_back(ftxui::text(" "));
+}
+
+/* ********************************************************************************************** */
+
 bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
   // Store spectrum audio data to render later
   if (event == CustomEvent::Identifier::DrawAudioSpectrum) {
@@ -78,6 +91,7 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 
     int number_bars = event.GetContent<int>();
 
+    // To fill entire screen, multiply value by 2
     if (curr_anim_ == model::BarAnimation::VerticalMirror ||
         curr_anim_ == model::BarAnimation::Mono) {
       number_bars *= 2;
@@ -101,21 +115,15 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * 4;
+  int total_size = size * kGaugeThickness;
   entries.reserve(total_size);
 
   for (int i = (size / 2) - 1; i >= 0; i--) {
-    entries.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::text(" "));
+    CreateGauge(spectrum_data_[i], Direction::Up, entries);
   }
 
   for (int i = size / 2; i < size; i++) {
-    entries.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::text(" "));
+    CreateGauge(spectrum_data_[i], Direction::Up, entries);
   }
 
   visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;
@@ -130,22 +138,16 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
   ftxui::Elements left, right;
 
   // Preallocate memory
-  int total_size = (size / 2) * 4;
+  int total_size = (size / 2) * kGaugeThickness;
   left.reserve(total_size);
   right.reserve(total_size);
 
   for (int i = 0; i < size / 2; i++) {
-    left.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    left.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    left.push_back(ftxui::gaugeUp(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    left.push_back(ftxui::text(" "));
+    CreateGauge(spectrum_data_[i], Direction::Up, left);
   }
 
   for (int i = size / 2; i < size; i++) {
-    right.push_back(ftxui::gaugeDown(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    right.push_back(ftxui::gaugeDown(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    right.push_back(ftxui::gaugeDown(spectrum_data_[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    right.push_back(ftxui::text(" "));
+    CreateGauge(spectrum_data_[i], Direction::Down, right);
   }
 
   visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
@@ -178,14 +180,11 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * 4;
+  int total_size = size * kGaugeThickness;
   entries.reserve(total_size);
 
   for (int i = 0; i < size; i++) {
-    entries.push_back(ftxui::gaugeUp(average[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::gaugeUp(average[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::gaugeUp(average[i]) | ftxui::color(ftxui::Color::SteelBlue3));
-    entries.push_back(ftxui::text(" "));
+    CreateGauge(spectrum_data_[i], Direction::Up, entries);
   }
 
   visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;
