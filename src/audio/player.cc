@@ -3,8 +3,14 @@
 #include <iomanip>
 #include <stdexcept>
 
-#include "audio/driver/alsa.h"
-#include "audio/driver/ffmpeg.h"
+#ifndef SPECTRUM_DEBUG
+#include "driver/alsa.h"
+#include "driver/ffmpeg.h"
+#else
+#include "audio/debug/dummy_decoder.h"
+#include "audio/debug/dummy_playback.h"
+#endif
+
 #include "view/base/notifier.h"
 
 namespace audio {
@@ -13,6 +19,7 @@ std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decod
                                        bool asynchronous) {
   LOG("Create new instance of player");
 
+#ifndef SPECTRUM_DEBUG
   // Create playback object
   auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
                                 : std::make_unique<driver::Alsa>();
@@ -20,6 +27,13 @@ std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decod
   // Create decoder object
   auto dec = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
                                 : std::make_unique<driver::FFmpeg>();
+#else
+  // Create playback object
+  auto pb = std::make_unique<driver::DummyPlayback>();
+
+  // Create decoder object
+  auto dec = std::make_unique<driver::DummyDecoder>();
+#endif
 
   // Instantiate Player
   auto player = std::shared_ptr<Player>(new Player(std::move(pb), std::move(dec)));

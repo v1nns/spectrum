@@ -71,15 +71,12 @@ Terminal::~Terminal() {
 void Terminal::Init() {
   LOG("Initialize terminal");
 
-  // TODO: remove this after developing
-  std::string custom_path = "/home/vinicius/Downloads/music";
-
   // As this terminal will hold all these interface blocks, there is nothing better than
   // use itself as a mediator to send events between them
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create blocks
-  auto list_dir = std::make_shared<ListDirectory>(dispatcher, custom_path);
+  auto list_dir = std::make_shared<ListDirectory>(dispatcher);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
   auto tab_viewer = std::make_shared<TabViewer>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);

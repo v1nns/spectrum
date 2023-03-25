@@ -73,7 +73,7 @@ struct Volume {
   // and lots more, for *, /, unary +/-, etc...
 
   // Convenient conversion to int
-  explicit operator int() const { return !muted ? (int)round(percentage * 100) : 0.F; }
+  explicit operator int() const { return !muted ? (int)round(percentage * 100) : 0; }
 
   // Convenient conversion to float
   explicit operator float() const { return !muted ? percentage : 0.F; }

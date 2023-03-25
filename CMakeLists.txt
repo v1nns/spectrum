@@ -12,6 +12,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS
 find_package(PkgConfig REQUIRED)
 include(FetchContent)
 
+# Flag options
+option(SPECTRUM_DEBUG "Set to ON to disable build with external dependencies" OFF)
+
+if (SPECTRUM_DEBUG)
+  MESSAGE(STATUS "SPECTRUM_DEBUG")
+  add_definitions(-DSPECTRUM_DEBUG)
+endif()
+
 # Subdirectories
 add_subdirectory(src)
 add_subdirectory(test)

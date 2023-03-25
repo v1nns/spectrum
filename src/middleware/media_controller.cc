@@ -3,7 +3,12 @@
 #include <string>
 #include <thread>
 
+#ifndef SPECTRUM_DEBUG
 #include "audio/driver/fftw.h"
+#else
+#include "audio/debug/dummy_analyzer.h"
+#endif
+
 #include "audio/player.h"
 #include "ftxui/component/event.hpp"
 #include "model/application_error.h"
@@ -20,9 +25,14 @@ std::shared_ptr<MediaController> MediaController::Create(
     bool asynchronous) {
   LOG("Create new instance of media controller");
 
+#ifndef SPECTRUM_DEBUG
   // Instantiate FFTW to run audio analysis
   auto an = analyzer != nullptr ? std::unique_ptr<driver::Analyzer>(std::move(analyzer))
                                 : std::make_unique<driver::FFTW>();
+#else
+  // Create analyzer object
+  auto an = std::make_unique<driver::DummyAnalyzer>();
+#endif
 
   // Create and initialize media controller
   auto controller =
