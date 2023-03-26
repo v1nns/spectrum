@@ -4,8 +4,8 @@
 #include <stdexcept>
 
 #ifndef SPECTRUM_DEBUG
-#include "driver/alsa.h"
-#include "driver/ffmpeg.h"
+#include "audio/driver/alsa.h"
+#include "audio/driver/ffmpeg.h"
 #else
 #include "audio/debug/dummy_decoder.h"
 #include "audio/debug/dummy_playback.h"
