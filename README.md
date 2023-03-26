@@ -21,11 +21,16 @@ system.
 
 ### Dependencies (on Ubuntu):
 
-* libavcodec-dev
-* libavformat-dev
 * libasound2-dev
+* libavcodec-dev
+* libavfilter-dev  
+* libavformat-dev
 * libfftw3-dev
 * libswresample-dev
+
+```bash
+sudo apt install libasound2-dev libavcodec-dev libavfilter-dev  libavformat-dev libfftw3-dev libswresample-dev
+```
 
 ## Contributing
 Contributions are always welcome! If you find any bugs or have suggestions for
