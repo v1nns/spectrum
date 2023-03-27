@@ -22,7 +22,7 @@ jobs:
     
     - name: Install dependencies
       # Install external dependencies (ALSA, FFmpeg and fftw3)
-      run: sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev libgtest-dev \
+      run: sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev libgtest-dev
            libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev
 
     - name: Configure CMake
