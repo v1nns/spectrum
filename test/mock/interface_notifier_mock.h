@@ -14,11 +14,11 @@ namespace {
 
 class InterfaceNotifierMock final : public interface::Notifier {
  public:
-  MOCK_METHOD(void, ClearSongInformation, (bool playing), (override));
-  MOCK_METHOD(void, NotifySongInformation, (const model::Song& info), (override));
-  MOCK_METHOD(void, NotifySongState, (const model::Song::CurrentInformation& new_state), (override));
-  MOCK_METHOD(void, SendAudioRaw, (uint8_t* buffer, int buffer_size), (override));
-  MOCK_METHOD(void, NotifyError, (error::Code code), (override));
+  MOCK_METHOD(void, ClearSongInformation, (bool), (override));
+  MOCK_METHOD(void, NotifySongInformation, (const model::Song &), (override));
+  MOCK_METHOD(void, NotifySongState, (const model::Song::CurrentInformation &), (override));
+  MOCK_METHOD(void, SendAudioRaw, (int *, int), (override));
+  MOCK_METHOD(void, NotifyError, (error::Code), (override));
 };
 
 }  // namespace

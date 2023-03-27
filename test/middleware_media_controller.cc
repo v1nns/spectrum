@@ -243,7 +243,7 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
     // Send random data to the thread to analyze it
     syncer.WaitForStep(1);
-    std::vector<uint8_t> buffer(sample_size, 1);
+    std::vector<int> buffer(sample_size, 1);
     notifier->SendAudioRaw(buffer.data(), buffer.size());
 
     // Wait for Analysis to finish before exiting from controller
@@ -258,8 +258,11 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
 TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
   int sample_size = 16;
-  //   model::Song::CurrentInformation info{.state = model::Song::MediaState::Pause, .position =
-  //   12};
+
+  model::Song::CurrentInformation info{
+      .state = model::Song::MediaState::Pause,
+      .position = 12,
+  };
 
   auto analysis = [&](TestSyncer& syncer) {
     auto analyzer = GetAnalyzer();
@@ -268,7 +271,7 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
     EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(sample_size));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
-    std::vector<double> values(kNumberBars, 1);
+    std::vector<double> result(kNumberBars, 1);
 
     {
       // To better readability, split into two scopes to treat each thread command separately
@@ -276,11 +279,8 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
       // Create expectation to analyze data and send its result back to UI
       EXPECT_CALL(*analyzer, Execute(_, Eq(sample_size), _))
-          .WillOnce(Invoke([&](double* input, int, double* output) {
-            for (int i = 0; i < kNumberBars; i++) {
-              std::cout << input[i] << " ";
-            }
-            std::cout << std::endl;
+          .WillOnce(Invoke([&](double* input, int size, double* output) {
+            // Just copy input to output
             std::copy(input, input + kNumberBars, output);
             syncer.NotifyStep(2);
             return error::kSuccess;
@@ -291,46 +291,46 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
           SendEvent(AllOf(Field(&interface::CustomEvent::id,
                                 interface::CustomEvent::Identifier::DrawAudioSpectrum),
                           Field(&interface::CustomEvent::content,
-                                VariantWith<std::vector<double>>(ElementsAreArray(values))))));
+                                VariantWith<std::vector<double>>(ElementsAreArray(result))))))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(2); }));
     }
 
-    // {
-    //   // Create expectation to execute Clear Animation and send it to UI
-    //   EXPECT_CALL(*dispatcher,
-    //               SendEvent(AllOf(Field(&interface::CustomEvent::id,
-    //                                     interface::CustomEvent::Identifier::UpdateSongState),
-    //                               Field(&interface::CustomEvent::content,
-    //                                     VariantWith<model::Song::CurrentInformation>(info)))));
+    {
+      // Create expectation to execute Clear Animation and send it to UI
+      EXPECT_CALL(*dispatcher,
+                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                        interface::CustomEvent::Identifier::UpdateSongState),
+                                  Field(&interface::CustomEvent::content,
+                                        VariantWith<model::Song::CurrentInformation>(info)))));
 
-    //   // This sequence is placed after UpdateSongState event because this specific event is fired
-    //   // from Player thread and not from Analysis thread (in the "real life")
-    //   InSequence seq;
+      // This sequence is placed after UpdateSongState event because this specific event is fired
+      // from Player thread and not from Analysis thread (in the "real life")
+      InSequence seq;
 
-    //   // As we can get a lot of DrawAudioSpectrum events, calculate result and create
-    //   expectations
-    //   // Each loop will reduce its previous value by 45%
-    //   for (int i = 0; i < 10; i++) {
-    //     std::transform(values.begin(), values.end(), values.begin(),
-    //                    std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
+      // As we can get a lot of DrawAudioSpectrum events, calculate result and create expectations
+      // Each loop will reduce its previous value by 45%
+      for (int i = 0; i < 10; i++) {
+        std::transform(result.begin(), result.end(), result.begin(),
+                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
 
-    //     EXPECT_CALL(
-    //         *dispatcher,
-    //         SendEvent(AllOf(Field(&interface::CustomEvent::id,
-    //                               interface::CustomEvent::Identifier::DrawAudioSpectrum),
-    //                         Field(&interface::CustomEvent::content,
-    //                               VariantWith<std::vector<double>>(ElementsAreArray(values))))));
-    //   }
+        EXPECT_CALL(
+            *dispatcher,
+            SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                  interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                            Field(&interface::CustomEvent::content,
+                                  VariantWith<std::vector<double>>(ElementsAreArray(result))))));
+      }
 
-    //   // Last update from thread with zeroed values for UI
-    //   std::vector<double> last_update(kNumberBars, 0.001);
-    //   EXPECT_CALL(
-    //       *dispatcher,
-    //       SendEvent(AllOf(Field(&interface::CustomEvent::id,
-    //                             interface::CustomEvent::Identifier::DrawAudioSpectrum),
-    //                       Field(&interface::CustomEvent::content,
-    //                             VariantWith<std::vector<double>>(ElementsAreArray(last_update))))))
-    //       .WillOnce(Invoke([&]() { syncer.NotifyStep(3); }));
-    // }
+      // Last update from thread with zeroed values for UI
+      std::vector<double> last_update(kNumberBars, 0.001);
+      EXPECT_CALL(
+          *dispatcher,
+          SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                          Field(&interface::CustomEvent::content,
+                                VariantWith<std::vector<double>>(ElementsAreArray(last_update))))))
+          .WillOnce(Invoke([&]() { syncer.NotifyStep(3); }));
+    }
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -342,15 +342,15 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
     // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
     syncer.WaitForStep(1);
-    std::vector<uint8_t> buffer(sample_size, 1);
+    std::vector<int> buffer(sample_size, 1);
     notifier->SendAudioRaw(buffer.data(), buffer.size());
 
     // Send a Pause notification to run ClearAnimation
-    // syncer.WaitForStep(2);
-    // notifier->NotifySongState(info);
+    syncer.WaitForStep(2);
+    notifier->NotifySongState(info);
 
     // Wait for Analysis to finish before exiting from controller
-    syncer.WaitForStep(2);
+    syncer.WaitForStep(3);
     controller->Exit();
   };
 

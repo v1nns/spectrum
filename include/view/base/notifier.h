@@ -50,9 +50,9 @@ class Notifier {
   /**
    * @brief Send raw audio samples to UI
    * @param buffer Audio samples
-   * @param buff_size Sample count
+   * @param size Sample count
    */
-  virtual void SendAudioRaw(uint8_t* buffer, int buffer_size) = 0;
+  virtual void SendAudioRaw(int* buffer, int size) = 0;
 
   /**
    * @brief Notify UI with error code from some background operation

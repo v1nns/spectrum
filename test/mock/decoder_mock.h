@@ -18,13 +18,12 @@ namespace {
 
 class DecoderMock final : public driver::Decoder {
  public:
-  MOCK_METHOD(error::Code, OpenFile, (model::Song & audio_info), (override));
-  MOCK_METHOD(error::Code, Decode, (int samples, AudioCallback callback), (override));
+  MOCK_METHOD(error::Code, OpenFile, (model::Song &), (override));
+  MOCK_METHOD(error::Code, Decode, (int, AudioCallback), (override));
   MOCK_METHOD(void, ClearCache, (), (override));
-  MOCK_METHOD(error::Code, SetVolume, (model::Volume value), (override));
+  MOCK_METHOD(error::Code, SetVolume, (model::Volume), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (const, override));
-  MOCK_METHOD(error::Code, UpdateFilters, (const std::vector<model::AudioFilter>& filters),
-              (override));
+  MOCK_METHOD(error::Code, UpdateFilters, (const std::vector<model::AudioFilter> &), (override));
 };
 
 }  // namespace

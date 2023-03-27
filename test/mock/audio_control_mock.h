@@ -14,15 +14,14 @@ namespace {
 
 class AudioControlMock final : public audio::AudioControl {
  public:
-  MOCK_METHOD(void, Play, (const std::string& filepath), (override));
+  MOCK_METHOD(void, Play, (const std::string&), (override));
   MOCK_METHOD(void, PauseOrResume, (), (override));
   MOCK_METHOD(void, Stop, (), (override));
-  MOCK_METHOD(void, SetAudioVolume, (const model::Volume& value), (override));
+  MOCK_METHOD(void, SetAudioVolume, (const model::Volume&), (override));
   MOCK_METHOD(model::Volume, GetAudioVolume, (), (const, override));
   MOCK_METHOD(void, SeekForwardPosition, (int value), (override));
   MOCK_METHOD(void, SeekBackwardPosition, (int value), (override));
-  MOCK_METHOD(void, ApplyAudioFilters, (const std::vector<model::AudioFilter>& filters),
-              (override));
+  MOCK_METHOD(void, ApplyAudioFilters, (const std::vector<model::AudioFilter>&), (override));
   MOCK_METHOD(void, Exit, (), (override));
 };
 
