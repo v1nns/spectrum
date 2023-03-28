@@ -43,7 +43,7 @@ class ListDirectoryTest : public ::BlockTest {
     dispatcher = std::make_shared<EventDispatcherMock>();
 
     // use test directory as base dir
-    std::string source_dir{std::filesystem::current_path().parent_path().string() + "/test"};
+    std::string source_dir{LISTDIR_PATH};
     block = ftxui::Make<ListDirectoryMock>(dispatcher, source_dir);
 
     // Set this block as focused

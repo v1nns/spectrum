@@ -12,13 +12,26 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS
 find_package(PkgConfig REQUIRED)
 include(FetchContent)
 
-# Flag options
-option(SPECTRUM_DEBUG "Set to ON to disable build with external dependencies" OFF)
+# Build options
+option(SPECTRUM_DEBUG "Set to ON to build without external dependencies (ALSA, FFmpeg, FFTW3)" OFF)
+option(ENABLE_TESTS "Set to ON to build executable for unit testing" OFF)
+option(ENABLE_COVERAGE "Set to ON to build executable for unit testing" OFF)
 
-if (SPECTRUM_DEBUG)
-  MESSAGE(STATUS "SPECTRUM_DEBUG")
-  add_definitions(-DSPECTRUM_DEBUG)
+# Add precompiler flags
+if(SPECTRUM_DEBUG)
+    message(STATUS "SPECTRUM_DEBUG")
+    add_definitions(-DSPECTRUM_DEBUG)
 endif()
+
+# Add compiler options for code coverage
+function(check_coverage library)
+  if (ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
+      target_compile_options(${library} INTERFACE --coverage -O0 -g)
+      target_link_libraries(${library} INTERFACE --coverage)
+    endif()
+  endif()
+endfunction()
 
 # Subdirectories
 add_subdirectory(src)
