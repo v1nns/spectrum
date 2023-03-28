@@ -17,20 +17,15 @@ env:
   BUILD_TYPE: Debug
 
 jobs:
-  pre_build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install external dependencies
-        # Install ALSA, FFmpeg and FFTW3
-        run:
-          sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev
-          libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev
-
-
   debug:
     runs-on: ubuntu-latest
     needs: pre_build
     steps:
+      - name: Install external dependencies
+        # Install GTest
+        run:
+          sudo apt-get install -y pkg-config doxygen libgtest-dev
+
       - uses: actions/checkout@v3
 
       - name: Configure CMake
@@ -50,6 +45,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: pre_build
     steps:
+      - name: Install external dependencies
+        # Install ALSA, FFmpeg, FFTW3 and GTest
+        run:
+          sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev
+          libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev
+
       - uses: actions/checkout@v3
 
       - name: Configure CMake
