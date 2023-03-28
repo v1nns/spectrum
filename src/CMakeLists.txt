@@ -35,9 +35,9 @@ find_package(Threads REQUIRED)
 # **************************************************************************************************
 # Create library
 
-add_library(spectrum-lib OBJECT)
+add_library(spectrum_lib OBJECT)
 target_sources(
-    spectrum-lib
+    spectrum_lib
     PRIVATE # audio
             audio/command.cc
             audio/player.cc
@@ -67,24 +67,26 @@ target_sources(
             util/logger.cc
             util/sink.cc)
 
-target_include_directories(spectrum-lib PUBLIC ${CMAKE_SOURCE_DIR}/include
+target_include_directories(spectrum_lib PUBLIC ${CMAKE_SOURCE_DIR}/include
                                                $<BUILD_INTERFACE:${ftxui_SOURCE_DIR}/include>)
 
 target_link_libraries(
-    spectrum-lib
+    spectrum_lib
     PRIVATE ftxui::screen ftxui::dom ftxui::component
     PRIVATE Threads::Threads)
+
+check_coverage(spectrum_lib)
 
 # **************************************************************************************************
 # Build with external dependencies (debug mode disabled)
 
 if(NOT SPECTRUM_DEBUG)
     target_sources(
-        spectrum-lib PRIVATE # audio
+        spectrum_lib PRIVATE # audio
                              audio/driver/alsa.cc audio/driver/ffmpeg.cc audio/driver/fftw.cc)
 
     target_include_directories(
-        spectrum-lib
+        spectrum_lib
         PUBLIC ${ALSA_INCLUDE_DIRS}
                ${AVCODEC_INCLUDE_DIRS}
                ${AVFILTER_INCLUDE_DIRS}
@@ -94,7 +96,7 @@ if(NOT SPECTRUM_DEBUG)
                ${FFTW_INCLUDE_DIRS})
 
     target_link_libraries(
-        spectrum-lib
+        spectrum_lib
         PRIVATE
         INTERFACE PkgConfig::AVCODEC
         INTERFACE PkgConfig::AVFILTER
@@ -112,7 +114,7 @@ endif()
 
 add_executable(spectrum)
 target_sources(spectrum PRIVATE main.cc)
-target_link_libraries(spectrum PRIVATE spectrum-lib)
+target_link_libraries(spectrum PRIVATE spectrum_lib)
 target_compile_options(
     spectrum
     PRIVATE -Wall
