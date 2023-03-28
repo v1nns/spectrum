@@ -20,8 +20,6 @@ jobs:
   pre_build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
       - name: Install external dependencies
         # Install ALSA, FFmpeg and FFTW3
         run:
@@ -33,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: pre_build
     steps:
+      - uses: actions/checkout@v3
+
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory
         run:
@@ -50,6 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: pre_build
     steps:
+      - uses: actions/checkout@v3
+
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory
         run:
@@ -71,6 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: pre_build
     steps:
+      - uses: actions/checkout@v3
+
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory
         run:
