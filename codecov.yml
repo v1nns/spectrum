@@ -1,0 +1,3 @@
+# ignored files for code coverage
+ignore:
+  - "src/main.cc"
