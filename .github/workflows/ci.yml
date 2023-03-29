@@ -5,12 +5,6 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-  workflow_call:
-    inputs:
-      options:
-        description: 'Pass options to build workflow'
-        required: true
-        type: string
 
 env:
   # CMake build type
@@ -22,15 +16,13 @@ jobs:
     steps:
       - name: Install external dependencies
         # Install GTest
-        run:
-          sudo apt-get install -y pkg-config doxygen libgtest-dev
+        run: sudo apt-get install -y pkg-config doxygen libgtest-dev
 
       - uses: actions/checkout@v3
 
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory
-        run:
-          cmake -S .
+        run: cmake -S .
           -B ${{github.workspace}}/build
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
           -DSPECTRUM_DEBUG=ON
@@ -38,7 +30,6 @@ jobs:
       - name: Build
         # Build program
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
-
 
   test:
     runs-on: ubuntu-latest
@@ -53,8 +44,7 @@ jobs:
 
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory
-        run:
-          cmake -S .
+        run: cmake -S .
           -B ${{github.workspace}}/build
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
           -DENABLE_TESTS=ON
@@ -81,8 +71,7 @@ jobs:
 
       - name: Configure CMake
         # Configure CMake in a 'build' subdirectory
-        run:
-          cmake -S .
+        run: cmake -S .
           -B ${{github.workspace}}/build
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
           -DENABLE_TESTS=ON
@@ -106,3 +95,35 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           gcov: true
+
+  sonar:
+    runs-on: ubuntu-latest
+    env:
+      # Directory where build-wrapper output will be placed
+      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
+    steps:
+      - name: Install external dependencies
+        # Install ALSA, FFmpeg, FFTW3 and GTest
+        run:
+          sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev
+          libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev
+
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Install sonar-scanner and build-wrapper
+        uses: SonarSource/sonarcloud-github-c-cpp@v1
+
+      - name: Run build-wrapper
+        run: |
+          mkdir build
+          cmake -S . -B build -DENABLE_TESTS=ON
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build/ --config Release
+
+      - name: Run sonar-scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
