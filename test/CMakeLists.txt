@@ -1,7 +1,3 @@
-if(SPECTRUM_DEBUG OR NOT ENABLE_TESTS)
-    return()
-endif()
-
 # **************************************************************************************************
 # External dependencies
 
@@ -14,6 +10,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt
     ON
     CACHE BOOL "" FORCE)
+
+# Do not install anything from GTest
+option(INSTALL_GMOCK OFF)
+option(INSTALL_GTEST OFF)
 
 FetchContent_MakeAvailable(googletest)
 

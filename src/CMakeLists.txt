@@ -20,7 +20,7 @@ endif()
 FetchContent_Declare(
     ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-    GIT_TAG 1689802349c241c4f51c272fe3ee3032342257ab)
+    GIT_TAG 9babfea36b1def5791b4c5446fc47dafa79a0289)
 
 FetchContent_GetProperties(ftxui)
 if(NOT ftxui_POPULATED)
@@ -81,6 +81,7 @@ check_coverage(spectrum_lib)
 # Build with external dependencies (debug mode disabled)
 
 if(NOT SPECTRUM_DEBUG)
+    message(STATUS "Enabling external dependencies...")
     target_sources(
         spectrum_lib PRIVATE # audio
                              audio/driver/alsa.cc audio/driver/ffmpeg.cc audio/driver/fftw.cc)
@@ -127,4 +128,7 @@ target_compile_options(
 
 # **************************************************************************************************
 # Install executable
-install(TARGETS spectrum DESTINATION ${CMAKE_BINARY_DIR}/bin/)
+
+if(ENABLE_INSTALL)
+    install(TARGETS spectrum DESTINATION ${CMAKE_INSTALL_BIN})
+endif()
