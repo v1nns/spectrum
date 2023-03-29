@@ -1,7 +1,7 @@
 # spectrum
 
-Introducing yet another music player for audiophiles and tech enthusiasts alike
-- spectrum, a console-based music player written in C++ that will simplify the
+Introducing yet another music player for audiophiles and tech enthusiasts alike:
+spectrum, a console-based music player written in C++ that will simplify the
 way you experience your favorite tunes!
 
 Immerse yourself in the sound with the powerful equalizer, allowing you to
@@ -18,8 +18,6 @@ With an intuitive user interface and lightning-fast performance, this music
 player is the perfect addition to any audiophile's collection. Whether you're a
 casual listener or a serious music lover, our console-based music player will
 exceed your expectations.
-
-![](assets/spectrum.mov?raw=true)
 
 ## Features
 
