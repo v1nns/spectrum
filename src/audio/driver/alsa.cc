@@ -105,7 +105,7 @@ error::Code Alsa::Stop() {
 
 error::Code Alsa::AudioCallback(void *buffer, int size) {
   // As this is called multiple times, LOG will not be called here in the beginning
-  if (auto result = snd_pcm_writei(playback_handle_.get(), buffer, size); result < 0) {
+  if (int result = snd_pcm_writei(playback_handle_.get(), buffer, size); result < 0) {
     ERROR("Cannot write buffer to playback stream, error=", result);
     if ((result = snd_pcm_recover(playback_handle_.get(), result, 1)) == 0) {
       // TODO: do something?
