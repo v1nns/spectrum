@@ -131,9 +131,15 @@ jobs:
         working-directory: ${{github.workspace}}/build
         run: ctest --test-dir ./test
 
-      - name: Collect coverage into one XML report
-        working-directory: ${{github.workspace}}/build
-        run: gcovr --sonarqube > coverage.xml
+      - name: Collect coverage info
+        working-directory: ${{github.workspace}}
+            # Run gcov to translate `.gcda` files into `.gcov` readable by humans and SonarCloud
+            # --preserve-paths helps us avoid name clash for `.gcov` files corresponding to source files
+            # with the same name but in different directories.
+          run: |
+            mkdir coverage-dir
+            cd coverage-dir
+            find .. -name '*.o' | xargs gcov --preserve-paths
 
       - name: Run sonar-scanner
         working-directory: ${{github.workspace}}
@@ -141,7 +147,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
-          --define sonar.coverageReportPaths=${{github.workspace}}/build/coverage.xml
+          --define sonar.cfamily.gcov.reportsPath="${{github.workspace}}/coverage-dir"
 
   cppcheck:
     runs-on: ubuntu-latest
