@@ -146,7 +146,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run:
           sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
-          --define sonar.cfamily.gcov.reportsPath="${{github.workspace}}/coverage-dir"
+          --define sonar.cfamily.gcov.reportsPath="coverage-dir"
 
   cppcheck:
     runs-on: ubuntu-latest
