@@ -133,7 +133,7 @@ jobs:
 
       - name: Run cppcheck
         run: cppcheck --max-ctu-depth=3 --enable=all --inline-suppr
-          --suppress=missingInclude--suppress=syntaxError --suppress=unmatchedSuppression
+          --suppress=missingInclude --suppress=syntaxError --suppress=unmatchedSuppression
           --suppress=preprocessorErrorDirective --language=c++ --std=c++17 ${{github.workspace}}/src
 
   cpplinter:
