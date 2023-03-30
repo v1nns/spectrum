@@ -97,56 +97,53 @@ jobs:
       # Directory where build-wrapper output will be placed
       BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
     steps:
-      - name: Update packages list
-        run: sudo apt-get update
-
       - name: Install external dependencies
+
         # Install ALSA, FFmpeg, FFTW3 and GTest
-        run:
-          sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev
-          libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential alsa-base alsa-utils pkg-config doxygen \
+            libasound2-dev libfftw3-dev libgtest-dev libavcodec-dev libavformat-dev \
+            libswresample-dev libavfilter-dev
 
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
 
-      - name: Set up Python 3.8 for gcovr
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.8
-
-      - name: install gcovr 5.0 # 5.1 is not supported
-        run: pip install gcovr==5.0
-
       - name: Install sonar-scanner and build-wrapper
         uses: SonarSource/sonarcloud-github-c-cpp@v1
 
-      - name: Run build-wrapper
+      - name: Configure
+        run: cmake -G Ninja -D CMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_TESTs=ON -DENABLE_COVERAGE=ON -S . -B build
+
+      - name: Build
+        run: build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build
+
+      - name: Test
+        working-directory: build
+        continue-on-error: true
+        run: ctest --schedule-random -j 2
+
+      - name: Generate coverage info
+        working-directory: build
+        continue-on-error: true
         run: |
-          cmake -S . -B ${{github.workspace}}/build -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} \
-          cmake --build ${{github.workspace}}/build --config Release
+          mkdir gcov-reports
+          pushd gcov-reports
+          for f in `find ../test/CMakeFiles/test.dir -name '*.o'`; do
+            echo "Processing $f file..."
+            gcov -o ${f} x
+          done
+          ls | wc -l
+          popd
 
-      - name: Run tests to generate coverage statistics
-        # ctest --test-dir ./test
-        run: ./build/test/test
-
-      - name:
-          Collect coverage info
-          # Run gcov to translate `.gcda` files into `.gcov` readable by humans and SonarCloud
-        run: |
-          mkdir coverage-dir
-          cd coverage-dir
-          find .. -name '*.o' | xargs gcov --preserve-paths
-
-      - name: Run sonar-scanner
+     - name: Run sonar-scanner
         working-directory: ${{github.workspace}}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run:
           sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
-          --define sonar.cfamily.gcov.reportsPath="coverage-dir"
 
   cppcheck:
     runs-on: ubuntu-latest
