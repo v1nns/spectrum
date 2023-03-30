@@ -133,7 +133,7 @@ jobs:
 
       - name: Collect coverage info
         working-directory:
-          ${{github.workspace}}
+          ${{github.workspace}}/build
           # Run gcov to translate `.gcda` files into `.gcov` readable by humans and SonarCloud
         run: |
           mkdir coverage-dir
@@ -147,7 +147,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run:
           sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
-          --define sonar.cfamily.gcov.reportsPath="${{github.workspace}}/coverage-dir"
+          --define sonar.cfamily.gcov.reportsPath="${{github.workspace}}/build/coverage-dir"
 
   cppcheck:
     runs-on: ubuntu-latest
