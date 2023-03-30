@@ -28,10 +28,9 @@ ftxui::Element FileInfo::Render() {
 
   // Use istringstream to split string into lines and parse it as <Field, Value>
   std::istringstream input{model::to_string(audio_info_)};
-  size_t pos;
 
   for (std::string line; std::getline(input, line);) {
-    pos = line.find_first_of(':');
+    size_t pos = line.find_first_of(':');
     std::string field = line.substr(0, pos), value = line.substr(pos + 1);
 
     // Create element

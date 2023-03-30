@@ -95,9 +95,9 @@ ftxui::Element ListDirectory::Render() {
     bool is_selected = (*selected == i);
 
     File& entry = GetEntry(i);
-    auto& type = entry == curr_playing_                 ? styles_.playing
-                 : std::filesystem::is_directory(entry) ? styles_.directory
-                                                        : styles_.file;
+    const auto& type = entry == curr_playing_                 ? styles_.playing
+                       : std::filesystem::is_directory(entry) ? styles_.directory
+                                                              : styles_.file;
     const char* icon = is_selected ? "> " : "  ";
 
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
@@ -233,7 +233,7 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
     if (event.mouse().button == ftxui::Mouse::Left &&
         event.mouse().motion == ftxui::Mouse::Released) {
       LOG("Handle left click mouse event on entry=", i);
-      if (*selected != i) *selected = i;
+      *selected = i;
 
       // Send event for setting focus on this block
       AskForFocus();
@@ -254,8 +254,6 @@ bool ListDirectory::OnMouseWheel(ftxui::Event event) {
   LOG("Handle mouse wheel event");
   int* selected = GetSelected();
   int* focused = GetFocused();
-
-  int old_selected = *selected;
 
   if (event.mouse().button == ftxui::Mouse::WheelUp) {
     (*selected)--;
@@ -444,7 +442,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
     return;
   }
 
-  if (curr_dir_ != dir_path) curr_dir_ = dir_path;
+  curr_dir_ = dir_path;
   entries_ = std::move(tmp);
   selected_ = 0, focused_ = 0;
 

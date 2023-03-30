@@ -105,13 +105,13 @@ error::Code Alsa::Stop() {
 
 error::Code Alsa::AudioCallback(void *buffer, int size) {
   // As this is called multiple times, LOG will not be called here in the beginning
-  int ret = snd_pcm_writei(playback_handle_.get(), buffer, size);
+  int result = snd_pcm_writei(playback_handle_.get(), buffer, size);
 
-  if (ret < 0) {
-    ERROR("Cannot write buffer to playback stream, received error=", ret);
-    if ((ret = snd_pcm_recover(playback_handle_.get(), ret, 1)) == 0) {
+  if (result < 0) {
+    ERROR("Cannot write buffer to playback stream, error=", result);
+    if ((result = snd_pcm_recover(playback_handle_.get(), result, 1)) == 0) {
       // TODO: do something?
-      LOG("Recovered playback stream from error (overrun/underrun");
+      LOG("Recovered playback stream from error (overrun/underrun), error=", result);
     }
   }
 

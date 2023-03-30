@@ -114,7 +114,7 @@ bool TabViewer::OnEvent(ftxui::Event event) {
     dispatcher->SendEvent(event);
 
     // Update active tab
-    if (active_ != found->first) active_ = found->first;
+    active_ = found->first;
 
     return true;
   }

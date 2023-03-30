@@ -86,11 +86,6 @@ jobs:
         working-directory: ${{github.workspace}}/build
         run: ctest --test-dir ./test
 
-      # - name: Coverage
-      #   # Check code coverage
-      #   working-directory: ${{github.workspace}}/build
-      #   run: gcovr --root ../ --html-details coverage
-
       - name: Upload report to CodeCov
         uses: codecov/codecov-action@v3
         with:
@@ -127,3 +122,34 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+
+  cppcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cppcheck
+        run: sudo apt-get install -y ccpcheck
+
+      - uses: actions/checkout@v3
+
+      - name: Run cppcheck
+        run: cppcheck --max-ctu-depth=3 --enable=all --inline-suppr
+        --suppress=missingInclude--suppress=syntaxError --suppress=unmatchedSuppression
+        --suppress=preprocessorErrorDirective --language=c++ --std=c++17 ${{github.workspace}}/src
+
+  cpplinter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: file
+          extra-args: -std=c++17 -Wall
+          files-changed-only: false
+
+      - name: Check linter output
+        if: steps.linter.outputs.checks-failed > 0
+        run: exit 1

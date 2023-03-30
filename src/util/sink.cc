@@ -22,7 +22,7 @@ void FileSink::Open() {
       last_reopen_ = now;
     } catch (std::exception& e) {
       CloseStream();
-      throw e;
+      throw;
     }
   }
 }
