@@ -120,7 +120,7 @@ jobs:
 
       - name: Configure
         run: cmake -G Ninja -D CMAKE_BUILD_TYPE=RelWithDebInfo
-          -DENABLE_TESTs=ON -DENABLE_COVERAGE=ON
+          -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
           -S . -B ${{github.workspace}}/build
 
       - name: Build
