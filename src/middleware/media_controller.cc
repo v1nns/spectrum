@@ -99,15 +99,13 @@ void MediaController::AnalysisHandler() {
 
   using namespace std::chrono_literals;
   std::vector<double> input, output, previous;
-  int in_size, out_size;
 
   while (sync_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
-    in_size = analyzer_->GetBufferSize();
-    out_size = analyzer_->GetOutputSize();
+    int in_size = analyzer_->GetBufferSize();
 
     // Resize output vector if necessary
-    if (output.size() != out_size) {
+    if (int out_size = analyzer_->GetOutputSize(); output.size() != out_size) {
       output.resize(out_size);
     }
 
@@ -174,7 +172,7 @@ void MediaController::AnalysisHandler() {
         for (int i = 1; i <= 10; i++) {
           // Each time this loop is executed, it will increase spectrum bar values in a step of 10%
           // based on its previous values (this value was also decided based on feeling)
-          for (auto& value : output) bars.push_back((value / 10) * i);
+          for (const auto& value : output) bars.push_back((value / 10) * i);
 
           // Send result to UI
           auto event = interface::CustomEvent::DrawAudioSpectrum(bars);

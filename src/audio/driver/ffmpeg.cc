@@ -12,6 +12,7 @@ static void log_callback(void *ptr, int level, const char *fmt, va_list vargs) {
   va_copy(ap_copy, vargs);
 
   size_t len = vsnprintf(0, 0, fmt, ap_copy);
+  va_end(ap_copy);
 
   std::string message("", len + 1);  // need space for NUL
   vsnprintf(&message[0], len + 1, fmt, vargs);
@@ -393,7 +394,7 @@ error::Code FFmpeg::ConnectFilters() {
   filters_to_link.insert(filters_to_link.end(), {aformat_ctx, buffersink_ctx_.get()});
 
   // Link all the filters, it will form a linear chain
-  int result;
+  int result = 0;
   for (auto it = filters_to_link.begin(); it != filters_to_link.end() && result >= 0;) {
     auto next = std::next(it);
 
@@ -638,8 +639,8 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
   while ((result = av_buffersink_get_samples(sink, filtered, samples)) >= 0 &&
          shared_context_.KeepDecoding()) {
     // Send filtered audio data to Player
-    shared_context_.keep_playing =
-        callback((void *)filtered->data[0], filtered->nb_samples, shared_context_.position);
+    shared_context_.keep_playing = callback(static_cast<void *>(filtered->data[0]),
+                                            filtered->nb_samples, shared_context_.position);
 
     // Clear frame from filtergraph
     av_frame_unref(filtered);
@@ -667,6 +668,7 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
     // Clear internal buffers
     shared_context_.ClearFrames();
     avcodec_flush_buffers(decoder_.get());
+    seek_frame = false;
 
     // Recalculate new position
     int64_t target = av_rescale_q(shared_context_.position * AV_TIME_BASE, AV_TIME_BASE_Q,
@@ -677,8 +679,6 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
       ERROR("Cannot seek frame in song");
       shared_context_.err_code = error::kSeekFrameFailed;
     }
-
-    seek_frame = false;
   }
 }
 
