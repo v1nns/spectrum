@@ -127,7 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install cppcheck
-        run: sudo apt-get install -y ccpcheck
+        run: sudo apt-get install -y cppcheck
 
       - uses: actions/checkout@v3
 
