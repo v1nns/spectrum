@@ -107,21 +107,37 @@ jobs:
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
 
+      - name: Set up Python 3.8 for gcovr
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: install gcovr 5.0 # 5.1 is not supported
+        run: pip install gcovr==5.0
+
       - name: Install sonar-scanner and build-wrapper
         uses: SonarSource/sonarcloud-github-c-cpp@v1
 
       - name: Run build-wrapper
         run: |
           mkdir build
-          cmake -S . -B build -DENABLE_TESTS=ON
+          cmake -S . -B build -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
           build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build/ --config Release
+
+      - name: Run tests to generate coverage statistics
+        # Execute unit testing
+        working-directory: ${{github.workspace}}/build
+        run: ctest --test-dir ./test
+
+      - name: Collect coverage into one XML report
+        run: gcovr --sonarqube > coverage.xml
 
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+        run: sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+          --define sonar.coverageReportPaths=coverage.xml
 
   cppcheck:
     runs-on: ubuntu-latest
