@@ -119,18 +119,20 @@ jobs:
         uses: SonarSource/sonarcloud-github-c-cpp@v1
 
       - name: Configure
-        run: cmake -G Ninja -D CMAKE_BUILD_TYPE=RelWithDebInfo -DENABLE_TESTs=ON -DENABLE_COVERAGE=ON -S . -B build
+        run: cmake -G Ninja -D CMAKE_BUILD_TYPE=RelWithDebInfo
+          -DENABLE_TESTs=ON -DENABLE_COVERAGE=ON
+          -S . -B ${{github.workspace}}/build
 
       - name: Build
-        run: build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build build
+        run: build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build ${{github.workspace}}/build
 
       - name: Test
-        working-directory: build
+        working-directory: ${{github.workspace}}/build
         continue-on-error: true
         run: ctest --schedule-random -j 2 --test-dir ./test
 
       - name: Generate coverage info
-        working-directory: build
+        working-directory: ${{github.workspace}}/build
         continue-on-error: true
         run: |
           mkdir gcov-reports
