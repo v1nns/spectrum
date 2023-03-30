@@ -127,7 +127,7 @@ jobs:
       - name: Test
         working-directory: build
         continue-on-error: true
-        run: ctest --schedule-random -j 2
+        run: ctest --schedule-random -j 2 --test-dir ./test
 
       - name: Generate coverage info
         working-directory: build
