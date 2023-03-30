@@ -137,13 +137,12 @@ jobs:
           ls | wc -l
           popd
 
-     - name: Run sonar-scanner
+      - name: Run sonar-scanner
         working-directory: ${{github.workspace}}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run:
-          sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+        run: sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
 
   cppcheck:
     runs-on: ubuntu-latest
