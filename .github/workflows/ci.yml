@@ -98,13 +98,18 @@ jobs:
       BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
     steps:
       - name: Install external dependencies
-
         # Install ALSA, FFmpeg, FFTW3 and GTest
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential alsa-base alsa-utils pkg-config doxygen \
             libasound2-dev libfftw3-dev libgtest-dev libavcodec-dev libavformat-dev \
             libswresample-dev libavfilter-dev
+
+      - name: Set up GCC
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
 
       - uses: actions/checkout@v3
         with:
