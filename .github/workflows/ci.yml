@@ -101,8 +101,8 @@ jobs:
         # Install ALSA, FFmpeg, FFTW3 and GTest
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential alsa-base alsa-utils pkg-config doxygen \
-            libasound2-dev libfftw3-dev libgtest-dev libavcodec-dev libavformat-dev \
+          sudo apt-get install -y build-essential ninja-build alsa-base alsa-utils pkg-config \
+            doxygen libasound2-dev libfftw3-dev libgtest-dev libavcodec-dev libavformat-dev \
             libswresample-dev libavfilter-dev
 
       - name: Set up GCC
