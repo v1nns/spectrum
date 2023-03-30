@@ -20,7 +20,7 @@ void FileSink::Open() {
       // Open file
       out_stream_.reset(new std::ofstream(path_, std::ofstream::out | std::ofstream::app));
       last_reopen_ = now;
-    } catch (std::exception& e) {
+    } catch (std::exception&) {
       CloseStream();
       throw;
     }

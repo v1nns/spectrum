@@ -103,10 +103,9 @@ void MediaController::AnalysisHandler() {
   while (sync_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
     int in_size = analyzer_->GetBufferSize();
-    int out_size = analyzer_->GetOutputSize();
 
     // Resize output vector if necessary
-    if (output.size() != out_size) {
+    if (int out_size = analyzer_->GetOutputSize(); output.size() != out_size) {
       output.resize(out_size);
     }
 

@@ -147,7 +147,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: file
-          extra-args: -std=c++17 -Wall
           files-changed-only: false
 
       - name: Check linter output
