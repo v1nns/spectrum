@@ -29,7 +29,7 @@ class TabViewer : public Block {
   /**
    * @brief Destroy the TabViewer object
    */
-  virtual ~TabViewer() = default;
+  ~TabViewer() override = default;
 
   /**
    * @brief Renders the component
@@ -75,8 +75,10 @@ class TabViewer : public Block {
 
   /* ******************************************************************************************** */
   //! Variables
- private:
-  WindowButton btn_help_, btn_exit_;  //!< Buttons located on the upper-right border of block window
+
+  //! Buttons located on the upper-right border of block window
+  WindowButton btn_help_;  //!< Help button
+  WindowButton btn_exit_;  //!< Exit button
 
   //! Represent a single tab item entry
   struct Tab {
@@ -85,7 +87,7 @@ class TabViewer : public Block {
     Item item;            //!< View to render in the tab content
   };
 
-  View active_;                          //!< Current view displayed on block
+  View active_ = View::Visualizer;                          //!< Current view displayed on block
   std::unordered_map<View, Tab> views_;  //!< All possible views to render in this component
 };
 

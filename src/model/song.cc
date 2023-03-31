@@ -85,7 +85,6 @@ std::string to_string(const Song& arg) {
 
   std::ostringstream ss;
 
-  //   oss << "Filepath: " << arg.filepath << std::endl;
   ss << "Artist: " << artist << std::endl;
   ss << "Title: " << title << std::endl;
   ss << "Channels: " << channels << std::endl;

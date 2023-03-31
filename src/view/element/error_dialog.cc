@@ -2,22 +2,14 @@
 
 namespace interface {
 
-ErrorDialog::ErrorDialog()
-    : style_{DialogStyle{
-          .background = ftxui::Color::DarkRedBis,
-          .foreground = ftxui::Color::Grey93,
-      }},
-      opened_{false},
-      message_{} {}
-
-/* ********************************************************************************************** */
-
-ftxui::Element ErrorDialog::Render() {
-  using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
+ftxui::Element ErrorDialog::Render() const {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
 
   auto decorator = ftxui::size(HEIGHT, EQUAL, kMaxLines) | ftxui::size(WIDTH, EQUAL, kMaxColumns) |
                    ftxui::borderDouble | ftxui::bgcolor(style_.background) |
-                   ftxui::color(style_.foreground) | ftxui::center;
+                   ftxui::color(style_.foreground) | ftxui::clear_under | ftxui::center;
 
   return ftxui::vbox({
              ftxui::text(" ERROR") | ftxui::bold,
@@ -29,7 +21,7 @@ ftxui::Element ErrorDialog::Render() {
 
 /* ********************************************************************************************** */
 
-bool ErrorDialog::OnEvent(ftxui::Event event) {
+bool ErrorDialog::OnEvent(const ftxui::Event& event) {
   if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
       event == ftxui::Event::Character('q')) {
     Clear();
@@ -41,7 +33,7 @@ bool ErrorDialog::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void ErrorDialog::SetErrorMessage(const std::string& message) {
+void ErrorDialog::SetErrorMessage(const std::string_view& message) {
   message_ = message;
   opened_ = true;
 }

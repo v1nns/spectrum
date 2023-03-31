@@ -7,7 +7,7 @@ namespace interface {
 
 Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const model::BlockIdentifier& id,
              const Size& size)
-    : ftxui::ComponentBase{}, id_{id}, dispatcher_{dispatcher}, size_{size}, focused_{false} {}
+    : ftxui::ComponentBase{}, dispatcher_{dispatcher}, id_{id}, size_{size} {}
 
 /* ********************************************************************************************** */
 
@@ -15,8 +15,11 @@ void Block::SetFocused(bool focused) { focused_ = focused; }
 
 /* ********************************************************************************************** */
 
-ftxui::Decorator Block::GetTitleDecorator() {
-  using ftxui::Color, ftxui::bgcolor, ftxui::color, ftxui::bold;
+ftxui::Decorator Block::GetTitleDecorator() const {
+  using ftxui::bgcolor;
+  using ftxui::bold;
+  using ftxui::Color;
+  using ftxui::color;
 
   ftxui::Decorator style = focused_ ? bgcolor(Color::DodgerBlue1) | color(Color::DarkBlue) | bold
                                     : bgcolor(Color::GrayDark) | color(Color::GrayLight);
@@ -36,7 +39,7 @@ void Block::AskForFocus() {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<EventDispatcher> Block::GetDispatcher() {
+std::shared_ptr<EventDispatcher> Block::GetDispatcher() const {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) {
     ERROR("Cannot lock event dispatcher");

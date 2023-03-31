@@ -11,14 +11,14 @@ struct ContentVisitor {
   explicit ContentVisitor(std::ostream& o) : out{o} { out << " content:"; };
 
   // All mapped types used in the CustomEvent content
-  void operator()(const std::monostate& m) const { out << "empty"; }
+  void operator()(const std::monostate&) const { out << "empty"; }
   void operator()(int i) const { out << i; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
   void operator()(const std::filesystem::path& p) const { out << p.c_str(); }
-  void operator()(const std::vector<double>& v) const { out << "{vector data...}"; }
-  void operator()(const std::vector<model::AudioFilter>& f) const {
+  void operator()(const std::vector<double>&) const { out << "{vector data...}"; }
+  void operator()(const std::vector<model::AudioFilter>&) const {
     // TODO: maybe implement detailed info here
     out << "{audio filter data...}";
   }
@@ -214,7 +214,7 @@ CustomEvent CustomEvent::DrawAudioSpectrum(const std::vector<double>& data) {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path file_path) {
+CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path& file_path) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::NotifyFileSelection,
@@ -299,7 +299,7 @@ CustomEvent CustomEvent::SeekBackwardPosition(int offset) {
 /* ********************************************************************************************** */
 
 // Static
-CustomEvent CustomEvent::ApplyAudioFilters(const std::vector<model::AudioFilter> filters) {
+CustomEvent CustomEvent::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::ApplyAudioFilters,

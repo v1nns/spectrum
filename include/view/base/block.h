@@ -23,13 +23,14 @@ class EventDispatcher;
 
 //! Maximum dimensions for block
 struct Size {
-  int width, height;
+  int width;   //!< Maximum width for block
+  int height;  //!< Maximum height for block
 };
 
 /**
  * @brief Base class representing a block in view
  */
-class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
+class Block : public std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
  protected:
   /**
    * @brief Construct a new Block object (only called by derived classes)
@@ -44,7 +45,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   /**
    * @brief Destroy the Block object
    */
-  virtual ~Block() = default;
+  ~Block() override = default;
 
   //! Unique ID
   model::BlockIdentifier GetId() const { return id_; }
@@ -60,7 +61,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
 
  protected:
   //! Get decorator style for title based on internal state
-  ftxui::Decorator GetTitleDecorator();
+  ftxui::Decorator GetTitleDecorator() const;
 
   //! Dispatch event to set focus
   void AskForFocus();
@@ -68,15 +69,15 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
  public:
-  virtual ftxui::Element Render() = 0;
-  virtual bool OnEvent(ftxui::Event) = 0;
+  ftxui::Element Render() override { return ftxui::Element(); }
+  bool OnEvent(ftxui::Event) override { return false; }
   virtual bool OnCustomEvent(const CustomEvent&) = 0;
 
   /* ******************************************************************************************** */
   //! Used by derived class
  protected:
   //! Get event dispatcher
-  std::shared_ptr<EventDispatcher> GetDispatcher();
+  std::shared_ptr<EventDispatcher> GetDispatcher() const;
 
   /* ******************************************************************************************** */
   //! Variables
@@ -84,7 +85,7 @@ class Block : std::enable_shared_from_this<Block>, public ftxui::ComponentBase {
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   model::BlockIdentifier id_;                  //!< Block identification
   Size size_;                                  //!< Block size
-  bool focused_;  //!< Control flag for focus state, to help with UI navigation
+  bool focused_ = false;  //!< Control flag for focus state, to help with UI navigation
 };
 
 }  // namespace interface

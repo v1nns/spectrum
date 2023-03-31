@@ -34,9 +34,17 @@ std::shared_ptr<MediaController> MediaController::Create(
   auto an = std::make_unique<driver::DummyAnalyzer>();
 #endif
 
+  // Simply extend the MediaController class, as we do not want to expose the default constructor,
+  // neither do we want to use std::make_shared explicitly calling operator new()
+  struct MakeSharedEnabler : public MediaController {
+    explicit MakeSharedEnabler(const std::shared_ptr<interface::EventDispatcher>& dispatcher,
+                               const std::shared_ptr<audio::AudioControl>& player_ctl,
+                               std::unique_ptr<driver::Analyzer>&& analyzer)
+        : MediaController(dispatcher, player_ctl, std::move(analyzer)) {}
+  };
+
   // Create and initialize media controller
-  auto controller =
-      std::shared_ptr<MediaController>(new MediaController(terminal, player, std::move(an)));
+  auto controller = std::make_shared<MakeSharedEnabler>(terminal, player, std::move(an));
 
   controller->Init(number_bars, asynchronous);
 
@@ -57,14 +65,16 @@ MediaController::MediaController(const std::shared_ptr<interface::EventDispatche
       interface::Notifier(),
       dispatcher_{dispatcher},
       player_ctl_{player_ctl},
-      analyzer_{std::move(analyzer)},
-      analysis_loop_{},
-      sync_data_{} {}
+      analyzer_{std::move(analyzer)} {}
 
 /* ********************************************************************************************** */
 
 MediaController::~MediaController() {
-  Exit();
+  try {
+    Exit();
+  } catch (...) {
+    // We don't mind about exceptions at this point in life
+  }
 
   if (analysis_loop_.joinable()) {
     analysis_loop_.join();
@@ -116,7 +126,7 @@ void MediaController::AnalysisHandler() {
         // Get input data, run FFT and update local cache
         // P.S.: do not log this because this command is received too often
         input = sync_data_.GetBuffer(in_size);
-        analyzer_->Execute(input.data(), input.size(), output.data());
+        analyzer_->Execute(input.data(), static_cast<int>(input.size()), output.data());
         previous = output;
 
         auto dispatcher = GetDispatcher();
@@ -147,8 +157,8 @@ void MediaController::AnalysisHandler() {
           // Sleep a little bit before sending a new update to UI. And in case of receiving a new
           // command in the meantime, just cancel animation
           auto timeout = std::chrono::system_clock::now() + 0.04s;
-          bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout);
-          if (exit_animation) break;
+          if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation)
+            break;
         }
 
         previous = std::vector(previous.size(), 0.001);
@@ -242,7 +252,7 @@ void MediaController::SetVolume(model::Volume value) {
 /* ********************************************************************************************** */
 
 void MediaController::ResizeAnalysisOutput(int value) {
-  std::unique_lock<std::mutex> lock(sync_data_.mutex);
+  std::unique_lock lock(sync_data_.mutex);
   analyzer_->Init(value);
 }
 
@@ -337,7 +347,7 @@ void MediaController::NotifyError(error::Code code) {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() {
+std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() const {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) ERROR("Cannot lock event dispatcher");
   // TODO: decide if should throw a exception here... sometimes this error can happen when

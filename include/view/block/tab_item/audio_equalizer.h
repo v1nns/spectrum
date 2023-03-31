@@ -31,7 +31,7 @@ class AudioEqualizer : public TabItem {
   /**
    * @brief Destroy the AudioEqualizer object
    */
-  virtual ~AudioEqualizer() = default;
+  ~AudioEqualizer() override = default;
 
   /**
    * @brief Renders the component
@@ -44,14 +44,14 @@ class AudioEqualizer : public TabItem {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(ftxui::Event event) override;
+  bool OnEvent(const ftxui::Event& event) override;
 
   /**
    * @brief Handles an event (from mouse)
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnMouseEvent(ftxui::Event event) override;
+  bool OnMouseEvent(const ftxui::Event& event) override;
 
   /**
    * @brief Handles a custom event
@@ -71,12 +71,13 @@ class AudioEqualizer : public TabItem {
 
   /* ******************************************************************************************** */
   //! Variables
- private:
-  std::vector<model::AudioFilter> cache_;            //!< Last applied filters
-  std::vector<std::unique_ptr<FrequencyBar>> bars_;  //!< Audio frequency bars
-  GenericButton btn_apply_, btn_reset_;              //!< Buttons to setup equalization
+  std::vector<model::AudioFilter> cache_ = model::AudioFilter::Create();  //!< Last applied filters
+  std::vector<std::unique_ptr<FrequencyBar>> bars_;                       //!< Audio frequency bars
 
-  int focused_;  //!< Index to current bar focused
+  GenericButton btn_apply_;  //!< Buttons to apply equalization
+  GenericButton btn_reset_;  //!< Buttons to reset equalization
+
+  int focused_ = kInvalidIndex;  //!< Index to current bar focused
 };
 
 }  // namespace interface

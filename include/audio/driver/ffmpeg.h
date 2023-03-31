@@ -17,9 +17,12 @@ extern "C" {
 #include <libavutil/version.h>
 }
 
+#include <array>
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "audio/base/decoder.h"
 #include "model/application_error.h"
@@ -31,7 +34,7 @@ namespace driver {
 /**
  * @brief Decode and equalize audio samples using FFmpeg libraries
  */
-class FFmpeg : public Decoder {
+class FFmpeg final : public Decoder {
  public:
   /**
    * @brief Construct a new FFmpeg object
@@ -41,7 +44,7 @@ class FFmpeg : public Decoder {
   /**
    * @brief Destroy the FFmpeg object
    */
-  virtual ~FFmpeg() = default;
+  ~FFmpeg() override = default;
 
   /* ******************************************************************************************** */
   //! Internal operations
@@ -143,12 +146,13 @@ class FFmpeg : public Decoder {
   };
 
   struct FilterGraphDeleter {
-    void operator()(AVFilterGraph* p) { avfilter_graph_free(&p); }
+    void operator()(AVFilterGraph* p) const { avfilter_graph_free(&p); }
   };
 
   struct FilterContextDeleter {
-    //! P.S.: there is no need to do anything at all, because FilterGraphDeleter clears the resource
-    void operator()(AVFilterContext*) const noexcept {}
+    void operator()(const AVFilterContext*) const noexcept {
+      //! There is no need to do anything at all, because FilterGraphDeleter clears the resource
+    }
   };
 
   using FormatContext = std::unique_ptr<AVFormatContext, FormatContextDeleter>;
@@ -182,8 +186,8 @@ class FFmpeg : public Decoder {
   //! Utilities
 
   struct SampleFmtInfo {
-    char name[8];  //! Short name
-    int bits;      //! Bit depth
+    std::string_view name;  //! Short name
+    int bits;               //! Bit depth
     int planar;  //! For planar sample formats, each audio channel is in a separate data plane, and
                  //! linesize is the buffer size, in bytes, for a single plane.
     enum AVSampleFormat altform;  //! Associated value from AVSampleFormat
@@ -192,14 +196,20 @@ class FFmpeg : public Decoder {
   /**
    * @brief Utilitary table with detailed info from FFmpeg AVSampleFormat (bit depth specially)
    */
-  static constexpr SampleFmtInfo sample_fmt_info[AV_SAMPLE_FMT_NB] = {
-      {"ut8", 8, 0, AV_SAMPLE_FMT_U8},     {"s16", 16, 0, AV_SAMPLE_FMT_S16},
-      {"s32", 32, 0, AV_SAMPLE_FMT_S32},   {"flt", 32, 0, AV_SAMPLE_FMT_FLT},
-      {"dbl", 64, 0, AV_SAMPLE_FMT_DBL},   {"u8p", 8, 1, AV_SAMPLE_FMT_U8P},
-      {"s16p", 16, 1, AV_SAMPLE_FMT_S16P}, {"s32p", 32, 1, AV_SAMPLE_FMT_S32P},
-      {"fltp", 32, 1, AV_SAMPLE_FMT_FLTP}, {"dblp", 64, 1, AV_SAMPLE_FMT_DBLP},
-      {"s64", 64, 0, AV_SAMPLE_FMT_S64},   {"s64p", 64, 1, AV_SAMPLE_FMT_S64P},
-  };
+  static constexpr std::array<SampleFmtInfo, AV_SAMPLE_FMT_NB> sample_fmt_info{{
+      {"ut8", 8, 0, AV_SAMPLE_FMT_U8},
+      {"s16", 16, 0, AV_SAMPLE_FMT_S16},
+      {"s32", 32, 0, AV_SAMPLE_FMT_S32},
+      {"flt", 32, 0, AV_SAMPLE_FMT_FLT},
+      {"dbl", 64, 0, AV_SAMPLE_FMT_DBL},
+      {"u8p", 8, 1, AV_SAMPLE_FMT_U8P},
+      {"s16p", 16, 1, AV_SAMPLE_FMT_S16P},
+      {"s32p", 32, 1, AV_SAMPLE_FMT_S32P},
+      {"fltp", 32, 1, AV_SAMPLE_FMT_FLTP},
+      {"dblp", 64, 1, AV_SAMPLE_FMT_DBLP},
+      {"s64", 64, 0, AV_SAMPLE_FMT_S64},
+      {"s64p", 64, 1, AV_SAMPLE_FMT_S64P},
+  }};
 
   /* ******************************************************************************************** */
   //! Decoding
@@ -222,12 +232,12 @@ class FFmpeg : public Decoder {
     /**
      * @brief Clear packet content
      */
-    void ClearPacket() { av_packet_unref(packet.get()); }
+    void ClearPacket() const { av_packet_unref(packet.get()); }
 
     /**
      * @brief Clear content from all frames
      */
-    void ClearFrames() {
+    void ClearFrames() const {
       av_frame_unref(frame_decoded.get());
       av_frame_unref(frame_filtered.get());
     }
@@ -236,13 +246,13 @@ class FFmpeg : public Decoder {
      * @brief Check condition to keep executing audio decoding operation
      * @return true for all conditions are fine to keep decoding, false otherwise
      */
-    bool KeepDecoding() { return err_code == error::kSuccess && keep_playing; }
+    bool KeepDecoding() const { return err_code == error::kSuccess && keep_playing; }
 
     /**
      * @brief Check if internal structures are allocated correctly
      * @return true for correct allocation, false otherwise
      */
-    bool CheckAllocations() { return packet && frame_decoded && frame_filtered; }
+    bool CheckAllocations() const { return packet && frame_decoded && frame_filtered; }
   };
 
   /**
@@ -252,7 +262,7 @@ class FFmpeg : public Decoder {
    * @param samples Maximum number of samples to send to Audio Player API callback
    * @param callback Audio Player API callback
    */
-  void ProcessFrame(int samples, AudioCallback callback);
+  void ProcessFrame(int samples, AudioCallback& callback);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -271,16 +281,16 @@ class FFmpeg : public Decoder {
   FormatContext input_stream_;  //!< Input stream from file
   CodecContext decoder_;        //!< Specific codec compatible with the input stream
 
-  int stream_index_;  //!< Audio stream index read in input stream
+  int stream_index_ = 0;  //!< Audio stream index read in input stream
 
-  model::Volume volume_;  //!< Playback stream volume
+  model::Volume volume_ = model::Volume{1.f};  //!< Playback stream volume
 
   FilterGraph filter_graph_;      //!< Directed graph of connected filters
   FilterContext buffersrc_ctx_;   //!< Input buffer for audio frames in the filter chain
   FilterContext buffersink_ctx_;  //!< Output buffer from filter chain
 
   using FilterName = std::string;
-  std::map<FilterName, model::AudioFilter> audio_filters_;  //!< Equalization filters
+  std::map<FilterName, model::AudioFilter, std::less<>> audio_filters_;  //!< Equalization filters
 
   DecodingData shared_context_;  //!< Shared context for decoding and equalizing audio data
 };

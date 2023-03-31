@@ -10,28 +10,24 @@ namespace interface {
 
 TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, model::BlockIdentifier::TabViewer,
-            interface::Size{.width = 0, .height = 0}},
-      btn_help_{nullptr},
-      btn_exit_{nullptr},
-      active_{View::Visualizer},
-      views_{} {
+            interface::Size{.width = 0, .height = 0}} {
   // Initialize window buttons
-  btn_help_ = Button::make_button_for_window(std::string("F1:help"), [&]() {
-    auto dispatcher = GetDispatcher();
+  btn_help_ = Button::make_button_for_window(std::string("F1:help"), [this]() {
+    auto disp = GetDispatcher();
 
     LOG("Handle left click mouse event on Help button");
     auto event = interface::CustomEvent::ShowHelper();
-    dispatcher->SendEvent(event);
+    disp->SendEvent(event);
 
     return true;
   });
 
-  btn_exit_ = Button::make_button_for_window(std::string("X"), [&]() {
-    auto dispatcher = GetDispatcher();
+  btn_exit_ = Button::make_button_for_window(std::string("X"), [this]() {
+    auto disp = GetDispatcher();
 
     LOG("Handle left click mouse event on Exit button");
     auto event = interface::CustomEvent::Exit();
-    dispatcher->SendEvent(event);
+    disp->SendEvent(event);
 
     return true;
   });
@@ -41,7 +37,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
       .key = std::string{"1"},
       .button = Button::make_button_for_window(
           std::string{"1:visualizer"},
-          [&]() {
+          [this]() {
             LOG("Handle left click mouse event on Tab button for visualizer");
             active_ = View::Visualizer;
 
@@ -58,7 +54,7 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
       .key = std::string{"2"},
       .button = Button::make_button_for_window(
           std::string{"2:equalizer"},
-          [&]() {
+          [this]() {
             LOG("Handle left click mouse event on Tab button for equalizer");
             active_ = View::Equalizer;
 
@@ -101,17 +97,16 @@ ftxui::Element TabViewer::Render() {
 bool TabViewer::OnEvent(ftxui::Event event) {
   if (event.is_mouse()) return OnMouseEvent(event);
 
-  // Check if event is equal to a registered keybinding for any of the tab items
-  auto found = std::find_if(views_.begin(), views_.end(),
-                            [event](auto&& t) { return t.second.key == event.character(); });
-
-  // Found some mapped keybinding, now check if this is already the active view
-  if (found != views_.end()) {
+  // Check if event is equal to a registered keybinding for any of the tab items.
+  if (auto found =
+          std::find_if(views_.begin(), views_.end(),
+                       [&event](const auto& t) { return t.second.key == event.character(); });
+      found != views_.end()) {
     auto dispatcher = GetDispatcher();
 
     // Set this block as active (focused)
-    auto event = interface::CustomEvent::SetFocused(GetId());
-    dispatcher->SendEvent(event);
+    auto event_focus = interface::CustomEvent::SetFocused(GetId());
+    dispatcher->SendEvent(event_focus);
 
     // Update active tab
     active_ = found->first;
@@ -139,8 +134,8 @@ bool TabViewer::OnMouseEvent(ftxui::Event event) {
 
   if (btn_exit_->OnEvent(event)) return true;
 
-  for (auto& view : views_) {
-    if (view.second.button->OnEvent(event)) {
+  for (const auto& [id, item] : views_) {
+    if (item.button->OnEvent(event)) {
       return true;
     }
   }

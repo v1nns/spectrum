@@ -8,9 +8,7 @@ namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
                                        const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher),
-      curr_anim_{model::BarAnimation::HorizontalMirror},
-      spectrum_data_{} {}
+    : TabItem(id, dispatcher) {}
 
 /* ********************************************************************************************** */
 
@@ -41,7 +39,7 @@ ftxui::Element SpectrumVisualizer::Render() {
 
 /* ********************************************************************************************** */
 
-bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
+bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
   // Notify terminal to recalculate new size for spectrum data
   if (event == ftxui::Event::Character('a')) {
     LOG("Handle key to change audio animation");
@@ -53,8 +51,8 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
                      ? static_cast<model::BarAnimation>(curr_anim_ + 1)  // get next
                      : model::BarAnimation::HorizontalMirror;            // reset to first one
 
-    auto event = CustomEvent::ChangeBarAnimation(curr_anim_);
-    dispatcher->SendEvent(event);
+    auto event_animation = CustomEvent::ChangeBarAnimation(curr_anim_);
+    dispatcher->SendEvent(event_animation);
 
     return true;
   }
@@ -64,7 +62,8 @@ bool SpectrumVisualizer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void SpectrumVisualizer::CreateGauge(float value, Direction direction, ftxui::Elements& elements) {
+void SpectrumVisualizer::CreateGauge(float value, Direction direction,
+                                     ftxui::Elements& elements) const {
   ftxui::GaugeDirection dir =
       direction == Direction::Up ? ftxui::GaugeDirection::Up : ftxui::GaugeDirection::Down;
 
@@ -109,7 +108,7 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualizer) {
-  int size = spectrum_data_.size();
+  int size = (int)spectrum_data_.size();
   if (size == 0) return;
 
   ftxui::Elements entries;
@@ -119,11 +118,11 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
   entries.reserve(total_size);
 
   for (int i = (size / 2) - 1; i >= 0; i--) {
-    CreateGauge(spectrum_data_[i], Direction::Up, entries);
+    CreateGauge((float)spectrum_data_[i], Direction::Up, entries);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge(spectrum_data_[i], Direction::Up, entries);
+    CreateGauge((float)spectrum_data_[i], Direction::Up, entries);
   }
 
   visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;
@@ -132,10 +131,11 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer) {
-  int size = spectrum_data_.size();
+  int size = (int)spectrum_data_.size();
   if (size == 0) return;
 
-  ftxui::Elements left, right;
+  ftxui::Elements left;
+  ftxui::Elements right;
 
   // Preallocate memory
   int total_size = (size / 2) * kGaugeThickness;
@@ -143,11 +143,11 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
   right.reserve(total_size);
 
   for (int i = 0; i < size / 2; i++) {
-    CreateGauge(spectrum_data_[i], Direction::Up, left);
+    CreateGauge((float)spectrum_data_[i], Direction::Up, left);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge(spectrum_data_[i], Direction::Down, right);
+    CreateGauge((float)spectrum_data_[i], Direction::Down, right);
   }
 
   visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
@@ -157,7 +157,7 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
-  int size = spectrum_data_.size();
+  int size = (int)spectrum_data_.size();
   if (size == 0) return;
 
   // As total size is equal to the sum of both channels, this animation is the average of both
@@ -169,7 +169,9 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
   std::vector<double>::const_iterator middle = spectrum_data_.begin() + size;
   std::vector<double>::const_iterator last = spectrum_data_.end();
 
-  std::vector<double> left(first, middle), right(middle, last), average(size, 0);
+  std::vector<double> left(first, middle);
+  std::vector<double> right(middle, last);
+  std::vector<double> average(size, 0);
 
   // Get average of each frequency from channels
   std::transform(left.begin(), left.end(),  // Left channel
@@ -184,7 +186,7 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
   entries.reserve(total_size);
 
   for (int i = 0; i < size; i++) {
-    CreateGauge(spectrum_data_[i], Direction::Up, entries);
+    CreateGauge((float)spectrum_data_[i], Direction::Up, entries);
   }
 
   visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;

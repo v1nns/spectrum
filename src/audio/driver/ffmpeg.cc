@@ -7,7 +7,7 @@
 
 namespace driver {
 
-static void log_callback(void *ptr, int level, const char *fmt, va_list vargs) {
+static void log_callback(void *, int level, const char *fmt, va_list vargs) {
   va_list ap_copy;
   va_copy(ap_copy, vargs);
 
@@ -18,18 +18,10 @@ static void log_callback(void *ptr, int level, const char *fmt, va_list vargs) {
   vsnprintf(&message[0], len + 1, fmt, vargs);
 
   message.resize(len - 1);  // remove the NUL + \n
-  LOG("[LOG_CALLBACK] ", message);
+  LOG("[LOG_CALLBACK] LEVEL:", level, " MESSAGE:", message);
 }
 
-FFmpeg::FFmpeg()
-    : input_stream_{},
-      decoder_{},
-      stream_index_{},
-      volume_{1.f},
-      filter_graph_{},
-      buffersrc_ctx_{},
-      buffersink_ctx_{},
-      audio_filters_{} {
+FFmpeg::FFmpeg() {
 #if LIBAVUTIL_VERSION_MAJOR > 56
   ch_layout_.reset(new AVChannelLayout{});
   // Set output channel layout to stereo (2-channel)
@@ -85,7 +77,7 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kFileNotSupported;
   }
 
-  AVCodecParameters *parameters = input_stream_->streams[stream_index_]->codecpar;
+  const AVCodecParameters *parameters = input_stream_->streams[stream_index_]->codecpar;
   decoder_ = CodecContext{avcodec_alloc_context3(codec)};
 
   int result = avcodec_parameters_to_context(decoder_.get(), parameters);
@@ -146,8 +138,8 @@ error::Code FFmpeg::ConfigureFilters() {
 
   // Create and configure all equalizer filters
   LOG("Create new equalizer filters, size=", audio_filters_.size());
-  for (const auto &entry : audio_filters_) {
-    result = CreateFilterEqualizer(entry.first, entry.second);
+  for (const auto &[name, filter] : audio_filters_) {
+    result = CreateFilterEqualizer(name, filter);
     if (result != error::kSuccess) return result;
   }
 
@@ -186,19 +178,19 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
     return error::kUnknownError;
   }
 
-  char ch_layout[64];
+  std::string ch_layout(64, ' ');
 
 // Get channel layout description
 #if LIBAVUTIL_VERSION_MAJOR > 56
   // Set filter options through the AVOptions API
-  av_channel_layout_describe(&decoder_->ch_layout, ch_layout, sizeof(ch_layout));
+  av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
 #else
   // Set filter options through the AVOptions API
-  av_get_channel_layout_string(ch_layout, sizeof(ch_layout), decoder_->channels,
+  av_get_channel_layout_string(ch_layout.data(), ch_layout.size(), decoder_->channels,
                                decoder_->channel_layout);
 #endif
 
-  av_opt_set(buffersrc_ctx_.get(), "channel_layout", ch_layout, AV_OPT_SEARCH_CHILDREN);
+  av_opt_set(buffersrc_ctx_.get(), "channel_layout", ch_layout.data(), AV_OPT_SEARCH_CHILDREN);
   av_opt_set(buffersrc_ctx_.get(), "sample_fmt", av_get_sample_fmt_name(decoder_->sample_fmt),
              AV_OPT_SEARCH_CHILDREN);
   av_opt_set_q(buffersrc_ctx_.get(), "time_base", (AVRational){1, decoder_->sample_rate},
@@ -207,8 +199,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
                  AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  int result = avfilter_init_str(buffersrc_ctx_.get(), nullptr);
-  if (result < 0) {
+  if (int result = avfilter_init_str(buffersrc_ctx_.get(), nullptr); result < 0) {
     ERROR("Cannot initialize the abuffer filter, error=", result);
     return error::kUnknownError;
   }
@@ -242,8 +233,7 @@ error::Code FFmpeg::CreateFilterVolume() {
   av_opt_set(volume_ctx, "volume", model::to_string(volume_).c_str(), AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  int result = avfilter_init_str(volume_ctx, nullptr);
-  if (result < 0) {
+  if (int result = avfilter_init_str(volume_ctx, nullptr); result < 0) {
     ERROR("Cannot initialize the volume filter, error=", result);
     return error::kUnknownError;
   }
@@ -273,25 +263,24 @@ error::Code FFmpeg::CreateFilterAformat() {
     return error::kUnknownError;
   }
 
-  char ch_layout[64];
+  std::string ch_layout(64, ' ');
 
 // Get channel layout description
 #if LIBAVUTIL_VERSION_MAJOR > 56
-  av_channel_layout_describe(&decoder_->ch_layout, ch_layout, sizeof(ch_layout));
+  av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
 #else
-  av_get_channel_layout_string(ch_layout, sizeof(ch_layout), decoder_->channels,
+  av_get_channel_layout_string(ch_layout.data(), ch_layout.size(), decoder_->channels,
                                decoder_->channel_layout);
 #endif
 
   // Set filter options through the AVOptions API
-  av_opt_set(aformat_ctx, "channel_layout", ch_layout, AV_OPT_SEARCH_CHILDREN);
+  av_opt_set(aformat_ctx, "channel_layout", ch_layout.data(), AV_OPT_SEARCH_CHILDREN);
   av_opt_set(aformat_ctx, "sample_fmts", av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
              AV_OPT_SEARCH_CHILDREN);
   av_opt_set_int(aformat_ctx, "sample_rate", kSampleRate, AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
-  int result = avfilter_init_str(aformat_ctx, nullptr);
-  if (result < 0) {
+  if (int result = avfilter_init_str(aformat_ctx, nullptr); result < 0) {
     ERROR("Cannot initialize the aformat filter, error=", result);
     return error::kUnknownError;
   }
@@ -321,8 +310,7 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
   }
 
   // This filter takes no options
-  int result = avfilter_init_str(buffersink_ctx_.get(), nullptr);
-  if (result < 0) {
+  if (int result = avfilter_init_str(buffersink_ctx_.get(), nullptr); result < 0) {
     ERROR("Cannot initialize the abuffersink instance, error=", result);
     return error::kUnknownError;
   }
@@ -386,8 +374,8 @@ error::Code FFmpeg::ConnectFilters() {
   filters_to_link.insert(filters_to_link.end(), {buffersrc_ctx_.get(), volume_ctx});
 
   // Add equalizer filters
-  for (const auto &entry : audio_filters_) {
-    filters_to_link.push_back(avfilter_graph_get_filter(filter_graph_.get(), entry.first.c_str()));
+  for (const auto &[name, filter] : audio_filters_) {
+    filters_to_link.push_back(avfilter_graph_get_filter(filter_graph_.get(), name.c_str()));
   }
 
   // Add aformat and abuffersink filters
@@ -573,10 +561,10 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
   // Otherwise, it means that some music is playing, so we gotta update the running filtergraph
   LOG("Found volume filter, update value");
   std::string volume = model::to_string(volume_);
-  std::string response(kResponseSize, ' ');
 
   // Set filter option
-  if (avfilter_graph_send_command(filter_graph_.get(), kFilterVolume, "volume", volume.c_str(),
+  if (std::string response(kResponseSize, ' ');
+      avfilter_graph_send_command(filter_graph_.get(), kFilterVolume, "volume", volume.c_str(),
                                   response.data(), kResponseSize, AV_OPT_SEARCH_CHILDREN)) {
     ERROR("Cannot set new value for volume filter, error=", response);
     return error::kUnknownError;
@@ -615,7 +603,7 @@ error::Code FFmpeg::UpdateFilters(const std::vector<model::AudioFilter> &filters
 
 /* ********************************************************************************************** */
 
-void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
+void FFmpeg::ProcessFrame(int samples, AudioCallback &callback) {
   // Get source and sink
   AVFilterContext *source = buffersrc_ctx_.get();
   AVFilterContext *sink = buffersink_ctx_.get();
@@ -645,14 +633,12 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
     // Clear frame from filtergraph
     av_frame_unref(filtered);
 
-    // Updated song cursor position
-    if (shared_context_.position != old_position) {
-      seek_frame = true;
-      break;
-    }
+    // Check if EQ or song position changed
+    if (shared_context_.reset_filters || shared_context_.position != old_position) {
+      if (shared_context_.position != old_position) {
+        seek_frame = true;
+      }
 
-    // In case of EQ update
-    if (shared_context_.reset_filters) {
       break;
     }
   }
@@ -668,7 +654,6 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback callback) {
     // Clear internal buffers
     shared_context_.ClearFrames();
     avcodec_flush_buffers(decoder_.get());
-    seek_frame = false;
 
     // Recalculate new position
     int64_t target = av_rescale_q(shared_context_.position * AV_TIME_BASE, AV_TIME_BASE_Q,

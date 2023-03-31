@@ -5,33 +5,17 @@
 
 namespace interface {
 
-FrequencyBar::FrequencyBar(const model::AudioFilter& filter)
-    : style_normal_{BarStyle{
-          .background = ftxui::Color::LightSteelBlue3,
-          .foreground = ftxui::Color::SteelBlue3,
-      }},
-      style_hovered_{BarStyle{
-          .background = ftxui::Color::LightSteelBlue1,
-          .foreground = ftxui::Color::SlateBlue1,
-      }},
-      style_focused_{BarStyle{
-          .background = ftxui::Color::LightSteelBlue3,
-          .foreground = ftxui::Color::RedLight,
-      }},
-      box_{},
-      hovered_{false},
-      clicked_{false},
-      focused_{false},
-      filter_bar_{filter} {}
+FrequencyBar::FrequencyBar(const model::AudioFilter& filter) : filter_bar_{filter} {}
 
 /* ********************************************************************************************** */
 
 ftxui::Element FrequencyBar::Render() {
-  using ftxui::WIDTH, ftxui::EQUAL;
+  using ftxui::EQUAL;
+  using ftxui::WIDTH;
 
   constexpr auto empty_line = []() { return ftxui::text(""); };
 
-  constexpr auto gen_slider = [&](double value, const BarStyle& style) {
+  constexpr auto gen_slider = [&](float value, const BarStyle& style) {
     ftxui::Decorator color = ftxui::bgcolor(style.background) | ftxui::color(style.foreground);
 
     return ftxui::hbox({
@@ -42,7 +26,7 @@ ftxui::Element FrequencyBar::Render() {
 
   // Get gain value and choose style
   float gain = filter_bar_.GetGainAsPercentage();
-  BarStyle& style = focused_ ? style_focused_ : hovered_ ? style_hovered_ : style_normal_;
+  const BarStyle& style = focused_ ? style_focused_ : hovered_ ? style_hovered_ : style_normal_;
 
   return ftxui::vbox({
       // title

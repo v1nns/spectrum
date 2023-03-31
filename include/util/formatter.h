@@ -36,7 +36,7 @@ static constexpr PrefixArray kPrefixes{{
  * @return Formatted string
  */
 template <typename T>
-std::string format_with_prefix(const T& value, std::string unit) {
+std::string format_with_prefix(const T& value, const std::string& unit) {
   std::ostringstream ss;
 
   if (value == 0) {
@@ -44,11 +44,11 @@ std::string format_with_prefix(const T& value, std::string unit) {
     return std::move(ss).str();
   }
 
-  float base = log(value) / log(10);
+  float base = double(log(value) / log(10));
 
   PrefixArray::const_reverse_iterator rit;
   for (rit = kPrefixes.rbegin(); rit < kPrefixes.rend(); ++rit) {
-    if (base >= rit->first) break;
+    if (base >= float(rit->first)) break;
   }
 
   ss << (value / std::pow(10, rit->first)) << " " << rit->second << unit;

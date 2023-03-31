@@ -50,9 +50,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   static std::shared_ptr<Terminal> Create();
 
   /**
-   * @brief Destroy the Terminal object
+   * @brief Destroy the Terminal object. Base class will do the rest (release resources by detaching
+   * all blocks, a.k.a. children)
    */
-  virtual ~Terminal();
+  ~Terminal() override = default;
 
   //! Remove these
   Terminal(const Terminal& other) = delete;             // copy constructor
@@ -71,7 +72,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Force application to exit
    */
-  void Exit();
+  void Exit() const;
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -150,7 +151,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @param event Received custom event
    * @return true if event was handled, otherwise false
    */
-  bool HandleEventFromAudioThreadToInterface(const CustomEvent& event);
+  bool HandleEventFromAudioThreadToInterface(const CustomEvent& event) const;
 
   /**
    * @brief Handle custom events sent from interface to interface
@@ -175,30 +176,30 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Utils
  private:
   //! Get internal block index based on block identifier
-  int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id);
+  int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const;
 
   /* ******************************************************************************************** */
   //! Default Constants
- private:
   static constexpr int kMaxBlocks = 4;  //!< Maximum number of blocks (used for focus control)
 
   /* ******************************************************************************************** */
   //! Variables
- private:
-  std::weak_ptr<audio::Notifier> notifier_;  //!< Audio notifier for events from UI
-  error::Code last_error_;                   //!< Last application error
+  std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
+  error::Code last_error_ = error::kSuccess;  //!< Last application error
 
-  std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages
-  std::unique_ptr<Help> helper_;               //!< Dialog box to show help menu
+  std::unique_ptr<ErrorDialog> error_dialog_ =
+      std::make_unique<ErrorDialog>();  //!< Dialog box to show customized error messages
+  std::unique_ptr<Help> helper_ = std::make_unique<Help>();  //!< Dialog box to show help menu
 
-  ftxui::Receiver<CustomEvent> receiver_;  //! Custom event receiver
+  ftxui::Receiver<CustomEvent> receiver_ =
+      ftxui::MakeReceiver<CustomEvent>();  //! Custom event receiver
   ftxui::Sender<CustomEvent> sender_;      //! Custom event sender
 
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
   Callback cb_exit_;             //!< Function to exit from graphical interface
 
-  ftxui::Dimensions size_;  //!< Terminal maximum size
-  int focused_index_;       //!< Index of focused block
+  ftxui::Dimensions size_ = ftxui::Terminal::Size();  //!< Terminal maximum size
+  int focused_index_ = 0;                             //!< Index of focused block
 };
 
 }  // namespace interface

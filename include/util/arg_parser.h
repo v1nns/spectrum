@@ -44,7 +44,7 @@ class ArgumentParser {
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(Expected args) : arguments_{args} {};
+  explicit ArgumentParser(const Expected& args) : arguments_{args} {};
 
  public:
   /**
@@ -52,7 +52,14 @@ class ArgumentParser {
    * @param args List of expected arguments
    * @return Parser unique instance
    */
-  static Parser Configure(Expected args) { return Parser(new ArgumentParser(args)); }
+  static Parser Configure(const Expected& args) {
+    // Simply extend the ArgumentParser class, as we do not want to expose the default constructor,
+    // neither do we want to use std::make_unique explicitly calling operator new()
+    struct MakeUniqueEnabler : public ArgumentParser {
+      explicit MakeUniqueEnabler(const Expected& args) : ArgumentParser(args) {}
+    };
+    return std::make_unique<MakeUniqueEnabler>(args);
+  }
 
   /**
    * @brief Destroy an ArgumentParser object
@@ -84,18 +91,18 @@ class ArgumentParser {
 
       if (argument == "-h" || argument == "--help") {
         PrintHelp();
-        throw std::runtime_error("Received command to print helper");
-      };
+        throw std::logic_error("Received command to print helper");
+      }
 
       // Find match in expected arguments
       auto found =
-          std::find_if(arguments_.begin(), arguments_.end(), [argument](const Argument& arg) {
+          std::find_if(arguments_.begin(), arguments_.end(), [&argument](const Argument& arg) {
             return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
           });
 
       if (found == arguments_.end()) {
         PrintError(argument);
-        throw std::runtime_error("Received unexpected argument");
+        throw std::invalid_argument("Received unexpected argument");
       }
 
       // Get value for expected argument (for the first version, always expected value for argument)
@@ -103,7 +110,7 @@ class ArgumentParser {
       std::string value{values[index]};
       if (value.rfind('-', 2) == 0 || value.empty()) {
         PrintError(argument, value);
-        throw std::runtime_error("Received unexpected value for argument");
+        throw std::invalid_argument("Received unexpected value for argument");
       }
 
       // Everything is fine, should include into opts
@@ -121,16 +128,16 @@ class ArgumentParser {
   /**
    * @brief Utility method to print a CLI helper based on expected arguments
    */
-  void PrintHelp() {
+  void PrintHelp() const {
     std::cout << "spectrum\n\n";
     std::cout << "Options:";
 
-    for (auto&& arg : arguments_) {
+    for (const auto& arg : arguments_) {
       std::cout << "\n\t";
 
       // Append choices into a single string
       std::string choices;
-      for (auto&& choice : arg.choices) choices.append(choice + ", ");
+      for (const auto& choice : arg.choices) choices.append(choice + ", ");
 
       // Remove last comma+space
       if (choices.size() > 1) choices.erase(choices.size() - 2);
@@ -145,7 +152,7 @@ class ArgumentParser {
    * @brief Utility method to print error on CLI
    * @param parsed Argument parsed from command-line
    */
-  void PrintError(const std::string& parsed) {
+  void PrintError(const std::string& parsed) const {
     std::cout << "spectrum: invalid option [" << parsed << "]\n";
   }
 
@@ -154,13 +161,12 @@ class ArgumentParser {
    * @param argument Argument parsed from command-line
    * @param value Value parsed from command-line
    */
-  void PrintError(const std::string& argument, const std::string& value) {
+  void PrintError(const std::string& argument, const std::string& value) const {
     std::cout << "spectrum: invalid value for option [" << argument << " " << value << "]\n";
   }
 
   /* ******************************************************************************************** */
   //! Variables
- private:
   Expected arguments_;  //!< Expected arguments for command-line parsing
 };
 

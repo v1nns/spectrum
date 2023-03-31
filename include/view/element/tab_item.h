@@ -51,8 +51,8 @@ class TabItem {
   /* ******************************************************************************************** */
   //! Implementation by derived is optional
 
-  virtual bool OnEvent(ftxui::Event);
-  virtual bool OnMouseEvent(ftxui::Event event);
+  virtual bool OnEvent(const ftxui::Event&);
+  virtual bool OnMouseEvent(const ftxui::Event&);
   virtual bool OnCustomEvent(const CustomEvent&);
 
   /* ******************************************************************************************** */

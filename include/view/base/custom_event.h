@@ -68,7 +68,6 @@ struct CustomEvent {
   friend std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& id);
   friend std::ostream& operator<<(std::ostream& out, const CustomEvent& e);
 
- public:
   //! Possible events (from audio thread to interface)
   static CustomEvent ClearSongInfo();
   static CustomEvent UpdateVolume(const model::Volume& sound_volume);
@@ -77,7 +76,7 @@ struct CustomEvent {
   static CustomEvent DrawAudioSpectrum(const std::vector<double>& data);
 
   //! Possible events (from interface to audio thread)
-  static CustomEvent NotifyFileSelection(const std::filesystem::path file_path);
+  static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
   static CustomEvent PauseOrResumeSong();
   static CustomEvent StopSong();
   static CustomEvent ClearCurrentSong();
@@ -85,7 +84,7 @@ struct CustomEvent {
   static CustomEvent ResizeAnalysis(int bars);
   static CustomEvent SeekForwardPosition(int offset);
   static CustomEvent SeekBackwardPosition(int offset);
-  static CustomEvent ApplyAudioFilters(const std::vector<model::AudioFilter> filters);
+  static CustomEvent ApplyAudioFilters(const std::vector<model::AudioFilter>& filters);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();

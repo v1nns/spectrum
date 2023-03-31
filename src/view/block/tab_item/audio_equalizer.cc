@@ -9,12 +9,7 @@ namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher),
-      cache_{model::AudioFilter::Create()},
-      bars_{},
-      btn_apply_{nullptr},
-      btn_reset_{nullptr},
-      focused_{kInvalidIndex} {
+    : TabItem(id, dispatcher) {
   // Fill vector of frequency bars for equalizer
   bars_.reserve(cache_.size());
 
@@ -24,9 +19,9 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
   btn_apply_ = Button::make_button(
       std::string("Apply"),
-      [&]() -> bool {
-        auto dispatcher = dispatcher_.lock();
-        if (!dispatcher) return false;
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
 
         LOG("Handle callback for Equalizer apply button");
         // Fill vector of frequency bars and send to player
@@ -42,7 +37,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
         // Otherwise, send updated values to Audio Player
         auto event_filters = interface::CustomEvent::ApplyAudioFilters(frequencies);
-        dispatcher->SendEvent(event_filters);
+        disp->SendEvent(event_filters);
         btn_apply_->SetInactive();
 
         // Update cache
@@ -50,7 +45,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
         // Set this block as active (focused)
         auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
-        dispatcher->SendEvent(event_focus);
+        disp->SendEvent(event_focus);
 
         return true;
       },
@@ -58,9 +53,9 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
   btn_reset_ = Button::make_button(
       std::string("Reset"),
-      [&]() -> bool {
-        auto dispatcher = dispatcher_.lock();
-        if (!dispatcher) return false;
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
 
         LOG("Handle callback for Equalizer reset button");
         // Fill vector of frequency bars and send to player
@@ -68,7 +63,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         frequencies.reserve(bars_.size());
 
         // Reset gain in all frequency bars
-        for (auto& bar : bars_) {
+        for (const auto& bar : bars_) {
           bar->ResetGain();
           frequencies.push_back(bar->GetAudioFilter());
         }
@@ -82,14 +77,14 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
         // Otherwise, send updated values to Audio Player
         auto event_filters = interface::CustomEvent::ApplyAudioFilters(frequencies);
-        dispatcher->SendEvent(event_filters);
+        disp->SendEvent(event_filters);
 
         // Update cache
         cache_ = frequencies;
 
         // Set this block as active (focused)
         auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
-        dispatcher->SendEvent(event_focus);
+        disp->SendEvent(event_focus);
 
         return true;
       },
@@ -115,7 +110,7 @@ ftxui::Element AudioEqualizer::Render() {
 
 /* ********************************************************************************************** */
 
-bool AudioEqualizer::OnEvent(ftxui::Event event) {
+bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
   // Navigate on frequency bars
   if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
     LOG("Handle menu navigation key=", util::EventToString(event));
@@ -206,7 +201,7 @@ bool AudioEqualizer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool AudioEqualizer::OnMouseEvent(ftxui::Event event) {
+bool AudioEqualizer::OnMouseEvent(const ftxui::Event& event) {
   if (btn_apply_->OnEvent(event)) return true;
 
   if (btn_reset_->OnEvent(event)) return true;
@@ -214,15 +209,12 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event event) {
   bool bar_modified = false;
 
   // Iterate through all frequency bars and pass event
-  for (auto& bar : bars_) {
-    if (bar->OnEvent(event)) {
-      bar_modified = true;
-      break;
-    }
-  }
+  bool event_handled = std::any_of(
+      bars_.begin(), bars_.end(),
+      [&event](const std::unique_ptr<FrequencyBar>& bar) { return bar->OnEvent(event); });
 
   // Event has been handled, so update UI state
-  if (bar_modified) {
+  if (event_handled) {
     UpdateInterfaceState();
     // TODO: Send event for setting focus on parent block (AskForFocus)
     // Maybe create onclick callback for frequency bars

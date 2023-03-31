@@ -15,6 +15,7 @@
 #include <mutex>
 #include <optional>  // for optional
 #include <string>    // for string, allocator
+#include <string_view>
 #include <thread>
 #include <vector>  // for vector
 
@@ -65,7 +66,7 @@ class ListDirectory : public Block {
   /**
    * @brief Destroy the List Directory object
    */
-  virtual ~ListDirectory();
+  ~ListDirectory() override;
 
   /**
    * @brief Renders the component
@@ -97,15 +98,16 @@ class ListDirectory : public Block {
   bool OnMouseWheel(ftxui::Event event);
 
   //! Handle keyboard event mapped to a menu navigation command
-  bool OnMenuNavigation(ftxui::Event event);
+  bool OnMenuNavigation(const ftxui::Event& event);
 
   //! Handle keyboard event when search mode is enabled
-  bool OnSearchModeEvent(ftxui::Event event);
+  bool OnSearchModeEvent(const ftxui::Event& event);
 
   /* ******************************************************************************************** */
- private:
   //! Getter for entries size
-  int Size() const { return mode_search_ ? mode_search_->entries.size() : entries_.size(); }
+  int Size() const {
+    return mode_search_ ? (int)mode_search_->entries.size() : (int)entries_.size();
+  }
   //! Getter for selected index
   int* GetSelected() { return mode_search_ ? &mode_search_->selected : &selected_; }
   //! Getter for focused index
@@ -127,7 +129,7 @@ class ListDirectory : public Block {
   virtual std::string GetTitle();
 
   /* ******************************************************************************************** */
- private:
+  //! File list operations
   /**
    * TODO: move this to a controller?
    * @brief Refresh list with all files from the given directory path
@@ -147,15 +149,16 @@ class ListDirectory : public Block {
 
   /* ******************************************************************************************** */
  protected:
-  std::filesystem::path curr_dir_;                     //!< Current directory
-  std::optional<std::filesystem::path> curr_playing_;  //!< Current song playing
+  std::filesystem::path curr_dir_;                                    //!< Current directory
+  std::optional<std::filesystem::path> curr_playing_ = std::nullopt;  //!< Current song playing
 
   //! Parameters for when search mode is enabled
   struct Search {
     std::string text_to_search;  //!< Text to search in file entries
-    Files entries;          //!< List containing only files from current directory matching the text
-    int selected, focused;  //!< Entry indexes in files list
-    int position;           //!< Cursor position for text to search
+    Files entries;  //!< List containing only files from current directory matching the text
+    int selected;   //!< Entry index in files list for entry selected
+    int focused;    //!< Entry index in files list for entry focused
+    int position;   //!< Cursor position for text to search
   };
 
   //! Put together all possible styles for an entry in this component
@@ -176,8 +179,8 @@ class ListDirectory : public Block {
     std::condition_variable notifier;  //!< Conditional variable to block thread
     std::thread thread;                //!< Thread to perform offset animation on text
 
-    std::atomic<bool> enabled;  //!< Flag to control thread animation
-    std::string text;           //!< Entry text to perform animation
+    std::atomic<bool> enabled = false;  //!< Flag to control thread animation
+    std::string text;                   //!< Entry text to perform animation
 
     std::function<void()> cb_update;  //!< Force an UI refresh
 
@@ -190,12 +193,12 @@ class ListDirectory : public Block {
       text = entry;
       enabled = true;
 
-      thread = std::thread([&] {
+      thread = std::thread([this] {
         using namespace std::chrono_literals;
-        std::unique_lock<std::mutex> lock(mutex);
+        std::unique_lock lock(mutex);
 
         // Run the animation every 0.2 seconds while enabled is true
-        while (!notifier.wait_for(lock, 0.2s, [&] { return enabled == false; })) {
+        while (!notifier.wait_for(lock, 0.2s, [this] { return enabled == false; })) {
           // Here comes the magic
           text += text.front();
           text.erase(text.begin());
@@ -210,24 +213,40 @@ class ListDirectory : public Block {
      * @brief Stop animation thread
      */
     void Stop() {
-      {
-        std::scoped_lock<std::mutex> lock(mutex);
-        enabled = false;
+      if (enabled) {
+        Notify();
+        Exit();
       }
+    }
+
+   private:
+    /**
+     * @brief Disable thread execution
+     */
+    void Notify() {
+      std::scoped_lock lock(mutex);
+      enabled = false;
+    }
+
+    /**
+     * @brief Notify thread and wait for its stop
+     */
+    void Exit() {
       notifier.notify_one();
       thread.join();
     }
   };
 
   /* ******************************************************************************************** */
- private:
-  Files entries_;           //!< List containing files from current directory
-  int selected_, focused_;  //!< Entry indexes in files list
+  Files entries_;  //!< List containing files from current directory
+  int selected_;   //!< Entry index in files list for entry selected
+  int focused_;    //!< Entry index in files list for entry focused
 
   std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
   ftxui::Box box_;                 //!< Box for whole component
 
-  std::optional<Search> mode_search_;  //!< Mode to render only files matching the search pattern
+  std::optional<Search> mode_search_ =
+      std::nullopt;  //!< Mode to render only files matching the search pattern
 
   EntryStyles styles_;  //!< Style for each possible type of entry on menu
 

@@ -502,7 +502,7 @@ TEST_F(PlayerTest, ChangeVolume) {
     return error::kSuccess;
   }));
 
-  player_ctl->SetAudioVolume({0.3f});
+  player_ctl->SetAudioVolume(model::Volume{0.3f});
 
   // Get updated volume from player
   EXPECT_THAT(player_ctl->GetAudioVolume(), Eq(model::Volume{0.3f}));
@@ -924,7 +924,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     // Send any command, just to check that it will be ignored by audio thread
     player_ctl->SeekForwardPosition(1);
     player_ctl->SeekBackwardPosition(1);
-    player_ctl->SetAudioVolume({0.5f});
+    player_ctl->SetAudioVolume(model::Volume{0.5f});
 
     // Now send a new song request
     player_ctl->Play(filename2);

@@ -45,13 +45,17 @@ class Logger {
 
   /* ******************************************************************************************** */
   //! Public API
- public:
   /**
    * @brief Get unique instance of Logger
    * @return Logger instance
    */
   static Logger& GetInstance() {
-    static std::unique_ptr<Logger> singleton{new Logger()};
+    // Simply extend the Logger class, as we do not want to expose the default constructor,
+    // neither do we want to use std::make_unique explicitly calling operator new()
+    struct MakeUniqueEnabler : public Logger {
+      using Logger::Logger;
+    };
+    static std::unique_ptr<Logger> singleton = std::make_unique<MakeUniqueEnabler>();
     return *singleton;
   }
 
@@ -99,7 +103,6 @@ class Logger {
 
   /* ******************************************************************************************** */
   //! Variables
- private:
   std::mutex mutex_;            //!< Control access for internal resources
   std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
 };

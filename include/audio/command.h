@@ -43,7 +43,6 @@ struct Command {
   //! Output command to ostream
   friend std::ostream& operator<<(std::ostream& out, const Command& cmd);
 
- public:
   //! Possible commands to be handled by audio player
   static Command None();
   static Command Play(const std::string& filepath = "");

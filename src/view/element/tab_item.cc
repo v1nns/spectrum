@@ -10,7 +10,7 @@ TabItem::TabItem(const model::BlockIdentifier& id,
 
 /* ********************************************************************************************** */
 
-bool TabItem::OnEvent(ftxui::Event) { return false; }
+bool TabItem::OnEvent(const ftxui::Event&) { return false; }
 
 /* ********************************************************************************************** */
 
@@ -18,6 +18,6 @@ bool TabItem::OnCustomEvent(const CustomEvent&) { return false; }
 
 /* ********************************************************************************************** */
 
-bool TabItem::OnMouseEvent(ftxui::Event event) { return false; }
+bool TabItem::OnMouseEvent(const ftxui::Event&) { return false; }
 
 }  // namespace interface
