@@ -24,7 +24,7 @@ class FFTW final : public Analyzer {
   /**
    * @brief Construct a new FFTW object
    */
-  FFTW();
+  FFTW() = default;
 
   /**
    * @brief Destroy the FFTW object

@@ -23,7 +23,7 @@ class Alsa final : public Playback {
   /**
    * @brief Construct a new Alsa object
    */
-  Alsa();
+  Alsa() = default;
 
   /**
    * @brief Destroy the Alsa object

@@ -96,7 +96,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   /* ******************************************************************************************** */
   //! Actions received from UI and sent to Player
-
+ public:
   /**
    * @brief Receive a notification from view that a file has been selected. In other words, user may
    * want to play a music. Notify Audio Player about this.
@@ -185,6 +185,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   /* ******************************************************************************************** */
   //! Audio analysis
+ private:
   /**
    * @brief Commands list (used for internal control)
    */
@@ -315,6 +316,15 @@ class MediaController : public audio::Notifier, public interface::Notifier {
       return !queue.empty();
     }
   };
+
+  /* ******************************************************************************************** */
+  //! Audio visualizer animation
+
+  //! Execute clear animation based on the most recent analyzed data
+  void ProcessClearAnimation(std::vector<double>& data);
+
+  //! Execute regain animation based on old data from before the clear animation
+  void ProcessRegainAnimation(std::vector<double>& data);
 
   /* ******************************************************************************************** */
   //! Utility

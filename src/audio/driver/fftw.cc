@@ -6,10 +6,6 @@
 
 namespace driver {
 
-FFTW::FFTW() {}
-
-/* ********************************************************************************************** */
-
 error::Code FFTW::Init(int output_size) {
   if (output_size == 0) {
     return error::kUnknownError;

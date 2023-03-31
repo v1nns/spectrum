@@ -39,7 +39,10 @@ void FileSink::Close() {
 void ConsoleSink::Open() {
   if (!out_stream_) {
     // No-operation deleter, otherwise we will get in trouble
-    out_stream_.reset(&std::cout, [](const void*) {});
+    out_stream_.reset(&std::cout, [](const void*) {
+      // For this sink, it is used the std::cout itself, so when the shared_ptr is reset, no deleter
+      // should be called for the object
+    });
   }
 }
 

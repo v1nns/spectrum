@@ -111,59 +111,7 @@ ftxui::Element AudioEqualizer::Render() {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
-  // Navigate on frequency bars
-  if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
-    int old_index = focused_;
-
-    // Calculate new index based on upper bound
-    focused_ += focused_ < (static_cast<int>(bars_.size()) - 1) ? 1 : 0;
-
-    if (old_index != focused_) {
-      UpdateFocus(old_index);
-    }
-
-    return true;
-  }
-
-  // Navigate on frequency bars
-  if (event == ftxui::Event::ArrowLeft || event == ftxui::Event::Character('h')) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
-    int old_index = focused_;
-
-    // Calculate new index based on lower bound
-    focused_ -= focused_ > (kInvalidIndex + 1) ? 1 : 0;
-
-    if (old_index != focused_) {
-      UpdateFocus(old_index);
-    }
-
-    return true;
-  }
-
-  // Change gain on frequency bar focused
-  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
-    if (focused_ == kInvalidIndex) return false;
-
-    LOG("Handle menu navigation key=", util::EventToString(event));
-
-    // Increment value and update UI
-    bars_[focused_]->IncreaseGain();
-    UpdateInterfaceState();
-
-    return true;
-  }
-
-  // Change gain on frequency bar focused
-  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
-    if (focused_ == kInvalidIndex) return false;
-
-    LOG("Handle menu navigation key=", util::EventToString(event));
-
-    // Increment value and update UI
-    bars_[focused_]->DecreaseGain();
-    UpdateInterfaceState();
-
+  if (OnNavigationEvent(event)) {
     return true;
   }
 
@@ -226,6 +174,68 @@ bool AudioEqualizer::OnMouseEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
+
+/* ********************************************************************************************** */
+
+bool AudioEqualizer::OnNavigationEvent(const ftxui::Event& event) {
+  // Navigate on frequency bars
+  if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    int old_index = focused_;
+
+    // Calculate new index based on upper bound
+    focused_ += focused_ < (static_cast<int>(bars_.size()) - 1) ? 1 : 0;
+
+    if (old_index != focused_) {
+      UpdateFocus(old_index);
+    }
+
+    return true;
+  }
+
+  // Navigate on frequency bars
+  if (event == ftxui::Event::ArrowLeft || event == ftxui::Event::Character('h')) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    int old_index = focused_;
+
+    // Calculate new index based on lower bound
+    focused_ -= focused_ > (kInvalidIndex + 1) ? 1 : 0;
+
+    if (old_index != focused_) {
+      UpdateFocus(old_index);
+    }
+
+    return true;
+  }
+
+  // Change gain on frequency bar focused
+  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+    if (focused_ == kInvalidIndex) return false;
+
+    LOG("Handle menu navigation key=", util::EventToString(event));
+
+    // Increment value and update UI
+    bars_[focused_]->IncreaseGain();
+    UpdateInterfaceState();
+
+    return true;
+  }
+
+  // Change gain on frequency bar focused
+  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+    if (focused_ == kInvalidIndex) return false;
+
+    LOG("Handle menu navigation key=", util::EventToString(event));
+
+    // Increment value and update UI
+    bars_[focused_]->DecreaseGain();
+    UpdateInterfaceState();
+
+    return true;
+  }
+
+  return false;
+}
 
 /* ********************************************************************************************** */
 

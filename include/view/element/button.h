@@ -146,6 +146,13 @@ class Button {
   void OnClick() const;
 
   /* ******************************************************************************************** */
+  //! Internal handling
+ private:
+  //! Handle left click event internally
+  bool HandleLeftClick(ftxui::Event& event);
+
+  /* ******************************************************************************************** */
+  //! Variables
  protected:
   ftxui::Box box_;        //!< Box to control if mouse cursor is over the button
   bool active_ = false;   //!< Flag to indicate if button is activated (can be clicked)

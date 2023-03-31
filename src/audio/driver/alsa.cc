@@ -8,10 +8,6 @@
 
 namespace driver {
 
-Alsa::Alsa() {}
-
-/* ********************************************************************************************** */
-
 error::Code Alsa::CreatePlaybackStream() {
   LOG("Create new playback stream");
 

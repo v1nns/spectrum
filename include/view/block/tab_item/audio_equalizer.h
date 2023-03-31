@@ -63,6 +63,9 @@ class AudioEqualizer : public TabItem {
   /* ******************************************************************************************** */
   //! Private methods
  private:
+  //! Handle mapped keyboard events for navigation
+  bool OnNavigationEvent(const ftxui::Event& event);
+
   //! Update UI components state based on internal cache
   void UpdateInterfaceState();
 

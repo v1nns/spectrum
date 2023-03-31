@@ -17,23 +17,7 @@ bool Button::OnEvent(ftxui::Event event) {
     focused_ = true;
 
     if (active_ && event.mouse().button == ftxui::Mouse::Left) {
-      // Mouse click hold
-      if (event.mouse().motion == ftxui::Mouse::Pressed) {
-        pressed_ = true;
-      }
-
-      // Mouse click
-      if (event.mouse().motion == ftxui::Mouse::Released) {
-        // Update internal state
-        pressed_ = false;
-
-        // Mouse click on menu entry
-        if (on_click_ != nullptr; on_click_()) {
-          ToggleState();
-        }
-
-        return true;
-      }
+      return HandleLeftClick(event);
     }
   } else {
     // Clear some states
@@ -76,6 +60,31 @@ bool Button::IsActive() const { return active_; }
 
 void Button::OnClick() const {
   if (on_click_ != nullptr) on_click_();
+}
+
+/* ********************************************************************************************** */
+
+bool Button::HandleLeftClick(ftxui::Event& event) {
+  // Mouse click hold
+  if (event.mouse().motion == ftxui::Mouse::Pressed) {
+    pressed_ = true;
+  }
+
+  // Mouse click released
+  if (event.mouse().motion == ftxui::Mouse::Released) {
+    // Update internal state
+    pressed_ = false;
+
+    // Trigger callback for button click and change clicked state
+    if (on_click_ != nullptr) {
+      on_click_();
+      clicked_ = !clicked_;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -229,9 +238,9 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, Callback
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
+      using ftxui::EQUAL;
       using ftxui::HEIGHT;
       using ftxui::WIDTH;
-      using ftxui::EQUAL;
 
       auto content = ftxui::text(content_);
 
