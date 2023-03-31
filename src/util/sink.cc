@@ -28,7 +28,7 @@ void FileSink::Open() {
 void FileSink::Close() {
   try {
     out_stream_.reset();
-  } catch (std::exception&) {
+  } catch (...) {
     // As we hold an ostream inside a shared_ptr, when we reset it, we are counting on the deleter
     // to release its resources... And that's why we don't care about exceptions here
   }
@@ -51,7 +51,7 @@ void ConsoleSink::Open() {
 void ConsoleSink::Close() {
   try {
     out_stream_.reset();
-  } catch (std::exception&) {
+  } catch (...) {
     // As we hold an ostream inside a shared_ptr, when we reset it, we are counting on the deleter
     // to release its resources... And that's why we don't care about exceptions here
   }

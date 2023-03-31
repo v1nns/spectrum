@@ -14,12 +14,12 @@
 
 //! Command-line argument parsing
 bool parse(int argc, char** argv) {
-  // Create arguments expectation
   using util::Argument;
   using util::Arguments;
   using util::Expected;
   using util::Parser;
 
+  // Create arguments expectation
   auto expected_args = Expected{
       Argument{
           .name = "log",
@@ -39,9 +39,9 @@ bool parse(int argc, char** argv) {
       util::Logger::GetInstance().Configure(parsed_args["log"]);
     }
 
-  } catch (std::exception&) {
+  } catch (util::parsing_error&) {
     // Got some error while trying to parse, or even received help as argument
-    // Just let ArgumentParser inform about it on CLI
+    // Just let ArgumentParser handle it
     return false;
   }
 

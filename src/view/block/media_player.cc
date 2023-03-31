@@ -275,7 +275,7 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
+bool MediaPlayer::OnMouseEvent(ftxui::Event event) const {
   if (btn_play_->OnEvent(event)) return true;
 
   if (btn_stop_->OnEvent(event)) return true;
@@ -288,7 +288,7 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
     // Calculate new song position based on screen coordinates
     int real_x = event.mouse().x - duration_box_.x_min;
-    int new_position =
+    auto new_position =
         (int)floor(floor(song_.duration * real_x) / (duration_box_.x_max - duration_box_.x_min));
 
     int offset = std::abs(int(new_position - song_.curr_info.position));

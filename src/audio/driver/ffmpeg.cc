@@ -186,7 +186,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
   av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
 #else
   // Set filter options through the AVOptions API
-  av_get_channel_layout_string(ch_layout.data(), ch_layout.size(), decoder_->channels,
+  av_get_channel_layout_string(ch_layout.data(), (int)ch_layout.size(), decoder_->channels,
                                decoder_->channel_layout);
 #endif
 
@@ -269,7 +269,7 @@ error::Code FFmpeg::CreateFilterAformat() {
 #if LIBAVUTIL_VERSION_MAJOR > 56
   av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
 #else
-  av_get_channel_layout_string(ch_layout.data(), ch_layout.size(), decoder_->channels,
+  av_get_channel_layout_string(ch_layout.data(), (int)ch_layout.size(), decoder_->channels,
                                decoder_->channel_layout);
 #endif
 

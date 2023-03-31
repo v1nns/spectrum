@@ -108,7 +108,7 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualizer) {
-  int size = (int)spectrum_data_.size();
+  auto size = (int)spectrum_data_.size();
   if (size == 0) return;
 
   ftxui::Elements entries;
@@ -131,7 +131,7 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer) {
-  int size = (int)spectrum_data_.size();
+  auto size = (int)spectrum_data_.size();
   if (size == 0) return;
 
   ftxui::Elements left;
@@ -157,7 +157,7 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
-  int size = (int)spectrum_data_.size();
+  auto size = (int)spectrum_data_.size();
   if (size == 0) return;
 
   // As total size is equal to the sum of both channels, this animation is the average of both

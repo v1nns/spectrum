@@ -47,6 +47,20 @@ struct MenuEntryOption {
   ftxui::Decorator selected_focused;
 };
 
+//! Create a new custom style for Menu Entry
+inline MenuEntryOption Colored(ftxui::Color c) {
+  using ftxui::color;
+  using ftxui::Decorator;
+  using ftxui::inverted;
+
+  return MenuEntryOption{
+      .normal = Decorator(color(c)),
+      .focused = Decorator(color(c)) | inverted,
+      .selected = Decorator(color(c)) | inverted,
+      .selected_focused = Decorator(color(c)) | inverted,
+  };
+}
+
 /**
  * @brief Component to list files from given directory
  */
@@ -238,6 +252,8 @@ class ListDirectory : public Block {
   };
 
   /* ******************************************************************************************** */
+  //! Variables
+
   Files entries_;  //!< List containing files from current directory
   int selected_;   //!< Entry index in files list for entry selected
   int focused_;    //!< Entry index in files list for entry focused
@@ -248,7 +264,11 @@ class ListDirectory : public Block {
   std::optional<Search> mode_search_ =
       std::nullopt;  //!< Mode to render only files matching the search pattern
 
-  EntryStyles styles_;  //!< Style for each possible type of entry on menu
+  EntryStyles styles_ = EntryStyles{
+      .directory = Colored(ftxui::Color::Green),
+      .file = Colored(ftxui::Color::White),
+      .playing =
+          Colored(ftxui::Color::SteelBlue1)};  //!< Style for each possible type of entry on menu
 
   TextAnimation animation_;  //!< Text animation for selected entry
 

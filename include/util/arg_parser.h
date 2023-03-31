@@ -36,6 +36,29 @@ using Expected = std::vector<Argument>;
 using Arguments = std::unordered_map<std::string, std::string>;
 
 /**
+ * @brief Custom exception for error handling within ArgumentParser
+ */
+class parsing_error : public std::exception {
+ public:
+  /**
+   * @brief Create a new parsing_error object
+   * @param msg Error message
+   */
+  parsing_error(const std::string& msg) : message_(msg) {}
+
+  /**
+   * @brief Return custom error message description about this parser exception
+   * @return Error message description
+   */
+  const char* what() const noexcept override { return message_.c_str(); }
+
+ protected:
+  std::string message_;  //!< Custom message
+};
+
+/* ********************************************************************************************** */
+
+/**
  * @brief Class for command-line argument parsing based on predefined expectations
  */
 class ArgumentParser {
@@ -91,7 +114,7 @@ class ArgumentParser {
 
       if (argument == "-h" || argument == "--help") {
         PrintHelp();
-        throw std::logic_error("Received command to print helper");
+        throw parsing_error("Received command to print helper");
       }
 
       // Find match in expected arguments
@@ -102,7 +125,7 @@ class ArgumentParser {
 
       if (found == arguments_.end()) {
         PrintError(argument);
-        throw std::invalid_argument("Received unexpected argument");
+        throw parsing_error("Received unexpected argument");
       }
 
       // Get value for expected argument (for the first version, always expected value for argument)
@@ -110,7 +133,7 @@ class ArgumentParser {
       std::string value{values[index]};
       if (value.rfind('-', 2) == 0 || value.empty()) {
         PrintError(argument, value);
-        throw std::invalid_argument("Received unexpected value for argument");
+        throw parsing_error("Received unexpected value for argument");
       }
 
       // Everything is fine, should include into opts
@@ -130,6 +153,7 @@ class ArgumentParser {
    */
   void PrintHelp() const {
     std::cout << "spectrum\n\n";
+    std::cout << "A music player with a simple and intuitive terminal user interface.\n\n";
     std::cout << "Options:";
 
     for (const auto& arg : arguments_) {

@@ -29,7 +29,7 @@ ftxui::Decorator Block::GetTitleDecorator() const {
 
 /* ********************************************************************************************** */
 
-void Block::AskForFocus() {
+void Block::AskForFocus() const {
   auto dispatcher = GetDispatcher();
 
   // Set this block as active (focused)

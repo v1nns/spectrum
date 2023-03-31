@@ -64,7 +64,7 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   ftxui::Decorator GetTitleDecorator() const;
 
   //! Dispatch event to set focus
-  void AskForFocus();
+  void AskForFocus() const;
 
   /* ******************************************************************************************** */
   //! These must be implemented by derived class

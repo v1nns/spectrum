@@ -21,20 +21,6 @@
 
 namespace interface {
 
-//! Create a new custom style for Menu Entry
-MenuEntryOption Colored(ftxui::Color c) {
-  using ftxui::color;
-  using ftxui::Decorator;
-  using ftxui::inverted;
-
-  return MenuEntryOption{
-      .normal = Decorator(color(c)),
-      .focused = Decorator(color(c)) | inverted,
-      .selected = Decorator(color(c)) | inverted,
-      .selected_focused = Decorator(color(c)) | inverted,
-  };
-}
-
 //! Similar to std::clamp, but allow hi to be lower than lo.
 template <class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
@@ -48,10 +34,7 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
     : Block{dispatcher, model::BlockIdentifier::ListDirectory,
             interface::Size{.width = kMaxColumns, .height = 0}},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
-                                    : std::filesystem::path(optional_path)},
-      styles_{EntryStyles{.directory = Colored(ftxui::Color::Green),
-                          .file = Colored(ftxui::Color::White),
-                          .playing = Colored(ftxui::Color::SteelBlue1)}} {
+                                    : std::filesystem::path(optional_path)} {
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
   RefreshList(curr_dir_);
@@ -365,7 +348,7 @@ bool ListDirectory::OnSearchModeEvent(const ftxui::Event& event) {
 
   // Arrow right
   if (event == ftxui::Event::ArrowRight) {
-    if (int size = (int)mode_search_->text_to_search.size(); mode_search_->position < size)
+    if (auto size = (int)mode_search_->text_to_search.size(); mode_search_->position < size)
       mode_search_->position++;
     event_handled = true;
   }
@@ -464,7 +447,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   std::sort(entries_.begin(), entries_.end(), custom_sort);
 
   // Add option to go back one level
-  entries_.emplace(entries_.begin(), File{".."});
+  entries_.emplace(entries_.begin(), "..");
 }
 
 /* ********************************************************************************************** */

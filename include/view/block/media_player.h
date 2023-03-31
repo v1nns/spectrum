@@ -60,7 +60,7 @@ class MediaPlayer : public Block {
   /* ******************************************************************************************** */
  private:
   //! Handle mouse event
-  bool OnMouseEvent(ftxui::Event event);
+  bool OnMouseEvent(ftxui::Event event) const;
 
   //! Utility to check media state
   bool IsPlaying() const {
