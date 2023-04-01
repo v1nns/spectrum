@@ -79,7 +79,7 @@ class ApplicationError {
    * @param code Error code
    * @return Message Error detail
    */
-  static const std::string_view GetMessage(Code id) {
+  static std::string_view GetMessage(Code id) {
     auto find_error = [&id](Message element) { return element.first == id; };
 
     auto error = std::find_if(kErrorMap.begin(), kErrorMap.end(), find_error);

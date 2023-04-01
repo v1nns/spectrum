@@ -72,7 +72,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   /**
    * @brief Destroy the MediaController object
    */
-  virtual ~MediaController();
+  ~MediaController() override;
 
   /**
    * @brief Exit from Audio Analysis loop
@@ -96,7 +96,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   /* ******************************************************************************************** */
   //! Actions received from UI and sent to Player
-
+ public:
   /**
    * @brief Receive a notification from view that a file has been selected. In other words, user may
    * want to play a music. Notify Audio Player about this.
@@ -123,7 +123,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   /**
    * @brief Notify Audio Player to set volume
    */
-  virtual void SetVolume(model::Volume value) override;
+  void SetVolume(model::Volume value) override;
 
   /**
    * @brief Notify Audio Player to resize quantity of frequency bars as result from audio analysis
@@ -216,8 +216,8 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @param size Chunk size
      * @return Vector containing raw audio data
      */
-    const std::vector<double> GetBuffer(int size) {
-      std::unique_lock<std::mutex> lock(mutex);
+    std::vector<double> GetBuffer(int size) {
+      std::unique_lock lock(mutex);
       if (size > buffer.size()) size = (int)buffer.size();
 
       std::vector<double>::const_iterator first = buffer.begin();
@@ -236,7 +236,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @param size Array size
      */
     void Append(int* input, int size) {
-      std::unique_lock<std::mutex> lock(mutex);
+      std::unique_lock lock(mutex);
       std::vector<double>::const_iterator end = buffer.end();
 
       buffer.insert(end, input, input + size);
@@ -250,16 +250,14 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @param cmd Command
      */
     void Push(const Command cmd) {
-      {
-        std::unique_lock<std::mutex> lock(mutex);
+      std::unique_lock lock(mutex);
 
-        // Clear queue in case of exit request
-        if (cmd == Command::Exit) {
-          std::queue<Command>().swap(queue);
-        }
-
-        queue.push(std::move(cmd));
+      // Clear queue in case of exit request
+      if (cmd == Command::Exit) {
+        std::queue<Command>().swap(queue);
       }
+
+      queue.push(cmd);
       notifier.notify_one();
     }
 
@@ -268,7 +266,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @return Command
      */
     Command Pop() {
-      std::unique_lock<std::mutex> lock(mutex);
+      std::unique_lock lock(mutex);
       if (queue.empty()) return Command::None;
 
       auto cmd = queue.front();
@@ -284,8 +282,8 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @return True if thread should keep working, False if not
      */
     bool WaitForCommand() {
-      std::unique_lock<std::mutex> lock(mutex);
-      notifier.wait(lock, [&]() {
+      std::unique_lock lock(mutex);
+      notifier.wait(lock, [this]() {
         // No command in queue
         if (queue.empty()) return false;
 
@@ -307,8 +305,8 @@ class MediaController : public audio::Notifier, public interface::Notifier {
     bool WaitForCommandOrUntil(
         const std::chrono::time_point<std::chrono::system_clock,
                                       std::chrono::duration<long double, std::nano>>& timeout) {
-      std::unique_lock<std::mutex> lock(mutex);
-      notifier.wait_until(lock, timeout, [&]() {
+      std::unique_lock lock(mutex);
+      notifier.wait_until(lock, timeout, [this]() {
         // No command in queue
         if (queue.empty()) return false;
 
@@ -320,14 +318,22 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   };
 
   /* ******************************************************************************************** */
+  //! Audio visualizer animation
+
+  //! Execute clear animation based on the most recent analyzed data
+  void ProcessClearAnimation(std::vector<double>& data);
+
+  //! Execute regain animation based on old data from before the clear animation
+  void ProcessRegainAnimation(const std::vector<double>& data);
+
+  /* ******************************************************************************************** */
   //! Utility
 
   //! Get event dispatcher
-  std::shared_ptr<interface::EventDispatcher> GetDispatcher();
+  std::shared_ptr<interface::EventDispatcher> GetDispatcher() const;
 
   /* ******************************************************************************************** */
   //! Variables
- private:
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Send events to UI blocks
   std::weak_ptr<audio::AudioControl> player_ctl_;         //!< Send events to control Audio Player
 

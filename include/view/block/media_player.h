@@ -33,7 +33,7 @@ class MediaPlayer : public Block {
   /**
    * @brief Destroy the Audio Player object
    */
-  virtual ~MediaPlayer() = default;
+  ~MediaPlayer() override = default;
 
   /**
    * @brief Renders the component
@@ -60,19 +60,20 @@ class MediaPlayer : public Block {
   /* ******************************************************************************************** */
  private:
   //! Handle mouse event
-  bool OnMouseEvent(ftxui::Event event);
+  bool OnMouseEvent(ftxui::Event event) const;
 
   //! Utility to check media state
-  bool IsPlaying() {
+  bool IsPlaying() const {
     return song_.curr_info.state == model::Song::MediaState::Play ||
            song_.curr_info.state == model::Song::MediaState::Pause;
   }
 
   /* ******************************************************************************************** */
- private:
-  MediaButton btn_play_, btn_stop_;  //!< Media player buttons
-  model::Song song_;                 //!< Audio information from current song
-  model::Volume volume_;             //!< General sound volume
+  //! Variables
+  MediaButton btn_play_;              //!< Media player button for Play/Pause
+  MediaButton btn_stop_;              //!< Media player button for Stop
+  model::Song song_ = model::Song{};  //!< Audio information from current song
+  model::Volume volume_;              //!< General sound volume
 
   ftxui::Box duration_box_;  //!< Box for duration component (gauge)
 };

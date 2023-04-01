@@ -3,13 +3,7 @@
 namespace interface {
 
 Button::Button(const ButtonStyle& style, Callback on_click, bool active)
-    : box_{},
-      active_{active},
-      focused_{false},
-      clicked_{false},
-      pressed_{false},
-      style_{style},
-      on_click_{on_click} {}
+    : active_{active}, style_{style}, on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 
@@ -19,34 +13,11 @@ bool Button::OnEvent(ftxui::Event event) {
     return false;
   }
 
-  //   if (event.mouse().button != ftxui::Mouse::None && event.mouse().button != ftxui::Mouse::Left)
-  //   {
-  //     return false;
-  //   }
-
-  //   if (!CaptureMouse(event)) return false;
-
   if (box_.Contain(event.mouse().x, event.mouse().y)) {
     focused_ = true;
 
     if (active_ && event.mouse().button == ftxui::Mouse::Left) {
-      // Mouse click hold
-      if (event.mouse().motion == ftxui::Mouse::Pressed) {
-        pressed_ = true;
-      }
-
-      // Mouse click
-      if (event.mouse().motion == ftxui::Mouse::Released) {
-        // Update internal state
-        pressed_ = false;
-
-        // Mouse click on menu entry
-        if (on_click_ != nullptr) {
-          if (on_click_()) ToggleState();
-        }
-
-        return true;
-      }
+      return HandleLeftClick(event);
     }
   } else {
     // Clear some states
@@ -87,8 +58,33 @@ bool Button::IsActive() const { return active_; }
 
 /* ********************************************************************************************** */
 
-void Button::OnClick() {
+void Button::OnClick() const {
   if (on_click_ != nullptr) on_click_();
+}
+
+/* ********************************************************************************************** */
+
+bool Button::HandleLeftClick(ftxui::Event& event) {
+  // Mouse click hold
+  if (event.mouse().motion == ftxui::Mouse::Pressed) {
+    pressed_ = true;
+  }
+
+  // Mouse click released
+  if (event.mouse().motion == ftxui::Mouse::Released) {
+    // Update internal state
+    pressed_ = false;
+
+    // Trigger callback for button click and change clicked state
+    if (on_click_ != nullptr) {
+      on_click_();
+      clicked_ = !clicked_;
+    }
+
+    return true;
+  }
+
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -117,35 +113,35 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
     using Point = std::pair<int, int>;
 
     //! Draw Play button
-    ftxui::Canvas DrawPlay() {
+    ftxui::Canvas DrawPlay() const {
       // play
       ftxui::Canvas play(12, 12);
 
-      auto a = Point{3, 0};
-      auto b = Point{9, 6};
-      auto c = Point{3, 11};
+      auto [a_x, a_y] = Point{3, 0};
+      auto [b_x, b_y] = Point{9, 6};
+      auto [c_x, c_y] = Point{3, 11};
 
       for (int i = 1; i < 6; ++i) {
-        play.DrawPointLine(a.first + i, a.second + i, b.first - i, b.second - i, style_.content);
-        play.DrawPointLine(b.first - i, b.second - i, c.first + i, c.second - i, style_.content);
-        play.DrawPointLine(c.first + i, c.second - i, a.first + i, a.second + i, style_.content);
+        play.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, style_.content);
+        play.DrawPointLine(b_x - i, b_y - i, c_x + i, c_y - i, style_.content);
+        play.DrawPointLine(c_x + i, c_y - i, a_x + i, a_y + i, style_.content);
       }
 
       return play;
     }
 
     // Draw Pause button
-    ftxui::Canvas DrawPause() {
+    ftxui::Canvas DrawPause() const {
       // pause
       ftxui::Canvas pause(12, 12);
-      auto g = Point{2, 1};
-      auto h = Point{2, 10};
+
+      auto [g_x, g_y] = Point{2, 1};
+      auto [h_x, h_y] = Point{2, 10};
       int space = 6;
 
       for (int i = 0; i < 2; ++i) {
-        pause.DrawPointLine(g.first + i, g.second, h.first + i, h.second, style_.content);
-        pause.DrawPointLine(g.first + i + space, g.second, h.first + i + space, h.second,
-                            style_.content);
+        pause.DrawPointLine(g_x + i, g_y, h_x + i, h_y, style_.content);
+        pause.DrawPointLine(g_x + i + space, g_y, h_x + i + space, h_y, style_.content);
       }
 
       return pause;
@@ -242,7 +238,9 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, Callback
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
-      using ftxui::HEIGHT, ftxui::WIDTH, ftxui::EQUAL;
+      using ftxui::EQUAL;
+      using ftxui::HEIGHT;
+      using ftxui::WIDTH;
 
       auto content = ftxui::text(content_);
 

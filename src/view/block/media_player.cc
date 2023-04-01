@@ -18,40 +18,35 @@ namespace interface {
 
 MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, model::BlockIdentifier::MediaPlayer,
-            interface::Size{.width = 0, .height = kMaxRows}},
-      btn_play_{nullptr},
-      btn_stop_{nullptr},
-      song_{},
-      volume_{},
-      duration_box_{} {
-  btn_play_ = Button::make_button_play([&]() -> bool {
+            interface::Size{.width = 0, .height = kMaxRows}} {
+  btn_play_ = Button::make_button_play([this]() {
     LOG("Handle on_click event on Play button");
-    auto dispatcher = GetDispatcher();
+    auto disp = GetDispatcher();
 
     // Send event to set focus on this block
     AskForFocus();
 
     if (IsPlaying()) {
       auto event = interface::CustomEvent::PauseOrResumeSong();
-      dispatcher->SendEvent(event);
+      disp->SendEvent(event);
       return true;
     }
 
     // This event must be handled by ListDirectory, in case the selected file is an audio file, it
     // will start playing it
     auto event = interface::CustomEvent::PlaySong();
-    dispatcher->SendEvent(event);
+    disp->SendEvent(event);
 
     return false;
   });
 
-  btn_stop_ = Button::make_button_stop([&]() -> bool {
+  btn_stop_ = Button::make_button_stop([this]() {
     if (IsPlaying()) {
-      auto dispatcher = GetDispatcher();
+      auto disp = GetDispatcher();
 
       LOG("Handle on_click event on Stop button");
       auto event = interface::CustomEvent::StopSong();
-      dispatcher->SendEvent(event);
+      disp->SendEvent(event);
 
       // Send event to set focus on this block
       AskForFocus();
@@ -103,8 +98,8 @@ ftxui::Element MediaPlayer::Render() {
           margin,
           dummy_margin,
           ftxui::filler(),
-          std::move(btn_play_->Render()),
-          std::move(btn_stop_->Render()),
+          btn_play_->Render(),
+          btn_stop_->Render(),
           ftxui::filler(),
           ftxui::vbox({
               ftxui::filler(),
@@ -127,7 +122,9 @@ ftxui::Element MediaPlayer::Render() {
       }),
   });
 
-  using ftxui::HEIGHT, ftxui::EQUAL;
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+
   return ftxui::window(
       ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
       content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows));
@@ -143,8 +140,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to clear current song");
     auto dispatcher = GetDispatcher();
 
-    auto event = interface::CustomEvent::ClearCurrentSong();
-    dispatcher->SendEvent(event);
+    auto event_clear = interface::CustomEvent::ClearCurrentSong();
+    dispatcher->SendEvent(event_clear);
 
     btn_play_->ResetState();
 
@@ -156,10 +153,10 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to play/pause song");
     auto dispatcher = GetDispatcher();
 
-    auto event = !IsPlaying() ? interface::CustomEvent::PlaySong()
-                              : interface::CustomEvent::PauseOrResumeSong();
+    auto event_play = !IsPlaying() ? interface::CustomEvent::PlaySong()
+                                   : interface::CustomEvent::PauseOrResumeSong();
 
-    dispatcher->SendEvent(event);
+    dispatcher->SendEvent(event_play);
 
     if (IsPlaying()) btn_play_->ToggleState();
 
@@ -171,8 +168,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to stop current song");
     auto dispatcher = GetDispatcher();
 
-    auto event = interface::CustomEvent::StopSong();
-    dispatcher->SendEvent(event);
+    auto event_stop = interface::CustomEvent::StopSong();
+    dispatcher->SendEvent(event_stop);
 
     btn_stop_->ToggleState();
 
@@ -186,8 +183,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 
     volume_--;
 
-    auto event = interface::CustomEvent::SetAudioVolume(volume_);
-    dispatcher->SendEvent(event);
+    auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
+    dispatcher->SendEvent(event_volume);
 
     return true;
   }
@@ -199,8 +196,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 
     volume_++;
 
-    auto event = interface::CustomEvent::SetAudioVolume(volume_);
-    dispatcher->SendEvent(event);
+    auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
+    dispatcher->SendEvent(event_volume);
 
     return true;
   }
@@ -212,8 +209,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 
     volume_.ToggleMute();
 
-    auto event = interface::CustomEvent::SetAudioVolume(volume_);
-    dispatcher->SendEvent(event);
+    auto event_mute = interface::CustomEvent::SetAudioVolume(volume_);
+    dispatcher->SendEvent(event_mute);
 
     return true;
   }
@@ -223,8 +220,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to seek forward in current song");
     auto dispatcher = GetDispatcher();
 
-    auto event = interface::CustomEvent::SeekForwardPosition(1);
-    dispatcher->SendEvent(event);
+    auto event_seek = interface::CustomEvent::SeekForwardPosition(1);
+    dispatcher->SendEvent(event_seek);
 
     return true;
   }
@@ -234,8 +231,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to seek backward in current song");
     auto dispatcher = GetDispatcher();
 
-    auto event = interface::CustomEvent::SeekBackwardPosition(1);
-    dispatcher->SendEvent(event);
+    auto event_seek = interface::CustomEvent::SeekBackwardPosition(1);
+    dispatcher->SendEvent(event_seek);
 
     return true;
   }
@@ -278,7 +275,7 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
+bool MediaPlayer::OnMouseEvent(ftxui::Event event) const {
   if (btn_play_->OnEvent(event)) return true;
 
   if (btn_stop_->OnEvent(event)) return true;
@@ -291,8 +288,8 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
     // Calculate new song position based on screen coordinates
     int real_x = event.mouse().x - duration_box_.x_min;
-    int new_position =
-        floor(floor(song_.duration * real_x) / (duration_box_.x_max - duration_box_.x_min));
+    auto new_position =
+        (int)floor(floor(song_.duration * real_x) / (duration_box_.x_max - duration_box_.x_min));
 
     int offset = std::abs(int(new_position - song_.curr_info.position));
 

@@ -8,10 +8,6 @@
 
 namespace driver {
 
-Alsa::Alsa() : playback_handle_{}, mixer_{}, period_size_{} {}
-
-/* ********************************************************************************************** */
-
 error::Code Alsa::CreatePlaybackStream() {
   LOG("Create new playback stream");
 
@@ -105,7 +101,8 @@ error::Code Alsa::Stop() {
 
 error::Code Alsa::AudioCallback(void *buffer, int size) {
   // As this is called multiple times, LOG will not be called here in the beginning
-  if (int result = snd_pcm_writei(playback_handle_.get(), buffer, size); result < 0) {
+  if (auto result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
+      result < 0) {
     ERROR("Cannot write buffer to playback stream, error=", result);
     if ((result = snd_pcm_recover(playback_handle_.get(), result, 1)) == 0) {
       // TODO: do something?
@@ -126,7 +123,6 @@ snd_mixer_elem_t *Alsa::GetMasterPlayback() {
 
   snd_mixer_selem_id_alloca(&sid);
   snd_mixer_selem_id_set_name(sid, kSelemName);
-  // snd_mixer_selem_id_set_index(sid, 0);
 
   snd_mixer_elem_t *elem = snd_mixer_find_selem(mixer_.get(), sid);
   return elem;
@@ -144,7 +140,8 @@ error::Code Alsa::SetVolume(model::Volume value) {
   }
 
   // Get volume range
-  long min, max;
+  long min;
+  long max;
   snd_mixer_selem_get_playback_volume_range(master, &min, &max);
 
   // Calculate new volume based on values read

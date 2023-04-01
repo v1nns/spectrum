@@ -21,17 +21,6 @@
 
 namespace interface {
 
-//! Create a new custom style for Menu Entry
-MenuEntryOption Colored(ftxui::Color c) {
-  using ftxui::Decorator, ftxui::color, ftxui::inverted;
-  return MenuEntryOption{
-      .normal = Decorator(color(c)),
-      .focused = Decorator(color(c)) | inverted,
-      .selected = Decorator(color(c)) | inverted,
-      .selected_focused = Decorator(color(c)) | inverted,
-  };
-}
-
 //! Similar to std::clamp, but allow hi to be lower than lo.
 template <class T>
 constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
@@ -45,46 +34,34 @@ ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
     : Block{dispatcher, model::BlockIdentifier::ListDirectory,
             interface::Size{.width = kMaxColumns, .height = 0}},
       curr_dir_{optional_path == "" ? std::filesystem::current_path()
-                                    : std::filesystem::path(optional_path)},
-      curr_playing_{std::nullopt},
-      entries_{},
-      selected_{},
-      focused_{},
-      styles_{EntryStyles{.directory = std::move(Colored(ftxui::Color::Green)),
-                          .file = std::move(Colored(ftxui::Color::White)),
-                          .playing = std::move(Colored(ftxui::Color::SteelBlue1))}},
-      boxes_{},
-      box_{},
-      mode_search_{std::nullopt},
-      animation_{TextAnimation{.enabled = false}} {
+                                    : std::filesystem::path(optional_path)} {
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
   RefreshList(curr_dir_);
 
-  animation_.cb_update = [&] {
+  animation_.cb_update = [this] {
     // Send user action to controller
-    auto dispatcher = GetDispatcher();
+    auto disp = GetDispatcher();
     auto event = interface::CustomEvent::Refresh();
-    dispatcher->SendEvent(event);
+    disp->SendEvent(event);
   };
 }
 
 /* ********************************************************************************************** */
 
-ListDirectory::~ListDirectory() {
-  if (animation_.enabled) animation_.Stop();
-}
+ListDirectory::~ListDirectory() { animation_.Stop(); }
 
 /* ********************************************************************************************** */
 
 ftxui::Element ListDirectory::Render() {
-  using ftxui::WIDTH, ftxui::EQUAL;
+  using ftxui::EQUAL;
+  using ftxui::WIDTH;
 
   Clamp();
   ftxui::Elements entries;
 
-  int* selected = GetSelected();
-  int* focused = GetFocused();
+  const auto selected = GetSelected();
+  const auto focused = GetFocused();
 
   // Title
   ftxui::Element curr_dir_title = ftxui::text(GetTitle()) | ftxui::bold;
@@ -94,7 +71,7 @@ ftxui::Element ListDirectory::Render() {
     bool is_focused = (*focused == i);
     bool is_selected = (*selected == i);
 
-    File& entry = GetEntry(i);
+    const File& entry = GetEntry(i);
     const auto& type = entry == curr_playing_                 ? styles_.playing
                        : std::filesystem::is_directory(entry) ? styles_.directory
                                                               : styles_.file;
@@ -200,8 +177,8 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     LOG("Received request from media player to play selected file");
 
     auto active = GetActiveEntry();
-    auto event = interface::CustomEvent::NotifyFileSelection(*active);
-    dispatcher->SendEvent(event);
+    auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
+    dispatcher->SendEvent(event_selection);
 
     return true;
   }
@@ -273,7 +250,7 @@ bool ListDirectory::OnMouseWheel(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
+bool ListDirectory::OnMenuNavigation(const ftxui::Event& event) {
   bool event_handled = false;
   int* selected = GetSelected();
   int* focused = GetFocused();
@@ -288,8 +265,6 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
   if (event == ftxui::Event::PageDown) (*selected) += box_.y_max - box_.y_min;
   if (event == ftxui::Event::Home) (*selected) = 0;
   if (event == ftxui::Event::End) (*selected) = Size() - 1;
-  //   if (event == ftxui::Event::Tab) *selected = (*selected + 5) % Size();
-  //   if (event == ftxui::Event::TabReverse) *selected = (*selected + Size() - 5) % Size();
 
   if (*selected != old_selected) {
     *selected = clamp(*selected, 0, Size() - 1);
@@ -318,8 +293,8 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
       } else {
         // Send user action to controller
         auto dispatcher = GetDispatcher();
-        auto event = interface::CustomEvent::NotifyFileSelection(*active);
-        dispatcher->SendEvent(event);
+        auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
+        dispatcher->SendEvent(event_selection);
       }
 
       if (!new_dir.empty()) {
@@ -338,8 +313,9 @@ bool ListDirectory::OnMenuNavigation(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
-  bool event_handled = false, exit_from_search_mode = false;
+bool ListDirectory::OnSearchModeEvent(const ftxui::Event& event) {
+  bool event_handled = false;
+  bool exit_from_search_mode = false;
 
   // Any alphabetic character
   if (event.is_character()) {
@@ -372,8 +348,8 @@ bool ListDirectory::OnSearchModeEvent(ftxui::Event event) {
 
   // Arrow right
   if (event == ftxui::Event::ArrowRight) {
-    int size = mode_search_->text_to_search.size();
-    if (mode_search_->position < size) mode_search_->position++;
+    if (auto size = (int)mode_search_->text_to_search.size(); mode_search_->position < size)
+      mode_search_->position++;
     event_handled = true;
   }
 
@@ -417,7 +393,8 @@ std::string ListDirectory::GetTitle() {
   }
 
   // Oh no, it does exceed, so we must truncate the surplus text
-  int offset = curr_dir.size() - (kMaxColumns - 5);  // Considering window border(2) + ellipsis(3)
+  int offset =
+      (int)curr_dir.size() - (kMaxColumns - 5);  // Considering window border(2) + ellipsis(3)
   const std::string& substr = curr_dir.substr(offset);
   auto index = substr.find('/');
 
@@ -442,16 +419,19 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
     return;
   }
 
+  // Reset internal values
   curr_dir_ = dir_path;
   entries_ = std::move(tmp);
-  selected_ = 0, focused_ = 0;
+  selected_ = 0;
+  focused_ = 0;
 
   // Transform whole string into uppercase
-  constexpr auto to_lower = [](char& c) { c = std::tolower(c); };
+  constexpr auto to_lower = [](char& c) { c = (char)std::tolower(c); };
 
   // Created a custom file sort
-  auto custom_sort = [&to_lower](const File& a, const File& b) {
-    std::string lhs{a.filename()}, rhs{b.filename()};
+  auto custom_sort = [to_lower](const File& a, const File& b) {
+    std::string lhs{a.filename()};
+    std::string rhs{b.filename()};
 
     // Don't care if it is hidden (tried to make it similar to "ls" output)
     if (lhs.at(0) == '.') lhs.erase(0, 1);
@@ -467,14 +447,15 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   std::sort(entries_.begin(), entries_.end(), custom_sort);
 
   // Add option to go back one level
-  entries_.insert(entries_.begin(), File{".."});
+  entries_.emplace(entries_.begin(), "..");
 }
 
 /* ********************************************************************************************** */
 
 void ListDirectory::RefreshSearchList() {
   LOG("Refresh list on search mode");
-  mode_search_->selected = 0, mode_search_->focused = 0;
+  mode_search_->selected = 0;
+  mode_search_->focused = 0;
 
   // Do not even try to find it in the main list
   if (mode_search_->text_to_search.empty()) {
@@ -487,7 +468,7 @@ void ListDirectory::RefreshSearchList() {
   mode_search_->entries.clear();
   auto& text_to_search = mode_search_->text_to_search;
 
-  for (auto& entry : entries_) {
+  for (const auto& entry : entries_) {
     const std::string filename = entry.filename().string();
     auto it = std::search(filename.begin(), filename.end(), text_to_search.begin(),
                           text_to_search.end(), compare_string);
@@ -502,13 +483,13 @@ void ListDirectory::RefreshSearchList() {
 
 void ListDirectory::UpdateActiveEntry() {
   // Stop animation thread
-  if (animation_.enabled) animation_.Stop();
+  animation_.Stop();
 
   if (Size() > 0) {
     // Check text length of active entry
-    int* selected = GetSelected();
+    const auto selected = GetSelected();
     std::string text{GetEntry(*selected).filename().string().append(" ")};
-    int max_chars = text.length() + kMaxIconColumns;
+    int max_chars = (int)text.length() + kMaxIconColumns;
 
     // Start animation thread
     if (max_chars > kMaxColumns) animation_.Start(text);

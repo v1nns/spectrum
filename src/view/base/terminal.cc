@@ -47,24 +47,7 @@ std::shared_ptr<Terminal> Terminal::Create() {
 /* ********************************************************************************************** */
 
 Terminal::Terminal()
-    : EventDispatcher{},
-      ftxui::ComponentBase{},
-      notifier_{},
-      last_error_{error::kSuccess},
-      error_dialog_{std::make_unique<ErrorDialog>()},
-      helper_{std::make_unique<Help>()},
-      receiver_{ftxui::MakeReceiver<CustomEvent>()},
-      sender_{receiver_->MakeSender()},
-      cb_send_event_{},
-      cb_exit_{},
-      size_{ftxui::Terminal::Size()},
-      focused_index_{0} {}
-
-/* ********************************************************************************************** */
-
-Terminal::~Terminal() {
-  // Base class will do the rest (release resources by detaching all blocks, a.k.a. children)
-}
+    : EventDispatcher{}, ftxui::ComponentBase{}, sender_{receiver_->MakeSender()} {}
 
 /* ********************************************************************************************** */
 
@@ -93,7 +76,7 @@ void Terminal::Init() {
 
 /* ********************************************************************************************** */
 
-void Terminal::Exit() {
+void Terminal::Exit() const {
   LOG("Exit from terminal");
 
   // Trigger exit callback
@@ -129,8 +112,7 @@ ftxui::Element Terminal::Render() {
   }
 
   // Check if terminal has been resized
-  auto current_size = ftxui::Terminal::Size();
-  if (size_ != current_size) {
+  if (auto current_size = ftxui::Terminal::Size(); size_ != current_size) {
     LOG("Resize terminal size with new value=(x:", current_size.dimx, "y:", current_size.dimy, ")");
     size_ = current_size;
 
@@ -178,11 +160,11 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (OnGlobalModeEvent(event)) return true;
 
   // Block commands
-  for (auto& child : children_) {
-    if (child->OnEvent(event)) return true;
-  }
+  bool result =
+      std::any_of(children_.begin(), children_.end(),
+                  [&event](const ftxui::Component& child) { return child->OnEvent(event); });
 
-  return false;
+  return result;
 }
 
 /* ********************************************************************************************** */
@@ -199,14 +181,14 @@ int Terminal::CalculateNumberBars() {
   // d = some constant to represent spacing between bars
   // e = bar thickness + 1
   float crazy_math = ((float)(size_.dimx - block_width - 2 - 10) / 4);
-  crazy_math += crazy_math * .01;
+  crazy_math += (float)(crazy_math * .01);
 
   // Round to nearest odd number
   int number_bars;
   if ((int)floor(crazy_math) % 2 == 0)
-    number_bars = floor(crazy_math);
+    number_bars = (int)floor(crazy_math);
   else
-    number_bars = ceil(crazy_math);
+    number_bars = (int)ceil(crazy_math);
 
   return number_bars;
 }
@@ -246,7 +228,7 @@ void Terminal::OnCustomEvent() {
     }
 
     // Otherwise, send it to children blocks
-    for (auto& child : children_) {
+    for (const auto& child : children_) {
       auto block = std::static_pointer_cast<Block>(child);
       if (block->OnCustomEvent(event)) {
         break;  // Skip to next event
@@ -309,32 +291,32 @@ bool Terminal::HandleEventToSwitchBlockFocus(const ftxui::Event& event) {
 
   // Set ListDirectory block as focused (shift+1)
   if (event == ftxui::Event::Character('!')) {
-    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::ListDirectory);
-    ProcessEvent(event);
+    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::ListDirectory);
+    ProcessEvent(event_focus);
 
     return true;
   }
 
   // Set FileInfo block as focused (shift+2)
   if (event == ftxui::Event::Character('@')) {
-    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::FileInfo);
-    ProcessEvent(event);
+    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::FileInfo);
+    ProcessEvent(event_focus);
 
     return true;
   }
 
   // Set TabViewer block as focused (shift+3)
   if (event == ftxui::Event::Character('#')) {
-    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::TabViewer);
-    ProcessEvent(event);
+    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::TabViewer);
+    ProcessEvent(event_focus);
 
     return true;
   }
 
   // Set MediaPlayer block as focused (shift+4)
   if (event == ftxui::Event::Character('$')) {
-    auto event = interface::CustomEvent::SetFocused(model::BlockIdentifier::MediaPlayer);
-    ProcessEvent(event);
+    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::MediaPlayer);
+    ProcessEvent(event_focus);
 
     return true;
   }
@@ -413,7 +395,7 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-bool Terminal::HandleEventFromAudioThreadToInterface(const CustomEvent& event) {
+bool Terminal::HandleEventFromAudioThreadToInterface(const CustomEvent&) const {
   // Do nothing here, let Blocks handle it
   return false;
 }
@@ -427,9 +409,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
   // size and calculate maximum number of bars
   switch (event.GetId()) {
     case CustomEvent::Identifier::ChangeBarAnimation: {
-      auto media_ctl = notifier_.lock();
       // TODO: improve handling here and also for each method call
-      if (!media_ctl) break;
+      if (auto media_ctl = notifier_.lock(); !media_ctl) break;
 
       // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
@@ -536,7 +517,7 @@ void Terminal::SetApplicationError(error::Code id) {
 
 /* ********************************************************************************************** */
 
-int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) {
+int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const {
   switch (id) {
     case model::BlockIdentifier::ListDirectory:
       return 0;

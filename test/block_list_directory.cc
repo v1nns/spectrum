@@ -73,7 +73,7 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│                              │
+│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -106,7 +106,7 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│                              │
+│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -116,6 +116,7 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 
 TEST_F(ListDirectoryTest, NavigateToMockDir) {
   block->OnEvent(ftxui::Event::End);
+  block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
@@ -193,7 +194,7 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │  driver_fftw.cc              │
 │  general                     │
 │  middleware_media_controller.│
-│                              │
+│  util_argparser.cc           │
 │                              │
 │Search:e                      │
 ╰──────────────────────────────╯)";
@@ -287,7 +288,7 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│                              │
+│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -326,7 +327,7 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│                              │
+│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -355,7 +356,6 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  ..                          │
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -366,6 +366,7 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
+│  util_argparser.cc           │
 │> this_is_a_really_long_pathna│
 ╰──────────────────────────────╯)";
 
@@ -384,7 +385,6 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
   expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  ..                          │
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -395,6 +395,7 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
+│  util_argparser.cc           │
 │> is_a_really_long_pathname.mp│
 ╰──────────────────────────────╯)";
 
@@ -494,13 +495,13 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  block_media_player.cc       │
 │  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
+│  util_argparser.cc           │
 │  some_music_0.mp3            │
 │  some_music_1.mp3            │
 │  some_music_2.mp3            │

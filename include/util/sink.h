@@ -44,7 +44,9 @@ class Sink {
   /* ******************************************************************************************** */
   //! Internal methods
  protected:
-  virtual void WriteToStream([[maybe_unused]] const std::string& message){};
+  virtual void WriteToStream([[maybe_unused]] const std::string& message){
+      // This method may not be used if there isn't a valid ostream opened
+  };
 };
 
 /* ********************************************************************************************** */
@@ -61,7 +63,7 @@ class ImplSink : public Sink {
 
  public:
   //! Destroy the ImplSink object
-  virtual ~ImplSink() { CloseStream(); };
+  ~ImplSink() override { CloseStream(); };
 
   //! Remove these
   ImplSink(const ImplSink& other) = delete;             // copy constructor
@@ -73,14 +75,14 @@ class ImplSink : public Sink {
   //! Overridden methods
 
   //! Open output stream
-  void OpenStream() override final { static_cast<T&>(*this).Open(); }
+  void OpenStream() final { static_cast<T&>(*this).Open(); }
 
   //! Close output stream
-  void CloseStream() override final { static_cast<T&>(*this).Close(); }
+  void CloseStream() final { static_cast<T&>(*this).Close(); }
 
  private:
   //! Write message to output stream
-  void WriteToStream(const std::string& message) override final {
+  void WriteToStream(const std::string& message) final {
     if (out_stream_) {
       *out_stream_ << message;
       out_stream_->flush();  // In order to ensure that message will be written even if application
@@ -101,7 +103,7 @@ class ImplSink : public Sink {
 class FileSink : public ImplSink<FileSink> {
  public:
   explicit FileSink(const std::string& path);
-  virtual ~FileSink(){};
+  ~FileSink() override = default;
 
   //!  Required methods
   void Open();
@@ -110,8 +112,8 @@ class FileSink : public ImplSink<FileSink> {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::string path_;                                   //!< Absolute path for log file
-  std::chrono::seconds reopen_interval_;               //!< Interval to reopen file
+  std::string path_;  //!< Absolute path for log file
+  std::chrono::seconds reopen_interval_ = std::chrono::seconds(300);  //!< Interval to reopen file
   std::chrono::system_clock::time_point last_reopen_;  //!< Last timestamp that file was (re)opened
 };
 

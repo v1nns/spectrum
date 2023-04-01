@@ -19,21 +19,20 @@ namespace driver {
 /**
  * @brief Provides an interface to apply frequency analysis on audio samples by using FFT
  */
-class FFTW : public Analyzer {
+class FFTW final : public Analyzer {
  public:
   /**
    * @brief Construct a new FFTW object
    */
-  FFTW();
+  FFTW() = default;
 
   /**
    * @brief Destroy the FFTW object
    */
-  virtual ~FFTW() = default;
+  ~FFTW() override = default;
 
   /* ******************************************************************************************** */
   //! Public API
- public:
   /**
    * @brief Initialize internal structures for audio analysis
    *

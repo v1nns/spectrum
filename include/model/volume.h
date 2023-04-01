@@ -23,9 +23,9 @@ namespace model {
 struct Volume {
  public:
   //! Default constructor
-  Volume() : percentage{1.f}, muted{false} {};
+  Volume() : percentage{1.f} {};
 
-  Volume(float value) : percentage{std::min(std::max(value, 0.f), 1.f)}, muted{false} {}
+  explicit Volume(float value) : percentage{std::min(std::max(value, 0.f), 1.f)} {}
 
   // Pre-increment
   Volume& operator++() {
@@ -61,17 +61,6 @@ struct Volume {
   // Get mute state
   bool IsMuted() const { return muted; }
 
-  // TODO: maybe extend to implement the following operators
-  // Volume operator+(const Volume& x);
-  // Volume operator+(int x);
-  // Volume operator-(const Volume& x);
-  // Volume operator-(int x);
-  // Volume& operator+=(const Volume& x);
-  // Volume& operator+=(int x);
-  // Volume& operator-=(const Volume& x);
-  // Volume& operator-=(int x);
-  // and lots more, for *, /, unary +/-, etc...
-
   // Convenient conversion to int
   explicit operator int() const { return !muted ? (int)round(percentage * 100) : 0; }
 
@@ -90,8 +79,8 @@ struct Volume {
   }
 
  private:
-  float percentage;  //!< Volume percentage
-  bool muted;        //!< Control flag to mute/unmute volume
+  float percentage;    //!< Volume percentage
+  bool muted = false;  //!< Control flag to mute/unmute volume
 };
 
 /**

@@ -18,21 +18,20 @@ namespace driver {
 /**
  * @brief Provides an interface to use ALSA library for handling audio with hardware
  */
-class Alsa : public Playback {
+class Alsa final : public Playback {
  public:
   /**
    * @brief Construct a new Alsa object
    */
-  Alsa();
+  Alsa() = default;
 
   /**
    * @brief Destroy the Alsa object
    */
-  virtual ~Alsa() = default;
+  ~Alsa() override = default;
 
   /* ******************************************************************************************** */
   //! Public API
- public:
   /**
    * @brief Create a Playback Stream using ALSA API
    * @return error::Code Playback error converted to application error code
@@ -103,7 +102,6 @@ class Alsa : public Playback {
 
   /* ******************************************************************************************** */
   //! Default Constants for Audio Parameters
- private:
   static constexpr const char kDevice[] = "default";
   static constexpr const char kSelemName[] = "Master";
   static constexpr int kChannels = 2;
@@ -112,7 +110,6 @@ class Alsa : public Playback {
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
- private:
   struct PcmDeleter {
     void operator()(snd_pcm_t* p) const {
       snd_pcm_drain(p);
@@ -131,9 +128,9 @@ class Alsa : public Playback {
   /* ******************************************************************************************** */
   //! Variables
 
-  PcmPlayback playback_handle_;    //! Playback stream handled by ALSA API
-  MixerControl mixer_;             //! High level control interface from ALSA API (to manage volume)
-  snd_pcm_uframes_t period_size_;  //! Period size (necessary in order to discover buffer size)
+  PcmPlayback playback_handle_;  //! Playback stream handled by ALSA API
+  MixerControl mixer_;           //! High level control interface from ALSA API (to manage volume)
+  snd_pcm_uframes_t period_size_ = 0;  //! Period size (necessary in order to discover buffer size)
 };
 
 }  // namespace driver

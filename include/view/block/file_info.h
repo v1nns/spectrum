@@ -32,7 +32,7 @@ class FileInfo : public Block {
   /**
    * @brief Destroy the File Info object
    */
-  virtual ~FileInfo() = default;
+  ~FileInfo() override = default;
 
   /**
    * @brief Renders the component

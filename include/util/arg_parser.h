@@ -36,6 +36,29 @@ using Expected = std::vector<Argument>;
 using Arguments = std::unordered_map<std::string, std::string>;
 
 /**
+ * @brief Custom exception for error handling within ArgumentParser
+ */
+class parsing_error : public std::exception {
+ public:
+  /**
+   * @brief Create a new parsing_error object
+   * @param msg Error message
+   */
+  explicit parsing_error(const std::string& msg) : message_(msg) {}
+
+  /**
+   * @brief Return custom error message description about this parser exception
+   * @return Error message description
+   */
+  const char* what() const noexcept override { return message_.c_str(); }
+
+ private:
+  std::string message_;  //!< Custom message
+};
+
+/* ********************************************************************************************** */
+
+/**
  * @brief Class for command-line argument parsing based on predefined expectations
  */
 class ArgumentParser {
@@ -44,7 +67,10 @@ class ArgumentParser {
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(Expected args) : arguments_{args} {};
+  explicit ArgumentParser(const Expected& args)
+      : arguments_{args} {
+            // TODO: maybe replace vector by set, to avoid duplicated arguments
+        };
 
  public:
   /**
@@ -52,7 +78,14 @@ class ArgumentParser {
    * @param args List of expected arguments
    * @return Parser unique instance
    */
-  static Parser Configure(Expected args) { return Parser(new ArgumentParser(args)); }
+  static Parser Configure(const Expected& args) {
+    // Simply extend the ArgumentParser class, as we do not want to expose the default constructor,
+    // neither do we want to use std::make_unique explicitly calling operator new()
+    struct MakeUniqueEnabler : public ArgumentParser {
+      explicit MakeUniqueEnabler(const Expected& args) : ArgumentParser(args) {}
+    };
+    return std::make_unique<MakeUniqueEnabler>(args);
+  }
 
   /**
    * @brief Destroy an ArgumentParser object
@@ -84,32 +117,30 @@ class ArgumentParser {
 
       if (argument == "-h" || argument == "--help") {
         PrintHelp();
-        throw std::runtime_error("Received command to print helper");
-      };
+        throw parsing_error("Received command to print helper");
+      }
 
       // Find match in expected arguments
       auto found =
-          std::find_if(arguments_.begin(), arguments_.end(), [argument](const Argument& arg) {
+          std::find_if(arguments_.begin(), arguments_.end(), [&argument](const Argument& arg) {
             return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
           });
 
       if (found == arguments_.end()) {
         PrintError(argument);
-        throw std::runtime_error("Received unexpected argument");
+        throw parsing_error("Received unexpected argument");
       }
 
       // Get value for expected argument (for the first version, always expected value for argument)
-      index++;
-      std::string value{values[index]};
-      if (value.rfind('-', 2) == 0 || value.empty()) {
+      std::string value{values[++index]};
+      if (value.rfind('-', 0) == 0 || value.empty()) {
         PrintError(argument, value);
-        throw std::runtime_error("Received unexpected value for argument");
+        throw parsing_error("Received unexpected value for argument");
       }
 
       // Everything is fine, should include into opts
       opts[found->name] = value;
-
-      index++;
+      ++index;
     }
 
     return opts;
@@ -121,16 +152,17 @@ class ArgumentParser {
   /**
    * @brief Utility method to print a CLI helper based on expected arguments
    */
-  void PrintHelp() {
+  void PrintHelp() const {
     std::cout << "spectrum\n\n";
+    std::cout << "A music player with a simple and intuitive terminal user interface.\n\n";
     std::cout << "Options:";
 
-    for (auto&& arg : arguments_) {
+    for (const auto& arg : arguments_) {
       std::cout << "\n\t";
 
       // Append choices into a single string
       std::string choices;
-      for (auto&& choice : arg.choices) choices.append(choice + ", ");
+      for (const auto& choice : arg.choices) choices.append(choice + ", ");
 
       // Remove last comma+space
       if (choices.size() > 1) choices.erase(choices.size() - 2);
@@ -145,8 +177,11 @@ class ArgumentParser {
    * @brief Utility method to print error on CLI
    * @param parsed Argument parsed from command-line
    */
-  void PrintError(const std::string& parsed) {
-    std::cout << "spectrum: invalid option [" << parsed << "]\n";
+  void PrintError(const std::string& parsed) const {
+    if (parsed.empty())
+      std::cout << "spectrum: empty option\n";
+    else
+      std::cout << "spectrum: invalid option [" << parsed << "]\n";
   }
 
   /**
@@ -154,13 +189,12 @@ class ArgumentParser {
    * @param argument Argument parsed from command-line
    * @param value Value parsed from command-line
    */
-  void PrintError(const std::string& argument, const std::string& value) {
-    std::cout << "spectrum: invalid value for option [" << argument << " " << value << "]\n";
+  void PrintError(const std::string& argument, const std::string& value) const {
+    std::cout << "spectrum: invalid value(" << value << ") for option [" << argument << "]\n";
   }
 
   /* ******************************************************************************************** */
   //! Variables
- private:
   Expected arguments_;  //!< Expected arguments for command-line parsing
 };
 

@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_ELEMENT_DIALOG_H_
 
 #include <memory>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"  // for Event
 #include "ftxui/dom/elements.hpp"     // for Element
@@ -24,7 +25,7 @@ class ErrorDialog {
   /**
    * @brief Construct a new ErrorDialog object
    */
-  ErrorDialog();
+  ErrorDialog() = default;
 
   /**
    * @brief Destroy ErrorDialog object
@@ -35,7 +36,7 @@ class ErrorDialog {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render();
+  ftxui::Element Render() const;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -43,14 +44,14 @@ class ErrorDialog {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(ftxui::Event event);
+  bool OnEvent(const ftxui::Event& event);
 
   /**
    * @brief Set error message to show on dialog
    *
    * @param message Error message
    */
-  void SetErrorMessage(const std::string& message);
+  void SetErrorMessage(const std::string_view& message);
 
   /**
    * @brief Reset dialog state to initial value
@@ -62,7 +63,7 @@ class ErrorDialog {
    *
    * @return true if dialog visible, otherwise false
    */
-  bool IsVisible() { return opened_; }
+  bool IsVisible() const { return opened_; }
 
   /* ******************************************************************************************** */
  private:
@@ -72,8 +73,9 @@ class ErrorDialog {
     ftxui::Color foreground;
   };
 
-  DialogStyle style_;    //!< Color style
-  bool opened_;          //!< Flag to indicate dialog visilibity
+  DialogStyle style_ = DialogStyle{.background = ftxui::Color::DarkRedBis,
+                                   .foreground = ftxui::Color::Grey93};  //!< Color style
+  bool opened_ = false;  //!< Flag to indicate dialog visilibity
   std::string message_;  //!< Custom error message
 };
 

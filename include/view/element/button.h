@@ -33,7 +33,8 @@ class Button {
     ftxui::Color border_normal;
     ftxui::Color border_focused;
 
-    int height, width;
+    int height;
+    int width;
     Delimiters delimiters;
   };
 
@@ -142,15 +143,22 @@ class Button {
   /**
    * @brief Execute button callback function
    */
-  void OnClick();
+  void OnClick() const;
 
   /* ******************************************************************************************** */
+  //! Internal handling
+ private:
+  //! Handle left click event internally
+  bool HandleLeftClick(ftxui::Event& event);
+
+  /* ******************************************************************************************** */
+  //! Variables
  protected:
-  ftxui::Box box_;  //!< Box to control if mouse cursor is over the button
-  bool active_;     //!< Flag to indicate if button is activated (can be clicked)
-  bool focused_;    //!< Flag to indicate if button is focused (mouse on hover)
-  bool clicked_;    //!< Flag to indicate if button was clicked (mouse click)
-  bool pressed_;    //!< Flag to indicate if button is pressed (mouse hold click)
+  ftxui::Box box_;        //!< Box to control if mouse cursor is over the button
+  bool active_ = false;   //!< Flag to indicate if button is activated (can be clicked)
+  bool focused_ = false;  //!< Flag to indicate if button is focused (mouse on hover)
+  bool clicked_ = false;  //!< Flag to indicate if button was clicked (mouse click)
+  bool pressed_ = false;  //!< Flag to indicate if button is pressed (mouse hold click)
 
   ButtonStyle style_;  //!< Color style for each part of the button
 

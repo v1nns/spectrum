@@ -2,30 +2,23 @@
 
 namespace interface {
 
-Help::Help()
-    : style_{DialogStyle{
-          .background = ftxui::Color::BlueLight,
-          .foreground = ftxui::Color::Grey93,
-      }},
-      opened_{false} {}
+ftxui::Element Help::Render() const {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
 
-/* ********************************************************************************************** */
-
-ftxui::Element Help::Render() {
-  using ftxui::WIDTH, ftxui::HEIGHT, ftxui::EQUAL;
-
-  constexpr auto title = [](const std::string& title) {
+  constexpr auto title = [](const std::string& message) {
     return ftxui::vbox({
         ftxui::text(""),
-        ftxui::text(title) | ftxui::color(ftxui::Color::Black) | ftxui::bold | ftxui::xflex_grow,
+        ftxui::text(message) | ftxui::color(ftxui::Color::Black) | ftxui::bold | ftxui::xflex_grow,
         ftxui::text(""),
     });
   };
 
-  constexpr auto command = [](const std::string& command, const std::string& description) {
+  constexpr auto command = [](const std::string& keybind, const std::string& description) {
     return ftxui::hbox({
-        ftxui::text(command) | ftxui::color(ftxui::Color::PaleTurquoise1),
-        ftxui::text(!command.empty() ? " - " : ""),
+        ftxui::text(keybind) | ftxui::color(ftxui::Color::PaleTurquoise1),
+        ftxui::text(!keybind.empty() ? " - " : ""),
         ftxui::text(description) | ftxui::color(ftxui::Color::Black),
     });
   };
@@ -105,7 +98,7 @@ ftxui::Element Help::Render() {
 
 /* ********************************************************************************************** */
 
-bool Help::OnEvent(ftxui::Event event) {
+bool Help::OnEvent(const ftxui::Event& event) {
   if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
       event == ftxui::Event::Character('q')) {
     Close();

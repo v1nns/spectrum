@@ -25,7 +25,7 @@ class Help {
   /**
    * @brief Construct a new Help object
    */
-  Help();
+  Help() = default;
 
   /**
    * @brief Destroy Help object
@@ -36,7 +36,7 @@ class Help {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render();
+  ftxui::Element Render() const;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -44,7 +44,7 @@ class Help {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(ftxui::Event event);
+  bool OnEvent(const ftxui::Event& event);
 
   /**
    * @brief Set dialog state to visible
@@ -61,7 +61,7 @@ class Help {
    *
    * @return true if dialog visible, otherwise false
    */
-  bool IsVisible() { return opened_; }
+  bool IsVisible() const { return opened_; }
 
   /* ******************************************************************************************** */
  private:
@@ -71,8 +71,9 @@ class Help {
     ftxui::Color foreground;
   };
 
-  DialogStyle style_;    //!< Color style
-  bool opened_;          //!< Flag to indicate dialog visilibity
+  DialogStyle style_ = DialogStyle{.background = ftxui::Color::BlueLight,
+                                   .foreground = ftxui::Color::Grey93};  //!< Color style
+  bool opened_ = false;  //!< Flag to indicate dialog visilibity
 };
 
 }  // namespace interface

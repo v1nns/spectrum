@@ -14,8 +14,7 @@ namespace interface {
 
 FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, model::BlockIdentifier::FileInfo,
-            interface::Size{.width = 0, .height = kMaxRows}},
-      audio_info_{} {}
+            interface::Size{.width = 0, .height = kMaxRows}} {}
 
 /* ********************************************************************************************** */
 
@@ -45,7 +44,8 @@ ftxui::Element FileInfo::Render() {
 
   ftxui::Element content = ftxui::vbox(std::move(lines));
 
-  using ftxui::HEIGHT, ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::EQUAL;
   return ftxui::window(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()),
                        std::move(content)) |
          ftxui::size(HEIGHT, EQUAL, kMaxRows);

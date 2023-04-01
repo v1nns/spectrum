@@ -28,7 +28,7 @@ class SpectrumVisualizer : public TabItem {
   /**
    * @brief Destroy the SpectrumVisualizer object
    */
-  virtual ~SpectrumVisualizer() = default;
+  ~SpectrumVisualizer() override = default;
 
   /**
    * @brief Renders the component
@@ -41,7 +41,7 @@ class SpectrumVisualizer : public TabItem {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(ftxui::Event event) override;
+  bool OnEvent(const ftxui::Event& event) override;
 
   /**
    * @brief Handles a custom event
@@ -57,7 +57,7 @@ class SpectrumVisualizer : public TabItem {
   enum class Direction { Up, Down };
 
   //! Utility to create UI gauge
-  void CreateGauge(float value, Direction direction, ftxui::Elements& elements);
+  void CreateGauge(float value, Direction direction, ftxui::Elements& elements) const;
 
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
@@ -66,8 +66,8 @@ class SpectrumVisualizer : public TabItem {
 
   /* ******************************************************************************************** */
   //! Variables
- private:
-  model::BarAnimation curr_anim_;      //!< Control which bar animation to draw
+  model::BarAnimation curr_anim_ =
+      model::BarAnimation::HorizontalMirror;  //!< Control which bar animation to draw
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
 };
 

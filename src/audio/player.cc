@@ -35,8 +35,16 @@ std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decod
   auto dec = std::make_unique<driver::DummyDecoder>();
 #endif
 
+  // Simply extend the Player class, as we do not want to expose the default constructor,
+  // neither do we want to use std::make_shared explicitly calling operator new()
+  struct MakeSharedEnabler : public Player {
+    explicit MakeSharedEnabler(std::unique_ptr<driver::Playback>&& playback,
+                               std::unique_ptr<driver::Decoder>&& decoder)
+        : Player(std::move(playback), std::move(decoder)) {}
+  };
+
   // Instantiate Player
-  auto player = std::shared_ptr<Player>(new Player(std::move(pb), std::move(dec)));
+  auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dec));
 
   // Initialize internal components
   player->Init(asynchronous);
@@ -48,18 +56,16 @@ std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decod
 
 Player::Player(std::unique_ptr<driver::Playback>&& playback,
                std::unique_ptr<driver::Decoder>&& decoder)
-    : playback_{std::move(playback)},
-      decoder_{std::move(decoder)},
-      audio_loop_{},
-      media_control_{.state = State::Idle},
-      curr_song_{},
-      notifier_{},
-      period_size_() {}
+    : playback_{std::move(playback)}, decoder_{std::move(decoder)} {}
 
 /* ********************************************************************************************** */
 
 Player::~Player() {
-  Exit();
+  try {
+    Exit();
+  } catch (...) {
+    // We don't mind about exceptions at this point in life
+  }
 
   if (audio_loop_.joinable()) {
     audio_loop_.join();
@@ -153,9 +159,8 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
       // TODO: NotifySongState for stop
 
-      auto command_after_wait = media_control_.Pop();
-
-      if (!keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
+      if (auto command_after_wait = media_control_.Pop();
+          !keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
         LOG("Audio handler received command to", command_after_wait);
 
         if (command_after_wait == Command::Identifier::Play) {
@@ -229,7 +234,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
   // Notify song state to graphical interface
   if (last_position != new_position) {
-    last_position = new_position;
+    last_position = static_cast<int>(new_position);
 
     if (media_notifier) {
       media_notifier->NotifySongState(model::Song::CurrentInformation{
@@ -281,9 +286,10 @@ void Player::AudioHandler() {
     int position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(period_size_ / 2, [&](void* buffer, int size, int64_t& new_position) {
-      return HandleCommand(buffer, size, new_position, position);
-    });
+    result = decoder_->Decode(period_size_ / 2,
+                              [this, &position](void* buffer, int size, int64_t& new_position) {
+                                return HandleCommand(buffer, size, new_position, position);
+                              });
 
     // Reached the end of song, originated from one of these situations:
     // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
@@ -347,7 +353,6 @@ void Player::SetAudioVolume(const model::Volume& value) {
       media_control_.Push(Command::SetVolume(value));
       break;
 
-    case State::Exit:
     default:
       break;
   }
@@ -399,7 +404,6 @@ void Player::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
       media_control_.Push(Command::UpdateAudioFilters(filters));
       break;
 
-    case State::Exit:
     default:
       break;
   }

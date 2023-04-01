@@ -6,31 +6,6 @@
 
 namespace driver {
 
-FFTW::FFTW()
-    : bass_{},
-      mid_{},
-      treble_{},
-      input_size_{},
-      input_{},
-      previous_output_{},
-      memory_{},
-      peak_{},
-      fall_{},
-      cut_off_freq_{},
-      bass_cut_off_{},
-      treble_cut_off_{},
-      lower_cut_off_per_bar_{},
-      upper_cut_off_per_bar_{},
-      equalizer_{},
-      frame_rate_{},
-      frame_skip_{},
-      sensitivity_{},
-      sens_init_{},
-      bars_per_channel_{},
-      output_size_{} {}
-
-/* ********************************************************************************************** */
-
 error::Code FFTW::Init(int output_size) {
   if (output_size == 0) {
     return error::kUnknownError;

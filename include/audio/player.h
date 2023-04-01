@@ -40,6 +40,9 @@ namespace audio {
  */
 class AudioControl {
  public:
+  AudioControl() = default;
+  virtual ~AudioControl() = default;
+
   virtual void Play(const std::string& filepath) = 0;
   virtual void PauseOrResume() = 0;
   virtual void Stop() = 0;
@@ -79,7 +82,7 @@ class Player : public AudioControl {
   /**
    * @brief Destroy the Player object
    */
-  virtual ~Player();
+  ~Player() override;
 
   //! Remove these
   Player(const Player& other) = delete;             // copy constructor
@@ -129,7 +132,6 @@ class Player : public AudioControl {
 
   /* ******************************************************************************************** */
   //! Media Control
- public:
   /**
    * @brief Inform Audio loop to try to decode this file as a song and send it to playback
    * @param filepath Full path to file
@@ -179,7 +181,7 @@ class Player : public AudioControl {
   /**
    * @brief Exit from Audio loop
    */
-  void Exit() override;
+  void Exit() final;
 
   /* ******************************************************************************************** */
   //! Custom class for blocking actions
@@ -233,8 +235,8 @@ class Player : public AudioControl {
     std::mutex mutex;                  //!< Control access for internal resources
     std::condition_variable notifier;  //!< Conditional variable to block thread
 
-    std::deque<Command> queue;  //!< Queue with media control commands
-    std::atomic<State> state;   //!< Current state
+    std::deque<Command> queue;               //!< Queue with media control commands
+    std::atomic<State> state = State::Idle;  //!< Current state
 
     /**
      * @brief Reset media controls
@@ -250,7 +252,7 @@ class Player : public AudioControl {
 
         // Re-add to queue only new requests to play song
         std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue),
-                     [](Command c) { return c == Command::Identifier::Play; });
+                     [](const Command& c) { return c == Command::Identifier::Play; });
       }
     }
 
@@ -259,17 +261,15 @@ class Player : public AudioControl {
      * @param cmd Media command
      */
     void Push(const Command& cmd) {
-      {
-        std::unique_lock<std::mutex> lock(mutex);
+      std::unique_lock lock(mutex);
 
-        // Clear queue in case of exit request
-        if (cmd == Command::Identifier::Exit) {
-          std::deque<Command>().swap(queue);
-          state = State::Exit;
-        }
-
-        queue.push_back(std::move(cmd));
+      // Clear queue in case of exit request
+      if (cmd == Command::Identifier::Exit) {
+        std::deque<Command>().swap(queue);
+        state = State::Exit;
       }
+
+      queue.push_back(cmd);
       notifier.notify_one();
     }
 
@@ -278,7 +278,7 @@ class Player : public AudioControl {
      * @return Media command
      */
     Command Pop() {
-      std::unique_lock<std::mutex> lock(mutex);
+      std::unique_lock lock(mutex);
       if (queue.empty()) return Command::None();
 
       auto cmd = queue.front();
@@ -299,8 +299,8 @@ class Player : public AudioControl {
     template <typename... Args>
     bool WaitFor(Args&&... cmds) {
       LOG("Waiting for commands: {", cmds..., "}");
-      std::unique_lock<std::mutex> lock(mutex);
-      notifier.wait(lock, [&]() {
+      std::unique_lock lock(mutex);
+      notifier.wait(lock, [this, cmds...]() mutable {
         // Simply exit, do not wait for any command
         if (state == State::Exit) return true;
 
@@ -336,7 +336,6 @@ class Player : public AudioControl {
 
   /* ******************************************************************************************** */
   //! Variables
- private:
   std::unique_ptr<driver::Playback> playback_;  //!< Handle playback stream
   std::unique_ptr<driver::Decoder> decoder_;    //!< Open file as input stream and parse samples
 
