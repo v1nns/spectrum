@@ -31,22 +31,23 @@ class ArgparserTest : public ::testing::Test {
   void TearDown() override {
     // When done redirect cout to its old self
     std::cout.rdbuf(sbuf);
-
-    // std::cout << buffer.str();
   }
 
   //! Utility to setup initial input to argparser (simulating command-line arguments)
   void SetupCommandArguments(const std::vector<std::string>& args) {
+    // Clear internal cache
+    argv.clear();
     cache.clear();
+
+    // Reserve total space for cache
+    cache.reserve(args.size() + 1);
 
     // argv[0] is the name of the program
     cache.push_back("spectrum");
 
     // after that, every element is command-line arguments till argv[argc-1]
     cache.insert(cache.end(), args.begin(), args.end());
-    cache.push_back("NULL");
 
-    argv.clear();
     argv.reserve(cache.size());
 
     // Simulate argv just like when you execute the program from terminal
@@ -68,7 +69,7 @@ class ArgparserTest : public ::testing::Test {
 
 /* ********************************************************************************************** */
 
-TEST_F(ArgparserTest, PrintHelp) {
+TEST_F(ArgparserTest, PrintHelpWithoutArgs) {
   SetupCommandArguments({"-h"});
 
   try {
@@ -86,6 +87,37 @@ TEST_F(ArgparserTest, PrintHelp) {
 A music player with a simple and intuitive terminal user interface.
 
 Options:
+)");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, PrintHelpWithArgs) {
+  SetupCommandArguments({"-h"});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(Expected{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing"},
+        Argument{
+            .name = "coverage", .choices = {"-c", "--coverage"}, .description = "Enable coverage"},
+    });
+    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Received command to print helper"));
+  }
+
+  // Setup console output expectation
+  EXPECT_EQ(buffer.str(), R"(spectrum
+
+A music player with a simple and intuitive terminal user interface.
+
+Options:
+	-t, --testing	Enable dummy testing
+	-c, --coverage	Enable coverage
 )");
 }
 
@@ -114,7 +146,7 @@ Options:
 
 /* ********************************************************************************************** */
 
-TEST_F(ArgparserTest, PrintInvalidOption) {
+TEST_F(ArgparserTest, ParseInvalidOption) {
   SetupCommandArguments({"--ohno"});
 
   try {
@@ -132,7 +164,7 @@ TEST_F(ArgparserTest, PrintInvalidOption) {
 
 /* ********************************************************************************************** */
 
-TEST_F(ArgparserTest, PrintInvalidOptionWithEmptyArg) {
+TEST_F(ArgparserTest, ParseInvalidOptionWithEmptyArg) {
   SetupCommandArguments({""});
 
   try {
@@ -150,7 +182,7 @@ TEST_F(ArgparserTest, PrintInvalidOptionWithEmptyArg) {
 
 /* ********************************************************************************************** */
 
-TEST_F(ArgparserTest, PrintAnotherInvalidOption) {
+TEST_F(ArgparserTest, ParseInvalidOptionWithValue) {
   SetupCommandArguments({"ohno"});
 
   try {
@@ -166,11 +198,26 @@ TEST_F(ArgparserTest, PrintAnotherInvalidOption) {
   EXPECT_EQ(buffer.str(), "spectrum: invalid option [ohno]\n");
 }
 
-
-
 /* ********************************************************************************************** */
 
-TEST_F(ArgparserTest, PrintInvalidValueForTwoArgs) {
+TEST_F(ArgparserTest, ParseExpectedArgWithValue) {
+  SetupCommandArguments({"--testing", "true"});
+
+  // Configure argument parser and run to get parsed arguments
+  Parser argparser = util::ArgumentParser::Configure(Expected{Argument{
+      .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"}});
+
+  Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  // Setup expectations
+  EXPECT_TRUE(buffer.str().empty());
+
+  Arguments expected_args{{"testing", "true"}};
+  EXPECT_EQ(expected_args, parsed_args);
+}
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgWithTwoOptions) {
   SetupCommandArguments({"--testing", "--anotherarg"});
 
   try {
@@ -193,14 +240,73 @@ TEST_F(ArgparserTest, PrintInvalidValueForTwoArgs) {
 
 /* ********************************************************************************************** */
 
-/*
-TODO: print helper along the options
-TESTS:
-- print helper with expected args
-- unexpected arg with empty value
-- expected arg with value
-- expected arg with empty value
-- expected arg with another arg
-*/
+TEST_F(ArgparserTest, ParseExpectedArgWithEmptyValue) {
+  SetupCommandArguments({"--testing", ""});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(Expected{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing"},
+    });
+
+    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Received unexpected value for argument"));
+  }
+
+  // Setup console output expectation
+  EXPECT_EQ(buffer.str(), "spectrum: invalid value() for option [--testing]\n");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgWithValueTwice) {
+  SetupCommandArguments({"--testing", "true", "true"});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(Expected{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing"},
+    });
+
+    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
+  }
+
+  // Setup console output expectation
+  EXPECT_EQ(buffer.str(), "spectrum: invalid option [true]\n");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseMultipleExpectedArgs) {
+  SetupCommandArguments({"--testing", "true", "--coverage", "off"});
+
+  // Configure argument parser and run to get parsed arguments
+  Parser argparser = util::ArgumentParser::Configure(Expected{
+      Argument{
+          .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"},
+      Argument{
+          .name = "coverage", .choices = {"-c", "--coverage"}, .description = "Enable coverage"},
+  });
+
+  Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  // Setup expectations
+  Arguments expected_args{
+      {"testing", "true"},
+      {"coverage", "off"},
+  };
+
+  EXPECT_EQ(expected_args, parsed_args);
+  EXPECT_TRUE(buffer.str().empty());
+}
 
 }  // namespace

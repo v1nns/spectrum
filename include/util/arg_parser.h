@@ -67,7 +67,10 @@ class ArgumentParser {
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(const Expected& args) : arguments_{args} {};
+  explicit ArgumentParser(const Expected& args)
+      : arguments_{args} {
+            // TODO: maybe replace vector by set, to avoid duplicated arguments
+        };
 
  public:
   /**
@@ -129,8 +132,7 @@ class ArgumentParser {
       }
 
       // Get value for expected argument (for the first version, always expected value for argument)
-      index++;
-      std::string value{values[index]};
+      std::string value{values[++index]};
       if (value.rfind('-', 0) == 0 || value.empty()) {
         PrintError(argument, value);
         throw parsing_error("Received unexpected value for argument");
@@ -138,8 +140,7 @@ class ArgumentParser {
 
       // Everything is fine, should include into opts
       opts[found->name] = value;
-
-      index++;
+      ++index;
     }
 
     return opts;

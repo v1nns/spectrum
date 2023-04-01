@@ -324,7 +324,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void ProcessClearAnimation(std::vector<double>& data);
 
   //! Execute regain animation based on old data from before the clear animation
-  void ProcessRegainAnimation(std::vector<double>& data);
+  void ProcessRegainAnimation(const std::vector<double>& data);
 
   /* ******************************************************************************************** */
   //! Utility

@@ -335,7 +335,7 @@ void MediaController::ProcessClearAnimation(std::vector<double>& data) {
 
 /* ********************************************************************************************** */
 
-void MediaController::ProcessRegainAnimation(std::vector<double>& data) {
+void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 

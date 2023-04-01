@@ -156,13 +156,11 @@ bool AudioEqualizer::OnMouseEvent(const ftxui::Event& event) {
 
   bool bar_modified = false;
 
-  // Iterate through all frequency bars and pass event
-  bool event_handled = std::any_of(
-      bars_.begin(), bars_.end(),
-      [&event](const std::unique_ptr<FrequencyBar>& bar) { return bar->OnEvent(event); });
-
-  // Event has been handled, so update UI state
-  if (event_handled) {
+  // Iterate through all frequency bars and pass event, if event is handled, update UI state
+  if (bool event_handled = std::any_of(
+          bars_.begin(), bars_.end(),
+          [&event](const std::unique_ptr<FrequencyBar>& bar) { return bar->OnEvent(event); });
+      event_handled) {
     UpdateInterfaceState();
     // TODO: Send event for setting focus on parent block (AskForFocus)
     // Maybe create onclick callback for frequency bars

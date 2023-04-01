@@ -160,8 +160,9 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (OnGlobalModeEvent(event)) return true;
 
   // Block commands
-  bool result = std::any_of(children_.begin(), children_.end(),
-                            [&event](ftxui::Component& child) { return child->OnEvent(event); });
+  bool result =
+      std::any_of(children_.begin(), children_.end(),
+                  [&event](const ftxui::Component& child) { return child->OnEvent(event); });
 
   return result;
 }
