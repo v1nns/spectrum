@@ -31,7 +31,8 @@ target_sources(
             block_media_player.cc
             block_tab_viewer.cc
             driver_fftw.cc
-            middleware_media_controller.cc)
+            middleware_media_controller.cc
+            util_argparser.cc)
 
 target_link_libraries(test PRIVATE GTest::gtest GTest::gmock GTest::gtest_main spectrum_lib)
 

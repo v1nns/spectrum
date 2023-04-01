@@ -44,7 +44,7 @@ class parsing_error : public std::exception {
    * @brief Create a new parsing_error object
    * @param msg Error message
    */
-  parsing_error(const std::string& msg) : message_(msg) {}
+  explicit parsing_error(const std::string& msg) : message_(msg) {}
 
   /**
    * @brief Return custom error message description about this parser exception
@@ -52,7 +52,7 @@ class parsing_error : public std::exception {
    */
   const char* what() const noexcept override { return message_.c_str(); }
 
- protected:
+ private:
   std::string message_;  //!< Custom message
 };
 
@@ -131,7 +131,7 @@ class ArgumentParser {
       // Get value for expected argument (for the first version, always expected value for argument)
       index++;
       std::string value{values[index]};
-      if (value.rfind('-', 2) == 0 || value.empty()) {
+      if (value.rfind('-', 0) == 0 || value.empty()) {
         PrintError(argument, value);
         throw parsing_error("Received unexpected value for argument");
       }
@@ -177,7 +177,10 @@ class ArgumentParser {
    * @param parsed Argument parsed from command-line
    */
   void PrintError(const std::string& parsed) const {
-    std::cout << "spectrum: invalid option [" << parsed << "]\n";
+    if (parsed.empty())
+      std::cout << "spectrum: empty option\n";
+    else
+      std::cout << "spectrum: invalid option [" << parsed << "]\n";
   }
 
   /**
@@ -186,7 +189,7 @@ class ArgumentParser {
    * @param value Value parsed from command-line
    */
   void PrintError(const std::string& argument, const std::string& value) const {
-    std::cout << "spectrum: invalid value for option [" << argument << " " << value << "]\n";
+    std::cout << "spectrum: invalid value(" << value << ") for option [" << argument << "]\n";
   }
 
   /* ******************************************************************************************** */
