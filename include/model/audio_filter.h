@@ -6,12 +6,13 @@
 #ifndef INCLUDE_MODEL_AUDIO_FILTER_H_
 #define INCLUDE_MODEL_AUDIO_FILTER_H_
 
+#include <array>
 #include <cstdio>
 #include <fstream>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <vector>
+#include <unordered_map>
 
 namespace model {
 
@@ -25,6 +26,7 @@ struct AudioFilter {
   //! Constants
   static constexpr double kMinGain = -12;  //!< Minimum value of gain
   static constexpr double kMaxGain = 12;   //!< Maximum value of gain
+  static constexpr int kPresetSize = 10;   //!< Maximum number of filters for each preset
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const AudioFilter& a);
@@ -36,9 +38,15 @@ struct AudioFilter {
 
   /**
    * @brief Create default vector containing 10 audio filters to use it on GUI
-   * @return Vector containing audio filters
+   * @return Array containing audio filters
    */
-  static std::vector<AudioFilter> Create();
+  static EqualizerPreset CreateCustomPreset();
+
+  /**
+   * @brief Create a map of presets to use it on GUI
+   * @return Map of EQ presets
+   */
+  static EqualizerPresets CreateGenrePresets();
 
   /**
    * @brief Get audio filter name based on cutoff frequency
@@ -80,6 +88,11 @@ struct AudioFilter {
                      //!< decreased relative to the input signal. It is defined as the ratio of the
                      //!< output signal's amplitude to the input signal's amplitude.
 };
+
+// TODO: doc
+using MusicGenre = std::string;
+using EqualizerPreset = std::array<AudioFilter, AudioFilter::kPresetSize>;
+using EqualizerPresets = std::unordered_map<MusicGenre, EqualizerPreset>;
 
 }  // namespace model
 #endif  // INCLUDE_MODEL_AUDIO_FILTER_H_

@@ -81,7 +81,7 @@ class Notifier {
    * @brief Notify Audio Player to apply audio filters in the audio chain
    * @param frequencies Vector of audio filters
    */
-  virtual void ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) = 0;
+  virtual void ApplyAudioFilters(const model::EqualizerPreset& filters) = 0;
 };
 
 }  // namespace interface

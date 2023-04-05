@@ -266,7 +266,8 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
 
   // Setup expectation for event with new audio filters applied
   using model::AudioFilter;
-  std::vector<AudioFilter> audio_filters{
+  using model::EqualizerPreset;
+  EqualizerPreset audio_filters{
       AudioFilter{.frequency = 32},   AudioFilter{.frequency = 64, .gain = 5},
       AudioFilter{.frequency = 125},  AudioFilter{.frequency = 250, .gain = -2},
       AudioFilter{.frequency = 500},  AudioFilter{.frequency = 1000, .gain = -3},
@@ -274,11 +275,11 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
       AudioFilter{.frequency = 8000}, AudioFilter{.frequency = 16000},
   };
 
-  EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::ApplyAudioFilters),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::vector<AudioFilter>>(audio_filters)))));
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::ApplyAudioFilters),
+          Field(&interface::CustomEvent::content, VariantWith<EqualizerPreset>(audio_filters)))));
 
   // Setup expectation for event to set focus on this tab view again
   EXPECT_CALL(
@@ -356,11 +357,11 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
   EXPECT_THAT(rendered, StrEq(expected));
 
   // Setup expectation to check that will not send any audio filters
-  EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::ApplyAudioFilters),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::vector<model::AudioFilter>>(_)))))
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::ApplyAudioFilters),
+          Field(&interface::CustomEvent::content, VariantWith<model::EqualizerPreset>(_)))))
       .Times(0);
 
   // Reset EQ

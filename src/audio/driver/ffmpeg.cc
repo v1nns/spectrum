@@ -579,7 +579,7 @@ model::Volume FFmpeg::GetVolume() const { return volume_; }
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::UpdateFilters(const std::vector<model::AudioFilter> &filters) {
+error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset &filters) {
   LOG("Update audio filters in the internal structure");
 
   // Clear internal structure

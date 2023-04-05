@@ -51,12 +51,12 @@ struct Command {
   static Command SeekForward(int offset);
   static Command SeekBackward(int offset);
   static Command SetVolume(const model::Volume& value);
-  static Command UpdateAudioFilters(const std::vector<model::AudioFilter>& filters);
+  static Command UpdateAudioFilters(const model::EqualizerPreset& filters);
   static Command Exit();
 
   //! Possible types for content
-  using Content = std::variant<std::monostate, std::string, int, model::Volume,
-                               std::vector<model::AudioFilter>>;
+  using Content =
+      std::variant<std::monostate, std::string, int, model::Volume, model::EqualizerPreset>;
 
   //! Getter for command identifier
   Identifier GetId() const { return id; }

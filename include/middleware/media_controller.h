@@ -147,7 +147,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    * @brief Notify Audio Player to apply audio filters in the audio chain
    * @param frequencies Vector of audio filters
    */
-  void ApplyAudioFilters(const std::vector<model::AudioFilter>& frequencies) override;
+  void ApplyAudioFilters(const model::EqualizerPreset& frequencies) override;
 
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI

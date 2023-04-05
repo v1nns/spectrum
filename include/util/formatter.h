@@ -89,6 +89,7 @@ inline std::string EventToString(const ftxui::Event& e) {
   if (e == ftxui::Event::Tab) return "Tab";
   if (e == ftxui::Event::TabReverse) return "Shift+Tab";
   if (e == ftxui::Event::Return) return "Return";
+  if (e == ftxui::Event::Escape) return "Escape";
 
   return "Unknown";
 }

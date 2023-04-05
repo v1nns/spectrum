@@ -23,7 +23,7 @@ class DecoderMock final : public driver::Decoder {
   MOCK_METHOD(void, ClearCache, (), (override));
   MOCK_METHOD(error::Code, SetVolume, (model::Volume), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (const, override));
-  MOCK_METHOD(error::Code, UpdateFilters, (const std::vector<model::AudioFilter> &), (override));
+  MOCK_METHOD(error::Code, UpdateFilters, (const model::EqualizerPreset &), (override));
 };
 
 }  // namespace
