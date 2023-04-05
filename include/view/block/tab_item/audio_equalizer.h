@@ -207,7 +207,7 @@ class AudioEqualizer : public TabItem {
   /* ******************************************************************************************** */
   //! Interface elements
 
-  using FrequencyBars = std::array<FrequencyBar, model::AudioFilter::kPresetSize>;
+  using FrequencyBars = std::array<FrequencyBar, model::equalizer::kPresetSize>;
   FrequencyBars bars_;  //!< Array of gauges for EQ settings
 
   GenericButton btn_apply_;  //!< Buttons to apply equalization
