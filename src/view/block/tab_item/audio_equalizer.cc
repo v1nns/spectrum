@@ -11,7 +11,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher)
     : TabItem(id, dispatcher) {
   // Link audio filters to UI frequency bar element
-  for (int i = 0; i < model::AudioFilter::kPresetSize; i++) {
+  for (int i = 0; i < model::equalizer::kPresetSize; i++) {
     bars_[i].filter = &eq_custom_[i];
   }
 

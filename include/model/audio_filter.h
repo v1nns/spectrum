@@ -16,6 +16,22 @@
 
 namespace model {
 
+namespace equalizer {
+static constexpr int kPresetSize = 10;  //!< Maximum number of audio filters for each preset
+}  // namespace equalizer
+
+// Forward declaration
+struct AudioFilter;
+
+//! Music-genre name
+using MusicGenre = std::string;
+
+//! Single EQ preset
+using EqualizerPreset = std::array<AudioFilter, equalizer::kPresetSize>;
+
+//! Map of EQ presets where key is music genre, and value is an EQ preset
+using EqualizerPresets = std::unordered_map<MusicGenre, EqualizerPreset>;
+
 /**
  * @brief Class representing an audio filter, more specifically, a Biquad filter. It is a type of
  * digital filter that is widely used in audio processing applications. It is a second-order filter,
@@ -26,7 +42,6 @@ struct AudioFilter {
   //! Constants
   static constexpr double kMinGain = -12;  //!< Minimum value of gain
   static constexpr double kMaxGain = 12;   //!< Maximum value of gain
-  static constexpr int kPresetSize = 10;   //!< Maximum number of filters for each preset
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const AudioFilter& a);
@@ -88,11 +103,6 @@ struct AudioFilter {
                      //!< decreased relative to the input signal. It is defined as the ratio of the
                      //!< output signal's amplitude to the input signal's amplitude.
 };
-
-// TODO: doc
-using MusicGenre = std::string;
-using EqualizerPreset = std::array<AudioFilter, AudioFilter::kPresetSize>;
-using EqualizerPresets = std::unordered_map<MusicGenre, EqualizerPreset>;
 
 }  // namespace model
 #endif  // INCLUDE_MODEL_AUDIO_FILTER_H_
