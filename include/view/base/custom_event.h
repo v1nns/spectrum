@@ -84,7 +84,7 @@ struct CustomEvent {
   static CustomEvent ResizeAnalysis(int bars);
   static CustomEvent SeekForwardPosition(int offset);
   static CustomEvent SeekBackwardPosition(int offset);
-  static CustomEvent ApplyAudioFilters(const std::vector<model::AudioFilter>& filters);
+  static CustomEvent ApplyAudioFilters(const model::EqualizerPreset& filters);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
@@ -101,7 +101,7 @@ struct CustomEvent {
   //! Possible types for content
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
-                   std::filesystem::path, std::vector<double>, int, std::vector<model::AudioFilter>,
+                   std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier>;
 
   //! Getter for event identifier

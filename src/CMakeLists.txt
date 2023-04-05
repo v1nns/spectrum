@@ -60,7 +60,6 @@ target_sources(
             view/block/tab_viewer.cc
             view/element/button.cc
             view/element/error_dialog.cc
-            view/element/frequency_bar.cc
             view/element/help.cc
             view/element/tab_item.cc
             # logger
