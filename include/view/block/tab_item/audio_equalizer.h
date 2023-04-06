@@ -76,6 +76,8 @@ class AudioEqualizer : public TabItem {
   //! Internal structures
 
   struct FrequencyBar {
+    static constexpr int kMaxGainLength = 8;  //!< Maximum string length in the input box for gain
+
     //! Style for frequency bar
     struct BarStyle {
       ftxui::Color background;
@@ -114,7 +116,6 @@ class AudioEqualizer : public TabItem {
     ftxui::Element Render() {
       using ftxui::EQUAL;
       using ftxui::WIDTH;
-      static constexpr int kMaxGainLength = 8;  //!< Maximum string length in the input box for gain
 
       constexpr auto empty_line = []() { return ftxui::text(""); };
 
@@ -122,9 +123,10 @@ class AudioEqualizer : public TabItem {
         ftxui::Decorator color = ftxui::bgcolor(style.background) | ftxui::color(style.foreground);
 
         return ftxui::hbox({
-            ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
-            ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
-        });
+                   ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
+                   ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
+               }) |
+               ftxui::hcenter | ftxui::yflex_grow;
       };
 
       // Get gain value and choose style
@@ -138,7 +140,7 @@ class AudioEqualizer : public TabItem {
           empty_line(),
 
           // frequency gauge
-          gen_slider(gain, style) | ftxui::hcenter | ftxui::yflex_grow | ftxui::reflect(box),
+          gen_slider(gain, style) | ftxui::reflect(box),
 
           // gain input
           empty_line(),
@@ -154,16 +156,13 @@ class AudioEqualizer : public TabItem {
      * @return true if event was handled, otherwise false
      */
     bool OnMouseEvent(ftxui::Event event) {
-      if (event.mouse().button == ftxui::Mouse::WheelDown ||
-          event.mouse().button == ftxui::Mouse::WheelUp) {
-        if (hovered) {
-          double increment = event.mouse().button == ftxui::Mouse::WheelUp ? 1 : -1;
-          filter->SetNormalizedGain(filter->gain + increment);
+      if ((event.mouse().button == ftxui::Mouse::WheelDown ||
+           event.mouse().button == ftxui::Mouse::WheelUp) &&
+          hovered) {
+        double increment = event.mouse().button == ftxui::Mouse::WheelUp ? 1 : -1;
+        filter->SetNormalizedGain(filter->gain + increment);
 
-          return true;
-        }
-
-        return false;
+        return true;
       }
 
       if (box.Contain(event.mouse().x, event.mouse().y)) {

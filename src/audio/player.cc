@@ -104,6 +104,7 @@ void Player::Init(bool asynchronous) {
 
 void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   LOG("Reset media control with error code=", result);
+  decoder_->ClearCache();
   media_control_.Reset();
   curr_song_.reset();
 

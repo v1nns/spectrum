@@ -133,6 +133,8 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
 
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Play, .position = 0}));
+
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
@@ -213,6 +215,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(5);
     }));
@@ -288,6 +291,7 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     EXPECT_CALL(*playback, Stop());
 
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(AtMost(1));
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(4);
     }));
@@ -360,6 +364,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
                                                  expected_position)));
 
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
@@ -407,6 +412,7 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
     EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
 
     // Only these should be called
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(false));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
@@ -456,6 +462,7 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
     EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
 
     // Only these should be called
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kUnknownError))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
@@ -558,6 +565,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
     EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(2);
 
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(4);
     }));
@@ -650,6 +658,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(5);
     }));
@@ -737,6 +746,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
                                                  expected_position)));
 
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       /* ************************************************************************************** */
       // ATTENTION: this is the workaround found to iterate in a new audio loop to play (using the
@@ -771,6 +781,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
                                                    expected_position)))
           .Times(0);
 
+      EXPECT_CALL(*decoder, ClearCache());
       EXPECT_CALL(*notifier, ClearSongInformation(true));
     }));
 
@@ -861,6 +872,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::state,
                                                  model::Song::MediaState::Pause)));
 
+    EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       /* ************************************************************************************** */
       // ATTENTION: this is the workaround found to iterate in a new audio loop to play (using the
@@ -895,6 +907,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
                                                    expected_position)))
           .Times(0);
 
+      EXPECT_CALL(*decoder, ClearCache());
       EXPECT_CALL(*notifier, ClearSongInformation(true));
     }));
 
@@ -933,6 +946,95 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     syncer.WaitForStep(4);
     player_ctl->Exit();
     syncer.NotifyStep(5);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Received filepaths to play
+    const std::string expected_filename{"gelowler - Middle Of The Night"};
+
+    /* ****************************************************************************************** */
+    // Setup expectation for first song
+    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare() should be called only once, because when we receive a new Play command,
+    // it should exit from loop
+    EXPECT_CALL(*playback, Prepare()).Times(1).WillRepeatedly(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          int64_t position = 1;
+          callback(0, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // This next callback call will be blocked until receives some of the expected commands
+          // for Paused state
+          position++;
+          callback(0, 0, position);
+
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
+
+    model::EqualizerPreset expected_preset = model::AudioFilter::CreateCustomPreset();
+    EXPECT_CALL(*decoder, UpdateFilters(expected_preset));
+
+    // In this case, decoder will tell us that the current timestamp matches some position other
+    // than zero (this value is represented in seconds). And for this, we should notify Media
+    // Player to update its graphical interface
+    EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position, _)))
+        .Times(2);
+
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(4);
+    }));
+
+    /* ****************************************************************************************** */
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    const std::string filename{"gelowler - Middle Of The Night"};
+
+    // Ask Audio Player to play file
+    player_ctl->Play(filename);
+
+    // Wait until Player starts decoding to update audio filters
+    syncer.WaitForStep(2);
+
+    model::EqualizerPreset preset = model::AudioFilter::CreateCustomPreset();
+    player_ctl->ApplyAudioFilters(preset);
+    syncer.NotifyStep(3);
+
+    // Wait a bit, just until Player executes the audio filters update
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // Wait for Player to finish updating audio filters before client asks to exit
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
   };
 
   testing::RunAsyncTest({player, client});
