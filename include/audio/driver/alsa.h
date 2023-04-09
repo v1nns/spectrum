@@ -102,7 +102,6 @@ class Alsa final : public Playback {
 
   /* ******************************************************************************************** */
   //! Default Constants for Audio Parameters
-  static constexpr const char kDevice[] = "default";
   static constexpr const char kSelemName[] = "Master";
   static constexpr int kChannels = 2;
   static constexpr int kSampleRate = 44100;
