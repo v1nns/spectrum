@@ -3,18 +3,91 @@
 #include <alsa/mixer.h>
 #include <math.h>
 
+#include <array>
+#include <vector>
+
 #include "model/application_error.h"
 #include "util/logger.h"
 
 namespace driver {
 
+namespace {
+
+// List supported audio devices.
+std::vector<std::string> ListAudioDeviceNames() {
+  std::vector<std::string> devices;
+
+  const char **hints = nullptr;
+  if (snd_device_name_hint(-1, "pcm", (void ***)&hints) < 0) {
+    ERROR("Cannot get device name hints");
+    return devices;
+  }
+
+  for (const char **hint = hints; *hint; hint++) {
+    const char *name = snd_device_name_get_hint(*hint, "NAME");
+    if (name) {
+      devices.push_back(name);
+      free((void *)name);
+    }
+  }
+
+  snd_device_name_free_hint((void **)hints);
+  return devices;
+}
+
+// Get a list of prefered devices to use, sorted by priority.
+std::vector<std::string> GetPreferedDevicesName() {
+  std::vector<std::string> devices_names = ListAudioDeviceNames();
+  if (devices_names.empty()) {
+    ERROR("No audio device found");
+    return devices_names;
+  }
+
+  // A list of prefered devices to use, sorted by priority.
+  const std::array<std::string, 2> kPreferedAudioDeviceName = {
+      "default",
+      "pulse",
+  };
+
+  auto iterator_begin = devices_names.begin();
+  for (auto &prefered_device : kPreferedAudioDeviceName) {
+    auto it = std::find(devices_names.begin(), devices_names.end(), prefered_device);
+    if (it == devices_names.end()) {
+      continue;
+    }
+
+    std::iter_swap(iterator_begin, it);
+    iterator_begin++;
+  }
+
+  return devices_names;
+}
+
+}  // namespace
+
 error::Code Alsa::CreatePlaybackStream() {
   LOG("Create new playback stream");
 
+  std::vector<std::string> devices_name = GetPreferedDevicesName();
+
   // Create playback stream on ALSA
   snd_pcm_t *pcm_handle = nullptr;
-  if (snd_pcm_open(&pcm_handle, kDevice, SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-    ERROR("Cannot open playback stream");
+
+  std::string device_name;
+  for (auto &device : devices_name) {
+    LOG("Creating playback stream on device: ", device);
+    if (snd_pcm_open(&pcm_handle, device.c_str(), SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+      LOG("Cannot open playback stream on device: ", device);
+      continue;
+    }
+    LOG("Created playback stream on device: ", device);
+
+    device_name = device;
+    break;
+  }
+
+  if (device_name.empty()) {
+    ERROR("Cannot open playback stream on any device!");
     return error::kUnknownError;
   }
 
@@ -24,7 +97,7 @@ error::Code Alsa::CreatePlaybackStream() {
   snd_mixer_t *mixer_handle = nullptr;
 
   snd_mixer_open(&mixer_handle, 0);
-  snd_mixer_attach(mixer_handle, kDevice);
+  snd_mixer_attach(mixer_handle, device_name.c_str());
   snd_mixer_selem_register(mixer_handle, nullptr, nullptr);
 
   if (snd_mixer_load(mixer_handle) < 0) {
