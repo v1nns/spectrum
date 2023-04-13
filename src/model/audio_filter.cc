@@ -27,68 +27,48 @@ bool AudioFilter::operator!=(const AudioFilter& other) const { return !operator=
 
 /* ********************************************************************************************** */
 
-EqualizerPreset AudioFilter::CreateCustomPreset() {
-  return EqualizerPreset{
-      AudioFilter{.frequency = 32},   AudioFilter{.frequency = 64},
-      AudioFilter{.frequency = 125},  AudioFilter{.frequency = 250},
-      AudioFilter{.frequency = 500},  AudioFilter{.frequency = 1000},
-      AudioFilter{.frequency = 2000}, AudioFilter{.frequency = 4000},
-      AudioFilter{.frequency = 8000}, AudioFilter{.frequency = 16000},
-  };
-}
-
-/* ********************************************************************************************** */
-
-EqualizerPresets AudioFilter::CreateGenrePresets() {
+EqualizerPresets AudioFilter::CreatePresets() {
   return EqualizerPresets{
       {
+          "Custom",
+          {AudioFilter{.frequency = 32, .modifiable = true},
+           AudioFilter{.frequency = 64, .modifiable = true},
+           AudioFilter{.frequency = 125, .modifiable = true},
+           AudioFilter{.frequency = 250, .modifiable = true},
+           AudioFilter{.frequency = 500, .modifiable = true},
+           AudioFilter{.frequency = 1000, .modifiable = true},
+           AudioFilter{.frequency = 2000, .modifiable = true},
+           AudioFilter{.frequency = 4000, .modifiable = true},
+           AudioFilter{.frequency = 8000, .modifiable = true},
+           AudioFilter{.frequency = 16000, .modifiable = true}},
+      },
+
+      {
           "Electronic",
-          {
-              AudioFilter{.frequency = 32, .gain = 2},
-              AudioFilter{.frequency = 64, .gain = 3},
-              AudioFilter{.frequency = 125, .gain = 2},
-              AudioFilter{.frequency = 250, .gain = -2},
-              AudioFilter{.frequency = 500, .gain = 0},
-              AudioFilter{.frequency = 1000, .gain = 1},
-              AudioFilter{.frequency = 2000, .gain = 3},
-              AudioFilter{.frequency = 4000, .gain = 1},
-              AudioFilter{.frequency = 8000, .gain = 2},
-              AudioFilter{.frequency = 16000, .gain = 2},
-          },
+          {AudioFilter{.frequency = 32, .gain = 2}, AudioFilter{.frequency = 64, .gain = 3},
+           AudioFilter{.frequency = 125, .gain = 2}, AudioFilter{.frequency = 250, .gain = -2},
+           AudioFilter{.frequency = 500, .gain = 0}, AudioFilter{.frequency = 1000, .gain = 1},
+           AudioFilter{.frequency = 2000, .gain = 3}, AudioFilter{.frequency = 4000, .gain = 1},
+           AudioFilter{.frequency = 8000, .gain = 2}, AudioFilter{.frequency = 16000, .gain = 2}},
       },
 
       {
           "Pop",
-          {
-              AudioFilter{.frequency = 32, .gain = 1},
-              AudioFilter{.frequency = 64, .gain = 2},
-              AudioFilter{.frequency = 125, .gain = 1},
-              AudioFilter{.frequency = 250, .gain = 0},
-              AudioFilter{.frequency = 500, .gain = 0},
-              AudioFilter{.frequency = 1000, .gain = 2},
-              AudioFilter{.frequency = 2000, .gain = 1},
-              AudioFilter{.frequency = 4000, .gain = 1},
-              AudioFilter{.frequency = 8000, .gain = 2},
-              AudioFilter{.frequency = 16000, .gain = 3},
-          },
+          {AudioFilter{.frequency = 32, .gain = 1}, AudioFilter{.frequency = 64, .gain = 2},
+           AudioFilter{.frequency = 125, .gain = 1}, AudioFilter{.frequency = 250, .gain = 0},
+           AudioFilter{.frequency = 500, .gain = 0}, AudioFilter{.frequency = 1000, .gain = 2},
+           AudioFilter{.frequency = 2000, .gain = 1}, AudioFilter{.frequency = 4000, .gain = 1},
+           AudioFilter{.frequency = 8000, .gain = 2}, AudioFilter{.frequency = 16000, .gain = 3}},
       },
 
       {
           "Rock",
-          {
-              AudioFilter{.frequency = 32, .gain = 1},
-              AudioFilter{.frequency = 64, .gain = 2},
-              AudioFilter{.frequency = 125, .gain = 1},
-              AudioFilter{.frequency = 250, .gain = -1},
-              AudioFilter{.frequency = 500, .gain = -3},
-              AudioFilter{.frequency = 1000, .gain = -1},
-              AudioFilter{.frequency = 2000, .gain = 0},
-              AudioFilter{.frequency = 4000, .gain = 1},
-              AudioFilter{.frequency = 8000, .gain = 2},
-              AudioFilter{.frequency = 16000, .gain = 3},
-          },
+          {AudioFilter{.frequency = 32, .gain = 1}, AudioFilter{.frequency = 64, .gain = 2},
+           AudioFilter{.frequency = 125, .gain = 1}, AudioFilter{.frequency = 250, .gain = -1},
+           AudioFilter{.frequency = 500, .gain = -3}, AudioFilter{.frequency = 1000, .gain = -1},
+           AudioFilter{.frequency = 2000, .gain = 0}, AudioFilter{.frequency = 4000, .gain = 1},
+           AudioFilter{.frequency = 8000, .gain = 2}, AudioFilter{.frequency = 16000, .gain = 3}},
       },
-
   };
 }
 

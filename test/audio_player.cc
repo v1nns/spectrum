@@ -994,7 +994,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
     EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
 
-    model::EqualizerPreset expected_preset = model::AudioFilter::CreateCustomPreset();
+    model::EqualizerPreset expected_preset = model::AudioFilter::CreatePresets()["Custom"];
     EXPECT_CALL(*decoder, UpdateFilters(expected_preset));
 
     // In this case, decoder will tell us that the current timestamp matches some position other
@@ -1025,7 +1025,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
     // Wait until Player starts decoding to update audio filters
     syncer.WaitForStep(2);
 
-    model::EqualizerPreset preset = model::AudioFilter::CreateCustomPreset();
+    model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
     player_ctl->ApplyAudioFilters(preset);
     syncer.NotifyStep(3);
 
