@@ -276,9 +276,9 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 bool MediaPlayer::OnMouseEvent(ftxui::Event event) const {
-  if (btn_play_->OnEvent(event)) return true;
+  if (btn_play_->OnMouseEvent(event)) return true;
 
-  if (btn_stop_->OnEvent(event)) return true;
+  if (btn_stop_->OnMouseEvent(event)) return true;
 
   // Mouse click on duration box
   if (IsPlaying() && event.mouse().button == ftxui::Mouse::Left &&

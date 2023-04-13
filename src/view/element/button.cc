@@ -7,7 +7,7 @@ Button::Button(const ButtonStyle& style, Callback on_click, bool active)
 
 /* ********************************************************************************************** */
 
-bool Button::OnEvent(ftxui::Event event) {
+bool Button::OnMouseEvent(ftxui::Event event) {
   if (event.mouse().button == ftxui::Mouse::WheelDown ||
       event.mouse().button == ftxui::Mouse::WheelUp) {
     return false;

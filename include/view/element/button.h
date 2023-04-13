@@ -108,7 +108,7 @@ class Button {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(ftxui::Event event);
+  bool OnMouseEvent(ftxui::Event event);
 
   /**
    * @brief Set button state

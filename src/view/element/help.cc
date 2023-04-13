@@ -39,10 +39,10 @@ ftxui::Element Help::Render() const {
               // Column 1
               ftxui::vbox({
                   title("block focus"),
-                  command("Shift+1", "files"),
-                  command("Shift+2", "information"),
-                  command("Shift+3", "visualizer/equalizer"),
-                  command("Shift+4", "player"),
+                  command("Shift+1", "Focus files"),
+                  command("Shift+2", "Focus information"),
+                  command("Shift+3", "Focus visualizer/equalizer"),
+                  command("Shift+4", "Focus player"),
                   command("Tab", "Focus next block"),
                   command("Shift+Tab", "Focus previous block"),
 
@@ -67,16 +67,14 @@ ftxui::Element Help::Render() const {
                   title("visualizer"),
                   command("a", "Change spectrum animation"),
 
-                  margin(),
-
                   title("equalizer"),
-                  command("←/↓/↑/→", "Navigate on frequency bars"),
-                  command("h/j/k/l", "Navigate on frequency bars"),
+                  command("←/↓/↑/→", "Navigate on elements"),
+                  command("h/j/k/l", "Navigate on elements"),
+                  command("Space/Return", "Open/close picker"),
+                  command("            ", "Select new preset"),
                   command("Esc", "Cancel focus"),
                   command("a", "Apply equalizer settings"),
                   command("r", "Reset equalizer settings"),
-
-                  margin(),
 
                   title("player"),
                   command("p", "Pause/Resume current song"),
