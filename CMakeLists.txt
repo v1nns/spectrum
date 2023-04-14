@@ -38,5 +38,6 @@ add_subdirectory(src)
 
 if(ENABLE_TESTS AND NOT SPECTRUM_DEBUG)
     message(STATUS "Enabling tests...")
+    add_definitions(-DENABLE_TESTS)
     add_subdirectory(test)
 endif()
