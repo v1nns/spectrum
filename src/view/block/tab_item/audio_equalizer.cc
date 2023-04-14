@@ -1,16 +1,14 @@
 #include "view/block/tab_item/audio_equalizer.h"
 
+#include <functional>
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher)
     : TabItem(id, dispatcher) {
   // Initialize picker
-  picker_.Initialize(presets_, &preset_name_, [this](const model::MusicGenre& preset) {
-    // Update preset and link new EQ settings to frequency bars
-    preset_name_ = preset;
-    LinkPresetToInterface(current_preset());
-  });
+  picker_.Initialize(presets_, &preset_name_,
+                     std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
 
   // Link initial EQ settings to UI
   LinkPresetToInterface(current_preset());
@@ -29,7 +27,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         if (!disp) return false;
 
         LOG("Handle callback for Equalizer apply button");
-        auto& current = current_preset();
+        const auto& current = current_preset();
 
         // Do nothing if they are equal
         if (last_applied_ == current) return false;
@@ -169,7 +167,7 @@ bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 /* ********************************************************************************************** */
 
 void AudioEqualizer::UpdateButtonState() {
-  auto& current = current_preset();
+  const auto& current = current_preset();
 
   // Set apply button as active only if current filters are different from cache
   if (last_applied_ != current) {
@@ -183,7 +181,7 @@ void AudioEqualizer::UpdateButtonState() {
   // - exists at least one bar with gain different from zero
   if (preset_name_ == kModifiablePreset &&
       std::any_of(current.begin(), current.end(),
-                  [](model::AudioFilter& filter) { return filter.gain != 0; })) {
+                  [](const model::AudioFilter& filter) { return filter.gain != 0; })) {
     btn_reset_->SetActive();
   } else {
     btn_reset_->SetInactive();
@@ -197,6 +195,14 @@ void AudioEqualizer::LinkPresetToInterface(model::EqualizerPreset& preset) {
   for (int i = 0; i < model::equalizer::kFiltersPerPreset; i++) {
     bars_[i].filter = &preset[i];
   }
+}
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::UpdatePreset(const model::MusicGenre& preset) {
+  // Update preset and link new EQ settings to frequency bars
+  preset_name_ = preset;
+  LinkPresetToInterface(current_preset());
 }
 
 }  // namespace interface

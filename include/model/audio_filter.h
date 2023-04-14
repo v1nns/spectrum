@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdio>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <ostream>
 #include <sstream>
@@ -30,7 +31,7 @@ using MusicGenre = std::string;
 using EqualizerPreset = std::array<AudioFilter, equalizer::kFiltersPerPreset>;
 
 //! Map of EQ presets where key is music genre, and value is an EQ preset
-using EqualizerPresets = std::map<MusicGenre, EqualizerPreset>;
+using EqualizerPresets = std::map<MusicGenre, EqualizerPreset, std::less<>>;
 
 /**
  * @brief Class representing an audio filter, more specifically, a Biquad filter. It is a type of

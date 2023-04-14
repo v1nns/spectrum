@@ -81,6 +81,9 @@ class AudioEqualizer : public TabItem {
   //! Link current EQ settings to UI components
   void LinkPresetToInterface(model::EqualizerPreset& preset);
 
+  //! Update current preset selected
+  void UpdatePreset(const model::MusicGenre& preset);
+
   //! Utility to return current EQ settings
   model::EqualizerPreset& current_preset() {
     auto preset = presets_.find(preset_name_);
@@ -93,6 +96,9 @@ class AudioEqualizer : public TabItem {
 
   //! Base class for elements inside this TabView
   struct Element {
+    //! Default destructor
+    virtual ~Element() = default;
+
     ftxui::Box box;        //!< Box to control if mouse cursor is over the element
     bool hovered = false;  //!< Flag to indicate if element is hovered (by mouse)
     bool focused = false;  //!< Flag to indicate if element is focused (set by equalizer)
@@ -127,12 +133,20 @@ class AudioEqualizer : public TabItem {
       return false;
     }
 
-    //! Optional implementation by derived class
+    //! Implemented by derived class
     virtual ftxui::Element Render() { return ftxui::text(""); }
-    virtual void HandleNavigationKey(const ftxui::Event& event) {}
-    virtual void HandleWheel(ftxui::Mouse::Button button) {}
-    virtual void HandleClick(ftxui::Event& event) {}
-    virtual void HandleHover(ftxui::Event& event) {}
+    virtual void HandleNavigationKey(const ftxui::Event& event) {
+      // Optional implementation
+    }
+    virtual void HandleWheel(ftxui::Mouse::Button button) {
+      // Optional implementation
+    }
+    virtual void HandleClick(ftxui::Event& event) {
+      // Optional implementation
+    }
+    virtual void HandleHover(ftxui::Event& event) {
+      // Optional implementation
+    }
   };
 
   /* ******************************************************************************************** */
@@ -300,7 +314,7 @@ class AudioEqualizer : public TabItem {
      * @brief Render frequency bar
      * @return UI element
      */
-    ftxui::Element Render() final {
+    ftxui::Element Render() override {
       using ftxui::EQUAL;
       using ftxui::WIDTH;
 
@@ -318,7 +332,11 @@ class AudioEqualizer : public TabItem {
 
       // Get gain value and choose style
       float gain = filter->GetGainAsPercentage();
-      const BarStyle& style = focused ? style_focused : hovered ? style_hovered : style_normal;
+      const BarStyle* style;
+      if (focused)
+        style = &style_focused;
+      else
+        style = hovered ? &style_hovered : &style_normal;
 
       return ftxui::vbox({
           // title
@@ -327,7 +345,7 @@ class AudioEqualizer : public TabItem {
           empty_line(),
 
           // frequency gauge
-          gen_slider(gain, style) | ftxui::reflect(box),
+          gen_slider(gain, *style) | ftxui::reflect(box),
 
           // gain input
           empty_line(),
@@ -337,12 +355,12 @@ class AudioEqualizer : public TabItem {
       });
     }
 
-   protected:
+   private:
     /**
      * @brief Handles a navigation key event (arrow keys or hjkl)
      * @param event Received event from screen
      */
-    void HandleNavigationKey(const ftxui::Event& event) final {
+    void HandleNavigationKey(const ftxui::Event& event) override {
       if (!filter->modifiable) return;
 
       // Increment value and update UI
@@ -362,7 +380,7 @@ class AudioEqualizer : public TabItem {
      * @brief Handles a mouse scroll wheel event
      * @param button Received button event from screen
      */
-    void HandleWheel(ftxui::Mouse::Button button) final {
+    void HandleWheel(ftxui::Mouse::Button button) override {
       if (!filter->modifiable) return;
 
       double increment = button == ftxui::Mouse::WheelUp ? 1 : -1;
@@ -373,7 +391,7 @@ class AudioEqualizer : public TabItem {
      * @brief Handles a mouse click event
      * @param event Received event from screen
      */
-    void HandleClick(ftxui::Event& event) final {
+    void HandleClick(ftxui::Event& event) override {
       if (!filter->modifiable) return;
 
       // Calculate new value for gain based on coordinates from mouse click and bar size
@@ -412,7 +430,7 @@ class AudioEqualizer : public TabItem {
      * @param name Current preset
      */
     void Initialize(const model::EqualizerPresets& eq_presets, model::MusicGenre* name,
-                    Callback update) {
+                    const Callback& update) {
       presets.reserve(eq_presets.size());
       boxes.resize(eq_presets.size() + 1);  // presets + title
 
@@ -426,7 +444,7 @@ class AudioEqualizer : public TabItem {
      * @brief Render music genre EQ picker
      * @return UI element
      */
-    ftxui::Element Render() {
+    ftxui::Element Render() override {
       using ftxui::EQUAL;
       using ftxui::HEIGHT;
       using ftxui::WIDTH;
@@ -473,12 +491,12 @@ class AudioEqualizer : public TabItem {
       });
     }
 
-   protected:
+   private:
     /**
      * @brief Handles a navigation key event (arrow keys or hjkl)
      * @param event Received event from screen
      */
-    void HandleNavigationKey(const ftxui::Event& event) final {
+    void HandleNavigationKey(const ftxui::Event& event) override {
       if (event == ftxui::Event::Character(' ') || event == ftxui::Event::Return) {
         // Open element
         if (!opened) {
@@ -499,17 +517,12 @@ class AudioEqualizer : public TabItem {
         }
       }
 
-      if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
-        if (opened) {
-          entry_focused =
-              entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
-        }
+      if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j') && opened) {
+        entry_focused = entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
       }
 
-      if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
-        if (opened) {
-          entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
-        }
+      if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k') && opened) {
+        entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
       }
     }
 
@@ -517,7 +530,7 @@ class AudioEqualizer : public TabItem {
      * @brief Handles a mouse scroll wheel event
      * @param button Received button event from screen
      */
-    void HandleWheel(ftxui::Mouse::Button button) final {
+    void HandleWheel(ftxui::Mouse::Button button) override {
       // Update index based on internal state (if focused or hovered)
       auto update_index = [this, &button](int& index) {
         if (button == ftxui::Mouse::WheelUp)
@@ -539,12 +552,14 @@ class AudioEqualizer : public TabItem {
     void HandleClick(ftxui::Event& event) final {
       for (int i = 0; i < boxes.size(); i++) {
         if (boxes[i].Contain(event.mouse().x, event.mouse().y)) {
-          if (i == 0)
+          if (i == 0) {
             // Click on title, so change opened state
             opened = !opened;
-          else
-            // Otherwise, click on preset, update current preset
-            update_preset(presets[--i]);
+          } else {
+            // Otherwise, it is a click on preset, so fix offset and use it to update current preset
+            --i;
+            update_preset(presets[i]);
+          }
           break;
         }
       }
@@ -554,7 +569,7 @@ class AudioEqualizer : public TabItem {
      * @brief Handles a mouse hover event
      * @param event Received event from screen
      */
-    void HandleHover(ftxui::Event& event) final {
+    void HandleHover(ftxui::Event& event) override {
       bool found = false;
       for (int i = 0; i < boxes.size(); i++) {
         if (boxes[i].Contain(event.mouse().x, event.mouse().y)) {
