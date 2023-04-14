@@ -6,8 +6,6 @@
 #ifndef INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 #define INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 
-#include <gtest/gtest_prod.h>
-
 #include <atomic>
 #include <condition_variable>
 #include <filesystem>  // for path
@@ -25,6 +23,9 @@
 #include "ftxui/screen/box.hpp"                   // for Box
 #include "view/base/block.h"                      // for Block, BlockEvent...
 
+#ifdef ENABLE_TESTS
+#include <gtest/gtest_prod.h>
+
 //! Forward declaration
 namespace {
 class ListDirectoryTest;
@@ -32,6 +33,7 @@ class ListDirectoryTest_RunTextAnimation_Test;
 class ListDirectoryTest_ScrollMenuOnBigList_Test;
 class ListDirectoryTest_TabMenuOnBigList_Test;
 }  // namespace
+#endif
 
 namespace interface {
 
@@ -274,9 +276,12 @@ class ListDirectory : public Block {
 
   /* ******************************************************************************************** */
   //! Friend test
+
+#ifdef ENABLE_TESTS
   FRIEND_TEST(::ListDirectoryTest, RunTextAnimation);
   FRIEND_TEST(::ListDirectoryTest, ScrollMenuOnBigList);
   FRIEND_TEST(::ListDirectoryTest, TabMenuOnBigList);
+#endif
 };
 
 }  // namespace interface
