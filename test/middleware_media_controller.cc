@@ -157,6 +157,10 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
 
   EXPECT_CALL(*audio_ctl, SeekBackwardPosition(Eq(skip_seconds)));
   notifier->SeekBackwardPosition(skip_seconds);
+
+  model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
+  EXPECT_CALL(*audio_ctl, ApplyAudioFilters(preset));
+  notifier->ApplyAudioFilters(preset);
 }
 
 /* ********************************************************************************************** */

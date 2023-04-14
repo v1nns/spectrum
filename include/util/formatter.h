@@ -76,8 +76,6 @@ std::string to_string_with_precision(const T& value, const int n = 6) {
  * @return Formatted string
  */
 inline std::string EventToString(const ftxui::Event& e) {
-  if (e.is_character()) return e.character();
-
   if (e == ftxui::Event::ArrowUp) return "ArrowUp";
   if (e == ftxui::Event::ArrowDown) return "ArrowDown";
   if (e == ftxui::Event::ArrowRight) return "ArrowRight";
@@ -89,6 +87,10 @@ inline std::string EventToString(const ftxui::Event& e) {
   if (e == ftxui::Event::Tab) return "Tab";
   if (e == ftxui::Event::TabReverse) return "Shift+Tab";
   if (e == ftxui::Event::Return) return "Return";
+  if (e == ftxui::Event::Escape) return "Escape";
+
+  if (e == ftxui::Event::Character(' ')) return "Space";
+  if (e.is_character()) return e.character();
 
   return "Unknown";
 }

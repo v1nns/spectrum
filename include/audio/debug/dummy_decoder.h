@@ -101,7 +101,7 @@ class DummyDecoder : public Decoder {
    * @param filters Audio filters
    * @return error::Code Decoder error converted to application error code
    */
-  error::Code UpdateFilters(const std::vector<model::AudioFilter>& filters) override {
+  error::Code UpdateFilters(const model::EqualizerPreset& filters) override {
     return error::kSuccess;
   }
 

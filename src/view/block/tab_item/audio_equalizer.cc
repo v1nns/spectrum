@@ -1,21 +1,24 @@
 #include "view/block/tab_item/audio_equalizer.h"
 
-#include <algorithm>
-
-#include "util/formatter.h"
-#include "util/logger.h"
-
+#include <functional>
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher)
     : TabItem(id, dispatcher) {
-  // Fill vector of frequency bars for equalizer
-  bars_.reserve(cache_.size());
+  // Initialize picker
+  picker_.Initialize(presets_, &preset_name_,
+                     std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
 
-  for (auto& filter : cache_) {
-    bars_.push_back(std::make_unique<FrequencyBar>(filter));
-  }
+  // Link initial EQ settings to UI
+  LinkPresetToInterface(current_preset());
+
+  // Append both picker + frequency bar elements to have focus controlled by wrapper
+  focus_ctl_.Append(picker_);
+  focus_ctl_.Append(bars_.begin(), bars_.end());
+
+  // Set zeroed custom EQ as last EQ applied
+  last_applied_.Update(preset_name_, current_preset());
 
   btn_apply_ = Button::make_button(
       std::string("Apply"),
@@ -24,24 +27,18 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         if (!disp) return false;
 
         LOG("Handle callback for Equalizer apply button");
-        // Fill vector of frequency bars and send to player
-        std::vector<model::AudioFilter> frequencies;
-        frequencies.reserve(bars_.size());
-
-        for (const auto& bar : bars_) {
-          frequencies.push_back(bar->GetAudioFilter());
-        }
+        const auto& current = current_preset();
 
         // Do nothing if they are equal
-        if (cache_ == frequencies) return false;
+        if (last_applied_ == current) return false;
 
         // Otherwise, send updated values to Audio Player
-        auto event_filters = interface::CustomEvent::ApplyAudioFilters(frequencies);
+        auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
         disp->SendEvent(event_filters);
         btn_apply_->SetInactive();
 
         // Update cache
-        cache_ = frequencies;
+        last_applied_.Update(preset_name_, current);
 
         // Set this block as active (focused)
         auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
@@ -58,29 +55,35 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         if (!disp) return false;
 
         LOG("Handle callback for Equalizer reset button");
-        // Fill vector of frequency bars and send to player
-        std::vector<model::AudioFilter> frequencies;
-        frequencies.reserve(bars_.size());
-
-        // Reset gain in all frequency bars
-        for (const auto& bar : bars_) {
-          bar->ResetGain();
-          frequencies.push_back(bar->GetAudioFilter());
-        }
 
         // Update buttons state
         btn_apply_->SetInactive();
         btn_reset_->SetInactive();
 
-        // Do nothing if they are equal
-        if (cache_ == frequencies) return false;
+        if (preset_name_ != kModifiablePreset) return false;
+        auto& current = current_preset();
 
-        // Otherwise, send updated values to Audio Player
-        auto event_filters = interface::CustomEvent::ApplyAudioFilters(frequencies);
+        // Reset current EQ
+        std::transform(current.begin(), current.end(), current.begin(),
+                       [](model::AudioFilter& filter) {
+                         filter.gain = 0;
+                         return filter;
+                       });
+
+        // Do nothing if all frequencies contains gain equal to zero
+        if (bool all_zero =
+                std::all_of(last_applied_.preset.begin(), last_applied_.preset.end(),
+                            [](const model::AudioFilter& filter) { return filter.gain == 0; });
+            all_zero) {
+          return false;
+        }
+
+        // // Otherwise, send updated values to Audio Player
+        auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
         disp->SendEvent(event_filters);
 
         // Update cache
-        cache_ = frequencies;
+        last_applied_.Update(preset_name_, current);
 
         // Set this block as active (focused)
         auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
@@ -94,54 +97,48 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 /* ********************************************************************************************** */
 
 ftxui::Element AudioEqualizer::Render() {
-  ftxui::Elements frequencies;
+  ftxui::Elements elements;
 
-  frequencies.push_back(ftxui::filler());
+  // EQ picker + frequency bars
+  elements.reserve(3 + 2 * bars_.size());
+
+  elements.push_back(ftxui::filler());
+  elements.push_back(picker_.Render());
+  elements.push_back(ftxui::filler());
 
   // Iterate through all frequency bars
-  for (const auto& bar : bars_) {
-    frequencies.push_back(bar->Render());
-    frequencies.push_back(ftxui::filler());
+  for (auto& bar : bars_) {
+    elements.push_back(bar.Render());
+    elements.push_back(ftxui::filler());
   }
 
-  return ftxui::vbox(ftxui::hbox(frequencies) | ftxui::flex_grow,
-                     ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center);
+  return ftxui::vbox({
+      ftxui::hbox(elements) | ftxui::flex_grow,
+      ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center,
+  });
 }
 
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
-  if (OnNavigationEvent(event)) {
-    return true;
-  }
-
-  // Remove focus state from frequency bar
-  if (event == ftxui::Event::Escape) {
-    if (focused_ == kInvalidIndex) return false;
-
-    LOG("Handle menu navigation key=", util::EventToString(event));
-    int old_index = focused_;
-
-    // Invalidate old index for focused
-    focused_ = kInvalidIndex;
-
-    // Update UI
-    UpdateFocus(old_index);
-    UpdateInterfaceState();
-
-    return true;
-  }
-
   // Apply audio filters
   if (btn_apply_->IsActive() && event == ftxui::Event::Character('a')) {
     LOG("Handle key to apply audio filters");
     btn_apply_->OnClick();
+    return true;
   }
 
   // Reset audio filters
   if (btn_reset_->IsActive() && event == ftxui::Event::Character('r')) {
     LOG("Handle key to reset audio filters");
     btn_reset_->OnClick();
+    return true;
+  }
+
+  // Pass event to focus controller to handle and pass it along to focused element
+  if (focus_ctl_.OnEvent(event)) {
+    UpdateButtonState();
+    return true;
   }
 
   return false;
@@ -150,85 +147,13 @@ bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnMouseEvent(const ftxui::Event& event) {
-  if (btn_apply_->OnEvent(event)) return true;
+  if (btn_apply_->OnMouseEvent(event)) return true;
 
-  if (btn_reset_->OnEvent(event)) return true;
+  if (btn_reset_->OnMouseEvent(event)) return true;
 
-  bool bar_modified = false;
-
-  // Iterate through all frequency bars and pass event, if event is handled, update UI state
-  if (bool event_handled = std::any_of(
-          bars_.begin(), bars_.end(),
-          [&event](const std::unique_ptr<FrequencyBar>& bar) { return bar->OnEvent(event); });
-      event_handled) {
-    UpdateInterfaceState();
+  if (focus_ctl_.OnMouseEvent(event)) {
     // TODO: Send event for setting focus on parent block (AskForFocus)
-    // Maybe create onclick callback for frequency bars
-  }
-
-  return bar_modified;
-}
-
-/* ********************************************************************************************** */
-
-bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
-
-/* ********************************************************************************************** */
-
-bool AudioEqualizer::OnNavigationEvent(const ftxui::Event& event) {
-  // Navigate on frequency bars
-  if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
-    int old_index = focused_;
-
-    // Calculate new index based on upper bound
-    focused_ += focused_ < (static_cast<int>(bars_.size()) - 1) ? 1 : 0;
-
-    if (old_index != focused_) {
-      UpdateFocus(old_index);
-    }
-
-    return true;
-  }
-
-  // Navigate on frequency bars
-  if (event == ftxui::Event::ArrowLeft || event == ftxui::Event::Character('h')) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
-    int old_index = focused_;
-
-    // Calculate new index based on lower bound
-    focused_ -= focused_ > (kInvalidIndex + 1) ? 1 : 0;
-
-    if (old_index != focused_) {
-      UpdateFocus(old_index);
-    }
-
-    return true;
-  }
-
-  // Change gain on frequency bar focused
-  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
-    if (focused_ == kInvalidIndex) return false;
-
-    LOG("Handle menu navigation key=", util::EventToString(event));
-
-    // Increment value and update UI
-    bars_[focused_]->IncreaseGain();
-    UpdateInterfaceState();
-
-    return true;
-  }
-
-  // Change gain on frequency bar focused
-  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
-    if (focused_ == kInvalidIndex) return false;
-
-    LOG("Handle menu navigation key=", util::EventToString(event));
-
-    // Increment value and update UI
-    bars_[focused_]->DecreaseGain();
-    UpdateInterfaceState();
-
+    UpdateButtonState();
     return true;
   }
 
@@ -237,35 +162,26 @@ bool AudioEqualizer::OnNavigationEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-void AudioEqualizer::UpdateInterfaceState() {
-  // Control flag for all gains zeroed
-  bool all_zero = true;
+bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 
-  // Dummy structure to compare current values with cache
-  std::vector<model::AudioFilter> current;
-  current.reserve(bars_.size());
+/* ********************************************************************************************** */
 
-  // Iterate through all bars to check if it has some value set for gain
-  for (auto& bar : bars_) {
-    // Get associated filter to frequency bar
-    auto filter = bar->GetAudioFilter();
-
-    // Check value for gain
-    if (filter.gain != 0) all_zero = false;
-
-    // Add filter to dummy vector
-    current.push_back(filter);
-  }
+void AudioEqualizer::UpdateButtonState() {
+  const auto& current = current_preset();
 
   // Set apply button as active only if current filters are different from cache
-  if (current != cache_) {
+  if (last_applied_ != current) {
     btn_apply_->SetActive();
   } else {
     btn_apply_->SetInactive();
   }
 
-  // Set reset button as active only if exists at least one bar with gain different from zero
-  if (!all_zero) {
+  // Set reset button as active only if:
+  // - current preset is "Custom"
+  // - exists at least one bar with gain different from zero
+  if (preset_name_ == kModifiablePreset &&
+      std::any_of(current.begin(), current.end(),
+                  [](const model::AudioFilter& filter) { return filter.gain != 0; })) {
     btn_reset_->SetActive();
   } else {
     btn_reset_->SetInactive();
@@ -274,12 +190,19 @@ void AudioEqualizer::UpdateInterfaceState() {
 
 /* ********************************************************************************************** */
 
-void AudioEqualizer::UpdateFocus(int old_index) {
-  // Remove focus from old focused frequency bar
-  if (old_index != kInvalidIndex) bars_[old_index]->ResetFocus();
+void AudioEqualizer::LinkPresetToInterface(model::EqualizerPreset& preset) {
+  // Link audio filters to UI frequency bar element
+  for (int i = 0; i < model::equalizer::kFiltersPerPreset; i++) {
+    bars_[i].filter = &preset[i];
+  }
+}
 
-  // Set focus on newly-focused frequency bar
-  if (focused_ != kInvalidIndex) bars_[focused_]->SetFocus();
+/* ********************************************************************************************** */
+
+void AudioEqualizer::UpdatePreset(const model::MusicGenre& preset) {
+  // Update preset and link new EQ settings to frequency bars
+  preset_name_ = preset;
+  LinkPresetToInterface(current_preset());
 }
 
 }  // namespace interface

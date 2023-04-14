@@ -59,6 +59,7 @@ ftxui::Element ListDirectory::Render() {
 
   Clamp();
   ftxui::Elements entries;
+  entries.reserve(Size());
 
   const auto selected = GetSelected();
   const auto focused = GetFocused();
@@ -93,8 +94,8 @@ ftxui::Element ListDirectory::Render() {
 
   // Build up the content
   ftxui::Elements content{
-      ftxui::hbox(std::move(curr_dir_title)),
-      ftxui::vbox(std::move(entries)) | ftxui::reflect(box_) | ftxui::frame | ftxui::flex,
+      ftxui::hbox(curr_dir_title),
+      ftxui::vbox(entries) | ftxui::reflect(box_) | ftxui::frame | ftxui::flex,
   };
 
   // Append search box, if enabled
@@ -105,12 +106,11 @@ ftxui::Element ListDirectory::Render() {
         ftxui::Input(&mode_search_->text_to_search, " ", &opt)->Render() | ftxui::flex,
     });
 
-    content.push_back(std::move(search_box));
+    content.push_back(search_box);
   }
 
-  return ftxui::window(
-      ftxui::hbox(ftxui::text(" files ") | GetTitleDecorator()),
-      ftxui::vbox(std::move(content)) | ftxui::flex | ftxui::size(WIDTH, EQUAL, kMaxColumns));
+  return ftxui::window(ftxui::hbox(ftxui::text(" files ") | GetTitleDecorator()),
+                       ftxui::vbox(content) | ftxui::flex | ftxui::size(WIDTH, EQUAL, kMaxColumns));
 }
 
 /* ********************************************************************************************** */

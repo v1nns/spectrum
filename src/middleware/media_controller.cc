@@ -234,7 +234,7 @@ void MediaController::SeekBackwardPosition(int value) {
 
 /* ********************************************************************************************** */
 
-void MediaController::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
+void MediaController::ApplyAudioFilters(const model::EqualizerPreset& filters) {
   auto player = player_ctl_.lock();
   if (!player) return;
 

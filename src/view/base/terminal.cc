@@ -380,7 +380,7 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::ApplyAudioFilters: {
-      auto content = event.GetContent<std::vector<model::AudioFilter>>();
+      auto content = event.GetContent<model::EqualizerPreset>();
       media_ctl->ApplyAudioFilters(content);
 
     } break;

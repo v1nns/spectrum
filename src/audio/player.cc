@@ -104,6 +104,7 @@ void Player::Init(bool asynchronous) {
 
 void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   LOG("Reset media control with error code=", result);
+  decoder_->ClearCache();
   media_control_.Reset();
   curr_song_.reset();
 
@@ -214,7 +215,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
     } break;
 
     case Command::Identifier::UpdateAudioFilters: {
-      std::vector<model::AudioFilter> value = command.GetContent<std::vector<model::AudioFilter>>();
+      model::EqualizerPreset value = command.GetContent<model::EqualizerPreset>();
       LOG("Audio handler received command to update audio filters");
       // TODO: handle error...
       decoder_->UpdateFilters(value);
@@ -381,7 +382,7 @@ void Player::SeekBackwardPosition(int value) {
 
 /* ********************************************************************************************** */
 
-void Player::ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) {
+void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
   LOG("Apply updated audio filters");
 
   // Set audio filters direcly or add new command to audio queue, based on current media state

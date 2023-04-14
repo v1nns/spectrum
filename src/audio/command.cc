@@ -113,7 +113,7 @@ Command Command::SetVolume(const model::Volume& value) {
 /* ********************************************************************************************** */
 
 // Static
-Command Command::UpdateAudioFilters(const std::vector<model::AudioFilter>& filters) {
+Command Command::UpdateAudioFilters(const model::EqualizerPreset& filters) {
   return Command{
       .id = Identifier::UpdateAudioFilters,
       .content = filters,

@@ -50,7 +50,7 @@ class AudioControl {
   virtual model::Volume GetAudioVolume() const = 0;
   virtual void SeekForwardPosition(int value) = 0;
   virtual void SeekBackwardPosition(int value) = 0;
-  virtual void ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) = 0;
+  virtual void ApplyAudioFilters(const model::EqualizerPreset& filters) = 0;
   virtual void Exit() = 0;
 };
 
@@ -176,7 +176,7 @@ class Player : public AudioControl {
    * @brief Inform audio loop to update audio filters in the filter chain
    * @param frequencies Vector of audio filters
    */
-  void ApplyAudioFilters(const std::vector<model::AudioFilter>& filters) override;
+  void ApplyAudioFilters(const model::EqualizerPreset& filters) override;
 
   /**
    * @brief Exit from Audio loop

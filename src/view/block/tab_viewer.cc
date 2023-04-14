@@ -130,12 +130,12 @@ bool TabViewer::OnCustomEvent(const CustomEvent& event) { return active()->OnCus
 /* ********************************************************************************************** */
 
 bool TabViewer::OnMouseEvent(ftxui::Event event) {
-  if (btn_help_->OnEvent(event)) return true;
+  if (btn_help_->OnMouseEvent(event)) return true;
 
-  if (btn_exit_->OnEvent(event)) return true;
+  if (btn_exit_->OnMouseEvent(event)) return true;
 
   for (const auto& [id, item] : views_) {
-    if (item.button->OnEvent(event)) {
+    if (item.button->OnMouseEvent(event)) {
       return true;
     }
   }

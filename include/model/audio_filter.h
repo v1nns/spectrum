@@ -6,14 +6,32 @@
 #ifndef INCLUDE_MODEL_AUDIO_FILTER_H_
 #define INCLUDE_MODEL_AUDIO_FILTER_H_
 
+#include <array>
 #include <cstdio>
 #include <fstream>
+#include <functional>
+#include <map>
 #include <ostream>
 #include <sstream>
 #include <string>
-#include <vector>
 
 namespace model {
+
+namespace equalizer {
+static constexpr int kFiltersPerPreset = 10;  //!< Maximum number of audio filters for each preset
+}  // namespace equalizer
+
+// Forward declaration
+struct AudioFilter;
+
+//! Music-genre name
+using MusicGenre = std::string;
+
+//! Single EQ preset
+using EqualizerPreset = std::array<AudioFilter, equalizer::kFiltersPerPreset>;
+
+//! Map of EQ presets where key is music genre, and value is an EQ preset
+using EqualizerPresets = std::map<MusicGenre, EqualizerPreset, std::less<>>;
 
 /**
  * @brief Class representing an audio filter, more specifically, a Biquad filter. It is a type of
@@ -35,10 +53,10 @@ struct AudioFilter {
   //! Utilities
 
   /**
-   * @brief Create default vector containing 10 audio filters to use it on GUI
-   * @return Vector containing audio filters
+   * @brief Create a map of presets to use it on GUI
+   * @return Map of EQ presets
    */
-  static std::vector<AudioFilter> Create();
+  static EqualizerPresets CreatePresets();
 
   /**
    * @brief Get audio filter name based on cutoff frequency
@@ -79,6 +97,8 @@ struct AudioFilter {
   double gain = 0;   //!< Measure of how much the amplitude of the output signal is increased or
                      //!< decreased relative to the input signal. It is defined as the ratio of the
                      //!< output signal's amplitude to the input signal's amplitude.
+
+  bool modifiable = false;  //!< Control if gain can be modified
 };
 
 }  // namespace model

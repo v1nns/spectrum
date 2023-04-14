@@ -84,7 +84,7 @@ class Decoder {
    * @param filters Audio filters
    * @return error::Code Decoder error converted to application error code
    */
-  virtual error::Code UpdateFilters(const std::vector<model::AudioFilter>& filters) = 0;
+  virtual error::Code UpdateFilters(const model::EqualizerPreset& filters) = 0;
 };
 
 }  // namespace driver
