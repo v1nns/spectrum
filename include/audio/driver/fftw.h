@@ -9,6 +9,7 @@
 #include <fftw3.h>
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "audio/base/analyzer.h"
@@ -33,16 +34,15 @@ class FFTW final : public Analyzer {
 
   /* ******************************************************************************************** */
   //! Public API
+
   /**
    * @brief Initialize internal structures for audio analysis
-   *
    * @param output_size Size for output vector from Execute
    */
   error::Code Init(int output_size) override;
 
   /**
    * @brief Run FFT on input vector to get information about audio in the frequency domain
-   *
    * @param in Input vector with audio raw data (signal amplitude)
    * @param size Input vector size
    * @param out Output vector where each entry represents a frequency bar
@@ -51,14 +51,12 @@ class FFTW final : public Analyzer {
 
   /**
    * @brief Get internal buffer size
-   *
    * @return Maximum size for input vector
    */
   int GetBufferSize() override { return kBufferSize; }
 
   /**
    * @brief Get output buffer size
-   *
    * @return Size for output vector (considering number of bars multiplied per number of channels)
    */
   int GetOutputSize() override { return output_size_; }
@@ -127,6 +125,8 @@ class FFTW final : public Analyzer {
   /* ******************************************************************************************** */
   //! Variables
  private:
+  std::mutex mutex_;  //!< Control access for internal resources
+
   FreqAnalysis bass_, mid_, treble_;  //!< Split audio spectrum analysis between three audio ranges
 
   //! Input data

@@ -11,6 +11,7 @@ error::Code FFTW::Init(int output_size) {
     return error::kUnknownError;
   }
 
+  std::scoped_lock lock(mutex_);
   if (output_size_ != output_size) {
     output_size_ = output_size;
     bars_per_channel_ = output_size / 2;
@@ -45,6 +46,7 @@ error::Code FFTW::Init(int output_size) {
 /* ********************************************************************************************** */
 
 error::Code FFTW::Execute(double* in, int size, double* out) {
+  std::scoped_lock lock(mutex_);
   int silence = 1;
 
   // Use raw data to fill input
