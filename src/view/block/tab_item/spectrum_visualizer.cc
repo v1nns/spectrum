@@ -95,15 +95,15 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 
 void SpectrumVisualizer::CreateGauge(float value, ftxui::Direction direction,
                                      ftxui::Elements& elements) const {
-  constexpr auto color = [](ftxui::Direction& direction) {
+  constexpr auto color = [](const ftxui::Direction& dir) {
     auto gradient = ftxui::LinearGradient()
-                        .Angle(direction == ftxui::Direction::Up ? 270 : 90)
-                        .Stop(ftxui::Color::SlateBlue3, 0.0)
-                        .Stop(ftxui::Color::RoyalBlue1, 0.1)
-                        .Stop(ftxui::Color::DodgerBlue1, 0.3)
-                        .Stop(ftxui::Color::SteelBlue3, 0.5)
-                        .Stop(ftxui::Color::SteelBlue1, 0.9)
-                        .Stop(ftxui::Color::LightSteelBlue3, 1.0);
+                        .Angle(dir == ftxui::Direction::Up ? 270 : 90)
+                        .Stop(ftxui::Color::SlateBlue3, 0.0f)
+                        .Stop(ftxui::Color::RoyalBlue1, 0.1f)
+                        .Stop(ftxui::Color::DodgerBlue1, 0.3f)
+                        .Stop(ftxui::Color::SteelBlue3, 0.5f)
+                        .Stop(ftxui::Color::SteelBlue1, 0.9f)
+                        .Stop(ftxui::Color::LightSteelBlue3, 1.0f);
 
     return ftxui::color(gradient);
   };
