@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <array>
+#include <functional>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -15,6 +17,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace util {
 
@@ -37,7 +40,7 @@ struct Argument {
 };
 
 //! List of mapped arguments to handle
-using Expected = std::set<Argument>;
+using Expected = std::vector<Argument>;
 
 /**
  * @brief Contains all arguments parsed from command-line
@@ -50,7 +53,7 @@ struct ParsedArguments {
 
   //! Constructors and destructor
   ParsedArguments() = default;
-  ParsedArguments(const Arguments& args) : parsed{args} {}
+  explicit ParsedArguments(const Arguments& args) : parsed{args} {}
   ~ParsedArguments() = default;
 
   //! Overloaded operators
@@ -98,12 +101,23 @@ class parsing_error : public std::exception {
  * @brief Class for command-line argument parsing based on predefined expectations
  */
 class ArgumentParser {
- private:
   /**
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(const Expected& args) : arguments_{args} {}
+  explicit ArgumentParser(const Expected& args) {
+    for (const auto& arg : args) {
+      // TODO: filter arg.choices to match a single char OR word
+      auto [dummy, inserted] = expected_arguments_.insert(arg);
+      if (!inserted) throw parsing_error("Cannot configure duplicated argument");
+    }
+
+    auto [dummy, inserted] =
+        expected_arguments_.insert(Argument{.name = "help",
+                                            .choices = {"-h", "--help"},
+                                            .description = "Display this help text and exit"});
+    if (!inserted) throw parsing_error("Cannot override default help text");
+  }
 
  public:
   /**
@@ -141,7 +155,7 @@ class ArgumentParser {
    * @return A map containing all parsed arguments where key is the argument identifier and value is
    * the value read for that argument
    */
-  ParsedArguments Parse(int count, char** values) {
+  ParsedArguments Parse(int count, char** values) const {
     ParsedArguments opts;
     if (count == 1) return opts;
 
@@ -155,12 +169,12 @@ class ArgumentParser {
       }
 
       // Find match in expected arguments
-      auto found =
-          std::find_if(arguments_.begin(), arguments_.end(), [&argument](const Argument& arg) {
+      auto found = std::find_if(
+          expected_arguments_.begin(), expected_arguments_.end(), [&argument](const Argument& arg) {
             return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
           });
 
-      if (found == arguments_.end()) {
+      if (found == expected_arguments_.end()) {
         PrintError(argument);
         throw parsing_error("Received unexpected argument");
       }
@@ -183,6 +197,27 @@ class ArgumentParser {
   /* ******************************************************************************************** */
   //! Utility
  private:
+  using Filtered =
+      std::set<Argument, std::less<>>;  //!< To avoid any duplications, use set container
+
+  /**
+   * @brief Find the expected argument with biggest word length used for choices
+   * @param args Expected arguments
+   * @return Length value
+   */
+  int GetBiggestLength(const Filtered& args) const {
+    int length = 0;
+
+    for (const auto& arg : args) {
+      int choice_length = 0;
+      for (const auto& choice : arg.choices) choice_length += (int)choice.size();
+
+      if (length < choice_length) length = choice_length;
+    }
+
+    return length;
+  }
+
   /**
    * @brief Utility method to print a CLI helper based on expected arguments
    */
@@ -191,7 +226,9 @@ class ArgumentParser {
     std::cout << "A music player with a simple and intuitive terminal user interface.\n\n";
     std::cout << "Options:";
 
-    for (const auto& arg : arguments_) {
+    auto biggest_choice = GetBiggestLength(expected_arguments_);
+
+    for (const auto& arg : expected_arguments_) {
       std::cout << "\n\t";
 
       // Append choices into a single string
@@ -201,10 +238,10 @@ class ArgumentParser {
       // Remove last comma+space
       if (choices.size() > 1) choices.erase(choices.size() - 2);
 
-      std::cout << choices << "\t" << arg.description;
+      std::cout << std::setw(biggest_choice) << std::left << choices;
+      std::cout << "\t" << arg.description;
     }
-
-    std::cout << std::endl;
+    std::cout << "\n";
   }
 
   /**
@@ -229,7 +266,8 @@ class ArgumentParser {
 
   /* ******************************************************************************************** */
   //! Variables
-  Expected arguments_;  //!< Expected arguments for command-line parsing
+
+  Filtered expected_arguments_;  //!< Expected arguments for command-line parsing
 };
 
 }  // namespace util

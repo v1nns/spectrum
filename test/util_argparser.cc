@@ -87,6 +87,7 @@ TEST_F(ArgparserTest, PrintHelpWithoutArgs) {
 A music player with a simple and intuitive terminal user interface.
 
 Options:
+	-h, --help	Display this help text and exit
 )");
 }
 
@@ -117,6 +118,7 @@ A music player with a simple and intuitive terminal user interface.
 
 Options:
 	-c, --coverage	Enable coverage
+	-h, --help  	Display this help text and exit
 	-t, --testing	Enable dummy testing
 )");
 }
@@ -141,6 +143,7 @@ TEST_F(ArgparserTest, PrintHelpExtensive) {
 A music player with a simple and intuitive terminal user interface.
 
 Options:
+	-h, --help	Display this help text and exit
 )");
 }
 
@@ -324,6 +327,79 @@ TEST_F(ArgparserTest, ParseEmptyExpectedArgs) {
   ParsedArguments expected_args{};
 
   EXPECT_EQ(expected_args, parsed_args);
+  EXPECT_TRUE(buffer.str().empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgsWithFind) {
+  SetupCommandArguments({"--testing", "true"});
+
+  // Configure argument parser and run to get parsed arguments
+  Parser argparser = util::ArgumentParser::Configure(Expected{
+      Argument{
+          .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"},
+      Argument{
+          .name = "coverage", .choices = {"-c", "--coverage"}, .description = "Enable coverage"},
+  });
+
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  // Setup expectations
+  ParsedArguments expected_args{{{"testing", "true"}}};
+
+  EXPECT_EQ(expected_args, parsed_args);
+  EXPECT_TRUE(buffer.str().empty());
+
+  auto parsed_value = parsed_args.Find("testing");
+  EXPECT_EQ(expected_args["testing"], parsed_value->get());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, SetupExpectedArgumentDuplicated) {
+  SetupCommandArguments({"--testing", "true"});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(Expected{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing"},
+
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing"},
+    });
+
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Cannot configure duplicated argument"));
+  }
+
+  EXPECT_TRUE(buffer.str().empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, SetupHelpAsExpectedArgument) {
+  SetupCommandArguments({"--testing", "true"});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(Expected{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing"},
+
+        Argument{.name = "help", .choices = {"-h", "--help"}, .description = "Dummy helper"},
+    });
+
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Cannot override default help text"));
+  }
+
   EXPECT_TRUE(buffer.str().empty());
 }
 

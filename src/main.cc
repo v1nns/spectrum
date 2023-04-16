@@ -19,16 +19,16 @@ bool parse(int argc, char** argv) {
   using util::ParsedArguments;
   using util::Parser;
 
-  // Create arguments expectation
-  auto expected_args = Expected{
-      Argument{
-          .name = "log",
-          .choices = {"-l", "--log"},
-          .description = "Enable logging to specified path",
-      },
-  };
-
   try {
+    // Create arguments expectation
+    auto expected_args = Expected{
+        Argument{
+            .name = "log",
+            .choices = {"-l", "--log"},
+            .description = "Enable logging to specified path",
+        },
+    };
+
     // Configure argument parser and run to get parsed arguments
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
     ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
