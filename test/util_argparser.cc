@@ -394,8 +394,6 @@ TEST_F(ArgparserTest, SetupHelpAsExpectedArgument) {
 
         Argument{.name = "help", .choices = {"-h", "--help"}, .description = "Dummy helper"},
     });
-
-    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Cannot override default help text"));
   }
