@@ -7,12 +7,14 @@
 #define INCLUDE_UTIL_ARG_PARSER_H_
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace util {
 
@@ -24,16 +26,50 @@ using Parser = std::unique_ptr<ArgumentParser>;
 
 //! Single argument option
 struct Argument {
-  std::string name;                  //!< Unique identifier
-  std::vector<std::string> choices;  //!< Possible choices to match
-  std::string description;           //!< Detailed description
+  static constexpr int kMaxChoices = 2;  //!< Maximum number of choices for a single argument
+
+  std::string name;                              //!< Unique identifier
+  std::array<std::string, kMaxChoices> choices;  //!< Possible choices to match
+  std::string description;                       //!< Detailed description
+
+  //! Overloaded operator
+  bool operator<(const Argument& rhs) const { return name < rhs.name; }
 };
 
 //! List of mapped arguments to handle
-using Expected = std::vector<Argument>;
+using Expected = std::set<Argument>;
 
-//! Map of parsed argument with the value read
-using Arguments = std::unordered_map<std::string, std::string>;
+/**
+ * @brief Contains all arguments parsed from command-line
+ */
+struct ParsedArguments {
+  using Arguments = std::unordered_map<std::string, std::string>;
+  using Value = std::optional<std::reference_wrapper<std::string>>;
+
+  Arguments parsed;  //!< Map of parsed arguments with value
+
+  //! Constructors and destructor
+  ParsedArguments() = default;
+  ParsedArguments(const Arguments& args) : parsed{args} {}
+  ~ParsedArguments() = default;
+
+  //! Overloaded operators
+  bool operator==(const ParsedArguments& other) const { return parsed == other.parsed; };
+  bool operator!=(const ParsedArguments& other) const { return !operator==(other); };
+  std::string& operator[](const std::string& key) { return parsed[key]; }
+
+  /**
+   * @brief Find associated value to key in map
+   * @param to_find Argument to find
+   * @return Associated value to parsed argument
+   */
+  Value Find(const std::string& key) {
+    auto it = parsed.find(key);
+    return it != parsed.end() ? Value{it->second} : Value{};
+  }
+};
+
+/* ********************************************************************************************** */
 
 /**
  * @brief Custom exception for error handling within ArgumentParser
@@ -67,10 +103,7 @@ class ArgumentParser {
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(const Expected& args)
-      : arguments_{args} {
-            // TODO: maybe replace vector by set, to avoid duplicated arguments
-        };
+  explicit ArgumentParser(const Expected& args) : arguments_{args} {}
 
  public:
   /**
@@ -94,6 +127,7 @@ class ArgumentParser {
 
   /* ******************************************************************************************** */
   //! Remove these
+
   ArgumentParser(const ArgumentParser& other) = delete;             // copy constructor
   ArgumentParser(ArgumentParser&& other) = delete;                  // move constructor
   ArgumentParser& operator=(const ArgumentParser& other) = delete;  // copy assignment
@@ -107,8 +141,8 @@ class ArgumentParser {
    * @return A map containing all parsed arguments where key is the argument identifier and value is
    * the value read for that argument
    */
-  Arguments Parse(int count, char** values) {
-    Arguments opts;
+  ParsedArguments Parse(int count, char** values) {
+    ParsedArguments opts;
     if (count == 1) return opts;
 
     int index = 1;

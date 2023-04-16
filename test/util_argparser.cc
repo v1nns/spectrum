@@ -10,8 +10,8 @@ namespace {
 
 using ::testing::StrEq;
 using util::Argument;
-using util::Arguments;
 using util::Expected;
+using util::ParsedArguments;
 using util::Parser;
 using util::parsing_error;
 
@@ -75,7 +75,7 @@ TEST_F(ArgparserTest, PrintHelpWithoutArgs) {
   try {
     // Configure argument parser and run to get parsed arguments
     Parser argparser = util::ArgumentParser::Configure(Expected{});
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received command to print helper"));
@@ -104,7 +104,7 @@ TEST_F(ArgparserTest, PrintHelpWithArgs) {
         Argument{
             .name = "coverage", .choices = {"-c", "--coverage"}, .description = "Enable coverage"},
     });
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received command to print helper"));
@@ -116,8 +116,8 @@ TEST_F(ArgparserTest, PrintHelpWithArgs) {
 A music player with a simple and intuitive terminal user interface.
 
 Options:
-	-t, --testing	Enable dummy testing
 	-c, --coverage	Enable coverage
+	-t, --testing	Enable dummy testing
 )");
 }
 
@@ -129,7 +129,7 @@ TEST_F(ArgparserTest, PrintHelpExtensive) {
   try {
     // Configure argument parser and run to get parsed arguments
     Parser argparser = util::ArgumentParser::Configure(Expected{});
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received command to print helper"));
@@ -152,7 +152,7 @@ TEST_F(ArgparserTest, ParseInvalidOption) {
   try {
     // Configure argument parser and run to get parsed arguments
     Parser argparser = util::ArgumentParser::Configure(Expected{});
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
@@ -170,7 +170,7 @@ TEST_F(ArgparserTest, ParseInvalidOptionWithEmptyArg) {
   try {
     // Configure argument parser and run to get parsed arguments
     Parser argparser = util::ArgumentParser::Configure(Expected{});
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
@@ -188,7 +188,7 @@ TEST_F(ArgparserTest, ParseInvalidOptionWithValue) {
   try {
     // Configure argument parser and run to get parsed arguments
     Parser argparser = util::ArgumentParser::Configure(Expected{});
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
@@ -207,12 +207,12 @@ TEST_F(ArgparserTest, ParseExpectedArgWithValue) {
   Parser argparser = util::ArgumentParser::Configure(Expected{Argument{
       .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"}});
 
-  Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   // Setup expectations
   EXPECT_TRUE(buffer.str().empty());
 
-  Arguments expected_args{{"testing", "true"}};
+  ParsedArguments expected_args{{{"testing", "true"}}};
   EXPECT_EQ(expected_args, parsed_args);
 }
 /* ********************************************************************************************** */
@@ -228,7 +228,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithTwoOptions) {
                  .description = "Enable dummy testing"},
     });
 
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received unexpected value for argument"));
@@ -251,7 +251,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithEmptyValue) {
                  .description = "Enable dummy testing"},
     });
 
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received unexpected value for argument"));
@@ -274,7 +274,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithValueTwice) {
                  .description = "Enable dummy testing"},
     });
 
-    Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
@@ -297,13 +297,13 @@ TEST_F(ArgparserTest, ParseMultipleExpectedArgs) {
           .name = "coverage", .choices = {"-c", "--coverage"}, .description = "Enable coverage"},
   });
 
-  Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   // Setup expectations
-  Arguments expected_args{
+  ParsedArguments expected_args{{
       {"testing", "true"},
       {"coverage", "off"},
-  };
+  }};
 
   EXPECT_EQ(expected_args, parsed_args);
   EXPECT_TRUE(buffer.str().empty());
@@ -318,10 +318,10 @@ TEST_F(ArgparserTest, ParseEmptyExpectedArgs) {
   Parser argparser = util::ArgumentParser::Configure(Expected{Argument{
       .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"}});
 
-  Arguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   // Setup expectations
-  Arguments expected_args{};
+  ParsedArguments expected_args{};
 
   EXPECT_EQ(expected_args, parsed_args);
   EXPECT_TRUE(buffer.str().empty());

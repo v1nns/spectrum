@@ -15,8 +15,8 @@
 //! Command-line argument parsing
 bool parse(int argc, char** argv) {
   using util::Argument;
-  using util::Arguments;
   using util::Expected;
+  using util::ParsedArguments;
   using util::Parser;
 
   // Create arguments expectation
@@ -31,12 +31,12 @@ bool parse(int argc, char** argv) {
   try {
     // Configure argument parser and run to get parsed arguments
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
-    Arguments parsed_args = arg_parser->Parse(argc, argv);
+    ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
 
     // Check if contains filepath for logging
-    if (parsed_args.find("log") != parsed_args.end()) {
+    if (auto logging_path = parsed_args.Find("log"); logging_path) {
       // Enable logging to specified path
-      util::Logger::GetInstance().Configure(parsed_args["log"]);
+      util::Logger::GetInstance().Configure(*logging_path);
     }
 
   } catch (util::parsing_error&) {
