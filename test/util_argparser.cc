@@ -351,8 +351,13 @@ TEST_F(ArgparserTest, ParseExpectedArgsWithFind) {
   EXPECT_EQ(expected_args, parsed_args);
   EXPECT_TRUE(buffer.str().empty());
 
+  // Expectation for testing
   auto parsed_value = parsed_args.Find("testing");
   EXPECT_EQ(expected_args["testing"], parsed_value->get());
+
+  // Expectation for coverage
+  parsed_value = parsed_args.Find("coverage");
+  EXPECT_EQ(std::nullopt, parsed_value);
 }
 
 /* ********************************************************************************************** */
@@ -371,8 +376,6 @@ TEST_F(ArgparserTest, SetupExpectedArgumentDuplicated) {
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},
     });
-
-    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
   } catch (util::parsing_error& err) {
     EXPECT_EQ(err.what(), std::string("Cannot configure duplicated argument"));
   }
