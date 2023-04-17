@@ -53,11 +53,8 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   // Private methods
  private:
-  // Gauge directions (not using all options from ftxui)
-  enum class Direction { Up, Down };
-
   //! Utility to create UI gauge
-  void CreateGauge(float value, Direction direction, ftxui::Elements& elements) const;
+  void CreateGauge(float value, ftxui::Direction direction, ftxui::Elements& elements) const;
 
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);

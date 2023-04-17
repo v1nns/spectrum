@@ -79,7 +79,8 @@ int main(int argc, char** argv) {
   terminal->RegisterEventSenderCallback([&screen](const ftxui::Event& e) { screen.PostEvent(e); });
   terminal->RegisterExitCallback([&screen]() { screen.ExitLoopClosure()(); });
 
-  // Start graphical interface loop and clear screen after exit
+  // Set hidden cursor, start GUI loop and clear screen after exit
+  screen.SetCursor(ftxui::Screen::Cursor{.shape = ftxui::Screen::Cursor::Shape::Hidden});
   screen.Loop(terminal);
   screen.ResetPosition(true);
 

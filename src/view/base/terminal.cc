@@ -409,9 +409,6 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
   // size and calculate maximum number of bars
   switch (event.GetId()) {
     case CustomEvent::Identifier::ChangeBarAnimation: {
-      // TODO: improve handling here and also for each method call
-      if (auto media_ctl = notifier_.lock(); !media_ctl) break;
-
       // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
 

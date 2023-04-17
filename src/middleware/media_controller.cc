@@ -210,7 +210,7 @@ void MediaController::SetVolume(model::Volume value) {
 /* ********************************************************************************************** */
 
 void MediaController::ResizeAnalysisOutput(int value) {
-  std::unique_lock lock(sync_data_.mutex);
+  std::scoped_lock lock(sync_data_.mutex);
   analyzer_->Init(value);
 }
 

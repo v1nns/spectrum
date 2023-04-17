@@ -30,14 +30,12 @@ class Analyzer {
 
   /**
    * @brief Initialize internal structures for audio analysis
-   *
    * @param output_size Size for output vector from Execute
    */
   virtual error::Code Init(int output_size) = 0;
 
   /**
    * @brief Run FFT on input vector to get information about audio in the frequency domain
-   *
    * @param in Input vector with audio raw data (signal amplitude)
    * @param size Input vector size
    * @param out Output vector where each entry represents a frequency bar
@@ -46,14 +44,12 @@ class Analyzer {
 
   /**
    * @brief Get internal buffer size
-   *
    * @return Maximum size for input vector
    */
   virtual int GetBufferSize() = 0;
 
   /**
    * @brief Get output buffer size
-   *
    * @return Size for output vector (considering number of bars multiplied per number of channels)
    */
   virtual int GetOutputSize() = 0;
