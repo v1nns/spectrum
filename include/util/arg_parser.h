@@ -108,15 +108,16 @@ class ArgumentParser {
   explicit ArgumentParser(const Expected& args) {
     for (const auto& arg : args) {
       // TODO: filter arg.choices to match a single char OR word
-      auto [dummy, inserted] = expected_arguments_.insert(arg);
-      if (!inserted) throw parsing_error("Cannot configure duplicated argument");
+      if (auto [dummy, inserted] = expected_arguments_.insert(arg); !inserted)
+        throw parsing_error("Cannot configure duplicated argument");
     }
 
-    auto [dummy, inserted] =
-        expected_arguments_.insert(Argument{.name = "help",
-                                            .choices = {"-h", "--help"},
-                                            .description = "Display this help text and exit"});
-    if (!inserted) throw parsing_error("Cannot override default help text");
+    if (auto [dummy, inserted] =
+            expected_arguments_.insert(Argument{.name = "help",
+                                                .choices = {"-h", "--help"},
+                                                .description = "Display this help text and exit"});
+        !inserted)
+      throw parsing_error("Cannot override default help text");
   }
 
  public:

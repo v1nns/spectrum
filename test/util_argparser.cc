@@ -318,8 +318,13 @@ TEST_F(ArgparserTest, ParseEmptyExpectedArgs) {
   SetupCommandArguments({});
 
   // Configure argument parser and run to get parsed arguments
-  Parser argparser = util::ArgumentParser::Configure(Expected{Argument{
-      .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"}});
+  Parser argparser = util::ArgumentParser::Configure(Expected{
+      Argument{
+          .name = "testing",
+          .choices = {"-t", "--testing"},
+          .description = "Enable dummy testing",
+      },
+  });
 
   ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
