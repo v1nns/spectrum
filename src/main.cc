@@ -15,13 +15,13 @@
 //! Command-line argument parsing
 bool parse(int argc, char** argv) {
   using util::Argument;
-  using util::Expected;
+  using util::ExpectedArguments;
   using util::ParsedArguments;
   using util::Parser;
 
   try {
     // Create arguments expectation
-    auto expected_args = Expected{
+    auto expected_args = ExpectedArguments{
         Argument{
             .name = "log",
             .choices = {"-l", "--log"},
@@ -34,7 +34,7 @@ bool parse(int argc, char** argv) {
     ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
 
     // Check if contains filepath for logging
-    if (auto logging_path = parsed_args.Find("log"); logging_path) {
+    if (auto logging_path = parsed_args["log"]; logging_path) {
       // Enable logging to specified path
       util::Logger::GetInstance().Configure(*logging_path);
     }

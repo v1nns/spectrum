@@ -10,7 +10,7 @@ namespace {
 
 using ::testing::StrEq;
 using util::Argument;
-using util::Expected;
+using util::ExpectedArguments;
 using util::ParsedArguments;
 using util::Parser;
 using util::parsing_error;
@@ -74,7 +74,7 @@ TEST_F(ArgparserTest, PrintHelpWithoutArgs) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{});
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{});
     ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
@@ -98,7 +98,7 @@ TEST_F(ArgparserTest, PrintHelpWithArgs) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
         Argument{.name = "testing",
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},
@@ -130,7 +130,7 @@ TEST_F(ArgparserTest, PrintHelpExtensive) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{});
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{});
     ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
@@ -154,7 +154,7 @@ TEST_F(ArgparserTest, ParseInvalidOption) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{});
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{});
     ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
@@ -172,7 +172,7 @@ TEST_F(ArgparserTest, ParseInvalidOptionWithEmptyArg) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{});
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{});
     ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
@@ -190,7 +190,7 @@ TEST_F(ArgparserTest, ParseInvalidOptionWithValue) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{});
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{});
     ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   } catch (util::parsing_error& err) {
@@ -207,7 +207,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithValue) {
   SetupCommandArguments({"--testing", "true"});
 
   // Configure argument parser and run to get parsed arguments
-  Parser argparser = util::ArgumentParser::Configure(Expected{Argument{
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{Argument{
       .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"}});
 
   ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
@@ -225,7 +225,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithTwoOptions) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
         Argument{.name = "testing",
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},
@@ -248,7 +248,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithEmptyValue) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
         Argument{.name = "testing",
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},
@@ -271,7 +271,7 @@ TEST_F(ArgparserTest, ParseExpectedArgWithValueTwice) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
         Argument{.name = "testing",
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},
@@ -293,7 +293,7 @@ TEST_F(ArgparserTest, ParseMultipleExpectedArgs) {
   SetupCommandArguments({"--testing", "true", "--coverage", "off"});
 
   // Configure argument parser and run to get parsed arguments
-  Parser argparser = util::ArgumentParser::Configure(Expected{
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
       Argument{
           .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"},
       Argument{
@@ -318,7 +318,7 @@ TEST_F(ArgparserTest, ParseEmptyExpectedArgs) {
   SetupCommandArguments({});
 
   // Configure argument parser and run to get parsed arguments
-  Parser argparser = util::ArgumentParser::Configure(Expected{
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
       Argument{
           .name = "testing",
           .choices = {"-t", "--testing"},
@@ -337,11 +337,11 @@ TEST_F(ArgparserTest, ParseEmptyExpectedArgs) {
 
 /* ********************************************************************************************** */
 
-TEST_F(ArgparserTest, ParseExpectedArgsWithFind) {
+TEST_F(ArgparserTest, ParseExpectedArgsWithAccessOperator) {
   SetupCommandArguments({"--testing", "true"});
 
   // Configure argument parser and run to get parsed arguments
-  Parser argparser = util::ArgumentParser::Configure(Expected{
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
       Argument{
           .name = "testing", .choices = {"-t", "--testing"}, .description = "Enable dummy testing"},
       Argument{
@@ -357,12 +357,10 @@ TEST_F(ArgparserTest, ParseExpectedArgsWithFind) {
   EXPECT_TRUE(buffer.str().empty());
 
   // Expectation for testing
-  auto parsed_value = parsed_args.Find("testing");
-  EXPECT_EQ(expected_args["testing"], parsed_value->get());
+  EXPECT_EQ(expected_args["testing"], parsed_args["testing"]);
 
   // Expectation for coverage
-  parsed_value = parsed_args.Find("coverage");
-  EXPECT_EQ(std::nullopt, parsed_value);
+  EXPECT_EQ(std::nullopt, parsed_args["coverage"]);
 }
 
 /* ********************************************************************************************** */
@@ -372,7 +370,7 @@ TEST_F(ArgparserTest, SetupExpectedArgumentDuplicated) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
         Argument{.name = "testing",
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},
@@ -395,7 +393,7 @@ TEST_F(ArgparserTest, SetupHelpAsExpectedArgument) {
 
   try {
     // Configure argument parser and run to get parsed arguments
-    Parser argparser = util::ArgumentParser::Configure(Expected{
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
         Argument{.name = "testing",
                  .choices = {"-t", "--testing"},
                  .description = "Enable dummy testing"},

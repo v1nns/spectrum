@@ -40,14 +40,14 @@ struct Argument {
 };
 
 //! List of mapped arguments to handle
-using Expected = std::vector<Argument>;
+using ExpectedArguments = std::vector<Argument>;
 
 /**
  * @brief Contains all arguments parsed from command-line
  */
 struct ParsedArguments {
-  using Arguments = std::unordered_map<std::string, std::string>;
-  using Value = std::optional<std::reference_wrapper<std::string>>;
+  // Argument may contain or not a value associated
+  using Arguments = std::unordered_map<std::string, std::optional<std::string>>;
 
   Arguments parsed;  //!< Map of parsed arguments with value
 
@@ -59,17 +59,7 @@ struct ParsedArguments {
   //! Overloaded operators
   bool operator==(const ParsedArguments& other) const { return parsed == other.parsed; };
   bool operator!=(const ParsedArguments& other) const { return !operator==(other); };
-  std::string& operator[](const std::string& key) { return parsed[key]; }
-
-  /**
-   * @brief Find associated value to key in map
-   * @param to_find Argument to find
-   * @return Associated value to parsed argument
-   */
-  Value Find(const std::string& key) {
-    auto it = parsed.find(key);
-    return it != parsed.end() ? Value{it->second} : Value{};
-  }
+  std::optional<std::string>& operator[](const std::string& key) { return parsed[key]; }
 };
 
 /* ********************************************************************************************** */
@@ -105,7 +95,7 @@ class ArgumentParser {
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(const Expected& args) {
+  explicit ArgumentParser(const ExpectedArguments& args) {
     for (const auto& arg : args) {
       // TODO: filter arg.choices to match a single char OR word
       if (auto [dummy, inserted] = expected_arguments_.insert(arg); !inserted)
@@ -126,11 +116,11 @@ class ArgumentParser {
    * @param args List of expected arguments
    * @return Parser unique instance
    */
-  static Parser Configure(const Expected& args) {
+  static Parser Configure(const ExpectedArguments& args) {
     // Simply extend the ArgumentParser class, as we do not want to expose the default constructor,
     // neither do we want to use std::make_unique explicitly calling operator new()
     struct MakeUniqueEnabler : public ArgumentParser {
-      explicit MakeUniqueEnabler(const Expected& args) : ArgumentParser(args) {}
+      explicit MakeUniqueEnabler(const ExpectedArguments& args) : ArgumentParser(args) {}
     };
     return std::make_unique<MakeUniqueEnabler>(args);
   }
