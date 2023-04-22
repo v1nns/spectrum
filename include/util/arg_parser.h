@@ -15,6 +15,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -102,7 +103,7 @@ class ArgumentParser {
    */
   void Add(const ExpectedArguments& args) {
     // Lambda to compare with choices from help argument
-    auto match_help = [](const std::string& choice) {
+    auto match_help = [](const std::string_view& choice) {
       return choice == "-h" || choice == "--help";
     };
 
