@@ -93,21 +93,32 @@ class parsing_error : public std::exception {
 class ArgumentParser {
   /**
    * @brief Create a new ArgumentParser object
+   */
+  ArgumentParser() = default;
+
+  /**
+   * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(const ExpectedArguments& args) {
+  void Add(const ExpectedArguments& args) {
+    // Lambda to compare with choices from help argument
+    auto match_help = [](const std::string& choice) {
+      return choice == "-h" || choice == "--help";
+    };
+
+    // Insert expected arguments into internal cache
     for (const auto& arg : args) {
+      // Check if argument matches some fields from default help argument
+      if (auto matched = std::find_if(arg.choices.begin(), arg.choices.end(), match_help);
+          arg.name == "help" || matched != std::end(arg.choices)) {
+        throw parsing_error("Cannot override default help text");
+      }
+
       // TODO: filter arg.choices to match a single char OR word
+
       if (auto [dummy, inserted] = expected_arguments_.insert(arg); !inserted)
         throw parsing_error("Cannot configure duplicated argument");
     }
-
-    if (auto [dummy, inserted] =
-            expected_arguments_.insert(Argument{.name = "help",
-                                                .choices = {"-h", "--help"},
-                                                .description = "Display this help text and exit"});
-        !inserted)
-      throw parsing_error("Cannot override default help text");
   }
 
  public:
@@ -119,10 +130,12 @@ class ArgumentParser {
   static Parser Configure(const ExpectedArguments& args) {
     // Simply extend the ArgumentParser class, as we do not want to expose the default constructor,
     // neither do we want to use std::make_unique explicitly calling operator new()
-    struct MakeUniqueEnabler : public ArgumentParser {
-      explicit MakeUniqueEnabler(const ExpectedArguments& args) : ArgumentParser(args) {}
-    };
-    return std::make_unique<MakeUniqueEnabler>(args);
+    struct MakeUniqueEnabler : public ArgumentParser {};
+    auto parser = std::make_unique<MakeUniqueEnabler>();
+
+    if (!args.empty()) parser->Add(args);
+
+    return parser;
   }
 
   /**
@@ -159,11 +172,14 @@ class ArgumentParser {
         throw parsing_error("Received command to print helper");
       }
 
-      // Find match in expected arguments
-      auto found = std::find_if(
-          expected_arguments_.begin(), expected_arguments_.end(), [&argument](const Argument& arg) {
-            return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
-          });
+      // Lambda to match argument choice
+      auto match_choice = [&argument](const Argument& arg) {
+        return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
+      };
+
+      // Find match in choices from expected arguments
+      auto found =
+          std::find_if(expected_arguments_.begin(), expected_arguments_.end(), match_choice);
 
       if (found == expected_arguments_.end()) {
         PrintError(argument);
@@ -258,7 +274,10 @@ class ArgumentParser {
   /* ******************************************************************************************** */
   //! Variables
 
-  Filtered expected_arguments_;  //!< Expected arguments for command-line parsing
+  //!< Expected arguments for command-line parsing
+  Filtered expected_arguments_ = {Argument{.name = "help",
+                                           .choices = {"-h", "--help"},
+                                           .description = "Display this help text and exit"}};
 };
 
 }  // namespace util
