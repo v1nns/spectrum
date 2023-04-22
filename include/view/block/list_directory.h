@@ -32,6 +32,8 @@ class ListDirectoryTest;
 class ListDirectoryTest_RunTextAnimation_Test;
 class ListDirectoryTest_ScrollMenuOnBigList_Test;
 class ListDirectoryTest_TabMenuOnBigList_Test;
+class ListDirectoryCtorTest;
+class ListDirectoryCtorTest_CreateWithBadInitialPath_Test;
 }  // namespace
 #endif
 
@@ -150,8 +152,9 @@ class ListDirectory : public Block {
    * TODO: move this to a controller?
    * @brief Refresh list with all files from the given directory path
    * @param dir_path Full path to directory
+   * @return true if directory was parsed succesfully, false otherwise
    */
-  void RefreshList(const std::filesystem::path& dir_path);
+  bool RefreshList(const std::filesystem::path& dir_path);
 
   /**
    * @brief Refresh list to keep only files matching pattern from the text to search
@@ -281,6 +284,7 @@ class ListDirectory : public Block {
   FRIEND_TEST(::ListDirectoryTest, RunTextAnimation);
   FRIEND_TEST(::ListDirectoryTest, ScrollMenuOnBigList);
   FRIEND_TEST(::ListDirectoryTest, TabMenuOnBigList);
+  FRIEND_TEST(::ListDirectoryCtorTest, CreateWithBadInitialPath);
 #endif
 };
 

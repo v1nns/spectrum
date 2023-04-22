@@ -32,18 +32,21 @@ constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
 ListDirectory::ListDirectory(const std::shared_ptr<EventDispatcher>& dispatcher,
                              const std::string& optional_path)
     : Block{dispatcher, model::BlockIdentifier::ListDirectory,
-            interface::Size{.width = kMaxColumns, .height = 0}},
-      curr_dir_{optional_path == "" ? std::filesystem::current_path()
-                                    : std::filesystem::path(optional_path)} {
+            interface::Size{.width = kMaxColumns, .height = 0}} {
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
-  RefreshList(curr_dir_);
+  auto path = !optional_path.empty() ? std::filesystem::path(optional_path)
+                                     : std::filesystem::current_path();
+
+  if (bool parsed = RefreshList(path); !optional_path.empty() && !parsed) {
+    // If we can't list files from current path, then everything is gone
+    RefreshList(std::filesystem::current_path());
+  }
 
   animation_.cb_update = [this] {
     // Send user action to controller
     auto disp = GetDispatcher();
-    auto event = interface::CustomEvent::Refresh();
-    disp->SendEvent(event);
+    disp->SendEvent(interface::CustomEvent::Refresh());
   };
 }
 
@@ -403,7 +406,7 @@ std::string ListDirectory::GetTitle() {
 
 /* ********************************************************************************************** */
 
-void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
+bool ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   LOG("Refresh list with files from new directory=", std::quoted(dir_path.c_str()));
   Files tmp;
 
@@ -416,12 +419,12 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
     ERROR("Cannot access directory, exception=", e.what());
     auto dispatcher = GetDispatcher();
     dispatcher->SetApplicationError(error::kAccessDirFailed);
-    return;
+    return false;
   }
 
   // Reset internal values
   curr_dir_ = dir_path;
-  entries_ = std::move(tmp);
+  entries_.swap(tmp);
   selected_ = 0;
   focused_ = 0;
 
@@ -448,6 +451,7 @@ void ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
 
   // Add option to go back one level
   entries_.emplace(entries_.begin(), "..");
+  return true;
 }
 
 /* ********************************************************************************************** */

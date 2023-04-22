@@ -30,7 +30,7 @@ bool operator!=(const ftxui::Dimensions& lhs, const ftxui::Dimensions& rhs) {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Terminal> Terminal::Create() {
+std::shared_ptr<Terminal> Terminal::Create(const std::string& initial_path) {
   LOG("Create new instance of terminal");
 
   // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
@@ -39,19 +39,14 @@ std::shared_ptr<Terminal> Terminal::Create() {
   auto terminal = std::make_shared<MakeSharedEnabler>();
 
   // Initialize internal components
-  terminal->Init();
+  terminal->Init(initial_path);
 
   return terminal;
 }
 
 /* ********************************************************************************************** */
 
-Terminal::Terminal()
-    : EventDispatcher{}, ftxui::ComponentBase{}, sender_{receiver_->MakeSender()} {}
-
-/* ********************************************************************************************** */
-
-void Terminal::Init() {
+void Terminal::Init(const std::string& initial_path) {
   LOG("Initialize terminal");
 
   // As this terminal will hold all these interface blocks, there is nothing better than
@@ -59,7 +54,7 @@ void Terminal::Init() {
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create blocks
-  auto list_dir = std::make_shared<ListDirectory>(dispatcher);
+  auto list_dir = std::make_shared<ListDirectory>(dispatcher, initial_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
   auto tab_viewer = std::make_shared<TabViewer>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);

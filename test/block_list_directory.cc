@@ -21,6 +21,7 @@
 namespace {
 
 using ::testing::AllOf;
+using ::testing::Eq;
 using ::testing::Field;
 using ::testing::StrEq;
 using ::testing::VariantWith;
@@ -510,6 +511,37 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with original ListDirectory class
+ */
+class ListDirectoryCtorTest : public ::BlockTest {
+ protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
+  void SetUp() override {
+    // Create a custom screen with fixed size
+    screen = std::make_unique<ftxui::Screen>(32, 15);
+
+    // Create mock for event dispatcher
+    dispatcher = std::make_shared<EventDispatcherMock>();
+  }
+};
+
+TEST_F(ListDirectoryCtorTest, CreateWithBadInitialPath) {
+  // Setup expectation
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed)));
+
+  // Use bad path as base dir, block will notify an error about not being to access it
+  std::string source_dir{"/path/that/does/not/exist"};
+  block = ftxui::Make<interface::ListDirectory>(dispatcher, source_dir);
+
+  // After this error, block should use current path to list files
+  auto list_dir = std::static_pointer_cast<interface::ListDirectory>(block);
+  EXPECT_EQ(list_dir->curr_dir_, std::filesystem::current_path());
 }
 
 }  // namespace
