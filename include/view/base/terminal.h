@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BASE_TERMINAL_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "ftxui/component/captured_mouse.hpp"  // for ftxui
@@ -40,14 +41,15 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Construct a new Terminal object
    */
-  Terminal();
+  Terminal() = default;
 
  public:
   /**
    * @brief Factory method: Create, initialize internal components and return Terminal object
+   * @param initial_path Initial path to list files (optional)
    * @return std::shared_ptr<Terminal> Terminal instance
    */
-  static std::shared_ptr<Terminal> Create();
+  static std::shared_ptr<Terminal> Create(const std::string& initial_path);
 
   /**
    * @brief Destroy the Terminal object. Base class will do the rest (release resources by detaching
@@ -66,8 +68,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
  private:
   /**
    * @brief Initialize internal components for Terminal object
+   * @param initial_path Initial path to list files (optional)
    */
-  void Init();
+  void Init(const std::string& initial_path);
 
   /**
    * @brief Force application to exit
@@ -184,16 +187,17 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /* ******************************************************************************************** */
   //! Variables
+
   std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
   error::Code last_error_ = error::kSuccess;  //!< Last application error
 
-  std::unique_ptr<ErrorDialog> error_dialog_ =
-      std::make_unique<ErrorDialog>();  //!< Dialog box to show customized error messages
+  //!< Dialog box to show customized error messages
+  std::unique_ptr<ErrorDialog> error_dialog_ = std::make_unique<ErrorDialog>();
   std::unique_ptr<Help> helper_ = std::make_unique<Help>();  //!< Dialog box to show help menu
 
-  ftxui::Receiver<CustomEvent> receiver_ =
-      ftxui::MakeReceiver<CustomEvent>();  //! Custom event receiver
-  ftxui::Sender<CustomEvent> sender_;      //! Custom event sender
+  //! Custom event receiver
+  ftxui::Receiver<CustomEvent> receiver_ = ftxui::MakeReceiver<CustomEvent>();
+  ftxui::Sender<CustomEvent> sender_ = receiver_->MakeSender();  //! Custom event sender
 
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
   Callback cb_exit_;             //!< Function to exit from graphical interface

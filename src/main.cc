@@ -4,6 +4,7 @@
  */
 #include <cstdlib>  // for EXIT_SUCCESS
 #include <exception>
+#include <string>
 
 #include "audio/player.h"                          // for Player
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
@@ -13,30 +14,40 @@
 #include "view/base/terminal.h"                    // for Terminal
 
 //! Command-line argument parsing
-bool parse(int argc, char** argv) {
+bool parse(int argc, char** argv, std::string& path) {
   using util::Argument;
-  using util::Arguments;
-  using util::Expected;
+  using util::ExpectedArguments;
+  using util::ParsedArguments;
   using util::Parser;
 
-  // Create arguments expectation
-  auto expected_args = Expected{
-      Argument{
-          .name = "log",
-          .choices = {"-l", "--log"},
-          .description = "Enable logging to specified path",
-      },
-  };
-
   try {
+    // Create arguments expectation
+    auto expected_args = ExpectedArguments{
+        Argument{
+            .name = "log",
+            .choices = {"-l", "--log"},
+            .description = "Enable logging to specified path",
+        },
+        Argument{
+            .name = "directory",
+            .choices = {"-d", "--directory"},
+            .description = "Initialize listing files from the given directory path",
+        },
+    };
+
     // Configure argument parser and run to get parsed arguments
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
-    Arguments parsed_args = arg_parser->Parse(argc, argv);
+    ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
 
     // Check if contains filepath for logging
-    if (parsed_args.find("log") != parsed_args.end()) {
+    if (auto logging_path = parsed_args["log"]; logging_path) {
       // Enable logging to specified path
-      util::Logger::GetInstance().Configure(parsed_args["log"]);
+      util::Logger::GetInstance().Configure(*logging_path);
+    }
+
+    // Check if contains dirpath for initial file listing
+    if (auto initial_path = parsed_args["directory"]; initial_path) {
+      path = *initial_path;
     }
 
   } catch (util::parsing_error&) {
@@ -53,7 +64,8 @@ bool parse(int argc, char** argv) {
 int main(int argc, char** argv) {
   // In case of getting some unexpected argument or some other error:
   // Do not execute the program
-  if (!parse(argc, argv)) {
+  std::string initial_dir;
+  if (!parse(argc, argv, initial_dir)) {
     return EXIT_SUCCESS;
   }
 
@@ -61,7 +73,7 @@ int main(int argc, char** argv) {
   auto player = audio::Player::Create();
 
   // Create and initialize a new terminal window
-  auto terminal = interface::Terminal::Create();
+  auto terminal = interface::Terminal::Create(initial_dir);
 
   // Use terminal maximum width as input to decide how many bars should display on audio visualizer
   int number_bars = terminal->CalculateNumberBars();

@@ -7,9 +7,15 @@
 #define INCLUDE_UTIL_ARG_PARSER_H_
 
 #include <algorithm>
+#include <array>
+#include <functional>
+#include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -24,16 +30,40 @@ using Parser = std::unique_ptr<ArgumentParser>;
 
 //! Single argument option
 struct Argument {
-  std::string name;                  //!< Unique identifier
-  std::vector<std::string> choices;  //!< Possible choices to match
-  std::string description;           //!< Detailed description
+  static constexpr int kMaxChoices = 2;  //!< Maximum number of choices for a single argument
+
+  std::string name;                              //!< Unique identifier
+  std::array<std::string, kMaxChoices> choices;  //!< Possible choices to match
+  std::string description;                       //!< Detailed description
+
+  //! Overloaded operator
+  bool operator<(const Argument& rhs) const { return name < rhs.name; }
 };
 
 //! List of mapped arguments to handle
-using Expected = std::vector<Argument>;
+using ExpectedArguments = std::vector<Argument>;
 
-//! Map of parsed argument with the value read
-using Arguments = std::unordered_map<std::string, std::string>;
+/**
+ * @brief Contains all arguments parsed from command-line
+ */
+struct ParsedArguments {
+  // Argument may contain or not a value associated
+  using Arguments = std::unordered_map<std::string, std::optional<std::string>>;
+
+  Arguments parsed;  //!< Map of parsed arguments with value
+
+  //! Constructors and destructor
+  ParsedArguments() = default;
+  explicit ParsedArguments(const Arguments& args) : parsed{args} {}
+  ~ParsedArguments() = default;
+
+  //! Overloaded operators
+  bool operator==(const ParsedArguments& other) const { return parsed == other.parsed; };
+  bool operator!=(const ParsedArguments& other) const { return !operator==(other); };
+  std::optional<std::string>& operator[](const std::string& key) { return parsed[key]; }
+};
+
+/* ********************************************************************************************** */
 
 /**
  * @brief Custom exception for error handling within ArgumentParser
@@ -62,15 +92,35 @@ class parsing_error : public std::exception {
  * @brief Class for command-line argument parsing based on predefined expectations
  */
 class ArgumentParser {
- private:
+  /**
+   * @brief Create a new ArgumentParser object
+   */
+  ArgumentParser() = default;
+
   /**
    * @brief Create a new ArgumentParser object
    * @param args List of expected arguments
    */
-  explicit ArgumentParser(const Expected& args)
-      : arguments_{args} {
-            // TODO: maybe replace vector by set, to avoid duplicated arguments
-        };
+  void Add(const ExpectedArguments& args) {
+    // Lambda to compare with choices from help argument
+    auto match_help = [](const std::string_view& choice) {
+      return choice == "-h" || choice == "--help";
+    };
+
+    // Insert expected arguments into internal cache
+    for (const auto& arg : args) {
+      // Check if argument matches some fields from default help argument
+      if (auto matched = std::find_if(arg.choices.begin(), arg.choices.end(), match_help);
+          arg.name == "help" || matched != std::end(arg.choices)) {
+        throw parsing_error("Cannot override default help text");
+      }
+
+      // TODO: filter arg.choices to match a single char OR word
+
+      if (auto [dummy, inserted] = expected_arguments_.insert(arg); !inserted)
+        throw parsing_error("Cannot configure duplicated argument");
+    }
+  }
 
  public:
   /**
@@ -78,13 +128,15 @@ class ArgumentParser {
    * @param args List of expected arguments
    * @return Parser unique instance
    */
-  static Parser Configure(const Expected& args) {
+  static Parser Configure(const ExpectedArguments& args) {
     // Simply extend the ArgumentParser class, as we do not want to expose the default constructor,
     // neither do we want to use std::make_unique explicitly calling operator new()
-    struct MakeUniqueEnabler : public ArgumentParser {
-      explicit MakeUniqueEnabler(const Expected& args) : ArgumentParser(args) {}
-    };
-    return std::make_unique<MakeUniqueEnabler>(args);
+    struct MakeUniqueEnabler : public ArgumentParser {};
+    auto parser = std::make_unique<MakeUniqueEnabler>();
+
+    if (!args.empty()) parser->Add(args);
+
+    return parser;
   }
 
   /**
@@ -94,6 +146,7 @@ class ArgumentParser {
 
   /* ******************************************************************************************** */
   //! Remove these
+
   ArgumentParser(const ArgumentParser& other) = delete;             // copy constructor
   ArgumentParser(ArgumentParser&& other) = delete;                  // move constructor
   ArgumentParser& operator=(const ArgumentParser& other) = delete;  // copy assignment
@@ -107,8 +160,8 @@ class ArgumentParser {
    * @return A map containing all parsed arguments where key is the argument identifier and value is
    * the value read for that argument
    */
-  Arguments Parse(int count, char** values) {
-    Arguments opts;
+  ParsedArguments Parse(int count, char** values) const {
+    ParsedArguments opts;
     if (count == 1) return opts;
 
     int index = 1;
@@ -120,13 +173,16 @@ class ArgumentParser {
         throw parsing_error("Received command to print helper");
       }
 
-      // Find match in expected arguments
-      auto found =
-          std::find_if(arguments_.begin(), arguments_.end(), [&argument](const Argument& arg) {
-            return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
-          });
+      // Lambda to match argument choice
+      auto match_choice = [&argument](const Argument& arg) {
+        return std::find(arg.choices.begin(), arg.choices.end(), argument) != arg.choices.end();
+      };
 
-      if (found == arguments_.end()) {
+      // Find match in choices from expected arguments
+      auto found =
+          std::find_if(expected_arguments_.begin(), expected_arguments_.end(), match_choice);
+
+      if (found == expected_arguments_.end()) {
         PrintError(argument);
         throw parsing_error("Received unexpected argument");
       }
@@ -149,6 +205,27 @@ class ArgumentParser {
   /* ******************************************************************************************** */
   //! Utility
  private:
+  using Filtered =
+      std::set<Argument, std::less<>>;  //!< To avoid any duplications, use set container
+
+  /**
+   * @brief Find the expected argument with biggest word length used for choices
+   * @param args Expected arguments
+   * @return Length value
+   */
+  int GetBiggestLength(const Filtered& args) const {
+    int length = 0;
+
+    for (const auto& arg : args) {
+      int choice_length = 0;
+      for (const auto& choice : arg.choices) choice_length += (int)choice.size();
+
+      if (length < choice_length) length = choice_length;
+    }
+
+    return length;
+  }
+
   /**
    * @brief Utility method to print a CLI helper based on expected arguments
    */
@@ -157,7 +234,9 @@ class ArgumentParser {
     std::cout << "A music player with a simple and intuitive terminal user interface.\n\n";
     std::cout << "Options:";
 
-    for (const auto& arg : arguments_) {
+    auto biggest_choice = GetBiggestLength(expected_arguments_);
+
+    for (const auto& arg : expected_arguments_) {
       std::cout << "\n\t";
 
       // Append choices into a single string
@@ -167,10 +246,10 @@ class ArgumentParser {
       // Remove last comma+space
       if (choices.size() > 1) choices.erase(choices.size() - 2);
 
-      std::cout << choices << "\t" << arg.description;
+      std::cout << std::setw(biggest_choice) << std::left << choices;
+      std::cout << "\t" << arg.description;
     }
-
-    std::cout << std::endl;
+    std::cout << "\n";
   }
 
   /**
@@ -195,7 +274,11 @@ class ArgumentParser {
 
   /* ******************************************************************************************** */
   //! Variables
-  Expected arguments_;  //!< Expected arguments for command-line parsing
+
+  //!< Expected arguments for command-line parsing
+  Filtered expected_arguments_ = {Argument{.name = "help",
+                                           .choices = {"-h", "--help"},
+                                           .description = "Display this help text and exit"}};
 };
 
 }  // namespace util
