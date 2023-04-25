@@ -263,11 +263,10 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
     song_ = event.GetContent<model::Song>();
   }
 
+  // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::UpdateSongState) {
     song_.curr_info = event.GetContent<model::Song::CurrentInformation>();
     if (song_.curr_info.state == model::Song::MediaState::Play) btn_play_->SetState(true);
-
-    return true;
   }
 
   return false;

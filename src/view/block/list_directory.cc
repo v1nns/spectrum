@@ -175,15 +175,30 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   }
 
   if (event == CustomEvent::Identifier::PlaySong) {
-    auto dispatcher = GetDispatcher();
-
     LOG("Received request from media player to play selected file");
+    auto dispatcher = GetDispatcher();
 
     auto active = GetActiveEntry();
     auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
     dispatcher->SendEvent(event_selection);
 
     return true;
+  }
+
+  // Do not return true because other blocks may use it
+  if (curr_playing_ && event == CustomEvent::Identifier::UpdateSongState) {
+    auto content = event.GetContent<model::Song::CurrentInformation>();
+
+    // In case that song has finished successfully, attempt to play next one
+    if (content.state == model::Song::MediaState::Finished) {
+      if (auto file = SelectNextToPlay(); !file.empty()) {
+        LOG("Song finished, attempt to play next file: ", file);
+        // Send user action to controller
+        auto dispatcher = GetDispatcher();
+        auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
+        dispatcher->SendEvent(event_selection);
+      }
+    }
   }
 
   return false;
@@ -498,6 +513,35 @@ void ListDirectory::UpdateActiveEntry() {
     // Start animation thread
     if (max_chars > kMaxColumns) animation_.Start(text);
   }
+}
+
+/* ********************************************************************************************** */
+
+File ListDirectory::SelectNextToPlay() {
+  if (entries_.size() <= 2) return File{};
+
+  // get index from current song playing
+  int index =
+      std::distance(entries_.begin(), std::find(entries_.begin(), entries_.end(), *curr_playing_));
+
+  int next = (index + 1) % entries_.size();
+  int attempts = entries_.size();
+  File file;
+
+  // Iterate circularly through all file entries
+  bool found = false;
+  while (file = entries_[next], attempts > 0) {
+    // Found a possible file to play
+    if (next != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file)) {
+      found = true;
+      break;
+    }
+
+    next = (next + 1) % entries_.size();
+    --attempts;
+  }
+
+  return found ? file : File{};
 }
 
 }  // namespace interface

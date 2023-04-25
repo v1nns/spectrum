@@ -32,6 +32,7 @@ class ListDirectoryTest;
 class ListDirectoryTest_RunTextAnimation_Test;
 class ListDirectoryTest_ScrollMenuOnBigList_Test;
 class ListDirectoryTest_TabMenuOnBigList_Test;
+class ListDirectoryTest_PlayNextFileAfterFinished_Test;
 class ListDirectoryCtorTest;
 class ListDirectoryCtorTest_CreateWithBadInitialPath_Test;
 }  // namespace
@@ -148,6 +149,7 @@ class ListDirectory : public Block {
 
   /* ******************************************************************************************** */
   //! File list operations
+
   /**
    * TODO: move this to a controller?
    * @brief Refresh list with all files from the given directory path
@@ -165,6 +167,12 @@ class ListDirectory : public Block {
    * @brief Update content from active entry (decides if animation thread should run or not)
    */
   void UpdateActiveEntry();
+
+  /**
+   * @brief Select next file to play
+   * @return Filepath
+   */
+  File SelectNextToPlay();
 
   /* ******************************************************************************************** */
  protected:
@@ -284,6 +292,7 @@ class ListDirectory : public Block {
   FRIEND_TEST(::ListDirectoryTest, RunTextAnimation);
   FRIEND_TEST(::ListDirectoryTest, ScrollMenuOnBigList);
   FRIEND_TEST(::ListDirectoryTest, TabMenuOnBigList);
+  FRIEND_TEST(::ListDirectoryTest, PlayNextFileAfterFinished);
   FRIEND_TEST(::ListDirectoryCtorTest, CreateWithBadInitialPath);
 #endif
 };

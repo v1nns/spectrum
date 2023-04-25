@@ -23,6 +23,7 @@ namespace {
 using ::testing::AllOf;
 using ::testing::Eq;
 using ::testing::Field;
+using ::testing::InSequence;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -511,6 +512,83 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ListDirectoryTest, PlayNextFileAfterFinished) {
+  InSequence seq;
+  auto derived = std::static_pointer_cast<interface::ListDirectory>(block);
+
+  // Setup expectation to play first file
+  std::filesystem::path file{LISTDIR_PATH + std::string{"/audio_player.cc"}};
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::filesystem::path>(file)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ files ───────────────────────╮
+│test                          │
+│  ..                          │
+│> audio_player.cc             │
+│  block_file_info.cc          │
+│  block_list_directory.cc     │
+│  block_media_player.cc       │
+│  block_tab_viewer.cc         │
+│  CMakeLists.txt              │
+│  driver_fftw.cc              │
+│  general                     │
+│  middleware_media_controller.│
+│  mock                        │
+│  util_argparser.cc           │
+╰──────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Simulate player sending event to update song info and check internal state
+  auto event_update = interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = file,
+                                                                         .artist = "Dummy artist",
+                                                                         .title = "Dummy title",
+                                                                         .num_channels = 2,
+                                                                         .sample_rate = 44100,
+                                                                         .bit_rate = 320000,
+                                                                         .bit_depth = 32,
+                                                                         .duration = 120});
+
+  derived->OnCustomEvent(event_update);
+  EXPECT_EQ(file, derived->curr_playing_.value());
+
+  // Simulate player sending event to notify that song has ended
+  auto event_finish = interface::CustomEvent::UpdateSongState(
+      model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
+
+  std::filesystem::path next_file{LISTDIR_PATH + std::string{"/block_file_info.cc"}};
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::filesystem::path>(next_file)))))
+      .Times(1);
+
+  derived->OnCustomEvent(event_finish);
+
+  // Simulate player sending event with new song update
+  auto& content = std::get<model::Song>(event_update.content);
+  content.filepath = next_file;
+
+  derived->OnCustomEvent(event_update);
+  EXPECT_EQ(next_file, derived->curr_playing_.value());
 }
 
 /* ********************************************************************************************** */
