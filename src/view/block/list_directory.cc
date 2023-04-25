@@ -521,11 +521,11 @@ File ListDirectory::SelectNextToPlay() {
   if (entries_.size() <= 2) return File{};
 
   // Get index from current song playing
-  int index = (int)std::distance(entries_.begin(),
-                                 std::find(entries_.begin(), entries_.end(), *curr_playing_));
+  auto index = (int)std::distance(entries_.begin(),
+                                  std::find(entries_.begin(), entries_.end(), *curr_playing_));
 
   int next = (index + 1) % entries_.size();
-  int attempts = (int)entries_.size();
+  auto attempts = (int)entries_.size();
   File file;
 
   // Iterate circularly through all file entries
