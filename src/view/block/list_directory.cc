@@ -520,17 +520,17 @@ void ListDirectory::UpdateActiveEntry() {
 File ListDirectory::SelectNextToPlay() {
   if (entries_.size() <= 2) return File{};
 
-  // get index from current song playing
-  int index =
-      std::distance(entries_.begin(), std::find(entries_.begin(), entries_.end(), *curr_playing_));
+  // Get index from current song playing
+  int index = (int)std::distance(entries_.begin(),
+                                 std::find(entries_.begin(), entries_.end(), *curr_playing_));
 
   int next = (index + 1) % entries_.size();
-  int attempts = entries_.size();
+  int attempts = (int)entries_.size();
   File file;
 
   // Iterate circularly through all file entries
   bool found = false;
-  while (file = entries_[next], attempts > 0) {
+  for (file = entries_[next]; attempts > 0; --attempts, file = entries_[next]) {
     // Found a possible file to play
     if (next != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file)) {
       found = true;
@@ -538,7 +538,6 @@ File ListDirectory::SelectNextToPlay() {
     }
 
     next = (next + 1) % entries_.size();
-    --attempts;
   }
 
   return found ? file : File{};

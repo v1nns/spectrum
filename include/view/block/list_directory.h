@@ -33,6 +33,7 @@ class ListDirectoryTest_RunTextAnimation_Test;
 class ListDirectoryTest_ScrollMenuOnBigList_Test;
 class ListDirectoryTest_TabMenuOnBigList_Test;
 class ListDirectoryTest_PlayNextFileAfterFinished_Test;
+class ListDirectoryTest_StartPlayingLastFileAndPlayNextAfterFinished_Test;
 class ListDirectoryCtorTest;
 class ListDirectoryCtorTest_CreateWithBadInitialPath_Test;
 }  // namespace
@@ -293,6 +294,7 @@ class ListDirectory : public Block {
   FRIEND_TEST(::ListDirectoryTest, ScrollMenuOnBigList);
   FRIEND_TEST(::ListDirectoryTest, TabMenuOnBigList);
   FRIEND_TEST(::ListDirectoryTest, PlayNextFileAfterFinished);
+  FRIEND_TEST(::ListDirectoryTest, StartPlayingLastFileAndPlayNextAfterFinished);
   FRIEND_TEST(::ListDirectoryCtorTest, CreateWithBadInitialPath);
 #endif
 };
