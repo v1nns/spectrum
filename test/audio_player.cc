@@ -134,7 +134,10 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Play, .position = 0}));
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
@@ -215,7 +218,10 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(5);
     }));
@@ -364,7 +370,10 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
                                                  expected_position)));
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
@@ -565,7 +574,10 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
     EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
     EXPECT_CALL(*notifier, NotifySongState(_)).Times(2);
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(4);
     }));
@@ -658,7 +670,10 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(5);
     }));
@@ -746,7 +761,10 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
                                                  expected_position)));
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       /* ************************************************************************************** */
       // ATTENTION: this is the workaround found to iterate in a new audio loop to play (using the
@@ -781,7 +799,10 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
                                                    expected_position)))
           .Times(0);
 
+      // These are called by Player::ResetMediaControl()
       EXPECT_CALL(*decoder, ClearCache());
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = model::Song::MediaState::Finished}));
       EXPECT_CALL(*notifier, ClearSongInformation(true));
     }));
 
@@ -872,7 +893,10 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::state,
                                                  model::Song::MediaState::Pause)));
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       /* ************************************************************************************** */
       // ATTENTION: this is the workaround found to iterate in a new audio loop to play (using the
@@ -907,7 +931,10 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
                                                    expected_position)))
           .Times(0);
 
+      // These are called by Player::ResetMediaControl()
       EXPECT_CALL(*decoder, ClearCache());
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = model::Song::MediaState::Finished}));
       EXPECT_CALL(*notifier, ClearSongInformation(true));
     }));
 
@@ -1003,7 +1030,10 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position, _)))
         .Times(2);
 
+    // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       syncer.NotifyStep(4);
     }));

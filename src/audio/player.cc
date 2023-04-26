@@ -111,11 +111,17 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   auto media_notifier = notifier_.lock();
   if (!media_notifier) return;
 
+  if (result == error::kSuccess) {
+    // Notify that song has finished successfully
+    media_notifier->NotifySongState(
+        model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
+  } else {
+    // Or in case of error, notify about it
+    media_notifier->NotifyError(result);
+  }
+
   // Clear any song information from UI
   media_notifier->ClearSongInformation(!error_parsing);
-
-  // And in case of error, notify about it
-  if (result != error::kSuccess) media_notifier->NotifyError(result);
 }
 
 /* ********************************************************************************************** */
@@ -160,6 +166,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
       // TODO: NotifySongState for stop
 
+      // Received command different from PauseOrResume
       if (auto command_after_wait = media_control_.Pop();
           !keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
         LOG("Audio handler received command to", command_after_wait);

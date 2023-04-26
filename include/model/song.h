@@ -34,6 +34,7 @@ struct Song {
     Play = 2002,
     Pause = 2003,
     Stop = 2004,
+    Finished = 2005
   };
 
   struct CurrentInformation {
