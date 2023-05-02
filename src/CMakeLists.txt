@@ -20,6 +20,10 @@ if(NOT SPECTRUM_DEBUG)
 
     # libxml++
     pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-3.0)
+
+    if(NOT LIBXML_FOUND)
+        pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-2.6)
+    endif()
 endif()
 
 # GUI Library (FTXUI)
