@@ -19,7 +19,7 @@ if(NOT SPECTRUM_DEBUG)
     pkg_search_module(CURL REQUIRED IMPORTED_TARGET libcurl)
 
     # libxml++
-    pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-3.0)
+    pkg_search_module(LIBXML IMPORTED_TARGET libxml++-3.0)
 
     if(NOT LIBXML_FOUND)
         pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-2.6)
