@@ -14,6 +14,12 @@ if(NOT SPECTRUM_DEBUG)
 
     # DSP Processing (FFTW3)
     pkg_search_module(FFTW REQUIRED IMPORTED_TARGET fftw3)
+
+    # curl
+    pkg_search_module(CURL REQUIRED IMPORTED_TARGET libcurl)
+
+    # libxml++
+    pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-3.0)
 endif()
 
 # GUI Library (FTXUI)
@@ -41,6 +47,9 @@ target_sources(
     PRIVATE # audio
             audio/command.cc
             audio/player.cc
+            # lyric
+            audio/lyric/search_config.cc
+            audio/lyric/lyric_finder.cc
             # middleware
             middleware/media_controller.cc
             # model
@@ -57,6 +66,7 @@ target_sources(
             view/block/media_player.cc
             view/block/tab_item/audio_equalizer.cc
             view/block/tab_item/spectrum_visualizer.cc
+            view/block/tab_item/song_lyric.cc
             view/block/tab_viewer.cc
             view/element/button.cc
             view/element/error_dialog.cc
@@ -82,8 +92,14 @@ check_coverage(spectrum_lib)
 if(NOT SPECTRUM_DEBUG)
     message(STATUS "Enabling external dependencies...")
     target_sources(
-        spectrum_lib PRIVATE # audio
-                             audio/driver/alsa.cc audio/driver/ffmpeg.cc audio/driver/fftw.cc)
+        spectrum_lib
+        PRIVATE # audio
+                audio/driver/alsa.cc
+                audio/driver/ffmpeg.cc
+                audio/driver/fftw.cc
+                # lyric
+                audio/lyric/driver/curl_wrapper.cc
+                audio/lyric/driver/libxml_wrapper.cc)
 
     target_include_directories(
         spectrum_lib
@@ -93,7 +109,9 @@ if(NOT SPECTRUM_DEBUG)
                ${AVFORMAT_INCLUDE_DIRS}
                ${AVUTIL_INCLUDE_DIRS}
                ${SWRESAMPLE_INCLUDE_DIRS}
-               ${FFTW_INCLUDE_DIRS})
+               ${FFTW_INCLUDE_DIRS}
+               ${CURL_INCLUDE_DIRS}
+               ${LIBXML_INCLUDE_DIRS})
 
     target_link_libraries(
         spectrum_lib
@@ -106,7 +124,11 @@ if(NOT SPECTRUM_DEBUG)
         PRIVATE
         INTERFACE PkgConfig::ALSA
         PRIVATE
-        INTERFACE PkgConfig::FFTW)
+        INTERFACE PkgConfig::FFTW
+        PRIVATE
+        INTERFACE PkgConfig::CURL
+        PRIVATE
+        INTERFACE PkgConfig::LIBXML)
 endif()
 
 # **************************************************************************************************

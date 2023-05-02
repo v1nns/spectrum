@@ -65,6 +65,7 @@ TEST_F(ListDirectoryTest, InitialRender) {
 ╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
+│  audio_lyric_finder.cc       │
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -75,7 +76,6 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -98,9 +98,10 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 ╭ files ───────────────────────╮
 │test                          │
 │  ..                          │
+│  audio_lyric_finder.cc       │
 │  audio_player.cc             │
-│  block_file_info.cc          │
-│> block_list_directory.cc     │
+│> block_file_info.cc          │
+│  block_list_directory.cc     │
 │  block_media_player.cc       │
 │  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
@@ -108,7 +109,6 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -133,11 +133,11 @@ TEST_F(ListDirectoryTest, NavigateToMockDir) {
 │  audio_control_mock.h        │
 │  decoder_mock.h              │
 │  event_dispatcher_mock.h     │
+│  html_parser_mock.h          │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
-│                              │
+│  url_fetcher_mock.h          │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -158,6 +158,7 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 ╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
+│  audio_lyric_finder.cc       │
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -167,7 +168,6 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  driver_fftw.cc              │
 │  general                     │
 │  middleware_media_controller.│
-│  mock                        │
 │Search:                       │
 ╰──────────────────────────────╯)";
 
@@ -187,7 +187,8 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│> audio_player.cc             │
+│> audio_lyric_finder.cc       │
+│  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
@@ -197,7 +198,6 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │  general                     │
 │  middleware_media_controller.│
 │  util_argparser.cc           │
-│                              │
 │Search:e                      │
 ╰──────────────────────────────╯)";
 
@@ -223,11 +223,11 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 │  audio_control_mock.h        │
 │  decoder_mock.h              │
 │  event_dispatcher_mock.h     │
+│  html_parser_mock.h          │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
 │  playback_mock.h             │
-│                              │
-│                              │
+│  url_fetcher_mock.h          │
 │                              │
 │                              │
 ╰──────────────────────────────╯)";
@@ -280,6 +280,7 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 ╭ files ───────────────────────╮
 │test                          │
 │> ..                          │
+│  audio_lyric_finder.cc       │
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -290,7 +291,6 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -309,6 +309,7 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
       .Times(1);
 
   block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
@@ -319,6 +320,7 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 ╭ files ───────────────────────╮
 │test                          │
 │  ..                          │
+│  audio_lyric_finder.cc       │
 │> audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -329,7 +331,6 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -530,6 +531,7 @@ TEST_F(ListDirectoryTest, PlayNextFileAfterFinished) {
       .Times(1);
 
   block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
@@ -540,6 +542,7 @@ TEST_F(ListDirectoryTest, PlayNextFileAfterFinished) {
 ╭ files ───────────────────────╮
 │test                          │
 │  ..                          │
+│  audio_lyric_finder.cc       │
 │> audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -550,7 +553,6 @@ TEST_F(ListDirectoryTest, PlayNextFileAfterFinished) {
 │  general                     │
 │  middleware_media_controller.│
 │  mock                        │
-│  util_argparser.cc           │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -616,7 +618,7 @@ TEST_F(ListDirectoryTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  ..                          │
+│  audio_lyric_finder.cc       │
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
@@ -649,7 +651,7 @@ TEST_F(ListDirectoryTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   auto event_finish = interface::CustomEvent::UpdateSongState(
       model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
 
-  std::filesystem::path next_file{LISTDIR_PATH + std::string{"/audio_player.cc"}};
+  std::filesystem::path next_file{LISTDIR_PATH + std::string{"/audio_lyric_finder.cc"}};
 
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,

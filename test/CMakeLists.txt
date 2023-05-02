@@ -25,7 +25,8 @@ enable_testing()
 add_executable(test)
 target_sources(
     test
-    PRIVATE audio_player.cc
+    PRIVATE audio_lyric_finder.cc
+            audio_player.cc
             block_file_info.cc
             block_list_directory.cc
             block_media_player.cc

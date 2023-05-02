@@ -57,6 +57,7 @@ class TabViewer : public Block {
   enum class View {
     Visualizer,  //!< Display spectrum visualizer (default)
     Equalizer,   //!< Display audio equalizer
+    Lyric,       //!< Display song lyric
     LAST,
   };
 
@@ -73,6 +74,12 @@ class TabViewer : public Block {
   //! Get active tabview
   Item& active() { return views_[active_].item; }
 
+  //! Create window buttons
+  void CreateButtons();
+
+  //! Create all tab views
+  void CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher);
+
   /* ******************************************************************************************** */
   //! Variables
 
@@ -87,7 +94,7 @@ class TabViewer : public Block {
     Item item;            //!< View to render in the tab content
   };
 
-  View active_ = View::Visualizer;                          //!< Current view displayed on block
+  View active_ = View::Visualizer;       //!< Current view displayed on block
   std::unordered_map<View, Tab> views_;  //!< All possible views to render in this component
 };
 

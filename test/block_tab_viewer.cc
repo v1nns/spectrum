@@ -52,7 +52,7 @@ TEST_F(TabViewerTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -85,7 +85,7 @@ TEST_F(TabViewerTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                          ▇▇▇ ▇▇▇                                            │
 │                                      ▆▆▆ ███ ███ ▆▆▆                                        │
 │                                  ▅▅▅ ███ ███ ███ ███ ▅▅▅                                    │
@@ -132,7 +132,7 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
 
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                              ▁▁▁ ▄▄▄ ▆▆▆    │
 │                                                                  ▂▂▂ ▄▄▄ ▇▇▇ ███ ███ ███    │
 │                                                      ▃▃▃ ▅▅▅ ███ ███ ███ ███ ███ ███ ███    │
@@ -186,7 +186,7 @@ TEST_F(TabViewerTest, AnimationMono) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                                                                                      ▆▆▆    │
 │                                                                                  ▄▄▄ ███    │
@@ -215,7 +215,7 @@ TEST_F(TabViewerTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -299,7 +299,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -340,7 +340,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -377,7 +377,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -418,7 +418,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Custom     │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -464,7 +464,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Electronic │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -517,7 +517,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Pop        │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -552,7 +552,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Pop        │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -605,7 +605,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Rock       │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -639,7 +639,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Rock       │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -704,7 +704,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -744,7 +744,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Electronic │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -780,7 +780,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer ───────────────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Custom     │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -798,5 +798,9 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 }
+
+/* ********************************************************************************************** */
+
+// TODO: create tests for Lyric tab view
 
 }  // namespace

@@ -30,9 +30,11 @@ namespace audio {
 class Player;
 }
 
+#ifdef ENABLE_TESTS
 namespace {
 class MediaControllerTest;
 }
+#endif
 
 namespace middleware {
 
@@ -345,7 +347,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
   friend class ::MediaControllerTest;
+#endif
 };
 
 }  // namespace middleware
