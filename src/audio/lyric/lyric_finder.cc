@@ -1,8 +1,15 @@
 #include "audio/lyric/lyric_finder.h"
 
-// TODO: Create dummy headers and use SPECTRUM_DEBUG
+#include "model/application_error.h"
+
+#ifndef SPECTRUM_DEBUG
 #include "audio/lyric/driver/curl_wrapper.h"
 #include "audio/lyric/driver/libxml_wrapper.h"
+#else
+#include "debug/dummy_fetcher.h"
+#include "debug/dummy_parser.h"
+#endif
+
 #include "util/logger.h"
 
 namespace lyric {
@@ -55,7 +62,7 @@ SongLyric LyricFinder::Search(const std::string& artist, const std::string& titl
   for (const auto& engine : engines_) {
     // Fetch content from search engine
     if (auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title), buffer);
-        result != CURLE_OK) {
+        result != error::kSuccess) {
       ERROR("Failed to fetch URL content, error code=", result);
       continue;
     }

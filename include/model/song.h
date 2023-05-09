@@ -6,6 +6,7 @@
 #ifndef INCLUDE_MODEL_SONG_H_
 #define INCLUDE_MODEL_SONG_H_
 
+#include <cstdint>
 #include <cstdio>
 #include <fstream>
 #include <ostream>
@@ -34,7 +35,7 @@ struct Song {
     Play = 2002,
     Pause = 2003,
     Stop = 2004,
-    Finished = 2005
+    Finished = 2005,
   };
 
   struct CurrentInformation {

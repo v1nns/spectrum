@@ -30,7 +30,7 @@ endif()
 FetchContent_Declare(
     ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-    GIT_TAG 1397c1023434f63bf1aa5eeea2e6d6943178a745)
+    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736)
 
 FetchContent_GetProperties(ftxui)
 if(NOT ftxui_POPULATED)

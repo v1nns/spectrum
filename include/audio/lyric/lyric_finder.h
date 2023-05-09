@@ -16,6 +16,7 @@
 #ifdef ENABLE_TESTS
 namespace {
 class LyricFinderTest;
+class TabViewerTest;
 }
 #endif
 
@@ -77,6 +78,7 @@ class LyricFinder {
 
 #ifdef ENABLE_TESTS
   friend class ::LyricFinderTest;
+  friend class ::TabViewerTest;
 #endif
 };
 

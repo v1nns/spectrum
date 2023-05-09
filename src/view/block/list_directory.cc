@@ -185,12 +185,17 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     return true;
   }
 
+#ifndef SPECTRUM_DEBUG
   // Do not return true because other blocks may use it
   if (curr_playing_ && event == CustomEvent::Identifier::UpdateSongState) {
-    auto content = event.GetContent<model::Song::CurrentInformation>();
+    // TODO: disable this attempt to play next song for the following situations:
+    // - with SPECTRUM_DEBUG=ON
+    // - when user stopped song (by stop button or S key)
 
     // In case that song has finished successfully, attempt to play next one
-    if (content.state == model::Song::MediaState::Finished) {
+    if (auto content = event.GetContent<model::Song::CurrentInformation>();
+        content.state == model::Song::MediaState::Finished) {
+
       if (auto file = SelectNextToPlay(); !file.empty()) {
         LOG("Song finished, attempt to play next file: ", file);
         // Send user action to controller
@@ -200,6 +205,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
       }
     }
   }
+#endif
 
   return false;
 }

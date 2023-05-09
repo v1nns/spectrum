@@ -3,6 +3,8 @@
 #include <cctype>
 #include <regex>
 
+#include "util/logger.h"
+
 namespace lyric {
 
 /* ---------------------------------------------------------------------------------------------- */
@@ -31,7 +33,7 @@ SongLyric Google::FormatLyrics(const SongLyric &raw) const {
   std::string::size_type pos = 0;
   std::string::size_type prev = 0;
 
-  // TODO: if(raw.size() != 1) LOG ERROR
+  if (raw.size() != 1) ERROR("Received more raw data than expected");
   const auto &content = raw.front();
   SongLyric lyric;
 

@@ -52,7 +52,7 @@ class CURLWrapper : public driver::UrlFetcher {
    * @param data Output buffer
    * @return Real size from received data
    */
-  static size_t WriteCallback(char *buffer, size_t size, size_t nmemb, void *data);
+  static size_t WriteCallback(const char *buffer, size_t size, size_t nmemb, void *data);
 
   //! Smart pointer to manage CURL resource
   using SmartCURL = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;

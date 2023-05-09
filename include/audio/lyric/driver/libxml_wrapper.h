@@ -40,9 +40,6 @@ class LIBXMLWrapper : public driver::HtmlParser {
 
   //! Smart pointer to manage libxml resources
   using XmlDocGuard = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>;
-
-  //! Smart pointer to manage libxml++ resources
-  using ElementGuard = std::unique_ptr<xmlpp::Element>;
 };
 
 }  // namespace driver

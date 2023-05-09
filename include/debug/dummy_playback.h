@@ -3,8 +3,8 @@
  * \brief Interface class for playback support
  */
 
-#ifndef INCLUDE_AUDIO_DEBUG_DUMMY_PLAYBACK_H_
-#define INCLUDE_AUDIO_DEBUG_DUMMY_PLAYBACK_H_
+#ifndef INCLUDE_DEBUG_DUMMY_PLAYBACK_H_
+#define INCLUDE_DEBUG_DUMMY_PLAYBACK_H_
 
 #include "audio/base/playback.h"
 #include "model/application_error.h"
@@ -96,4 +96,4 @@ class DummyPlayback : public Playback {
 };
 
 }  // namespace driver
-#endif  // INCLUDE_AUDIO_DEBUG_DUMMY_PLAYBACK_H_
+#endif  // INCLUDE_DEBUG_DUMMY_PLAYBACK_H_

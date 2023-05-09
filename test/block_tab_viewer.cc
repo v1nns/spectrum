@@ -1,9 +1,15 @@
 #include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
 
+#include <memory>
+
+#include "audio/lyric/search_config.h"
 #include "general/block.h"
 #include "general/utils.h"  // for FilterAnsiCommands
 #include "mock/event_dispatcher_mock.h"
+#include "mock/html_parser_mock.h"
+#include "mock/url_fetcher_mock.h"
 #include "util/logger.h"
+#include "view/block/tab_item/song_lyric.h"
 #include "view/block/tab_item/spectrum_visualizer.h"
 #include "view/block/tab_viewer.h"
 
@@ -29,15 +35,51 @@ class TabViewerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
+    // Create mocks
+    UrlFetcherMock* uf_mock = new UrlFetcherMock();
+    HtmlParserMock* hp_mock = new HtmlParserMock();
+
     // Create TabViewer block
-    block = ftxui::Make<interface::TabViewer>(dispatcher);
+    block = ftxui::Make<interface::TabViewer>(dispatcher, uf_mock, hp_mock);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
   }
 
-  static constexpr int kNumberBars = 22;
+  //! Getter for Playback (necessary as inner variable is an unique_ptr)
+  auto GetFetcher() -> UrlFetcherMock* {
+    // Get tab viewer
+    auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
+
+    // Get song lyric tab item
+    auto song_lyric = static_cast<interface::SongLyric*>(
+        tab_viewer->view(interface::TabViewer::View::Lyric).get());
+
+    // Get lyric finder
+    auto lyric_finder = static_cast<lyric::LyricFinder*>(song_lyric->finder_.get());
+
+    // Return inner member from tab item
+    return static_cast<UrlFetcherMock*>(lyric_finder->fetcher_.get());
+  }
+
+  //! Getter for Decoder (necessary as inner variable is an unique_ptr)
+  auto GetParser() -> HtmlParserMock* {
+    // Get tab viewer
+    auto tab_viewer = reinterpret_cast<interface::TabViewer*>(block.get());
+
+    // Get song lyric tab item
+    auto song_lyric = reinterpret_cast<interface::SongLyric*>(
+        tab_viewer->view(interface::TabViewer::View::Lyric).get());
+
+    // Get lyric finder
+    auto lyric_finder = reinterpret_cast<lyric::LyricFinder*>(song_lyric->finder_.get());
+
+    // Return inner member from tab item
+    return reinterpret_cast<HtmlParserMock*>(lyric_finder->fetcher_.get());
+  }
+
+  static constexpr int kNumberBars = 22;  //!< Number of bars for visualizer tab view
 };
 
 /* ********************************************************************************************** */

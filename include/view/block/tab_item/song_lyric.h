@@ -1,18 +1,26 @@
 /**
  * \file
- * \brief  Class for tab  iew containing song lyrics
+ * \brief  Class for tab view containing song lyrics
  */
 
 #ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_SONG_LYRIC_H_
 #define INCLUDE_VIEW_BLOCK_TAB_ITEM_SONG_LYRIC_H_
 
-#include <atomic>
-#include <mutex>
+#include <chrono>
+#include <future>
 #include <optional>
 
+#include "audio/lyric/base/html_parser.h"
+#include "audio/lyric/base/url_fetcher.h"
 #include "audio/lyric/lyric_finder.h"
 #include "model/song.h"
 #include "view/element/tab_item.h"
+
+#ifdef ENABLE_TESTS
+namespace {
+class TabViewerTest;
+}
+#endif
 
 namespace interface {
 
@@ -28,9 +36,12 @@ class SongLyric : public TabItem {
    * @brief Construct a new SongLyric object
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
+   * @param fetcher URL fetcher (optional)
+   * @param parser HTML parser (optional)
    */
   explicit SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher);
+                     const std::shared_ptr<EventDispatcher>& dispatcher,
+                     driver::UrlFetcher* fetcher = nullptr, driver::HtmlParser* parser = nullptr);
 
   /**
    * @brief Destroy the SongLyric object
@@ -60,19 +71,53 @@ class SongLyric : public TabItem {
   /* ******************************************************************************************** */
   //! Private methods
  private:
-  //! TODO: doc
-  void FetchSong();
+  /**
+   * @brief Check inner state from std::future
+   * @tparam R Result from asynchronous operation
+   * @param f Mechanism to execute asynchronous operation
+   * @param st Inner state
+   * @return true if state matches, otherwise false
+   */
+  template <typename R>
+  bool is_state(std::future<R>& f, std::future_status st) {
+    return f.valid() && f.wait_for(std::chrono::seconds(0)) == st;
+  }
+
+  /**
+   * @brief Check state from fetch operation that is executed asynchronously
+   * @return true if fetch operation is still executing, otherwise false
+   */
+  bool IsFetching() { return is_state(async_fetcher_, std::future_status::timeout); }
+
+  /**
+   * @brief Check state from fetch operation that is executed asynchronously
+   * @return true if fetch operation finished, otherwise false
+   */
+  bool IsResultReady() { return is_state(async_fetcher_, std::future_status::ready); }
+
+  //! Result from asynchronous fetch operation (if empty, it means that failed)
+  using FetchResult = std::optional<lyric::SongLyric>;
+
+  /**
+   * @brief Use updated song information to fetch song lyrics
+   */
+  FetchResult FetchSongLyrics();
 
   /* ******************************************************************************************** */
   //! Variables
-  model::Song audio_info_;  //!< Audio information from current song
 
-  LyricFinder finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
-  std::optional<lyric::SongLyric> lyrics_;             //!< Song lyrics from current song
+  model::Song audio_info_;   //!< Audio information from current song
+  lyric::SongLyric lyrics_;  //!< Song lyrics from current song
 
-  std::mutex mutex_;            //!< Control access for internal resources
-  std::atomic<bool> fetching_;  //!< Notify if fetch operation is being executed
-  std::atomic<bool> failed_;    //!< Notify if fetch operation failed
+  LyricFinder finder_;                      //!< Lyric finder
+  std::future<FetchResult> async_fetcher_;  //!< Use lyric finder asynchronously
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::TabViewerTest;
+#endif
 };
 
 }  // namespace interface

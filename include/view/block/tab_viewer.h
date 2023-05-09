@@ -9,9 +9,17 @@
 #include <memory>
 #include <unordered_map>
 
+#include "audio/lyric/base/html_parser.h"
+#include "audio/lyric/base/url_fetcher.h"
 #include "view/base/block.h"
 #include "view/element/button.h"
 #include "view/element/tab_item.h"
+
+#ifdef ENABLE_TESTS
+namespace {
+class TabViewerTest;
+}
+#endif
 
 namespace interface {
 
@@ -19,12 +27,19 @@ namespace interface {
  * @brief Component to display a set of tabs and their respective content
  */
 class TabViewer : public Block {
+  //! For readability
+  using Item = std::unique_ptr<TabItem>;
+  using Keybinding = std::string;
+
  public:
   /**
    * @brief Construct a new TabViewer object
    * @param dispatcher Block event dispatcher
+   * @param fetcher URL fetcher (optional)
+   * @param parser HTML parser (optional)
    */
-  explicit TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher,
+                     driver::UrlFetcher* fetcher = nullptr, driver::HtmlParser* parser = nullptr);
 
   /**
    * @brief Destroy the TabViewer object
@@ -67,10 +82,6 @@ class TabViewer : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
-  //! For readability
-  using Item = std::unique_ptr<TabItem>;
-  using Keybinding = std::string;
-
   //! Get active tabview
   Item& active() { return views_[active_].item; }
 
@@ -78,7 +89,8 @@ class TabViewer : public Block {
   void CreateButtons();
 
   //! Create all tab views
-  void CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher);
+  void CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher, driver::UrlFetcher* fetcher,
+                   driver::HtmlParser* parser);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -96,6 +108,16 @@ class TabViewer : public Block {
 
   View active_ = View::Visualizer;       //!< Current view displayed on block
   std::unordered_map<View, Tab> views_;  //!< All possible views to render in this component
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::TabViewerTest;
+
+  //! Get tab view
+  Item& view(View id) { return views_[id].item; }
+#endif
 };
 
 }  // namespace interface

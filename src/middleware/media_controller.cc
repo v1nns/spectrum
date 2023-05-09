@@ -6,7 +6,7 @@
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/fftw.h"
 #else
-#include "audio/debug/dummy_analyzer.h"
+#include "debug/dummy_analyzer.h"
 #endif
 
 #include "audio/player.h"

@@ -30,18 +30,35 @@ class SearchConfig {
  public:
   virtual ~SearchConfig() = default;
 
+  //! Overloaded operator
   friend std::ostream &operator<<(std::ostream &out, const SearchConfig &s) {
     return out << s.name();
   }
 
-  //! These must be implemented by derived class
-  // TODO: doc these methods
+  // -------------------------  These must be implemented by derived class -------------------------
 
+  //! Return search engine name
   virtual std::string_view name() const = 0;
+
+  //! Return URL for search, it is used to fetch song lyric
   virtual std::string url() const = 0;
+
+  //! Return XPath to web scrap content from HTTP GET
   virtual std::string xpath() const = 0;
 
-  virtual std::string FormatSearchUrl(const std::string &artist, const std::string &name) const = 0;
+  /**
+   * @brief Format search URL with artist name and song title
+   * @param artist Artist name
+   * @param title Song title
+   */
+  virtual std::string FormatSearchUrl(const std::string &artist,
+                                      const std::string &title) const = 0;
+
+  /**
+   * @brief Filter webscraping content to an expected song lyrics format
+   * @param raw HTML content
+   * @return Song lyrics filtered
+   */
   virtual SongLyric FormatLyrics(const SongLyric &raw) const = 0;
 
   /**
@@ -57,16 +74,30 @@ class SearchConfig {
  * @brief Search configurations to web scrap from Google
  */
 class Google : public SearchConfig {
-  static constexpr std::string_view kEngineName = "Google";
+  static constexpr std::string_view kEngineName = "Google";  //!< Search engine name
 
  public:
-  std::string_view name() const { return kEngineName; }
+  //! Return search engine name
+  std::string_view name() const override { return kEngineName; }
 
+  //! Return URL for search, it is used to fetch song lyric
   std::string url() const override { return url_; }
 
+  //! Return XPath to web scrap content from HTTP GET
   std::string xpath() const override { return xpath_; }
 
+  /**
+   * @brief Format search URL with artist name and song title
+   * @param artist Artist name
+   * @param title Song title
+   */
   std::string FormatSearchUrl(const std::string &artist, const std::string &name) const override;
+
+  /**
+   * @brief Filter webscraping content to an expected song lyrics format
+   * @param raw HTML content
+   * @return Song lyrics filtered
+   */
   SongLyric FormatLyrics(const SongLyric &raw) const override;
 
  private:
@@ -83,16 +114,30 @@ class Google : public SearchConfig {
  * @brief Search configurations to web scrap from AZLyrics
  */
 class AZLyrics : public SearchConfig {
-  static constexpr std::string_view kEngineName = "AZLyrics";
+  static constexpr std::string_view kEngineName = "AZLyrics";  //!< Search engine name
 
  public:
-  std::string_view name() const { return kEngineName; }
+  //! Return search engine name
+  std::string_view name() const override { return kEngineName; }
 
+  //! Return URL for search, it is used to fetch song lyric
   std::string url() const override { return url_; }
 
+  //! Return XPath to web scrap content from HTTP GET
   std::string xpath() const override { return xpath_; }
 
+  /**
+   * @brief Format search URL with artist name and song title
+   * @param artist Artist name
+   * @param title Song title
+   */
   std::string FormatSearchUrl(const std::string &artist, const std::string &name) const override;
+
+  /**
+   * @brief Filter webscraping content to an expected song lyrics format
+   * @param raw HTML content
+   * @return Song lyrics filtered
+   */
   SongLyric FormatLyrics(const SongLyric &raw) const override;
 
  private:

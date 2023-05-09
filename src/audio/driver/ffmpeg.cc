@@ -1,5 +1,7 @@
 #include "audio/driver/ffmpeg.h"
 
+#include <libavutil/error.h>
+
 #include <iomanip>
 #include <iterator>
 
@@ -82,7 +84,7 @@ error::Code FFmpeg::ConfigureDecoder() {
 
   int result = avcodec_parameters_to_context(decoder_.get(), parameters);
   if (result < 0) {
-    ERROR("Cannot create audio decoderm, error=", result);
+    ERROR("Cannot create audio decoder, error=", result);
     return error::kUnknownError;
   }
 
@@ -487,6 +489,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
 
   AVPacket *packet = shared_context_.packet.get();
   AVFrame *frame = shared_context_.frame_decoded.get();
+  int64_t song_duration = (input_stream_->duration / AV_TIME_BASE);
 
   // Read audio raw data from input stream
   while (av_read_frame(input_stream_.get(), packet) >= 0 && shared_context_.KeepDecoding()) {
@@ -497,7 +500,12 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
     }
 
     // Send packet to decoder
-    if (avcodec_send_packet(decoder_.get(), packet) < 0) {
+    if (auto result = avcodec_send_packet(decoder_.get(), packet); result < 0) {
+      // It is not actually an error, this kind of situation may happen when seek frame is used
+      if (result == AVERROR_INVALIDDATA && shared_context_.position == song_duration) {
+        break;
+      }
+
       ERROR("Cannot decode song");
       return error::kDecodeFileFailed;
     }
@@ -530,22 +538,22 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
 
 void FFmpeg::ClearCache() {
   LOG("Clear internal cache");
-  // decoding
+  // Decoding
   input_stream_.reset();
   decoder_.reset();
   stream_index_ = 0;
 
-  // filters
+  // Filters
   buffersrc_ctx_.reset();
   buffersink_ctx_.reset();
 
-  // custom data for audio filters
+  // Custom data for audio filters
   audio_filters_.clear();
 
-  // clear internal structure used for sharing context
+  // Clear internal structure used for sharing context
   shared_context_ = DecodingData{};
 
-  // main structure to handle all created filters
+  // Main structure to handle all created filters
   filter_graph_.reset();
 }
 
@@ -633,12 +641,12 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback &callback) {
     // Clear frame from filtergraph
     av_frame_unref(filtered);
 
-    // Check if EQ or song position changed
-    if (shared_context_.reset_filters || shared_context_.position != old_position) {
-      if (shared_context_.position != old_position) {
-        seek_frame = true;
-      }
+    // Check if EQ has updated
+    if (shared_context_.reset_filters) break;
 
+    // Or if song position changed
+    if (shared_context_.position != old_position) {
+      seek_frame = true;
       break;
     }
   }

@@ -2,82 +2,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <ftxui/dom/elements.hpp>
 #include <optional>
 #include <string>
 #include <thread>
 
+#include "audio/lyric/lyric_finder.h"
 #include "util/formatter.h"
 #include "util/logger.h"
 
 namespace interface {
 
-static void DrawEllipse(ftxui::Canvas& content, int x1, int y1, int r1, int r2, bool wtf) {
-  int x = -r1;
-  int y = 0;
-  int e2 = r2;
-  int dx = (1 + 2 * x) * e2 * e2;
-  int dy = x * x;
-  int err = dx + dy;
-
-  do {
-    if (wtf) {
-      content.DrawPoint(x1 + x, y1 + y, true);
-      content.DrawPoint(x1 + x, y1 - y, true);
-    } else {
-      content.DrawPoint(x1 - x, y1 + y, true);
-      content.DrawPoint(x1 - x, y1 - y, true);
-    }
-
-    e2 = 2 * err;
-    if (e2 >= dx) {
-      x++;
-      err += dx += 2 * r2 * r2;
-    }
-    if (e2 <= dy) {
-      y++;
-      err += dy += 2 * r1 * r1;
-    }
-  } while (x <= 0);
-
-  while (y++ < r2) {
-    content.DrawPoint(x1, y1 + y, true);
-    content.DrawPoint(x1, y1 - y, true);
-  }
-}
-
-static ftxui::Element RenderNotFound() {
-  ftxui::Canvas content(100, 200);
-
-  // O
-  content.DrawPointCircle(30, 40, 10);
-  content.DrawPointCircle(30, 40, 11);
-  content.DrawPointCircle(30, 40, 12);
-
-  // o
-  content.DrawPointCircle(53, 42, 8);
-  content.DrawPointCircle(53, 42, 9);
-
-  // p
-  content.DrawPointLine(64, 34, 64, 55);
-  content.DrawPointLine(65, 34, 65, 55);
-
-  content.DrawPointEllipse(71, 43, 6, 6);
-  content.DrawPointEllipse(71, 43, 7, 7);
-
-  // s
-  DrawEllipse(content, 88, 39, 8, 4, true);
-  DrawEllipse(content, 89, 40, 8, 4, true);
-  DrawEllipse(content, 85, 46, 8, 4, false);
-  DrawEllipse(content, 86, 47, 8, 4, false);
-
-  return ftxui::canvas(content) | ftxui::center;
-}
-
-/* ********************************************************************************************** */
-
 SongLyric::SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher) {}
+                     const std::shared_ptr<EventDispatcher>& dispatcher,
+                     driver::UrlFetcher* fetcher, driver::HtmlParser* parser)
+    : TabItem(id, dispatcher), finder_{lyric::LyricFinder::Create(fetcher, parser)} {}
 
 /* ********************************************************************************************** */
 
@@ -88,25 +27,31 @@ ftxui::Element SongLyric::Render() {
     return ftxui::text("No song playing...") | ftxui::bold | ftxui::center;
   }
 
-  if (fetching_)
-    content = ftxui::text("Fetching lyrics...") | ftxui::bold;
-  else if (failed_)
-    content = ftxui::text("Failed to fetch =(") | ftxui::bold;
-  else if (lyrics_) {
-    ftxui::Elements lines;
-
-    for (auto& paragraph : *lyrics_) {
-      std::istringstream input{paragraph};
-
-      for (std::string line; std::getline(input, line);) {
-        lines.push_back(ftxui::text(line));
-      }
-    }
-
-    content = ftxui::vbox(lines) | ftxui::frame;
+  if (IsFetching()) {
+    return ftxui::text("Fetching lyrics...") | ftxui::bold | ftxui::center;
   }
 
-  return content | ftxui::center;
+  if (IsResultReady()) {
+    // It is not that great to have this inside Render(), but it is working fine...
+    // TODO: Must rethink this in the near future.
+    if (auto result = async_fetcher_.get(); result) lyrics_ = *result;
+  }
+
+  if (lyrics_.empty()) {
+    return ftxui::text("Failed to fetch =(") | ftxui::bold | ftxui::center;
+  }
+
+  ftxui::Elements lines;
+
+  for (const auto& paragraph : lyrics_) {
+    std::istringstream input{paragraph};
+
+    for (std::string line; std::getline(input, line);) {
+      lines.push_back(ftxui::text(line));
+    }
+  }
+
+  return ftxui::vbox(lines) | ftxui::frame | ftxui::center;
 }
 
 /* ********************************************************************************************** */
@@ -120,8 +65,8 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     audio_info_ = model::Song{};
-    lyrics_.reset();
-    failed_ = false;
+    async_fetcher_ = std::future<FetchResult>();
+    lyrics_.clear();
   }
 
   // Do not return true because other blocks may use it
@@ -130,9 +75,9 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     audio_info_ = event.GetContent<model::Song>();
 
     if (!audio_info_.filepath.empty()) {
-      LOG("Launch thread to fetch song lyrics");
-      // As we do not want to hold UI at all, fetch song lyrics in a thread
-      std::thread(&SongLyric::FetchSong, this).detach();
+      LOG("Launch async task to fetch song lyrics");
+      // As we do not want to hold UI at all, fetch song lyrics asynchronously
+      async_fetcher_ = std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this));
     }
   }
 
@@ -141,8 +86,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void SongLyric::FetchSong() {
-  std::scoped_lock lock(mutex_);
+SongLyric::FetchResult SongLyric::FetchSongLyrics() {
   LOG("Started executing thread to fetch song lyrics");
 
   std::string artist;
@@ -162,7 +106,7 @@ void SongLyric::FetchSong() {
     // If contains more than one hiphen, should not fetch at all
     if (std::string::difference_type n = std::count(filename.begin(), filename.end(), '-'); n > 1) {
       ERROR("Contains more than one hiphen on filename, song lyrics will not be fetched");
-      return;
+      return std::nullopt;
     }
 
     // Split into artist + title + .extension
@@ -171,7 +115,7 @@ void SongLyric::FetchSong() {
     // If filename is not in the expected format ("dummy - song.mp3"), should not fetch song
     if (pos == std::string::npos) {
       ERROR("Filename does not contain a supported pattern");
-      return;
+      return std::nullopt;
     }
 
     size_t ext_pos = filename.find_last_of('.');
@@ -183,21 +127,18 @@ void SongLyric::FetchSong() {
 
   if (artist.empty() || title.empty()) {
     ERROR("Failed to parse artist and title");
-    failed_ = true;
-    return;
+    return std::nullopt;
   }
 
-  fetching_ = true;
-  auto result = finder_->Search(artist, title);
-  fetching_ = false;
+  FetchResult result = finder_->Search(artist, title);
 
-  if (!result.empty()) {
+  if (!result.value().empty()) {
     LOG("Found song lyrics");
-    lyrics_ = std::move(result);
   } else {
     ERROR("Failed to fetch song lyrics");
-    failed_ = true;
   }
+
+  return result;
 }
 
 }  // namespace interface

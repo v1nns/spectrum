@@ -7,8 +7,8 @@
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
 #else
-#include "audio/debug/dummy_decoder.h"
-#include "audio/debug/dummy_playback.h"
+#include "debug/dummy_decoder.h"
+#include "debug/dummy_playback.h"
 #endif
 
 #include "view/base/notifier.h"
@@ -104,6 +104,7 @@ void Player::Init(bool asynchronous) {
 
 void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   LOG("Reset media control with error code=", result);
+  bool notify_finished = media_control_.state == State::Play;
   decoder_->ClearCache();
   media_control_.Reset();
   curr_song_.reset();
@@ -111,13 +112,13 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   auto media_notifier = notifier_.lock();
   if (!media_notifier) return;
 
-  if (result == error::kSuccess) {
-    // Notify that song has finished successfully
+  if (result != error::kSuccess) {
+    // In case of error, notify about it
+    media_notifier->NotifyError(result);
+  } else if (notify_finished) {
+    // If song finished naturally, notify that has finished successfully
     media_notifier->NotifySongState(
         model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
-  } else {
-    // Or in case of error, notify about it
-    media_notifier->NotifyError(result);
   }
 
   // Clear any song information from UI
@@ -284,8 +285,8 @@ void Player::AudioHandler() {
 
     {
       // Otherwise, it is a supported audio extension, send detailed audio information to UI
-      auto media_notifier = notifier_.lock();
-      if (media_notifier) media_notifier->NotifySongInformation(*curr_song_);
+      if (auto media_notifier = notifier_.lock(); media_notifier)
+        media_notifier->NotifySongInformation(*curr_song_);
     }
 
     // Inform playback driver to be ready to play

@@ -7,14 +7,15 @@
 
 namespace interface {
 
-TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
+TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher,
+                     driver::UrlFetcher* fetcher, driver::HtmlParser* parser)
     : Block{dispatcher, model::BlockIdentifier::TabViewer,
             interface::Size{.width = 0, .height = 0}} {
   // Initialize window buttons
   CreateButtons();
 
   // Add tab views
-  CreateViews(dispatcher);
+  CreateViews(dispatcher, fetcher, parser);
 }
 
 /* ********************************************************************************************** */
@@ -120,7 +121,8 @@ void TabViewer::CreateButtons() {
 
 /* ********************************************************************************************** */
 
-void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) {
+void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher,
+                            driver::UrlFetcher* fetcher, driver::HtmlParser* parser) {
   views_[View::Visualizer] = Tab{
       .key = "1",
       .button = Button::make_button_for_window(
@@ -169,7 +171,7 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
             return true;
           },
           Button::Delimiters{" ", " "}),
-      .item = std::make_unique<SongLyric>(GetId(), dispatcher),
+      .item = std::make_unique<SongLyric>(GetId(), dispatcher, fetcher, parser),
   };
 }
 

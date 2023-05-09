@@ -3,8 +3,8 @@
  * \brief Dummy class for decoder support
  */
 
-#ifndef INCLUDE_AUDIO_DEBUG_DUMMY_DECODER_H_
-#define INCLUDE_AUDIO_DEBUG_DUMMY_DECODER_H_
+#ifndef INCLUDE_DEBUG_DUMMY_DECODER_H_
+#define INCLUDE_DEBUG_DUMMY_DECODER_H_
 
 #include <functional>
 #include <map>
@@ -113,4 +113,4 @@ class DummyDecoder : public Decoder {
 };
 
 }  // namespace driver
-#endif  // INCLUDE_AUDIO_DEBUG_DUMMY_DECODER_H_
+#endif  // INCLUDE_DEBUG_DUMMY_DECODER_H_
