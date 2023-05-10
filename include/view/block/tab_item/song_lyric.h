@@ -24,9 +24,6 @@ class TabViewerTest;
 
 namespace interface {
 
-// To better readability
-using LyricFinder = std::unique_ptr<lyric::LyricFinder>;
-
 /**
  * @brief Component to render lyric from current song
  */
@@ -36,12 +33,9 @@ class SongLyric : public TabItem {
    * @brief Construct a new SongLyric object
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
-   * @param fetcher URL fetcher (optional)
-   * @param parser HTML parser (optional)
    */
   explicit SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher,
-                     driver::UrlFetcher* fetcher = nullptr, driver::HtmlParser* parser = nullptr);
+                     const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the SongLyric object
@@ -103,13 +97,20 @@ class SongLyric : public TabItem {
    */
   FetchResult FetchSongLyrics();
 
+  /**
+   * @brief Renders the song lyrics element
+   * @param lyrics Song lyrics (each entry represents a paragraph)
+   */
+  ftxui::Element DrawSongLyrics(const lyric::SongLyric& lyrics);
+
   /* ******************************************************************************************** */
   //! Variables
 
   model::Song audio_info_;   //!< Audio information from current song
   lyric::SongLyric lyrics_;  //!< Song lyrics from current song
+  int focused_ = 0;          //!< Index for paragraph focused from song lyric
 
-  LyricFinder finder_;                      //!< Lyric finder
+  std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
   std::future<FetchResult> async_fetcher_;  //!< Use lyric finder asynchronously
 
   /* ******************************************************************************************** */

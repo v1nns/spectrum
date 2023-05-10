@@ -35,11 +35,8 @@ class TabViewer : public Block {
   /**
    * @brief Construct a new TabViewer object
    * @param dispatcher Block event dispatcher
-   * @param fetcher URL fetcher (optional)
-   * @param parser HTML parser (optional)
    */
-  explicit TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher,
-                     driver::UrlFetcher* fetcher = nullptr, driver::HtmlParser* parser = nullptr);
+  explicit TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy the TabViewer object
@@ -89,8 +86,7 @@ class TabViewer : public Block {
   void CreateButtons();
 
   //! Create all tab views
-  void CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher, driver::UrlFetcher* fetcher,
-                   driver::HtmlParser* parser);
+  void CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -114,9 +110,6 @@ class TabViewer : public Block {
 
 #ifdef ENABLE_TESTS
   friend class ::TabViewerTest;
-
-  //! Get tab view
-  Item& view(View id) { return views_[id].item; }
 #endif
 };
 

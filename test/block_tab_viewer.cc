@@ -6,8 +6,7 @@
 #include "general/block.h"
 #include "general/utils.h"  // for FilterAnsiCommands
 #include "mock/event_dispatcher_mock.h"
-#include "mock/html_parser_mock.h"
-#include "mock/url_fetcher_mock.h"
+#include "mock/lyric_finder_mock.h"
 #include "util/logger.h"
 #include "view/block/tab_item/song_lyric.h"
 #include "view/block/tab_item/spectrum_visualizer.h"
@@ -18,6 +17,8 @@ namespace {
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::Field;
+using ::testing::Invoke;
+using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -35,48 +36,36 @@ class TabViewerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create mocks
-    UrlFetcherMock* uf_mock = new UrlFetcherMock();
-    HtmlParserMock* hp_mock = new HtmlParserMock();
-
     // Create TabViewer block
-    block = ftxui::Make<interface::TabViewer>(dispatcher, uf_mock, hp_mock);
+    block = ftxui::Make<interface::TabViewer>(dispatcher);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
+
+    // As we dot want to use dependency injection for Tabview::SongLyrics, we will override
+    // LyricFinder manually...  First of all, get tab viewer
+    auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
+
+    // Then get song lyric tab item
+    auto song_lyric = static_cast<interface::SongLyric*>(
+        tab_viewer->views_[interface::TabViewer::View::Lyric].item.get());
+
+    // And finally, override lyric finder to use a mock
+    song_lyric->finder_ = std::make_unique<LyricFinderMock>();
   }
 
-  //! Getter for Playback (necessary as inner variable is an unique_ptr)
-  auto GetFetcher() -> UrlFetcherMock* {
+  //! Getter for LyricFinder (necessary as inner variable is an unique_ptr)
+  auto GetFinder() -> LyricFinderMock* {
     // Get tab viewer
     auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
 
     // Get song lyric tab item
     auto song_lyric = static_cast<interface::SongLyric*>(
-        tab_viewer->view(interface::TabViewer::View::Lyric).get());
+        tab_viewer->views_[interface::TabViewer::View::Lyric].item.get());
 
-    // Get lyric finder
-    auto lyric_finder = static_cast<lyric::LyricFinder*>(song_lyric->finder_.get());
-
-    // Return inner member from tab item
-    return static_cast<UrlFetcherMock*>(lyric_finder->fetcher_.get());
-  }
-
-  //! Getter for Decoder (necessary as inner variable is an unique_ptr)
-  auto GetParser() -> HtmlParserMock* {
-    // Get tab viewer
-    auto tab_viewer = reinterpret_cast<interface::TabViewer*>(block.get());
-
-    // Get song lyric tab item
-    auto song_lyric = reinterpret_cast<interface::SongLyric*>(
-        tab_viewer->view(interface::TabViewer::View::Lyric).get());
-
-    // Get lyric finder
-    auto lyric_finder = reinterpret_cast<lyric::LyricFinder*>(song_lyric->finder_.get());
-
-    // Return inner member from tab item
-    return reinterpret_cast<HtmlParserMock*>(lyric_finder->fetcher_.get());
+    // Return lyric finder mock
+    return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
   }
 
   static constexpr int kNumberBars = 22;  //!< Number of bars for visualizer tab view
@@ -843,6 +832,473 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
 
 /* ********************************************************************************************** */
 
-// TODO: create tests for Lyric tab view
+TEST_F(TabViewerTest, FetchSongLyrics) {
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                     No song playing...                                      │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  auto finder = GetFinder();
+
+  std::string expected_artist{"Deko"};
+  std::string expected_title{"Midnight Tokyo"};
+
+  // Setup expectations before start fetching song lyrics
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        // Wait a bit, to simulate execution of Finder async task
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        return lyric::SongLyric{
+            "Found crazy lyrics",
+            "about some stuff",
+            "that I don't even know",
+        };
+      }));
+
+  // Send event to notify that song has started playing
+  model::Song audio{
+      .filepath = "/path/to/song.mp3",
+      .artist = "Deko",
+      .title = "Midnight Tokyo",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 193,
+  };
+
+  auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update_song);
+
+  // It is necessary to clear screen, otherwise it will be dirty
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                     Fetching lyrics...                                      │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Wait a bit, just until Finder async task finishes its execution
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  // It is necessary to clear screen, otherwise it will be dirty
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                   Found crazy lyrics                                        │
+│                                   about some stuff                                          │
+│                                   that I don't even know                                    │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, FetchSongLyricsFailed) {
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  std::string expected_artist{"southstar"};
+  std::string expected_title{"Miss You"};
+
+  // Setup expectations before start fetching song lyrics
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        // Wait a bit, to simulate execution of Finder async task
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        return lyric::SongLyric{};
+      }));
+
+  // Send event to notify that song has started playing
+  model::Song audio{
+      .filepath = "/path/to/song.mp3",
+      .artist = "southstar",
+      .title = "Miss You",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 193,
+  };
+
+  auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update_song);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                     Fetching lyrics...                                      │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Wait a bit, just until Finder async task finishes its execution
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  // It is necessary to clear screen, otherwise it will be dirty
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                     Failed to fetch =(                                      │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  std::string expected_artist{"NiteWind"};
+  std::string expected_title{"Lucid Memories"};
+
+  // Setup expectations before start fetching song lyrics
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        // Wait a bit, to simulate execution of Finder async task
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        return lyric::SongLyric{
+            "Funny you asked",
+            "Yeah, found something",
+        };
+      }));
+
+  // Send event to notify that song has started playing
+  model::Song audio{
+      .filepath = "/contains/some/huge/path/NiteWind-Lucid Memories.mp3",
+      .artist = "",
+      .title = "",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 193,
+  };
+
+  auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update_song);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                     Fetching lyrics...                                      │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Wait for Finder async task to finish it
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  // It is necessary to clear screen, otherwise it will be dirty
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                    Funny you asked                                          │
+│                                    Yeah, found something                                    │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  auto setup_expectation_for_find = [&](const std::string& filepath,
+                                        const std::string& expected_artist,
+                                        const std::string& expected_title, int times = 1) {
+    if (times == 0)
+      // Setup expectations before start fetching song lyrics
+      EXPECT_CALL(*finder, Search(expected_artist, expected_title)).Times(0);
+    else
+      // Setup expectations before start fetching song lyrics
+      EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+          .WillRepeatedly(Return(lyric::SongLyric{}));
+
+    // Send event to notify that song has started playing
+    model::Song audio{.filepath = filepath};
+
+    auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+    Process(event_update_song);
+
+    // Wait for Finder async task to finish it
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  };
+
+  // Attempt 1 - ok
+  setup_expectation_for_find("yatashigang- BREATHE.mp4", "yatashigang", "BREATHE");
+
+  // Attempt 2 - ok
+  setup_expectation_for_find("yatashigang  -BREATHE.mp4", "yatashigang", "BREATHE");
+
+  // Attempt 3 - nok
+  setup_expectation_for_find("yatashigang BREATHE.mp4", "", "", 0);
+
+  // Attempt 4 - nok
+  setup_expectation_for_find("yatashigang-BREATHE", "", "", 0);
+
+  // Attempt 5 - nok
+  setup_expectation_for_find("yatashigang=BREATHE.mp3", "", "", 0);
+
+  // Attempt 6 - ok
+  setup_expectation_for_find("yatashigang-BREATHE .mp4", "yatashigang", "BREATHE");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  std::string expected_artist{"Joey Bada$$"};
+  std::string expected_title{"Show Me"};
+
+  // Setup expectations before start fetching song lyrics
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        // Wait a bit, to simulate execution of Finder async task
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        return lyric::SongLyric{
+            "Just imagine the lyrics",
+            "In this block",
+        };
+      }));
+
+  // Send event to notify that song has started playing
+  model::Song audio{.filepath = "/contains/Joey Bada$$-Show Me.mp3"};
+
+  auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update_song);
+
+  // Wait for Finder async task to finish it
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                   Just imagine the lyrics                                   │
+│                                   In this block                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Send event to clear song info
+  auto event_clear = interface::CustomEvent::ClearSongInfo();
+  Process(event_clear);
+
+  // It is necessary to clear screen, otherwise it will be dirty
+  screen->Clear();
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                     No song playing...                                      │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+// TODO: fix other tests, and create test with scrollable song lyrics
 
 }  // namespace

@@ -14,9 +14,8 @@
 namespace interface {
 
 SongLyric::SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher,
-                     driver::UrlFetcher* fetcher, driver::HtmlParser* parser)
-    : TabItem(id, dispatcher), finder_{lyric::LyricFinder::Create(fetcher, parser)} {}
+                     const std::shared_ptr<EventDispatcher>& dispatcher)
+    : TabItem(id, dispatcher) {}
 
 /* ********************************************************************************************** */
 
@@ -41,22 +40,29 @@ ftxui::Element SongLyric::Render() {
     return ftxui::text("Failed to fetch =(") | ftxui::bold | ftxui::center;
   }
 
-  ftxui::Elements lines;
-
-  for (const auto& paragraph : lyrics_) {
-    std::istringstream input{paragraph};
-
-    for (std::string line; std::getline(input, line);) {
-      lines.push_back(ftxui::text(line));
-    }
-  }
-
-  return ftxui::vbox(lines) | ftxui::frame | ftxui::center;
+  return DrawSongLyrics(lyrics_);
 }
 
 /* ********************************************************************************************** */
 
-bool SongLyric::OnEvent(const ftxui::Event& event) { return false; }
+bool SongLyric::OnEvent(const ftxui::Event& event) {
+  if (lyrics_.empty()) return false;
+
+  int old_focus = focused_;
+
+  // Calculate new index based on upper bound
+  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    focused_ = focused_ - (focused_ > 0 ? 1 : 0);
+  }
+
+  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    focused_ = focused_ + (focused_ < (static_cast<int>(lyrics_.size()) - 1) ? 1 : 0);
+  }
+
+  return focused_ != old_focus ? true : false;
+}
 
 /* ********************************************************************************************** */
 
@@ -67,6 +73,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     audio_info_ = model::Song{};
     async_fetcher_ = std::future<FetchResult>();
     lyrics_.clear();
+    focused_ = 0;
   }
 
   // Do not return true because other blocks may use it
@@ -139,6 +146,55 @@ SongLyric::FetchResult SongLyric::FetchSongLyrics() {
   }
 
   return result;
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) {
+  ftxui::Elements lines;
+  bool set_focus = true;
+  int count = 0;
+  int max_length = 0;
+
+  for (const auto& paragraph : lyrics) {
+    std::istringstream input{paragraph};
+
+    for (std::string line; std::getline(input, line);) {
+      // Simply add raw line
+      lines.push_back(ftxui::text(line));
+
+      // If paragraph index matches the focus index, set focus on element only once
+      if (set_focus && count == focused_) {
+        lines.back() |= ftxui::focus;
+        set_focus = false;
+      }
+
+      // Find maximum line length
+      if (line.length() > max_length) {
+        max_length = (int)line.length();
+      }
+    }
+
+    count++;
+  }
+
+  // Use maximum length to set width size for text
+  using ftxui::EQUAL;
+  using ftxui::WIDTH;
+
+  // Format song lyrics in the desired style
+  ftxui::Elements formatted_lines;
+
+  for (const auto& line : lines) {
+    formatted_lines.push_back(ftxui::hbox({
+        ftxui::filler(),
+        line | ftxui::size(WIDTH, EQUAL, max_length),
+        ftxui::filler(),
+    }));
+  }
+
+  return ftxui::vbox(formatted_lines) | ftxui::vscroll_indicator | ftxui::frame | ftxui::flex |
+         ftxui::vcenter;
 }
 
 }  // namespace interface

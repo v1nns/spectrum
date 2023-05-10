@@ -16,7 +16,6 @@
 #ifdef ENABLE_TESTS
 namespace {
 class LyricFinderTest;
-class TabViewerTest;
 }
 #endif
 
@@ -33,6 +32,12 @@ class LyricFinder {
    */
   explicit LyricFinder(std::unique_ptr<driver::UrlFetcher>&& fetcher,
                        std::unique_ptr<driver::HtmlParser>&& parser);
+
+ protected:
+  /**
+   * @brief Construct a new LyricFinder object
+   */
+  LyricFinder() = default;
 
  public:
   /**
@@ -64,7 +69,7 @@ class LyricFinder {
    * @param title Song name
    * @return Song lyrics
    */
-  SongLyric Search(const std::string& artist, const std::string& title);
+  virtual SongLyric Search(const std::string& artist, const std::string& title);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -78,7 +83,6 @@ class LyricFinder {
 
 #ifdef ENABLE_TESTS
   friend class ::LyricFinderTest;
-  friend class ::TabViewerTest;
 #endif
 };
 
