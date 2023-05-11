@@ -1494,4 +1494,77 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
+  auto finder = GetFinder();
+
+  std::string expected_artist{"The Virgins"};
+  std::string expected_title{"Rich Girls"};
+
+  // Setup expectations before start fetching song lyrics
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        // Wait a bit, to simulate execution of Finder async task
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        return lyric::SongLyric{
+            "Funny you asked\n"
+            "Yeah, found something\n",
+        };
+      }));
+
+  // Send event to notify that song has started playing
+  model::Song audio{
+      .filepath = "/contains/some/huge/path/The Virgins-Rich Girls.mp3",
+      .artist = "",
+      .title = "",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 256000,
+      .bit_depth = 32,
+      .duration = 193,
+  };
+
+  auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update_song);
+
+  // Wait for Finder async task to finish it
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                   Funny you asked                                           │
+│                                   Yeah, found something                                     │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

@@ -76,7 +76,17 @@ bool TabViewer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool TabViewer::OnCustomEvent(const CustomEvent& event) { return active()->OnCustomEvent(event); }
+bool TabViewer::OnCustomEvent(const CustomEvent& event) {
+  // Even if TabItem::SongLyrics is not active, force it to process these events
+  // By doing this, it makes possible to fetch lyrics on background
+  if ((event == CustomEvent::Identifier::ClearSongInfo ||
+       event == CustomEvent::Identifier::UpdateSongInfo) &&
+      active_ != View::Lyric) {
+    views_[View::Lyric].item->OnCustomEvent(event);
+  }
+
+  return active()->OnCustomEvent(event);
+}
 
 /* ********************************************************************************************** */
 
