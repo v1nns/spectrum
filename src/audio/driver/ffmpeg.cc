@@ -641,12 +641,9 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback &callback) {
     // Clear frame from filtergraph
     av_frame_unref(filtered);
 
-    // Check if EQ has updated
-    if (shared_context_.reset_filters) break;
-
-    // Or if song position changed
-    if (shared_context_.position != old_position) {
-      seek_frame = true;
+    // Check if EQ has updated or song position has changed
+    if (shared_context_.reset_filters || shared_context_.position != old_position) {
+      seek_frame = shared_context_.position != old_position;
       break;
     }
   }

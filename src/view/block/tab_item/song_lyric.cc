@@ -61,6 +61,16 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
     focused_ = focused_ + (focused_ < (static_cast<int>(lyrics_.size()) - 1) ? 1 : 0);
   }
 
+  if (event == ftxui::Event::Home) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    focused_ = 0;
+  }
+
+  if (event == ftxui::Event::End) {
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    focused_ = static_cast<int>(lyrics_.size() - 1);
+  }
+
   return focused_ != old_focus ? true : false;
 }
 
@@ -150,7 +160,7 @@ SongLyric::FetchResult SongLyric::FetchSongLyrics() {
 
 /* ********************************************************************************************** */
 
-ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) {
+ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) const {
   ftxui::Elements lines;
   bool set_focus = true;
   int count = 0;
@@ -175,6 +185,9 @@ ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) {
       }
     }
 
+    // Add a line separator, delimiting the paragraph
+    lines.push_back(ftxui::text(""));
+
     count++;
   }
 
@@ -193,7 +206,7 @@ ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) {
     }));
   }
 
-  return ftxui::vbox(formatted_lines) | ftxui::vscroll_indicator | ftxui::frame | ftxui::flex |
+  return ftxui::vbox(formatted_lines) | ftxui::vscroll_indicator | ftxui::frame | ftxui::xflex |
          ftxui::vcenter;
 }
 

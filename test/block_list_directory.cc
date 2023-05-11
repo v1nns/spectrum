@@ -136,9 +136,9 @@ TEST_F(ListDirectoryTest, NavigateToMockDir) {
 │  html_parser_mock.h          │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
+│  lyric_finder_mock.h         │
 │  playback_mock.h             │
 │  url_fetcher_mock.h          │
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 
@@ -226,9 +226,9 @@ TEST_F(ListDirectoryTest, TextAndNavigateInSearchMode) {
 │  html_parser_mock.h          │
 │  interface_notifier_mock.h   │
 │  list_directory_mock.h       │
+│  lyric_finder_mock.h         │
 │  playback_mock.h             │
 │  url_fetcher_mock.h          │
-│                              │
 │                              │
 ╰──────────────────────────────╯)";
 

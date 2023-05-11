@@ -879,9 +879,9 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
         return lyric::SongLyric{
-            "Found crazy lyrics",
-            "about some stuff",
-            "that I don't even know",
+            "Found crazy lyrics\n"
+            "about some stuff\n"
+            "that I don't even know\n",
         };
       }));
 
@@ -940,10 +940,10 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
-│                                                                                             │
 │                                   Found crazy lyrics                                        │
 │                                   about some stuff                                          │
 │                                   that I don't even know                                    │
+│                                                                                             │
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1075,8 +1075,8 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
         return lyric::SongLyric{
-            "Funny you asked",
-            "Yeah, found something",
+            "Funny you asked\n"
+            "Yeah, found something\n",
         };
       }));
 
@@ -1134,8 +1134,8 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
-│                                    Funny you asked                                          │
-│                                    Yeah, found something                                    │
+│                                   Funny you asked                                           │
+│                                   Yeah, found something                                     │
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1229,8 +1229,8 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
         return lyric::SongLyric{
-            "Just imagine the lyrics",
-            "In this block",
+            "Just imagine the lyrics\n"
+            "In this block\n",
         };
       }));
 
@@ -1254,8 +1254,8 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
-│                                   Just imagine the lyrics                                   │
-│                                   In this block                                             │
+│                                  Just imagine the lyrics                                    │
+│                                  In this block                                              │
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1299,6 +1299,199 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
 
 /* ********************************************************************************************** */
 
-// TODO: fix other tests, and create test with scrollable song lyrics
+TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
+  // Setup once all expectations for event to set focus on this tab view
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .Times(1);
+
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  std::string expected_artist{"Rüfüs Du Sol"};
+  std::string expected_title{"Innerbloom"};
+
+  // Setup expectations before start fetching song lyrics
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        // Wait a bit, to simulate execution of Finder async task
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+        return lyric::SongLyric{
+            "Feels like I'm waiting\n"
+            "Like I'm watching\n"
+            "Watching you for love\n"
+            "Dreams, where I am fading\n"
+            "Fading\n",
+
+            "So free my mind\n"
+            "All the talking\n"
+            "Wasting all your time\n"
+            "I'm giving all\n"
+            "That I've got\n",
+
+            "Feels like I'm dreaming\n"
+            "Like I'm walking\n"
+            "Walking by your side\n"
+            "Keeps on repeating\n"
+            "Repeating\n",
+
+            "So free my mind\n"
+            "All the talking\n"
+            "Wasting all your time\n"
+            "I'm giving all\n"
+            "That I've got\n",
+
+            "If you want me\n"
+            "If you need me\n"
+            "I'm yours\n",
+
+            "If you want me\n"
+            "If you need me\n"
+            "I'm yours\n",
+
+            "If you want me\n"
+            "If you need me\n"
+            "I'm yours\n",
+
+            "If you want me\n"
+            "If you need me\n"
+            "I'm yours\n",
+
+            "If you want me\n"
+            "If you need me\n"
+            "I'm yours\n",
+
+            "If you want me\n"
+            "If you need me\n"
+            "I'm yours\n",
+        };
+      }));
+
+  // Send event to notify that song has started playing
+  model::Song audio{.filepath = "Rüfüs Du Sol-Innerbloom.mp3"};
+
+  auto event_update_song = interface::CustomEvent::UpdateSongInfo(audio);
+  Process(event_update_song);
+
+  // Wait for Finder async task to finish it
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                 Feels like I'm waiting                                     ┃│
+│                                 Like I'm watching                                          ┃│
+│                                 Watching you for love                                      ┃│
+│                                 Dreams, where I am fading                                  ┃│
+│                                 Fading                                                      │
+│                                                                                             │
+│                                 So free my mind                                             │
+│                                 All the talking                                             │
+│                                 Wasting all your time                                       │
+│                                 I'm giving all                                              │
+│                                 That I've got                                               │
+│                                                                                             │
+│                                 Feels like I'm dreaming                                     │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Scroll lyrics
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowUp);
+  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  // Clear screen and render again to get updated lyrics
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                 Feels like I'm dreaming                                     │
+│                                 Like I'm walking                                            │
+│                                 Walking by your side                                        │
+│                                 Keeps on repeating                                         ┃│
+│                                 Repeating                                                  ┃│
+│                                                                                            ┃│
+│                                 So free my mind                                            ┃│
+│                                 All the talking                                             │
+│                                 Wasting all your time                                       │
+│                                 I'm giving all                                              │
+│                                 That I've got                                               │
+│                                                                                             │
+│                                 If you want me                                              │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Scroll to the end
+  block->OnEvent(ftxui::Event::End);
+
+  // Clear screen and render again to get updated lyrics
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                 If you want me                                              │
+│                                 If you need me                                              │
+│                                 I'm yours                                                   │
+│                                                                                             │
+│                                 If you want me                                              │
+│                                 If you need me                                              │
+│                                 I'm yours                                                   │
+│                                                                                             │
+│                                 If you want me                                             ┃│
+│                                 If you need me                                             ┃│
+│                                 I'm yours                                                  ┃│
+│                                                                                            ┃│
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Scroll back to the begin
+  block->OnEvent(ftxui::Event::Home);
+
+  // Clear screen and render again to get updated lyrics
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                 Feels like I'm waiting                                     ┃│
+│                                 Like I'm watching                                          ┃│
+│                                 Watching you for love                                      ┃│
+│                                 Dreams, where I am fading                                  ┃│
+│                                 Fading                                                      │
+│                                                                                             │
+│                                 So free my mind                                             │
+│                                 All the talking                                             │
+│                                 Wasting all your time                                       │
+│                                 I'm giving all                                              │
+│                                 That I've got                                               │
+│                                                                                             │
+│                                 Feels like I'm dreaming                                     │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
 
 }  // namespace

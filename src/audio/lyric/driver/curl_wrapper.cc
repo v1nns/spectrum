@@ -39,6 +39,7 @@ error::Code CURLWrapper::Fetch(const std::string &URL, std::string &output) {
   // Enable TLSv1.3 version only
   curl_easy_setopt(curl.get(), CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
 
+  LOG("Fetching content from URL=", URL);
   if (CURLcode result = curl_easy_perform(curl.get()); result != CURLE_OK) {
     ERROR("Failed to execute cURL, error=", std::string(err_buffer.begin(), err_buffer.end()));
     return error::kUnknownError;

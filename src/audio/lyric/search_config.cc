@@ -32,13 +32,18 @@ std::string Google::FormatSearchUrl(const std::string &artist, const std::string
 SongLyric Google::FormatLyrics(const SongLyric &raw) const {
   std::string::size_type pos = 0;
   std::string::size_type prev = 0;
-
-  if (raw.size() != 1) ERROR("Received more raw data than expected");
-  const auto &content = raw.front();
   SongLyric lyric;
+
+  if (raw.size() != 1) {
+    ERROR("Received more raw data than expected");
+    return lyric;
+  }
+
+  const auto &content = raw.front();
 
   // Split into paragraphs
   while ((pos = content.find("\n\n", prev)) != std::string::npos) {
+    pos += 1;  // To avoid having a \n in the beginning
     lyric.push_back(content.substr(prev, pos - prev));
     prev = pos + 1;
   }
@@ -76,7 +81,7 @@ SongLyric AZLyrics::FormatLyrics(const SongLyric &raw) const {
     if (line == "\r\n") continue;
 
     // newline means paragraph is finished
-    if (line == "\n") {
+    if (line == "\n" && !paragraph.empty()) {
       lyric.push_back(paragraph);
       paragraph.clear();
       continue;
@@ -89,7 +94,6 @@ SongLyric AZLyrics::FormatLyrics(const SongLyric &raw) const {
 
   // We may not receive the last newline, append last paragraph if not empty
   if (!paragraph.empty()) {
-    paragraph.pop_back();  // Remove newline
     lyric.push_back(paragraph);
   }
 

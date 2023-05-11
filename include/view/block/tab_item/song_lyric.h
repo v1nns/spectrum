@@ -73,7 +73,7 @@ class SongLyric : public TabItem {
    * @return true if state matches, otherwise false
    */
   template <typename R>
-  bool is_state(std::future<R>& f, std::future_status st) {
+  bool is_state(std::future<R>& f, std::future_status st) const {
     return f.valid() && f.wait_for(std::chrono::seconds(0)) == st;
   }
 
@@ -101,7 +101,7 @@ class SongLyric : public TabItem {
    * @brief Renders the song lyrics element
    * @param lyrics Song lyrics (each entry represents a paragraph)
    */
-  ftxui::Element DrawSongLyrics(const lyric::SongLyric& lyrics);
+  ftxui::Element DrawSongLyrics(const lyric::SongLyric& lyrics) const;
 
   /* ******************************************************************************************** */
   //! Variables
