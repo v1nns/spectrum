@@ -8,9 +8,11 @@
 
 #include <math.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <sstream>
+#include <string>
 #include <tuple>
 
 #include "ftxui/component/event.hpp"  // for Event
@@ -94,6 +96,33 @@ inline std::string EventToString(const ftxui::Event& e) {
 
   return "Unknown";
 }
+
+/**
+ * @brief Remove whitespace from left end of string
+ * @param s Raw string
+ * @return Formatted string
+ */
+inline std::string ltrim(const std::string& s) {
+  size_t start = s.find_first_not_of(" \n\r\t\f\v");
+  return (start == std::string::npos) ? "" : s.substr(start);
+}
+
+/**
+ * @brief Remove whitespace from right end of string
+ * @param s Raw string
+ * @return Formatted string
+ */
+inline std::string rtrim(const std::string& s) {
+  size_t end = s.find_last_not_of(" \n\r\t\f\v");
+  return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+
+/**
+ * @brief Remove whitespace from both ends of string
+ * @param s Raw string
+ * @return Formatted string
+ */
+inline std::string trim(const std::string& s) { return rtrim(ltrim(s)); }
 
 }  // namespace util
 #endif  // INCLUDE_UTIL_PREFIX_FORMATTER_H_

@@ -29,9 +29,11 @@ namespace interface {
 class Notifier;
 }
 
+#ifdef ENABLE_TESTS
 namespace {
 class PlayerTest;
 }
+#endif
 
 namespace audio {
 
@@ -351,7 +353,10 @@ class Player : public AudioControl {
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
   friend class ::PlayerTest;
+#endif
 };
 
 }  // namespace audio

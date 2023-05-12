@@ -47,6 +47,10 @@ std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
     case Song::MediaState::Stop:
       out << "Stop";
       break;
+
+    case Song::MediaState::Finished:
+      out << "Finished";
+      break;
   }
 
   return out;

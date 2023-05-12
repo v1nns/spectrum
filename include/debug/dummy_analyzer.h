@@ -3,8 +3,8 @@
  * \brief Dummy class for audio analyzer support
  */
 
-#ifndef INCLUDE_AUDIO_DEBUG_DUMMY_ANALYZER_H_
-#define INCLUDE_AUDIO_DEBUG_DUMMY_ANALYZER_H_
+#ifndef INCLUDE_DEBUG_DUMMY_ANALYZER_H_
+#define INCLUDE_DEBUG_DUMMY_ANALYZER_H_
 
 #include "audio/base/analyzer.h"
 #include "model/application_error.h"
@@ -74,4 +74,4 @@ class DummyAnalyzer : public Analyzer {
 };
 
 }  // namespace driver
-#endif  // INCLUDE_AUDIO_DEBUG_DUMMY_ANALYZER_H_
+#endif  // INCLUDE_DEBUG_DUMMY_ANALYZER_H_

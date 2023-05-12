@@ -6,7 +6,7 @@
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/fftw.h"
 #else
-#include "audio/debug/dummy_analyzer.h"
+#include "debug/dummy_analyzer.h"
 #endif
 
 #include "audio/player.h"
@@ -355,8 +355,7 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
     // Sleep a little bit before sending a new update to UI. And in case of receiving a new
     // command in the meantime, just cancel animation
     auto timeout = std::chrono::system_clock::now() + 0.01s;
-    bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout);
-    if (exit_animation) break;
+    if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
 
     bars.clear();
   }
