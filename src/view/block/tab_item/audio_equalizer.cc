@@ -35,7 +35,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         // Otherwise, send updated values to Audio Player
         auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
         disp->SendEvent(event_filters);
-        btn_apply_->SetInactive();
+        btn_apply_->Disable();
 
         // Update cache
         last_applied_.Update(preset_name_, current);
@@ -57,8 +57,8 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         LOG("Handle callback for Equalizer reset button");
 
         // Update buttons state
-        btn_apply_->SetInactive();
-        btn_reset_->SetInactive();
+        btn_apply_->Disable();
+        btn_reset_->Disable();
 
         if (preset_name_ != kModifiablePreset) return false;
         auto& current = current_preset();
@@ -171,9 +171,9 @@ void AudioEqualizer::UpdateButtonState() {
 
   // Set apply button as active only if current filters are different from cache
   if (last_applied_ != current) {
-    btn_apply_->SetActive();
+    btn_apply_->Enable();
   } else {
-    btn_apply_->SetInactive();
+    btn_apply_->Disable();
   }
 
   // Set reset button as active only if:
@@ -182,9 +182,9 @@ void AudioEqualizer::UpdateButtonState() {
   if (preset_name_ == kModifiablePreset &&
       std::any_of(current.begin(), current.end(),
                   [](const model::AudioFilter& filter) { return filter.gain != 0; })) {
-    btn_reset_->SetActive();
+    btn_reset_->Enable();
   } else {
-    btn_reset_->SetInactive();
+    btn_reset_->Disable();
   }
 }
 

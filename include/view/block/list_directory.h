@@ -191,6 +191,7 @@ class ListDirectory : public Block {
 
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
+    ftxui::Decorator title;
     MenuEntryOption directory;
     MenuEntryOption file;
     MenuEntryOption playing;
@@ -279,6 +280,7 @@ class ListDirectory : public Block {
       std::nullopt;  //!< Mode to render only files matching the search pattern
 
   EntryStyles styles_ = EntryStyles{
+      .title = ftxui::color(ftxui::Color::White) | ftxui::bold,
       .directory = Colored(ftxui::Color::Green),
       .file = Colored(ftxui::Color::White),
       .playing =

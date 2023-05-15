@@ -3,7 +3,7 @@
 namespace interface {
 
 Button::Button(const ButtonStyle& style, Callback on_click, bool active)
-    : active_{active}, style_{style}, on_click_{on_click} {}
+    : enabled_{active}, style_{style}, on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 
@@ -16,7 +16,7 @@ bool Button::OnMouseEvent(ftxui::Event event) {
   if (box_.Contain(event.mouse().x, event.mouse().y)) {
     focused_ = true;
 
-    if (active_ && event.mouse().button == ftxui::Mouse::Left) {
+    if (enabled_ && event.mouse().button == ftxui::Mouse::Left) {
       return HandleLeftClick(event);
     }
   } else {
@@ -42,19 +42,31 @@ void Button::ResetState() { clicked_ = false; }
 
 /* ********************************************************************************************** */
 
-void Button::SetActive() {
-  if (!active_) active_ = true;
+void Button::Enable() {
+  if (!enabled_) enabled_ = true;
 }
 
 /* ********************************************************************************************** */
 
-void Button::SetInactive() {
-  if (active_) active_ = false;
+void Button::Disable() {
+  if (enabled_) enabled_ = false;
 }
 
 /* ********************************************************************************************** */
 
-bool Button::IsActive() const { return active_; }
+void Button::Select() { selected_ = true; }
+
+/* ********************************************************************************************** */
+
+void Button::Unselect() { selected_ = false; }
+
+/* ********************************************************************************************** */
+
+void Button::UpdateParentFocus(bool focused) { parent_focused_ = focused; }
+
+/* ********************************************************************************************** */
+
+bool Button::IsActive() const { return enabled_; }
 
 /* ********************************************************************************************** */
 
@@ -98,13 +110,11 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
     ftxui::Element Render() override {
       ftxui::Canvas content = !clicked_ ? DrawPlay() : DrawPause();
 
-      auto button =
-          ftxui::canvas(std::move(content)) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
+      auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
 
-      ftxui::Decorator border_color =
-          !focused_ ? ftxui::color(style_.border_normal) : ftxui::color(style_.border_focused);
+      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
 
-      button = button | border_color;
+      button = button | ftxui::color(border_color);
       return button;
     }
 
@@ -121,10 +131,12 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
       auto [b_x, b_y] = Point{9, 6};
       auto [c_x, c_y] = Point{3, 11};
 
+      const auto& color = style_.normal.foreground;
+
       for (int i = 1; i < 6; ++i) {
-        play.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, style_.content);
-        play.DrawPointLine(b_x - i, b_y - i, c_x + i, c_y - i, style_.content);
-        play.DrawPointLine(c_x + i, c_y - i, a_x + i, a_y + i, style_.content);
+        play.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, color);
+        play.DrawPointLine(b_x - i, b_y - i, c_x + i, c_y - i, color);
+        play.DrawPointLine(c_x + i, c_y - i, a_x + i, a_y + i, color);
       }
 
       return play;
@@ -139,9 +151,11 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
       auto [h_x, h_y] = Point{2, 10};
       int space = 6;
 
+      const auto& color = style_.normal.foreground;
+
       for (int i = 0; i < 2; ++i) {
-        pause.DrawPointLine(g_x + i, g_y, h_x + i, h_y, style_.content);
-        pause.DrawPointLine(g_x + i + space, g_y, h_x + i + space, h_y, style_.content);
+        pause.DrawPointLine(g_x + i, g_y, h_x + i, h_y, color);
+        pause.DrawPointLine(g_x + i + space, g_y, h_x + i + space, h_y, color);
       }
 
       return pause;
@@ -149,9 +163,10 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
   };
 
   auto style = ButtonStyle{
-      .content = ftxui::Color::SpringGreen2,
-      .border_normal = ftxui::Color::GrayDark,
-      .border_focused = ftxui::Color::SteelBlue3,
+      .normal = ButtonStyle::State{.foreground = ftxui::Color::SpringGreen2,
+                                   .border = ftxui::Color::GrayDark},
+
+      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
   };
 
   return std::make_shared<Play>(style, on_click);
@@ -170,24 +185,24 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
       ftxui::Canvas stop(12, 12);
 
       for (int i = 1; i < 11; ++i) {
-        stop.DrawPointLine(2, i, 9, i, style_.content);
+        stop.DrawPointLine(2, i, 9, i, style_.normal.foreground);
       }
 
       auto button_stop =
-          ftxui::canvas(std::move(stop)) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
+          ftxui::canvas(stop) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
 
-      ftxui::Decorator border_color =
-          !focused_ ? ftxui::color(style_.border_normal) : ftxui::color(style_.border_focused);
+      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
 
-      button_stop = button_stop | border_color;
+      button_stop = button_stop | ftxui::color(border_color);
       return button_stop;
     }
   };
 
   auto style = ButtonStyle{
-      .content = ftxui::Color::Red,
-      .border_normal = ftxui::Color::GrayDark,
-      .border_focused = ftxui::Color::SteelBlue3,
+      .normal =
+          ButtonStyle::State{.foreground = ftxui::Color::Red, .border = ftxui::Color::GrayDark},
+
+      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
   };
 
   return std::make_shared<Stop>(style, on_click);
@@ -197,7 +212,7 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
 
 std::shared_ptr<Button> Button::make_button_for_window(const std::string& content,
                                                        Callback on_click,
-                                                       const Delimiters& delimiters) {
+                                                       const ButtonStyle& style) {
   class WindowButton : public Button {
    public:
     explicit WindowButton(const ButtonStyle& style, const std::string& content, Callback on_click)
@@ -209,18 +224,37 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
       auto right = ftxui::text(std::get<1>(style_.delimiters)) | ftxui::bold;
       auto content = ftxui::text(content_);
 
-      ftxui::Decorator decorator = ftxui::nothing;
-      if (focused_) decorator = ftxui::color(style_.content) | ftxui::inverted;
+      constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg,
+                                       bool invert) {
+        return ftxui::bgcolor(bg) | ftxui::color(fg) | (invert ? ftxui::inverted : ftxui::nothing);
+      };
 
-      return ftxui::hbox({left, std::move(content), right}) | decorator | ftxui::reflect(box_);
+      // Based on internal state, determine which style to apply
+      ftxui::Color const* background;
+      ftxui::Color const* foreground;
+      bool invert = false;
+
+      if (focused_) {
+        background = selected_ ? &style_.selected.background : &style_.focused.background;
+        foreground = selected_ ? &style_.selected.foreground : &style_.focused.foreground;
+        invert = !selected_;
+
+      } else if (parent_focused_) {
+        background = selected_ ? &style_.selected.background : &style_.normal.background;
+        foreground = selected_ ? &style_.selected.foreground : &style_.normal.foreground;
+
+      } else {
+        // As we don't to highlight selected colors, we just invert the normal
+        background = selected_ ? &style_.normal.foreground : &style_.normal.background;
+        foreground = selected_ ? &style_.normal.background : &style_.normal.foreground;
+      }
+
+      auto style = create_style(*background, *foreground, invert);
+
+      return ftxui::hbox({left, content, right}) | style | ftxui::reflect(box_);
     }
 
     std::string content_;
-  };
-
-  auto style = ButtonStyle{
-      .content = ftxui::Color::White, .delimiters = delimiters,
-      // not using the rest...
   };
 
   return std::make_shared<WindowButton>(style, content, on_click);
@@ -245,27 +279,33 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, Callback
       auto content = ftxui::text(content_);
 
       // default decorator
-      ftxui::Decorator decorator = ftxui::center;
+      ftxui::Decorator style = ftxui::center;
 
-      decorator = decorator | ftxui::borderLight;
-      if (style_.height) decorator = decorator | ftxui::size(HEIGHT, EQUAL, style_.height);
-      if (style_.width) decorator = decorator | ftxui::size(WIDTH, EQUAL, style_.width);
-      if (!active_) decorator = decorator | ftxui::color(ftxui::Color::GrayDark);
-      if (active_ && focused_)
-        decorator = decorator | ftxui::color(style_.content) | ftxui::inverted;
+      style = style | ftxui::borderLight;
+      if (style_.height) style = style | ftxui::size(HEIGHT, EQUAL, style_.height);
+      if (style_.width) style = style | ftxui::size(WIDTH, EQUAL, style_.width);
+
+      if (enabled_) {
+        const auto& content_color = style_.normal.foreground;
+        style = style | ftxui::color(content_color) | (focused_ ? ftxui::inverted : ftxui::nothing);
+      } else {
+        style = style | ftxui::color(ftxui::Color::GrayDark);
+      }
+
       // TODO: think about this
       //   if (pressed_) decorator = decorator | ftxui::bgcolor(ftxui::Color::Aquamarine1);
 
-      return ftxui::hbox(std::move(content)) | decorator | ftxui::reflect(box_);
+      return ftxui::hbox(content) | style | ftxui::reflect(box_);
     }
 
     std::string content_;
   };
 
   auto style = ButtonStyle{
-      .content = ftxui::Color::White,
-      .border_normal = ftxui::Color::GrayDark,
-      .border_focused = ftxui::Color::SteelBlue3,
+      .normal =
+          ButtonStyle::State{.foreground = ftxui::Color::White, .border = ftxui::Color::GrayDark},
+
+      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
       .width = 15,
   };
 

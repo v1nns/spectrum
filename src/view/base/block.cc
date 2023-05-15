@@ -11,7 +11,14 @@ Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const model::Bl
 
 /* ********************************************************************************************** */
 
-void Block::SetFocused(bool focused) { focused_ = focused; }
+void Block::SetFocused(bool focused) {
+  focused_ = focused;
+
+  if (focused_)
+    OnFocus();
+  else
+    OnLostFocus();
+}
 
 /* ********************************************************************************************** */
 
@@ -23,6 +30,19 @@ ftxui::Decorator Block::GetTitleDecorator() const {
 
   ftxui::Decorator style = focused_ ? bgcolor(Color::DodgerBlue1) | color(Color::DarkBlue) | bold
                                     : bgcolor(Color::GrayDark) | color(Color::GrayLight);
+
+  return style;
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Decorator Block::GetBorderDecorator() const {
+  using ftxui::bgcolor;
+  using ftxui::Color;
+  using ftxui::color;
+  using ftxui::nothing;
+
+  ftxui::Decorator style = focused_ ? color(Color::DodgerBlue1) : nothing;
 
   return style;
 }

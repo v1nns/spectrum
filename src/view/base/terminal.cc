@@ -127,8 +127,8 @@ ftxui::Element Terminal::Render() {
 
   // Glue everything together
   ftxui::Element terminal = ftxui::hbox({
-      ftxui::vbox({std::move(list_dir), std::move(file_info)}),
-      ftxui::vbox({std::move(tab_viewer), std::move(audio_player)}) | ftxui::xflex_grow,
+      ftxui::vbox({list_dir, file_info}),
+      ftxui::vbox({tab_viewer, audio_player}) | ftxui::xflex_grow,
   });
 
   // Render dialog box as overlay

@@ -15,23 +15,22 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
 
   // Add tab views
   CreateViews(dispatcher);
+
+  // By default, set first tab item as selected
+  active_button()->Select();
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Element TabViewer::Render() {
-  auto get_decorator_for = [&](const View& v) {
-    return (active_ == v) ? GetTitleDecorator() : ftxui::color(ftxui::Color::GrayDark);
-  };
-
   auto btn_visualizer = views_[View::Visualizer].button->Render();
   auto btn_equalizer = views_[View::Equalizer].button->Render();
   auto btn_lyric = views_[View::Lyric].button->Render();
 
   ftxui::Element title_border = ftxui::hbox({
-      btn_visualizer | get_decorator_for(View::Visualizer),
-      btn_equalizer | get_decorator_for(View::Equalizer),
-      btn_lyric | get_decorator_for(View::Lyric),
+      btn_visualizer,
+      btn_equalizer,
+      btn_lyric,
       ftxui::filler(),
       btn_help_->Render(),
       ftxui::text(" ") | ftxui::border,  // dummy space between buttons
@@ -40,7 +39,7 @@ ftxui::Element TabViewer::Render() {
 
   ftxui::Element view = active()->Render();
 
-  return ftxui::window(title_border, view | ftxui::yflex);
+  return ftxui::window(title_border, view | ftxui::yflex) | GetBorderDecorator();
 }
 
 /* ********************************************************************************************** */
@@ -53,14 +52,22 @@ bool TabViewer::OnEvent(ftxui::Event event) {
           std::find_if(views_.begin(), views_.end(),
                        [&event](const auto& t) { return t.second.key == event.character(); });
       found != views_.end()) {
-    auto dispatcher = GetDispatcher();
+    // Ask for focus if block is not focused
+    if (!IsFocused()) {
+      LOG("Handle key to focus tab viewer block");
+      AskForFocus();
+    }
+    // Change tab item selected
+    if (active_ != found->first) {
+      LOG("Handle key to change tab item selected");
 
-    // Set this block as active (focused)
-    auto event_focus = interface::CustomEvent::SetFocused(GetId());
-    dispatcher->SendEvent(event_focus);
+      // Unselect window button from old active item
+      active_button()->Unselect();
 
-    // Update active tab
-    active_ = found->first;
+      // Update active tab and button state
+      active_ = found->first;
+      active_button()->Select();
+    }
 
     return true;
   }
@@ -90,6 +97,26 @@ bool TabViewer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
+void TabViewer::OnFocus() {
+  // Update internal state for all buttons
+  for (auto& [id, tab] : views_) tab.button->UpdateParentFocus(true);
+
+  btn_help_->UpdateParentFocus(true);
+  btn_exit_->UpdateParentFocus(true);
+}
+
+/* ********************************************************************************************** */
+
+void TabViewer::OnLostFocus() {
+  // Update internal state for all buttons
+  for (auto& [view, tab] : views_) tab.button->UpdateParentFocus(false);
+
+  btn_help_->UpdateParentFocus(false);
+  btn_exit_->UpdateParentFocus(false);
+}
+
+/* ********************************************************************************************** */
+
 bool TabViewer::OnMouseEvent(ftxui::Event event) {
   if (btn_help_->OnMouseEvent(event)) return true;
 
@@ -107,30 +134,65 @@ bool TabViewer::OnMouseEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 void TabViewer::CreateButtons() {
-  btn_help_ = Button::make_button_for_window(std::string("F1:help"), [this]() {
-    auto disp = GetDispatcher();
+  const auto button_style = Button::ButtonStyle{
+      .focused =
+          Button::ButtonStyle::State{
+              .foreground = ftxui::Color::GrayLight,
+              .background = ftxui::Color::GrayDark,
+          },
+      .delimiters = Button::Delimiters{"[", "]"},
+  };
 
-    LOG("Handle left click mouse event on Help button");
-    auto event = interface::CustomEvent::ShowHelper();
-    disp->SendEvent(event);
+  btn_help_ = Button::make_button_for_window(
+      std::string("F1:help"),
+      [this]() {
+        auto disp = GetDispatcher();
 
-    return true;
-  });
+        LOG("Handle left click mouse event on Help button");
+        auto event = interface::CustomEvent::ShowHelper();
+        disp->SendEvent(event);
 
-  btn_exit_ = Button::make_button_for_window(std::string("X"), [this]() {
-    auto disp = GetDispatcher();
+        return true;
+      },
+      button_style);
 
-    LOG("Handle left click mouse event on Exit button");
-    auto event = interface::CustomEvent::Exit();
-    disp->SendEvent(event);
+  btn_exit_ = Button::make_button_for_window(
+      std::string("X"),
+      [this]() {
+        auto disp = GetDispatcher();
 
-    return true;
-  });
+        LOG("Handle left click mouse event on Exit button");
+        auto event = interface::CustomEvent::Exit();
+        disp->SendEvent(event);
+
+        return true;
+      },
+      button_style);
 }
 
 /* ********************************************************************************************** */
 
 void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) {
+  const auto button_style = Button::ButtonStyle{
+      .normal =
+          Button::ButtonStyle::State{
+              .foreground = ftxui::Color::GrayDark,
+              .background = ftxui::Color(),
+          },
+      .focused =
+          Button::ButtonStyle::State{
+              .foreground = ftxui::Color::GrayLight,
+              .background = ftxui::Color::GrayDark,
+          },
+      .selected =
+          Button::ButtonStyle::State{
+              .foreground = ftxui::Color::DarkBlue,
+              .background = ftxui::Color::DodgerBlue1,
+          },
+
+      .delimiters = Button::Delimiters{" ", " "},
+  };
+
   views_[View::Visualizer] = Tab{
       .key = "1",
       .button = Button::make_button_for_window(
@@ -144,7 +206,7 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
 
             return true;
           },
-          Button::Delimiters{" ", " "}),
+          button_style),
       .item = std::make_unique<SpectrumVisualizer>(GetId(), dispatcher),
   };
 
@@ -161,7 +223,7 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
 
             return true;
           },
-          Button::Delimiters{" ", " "}),
+          button_style),
       .item = std::make_unique<AudioEqualizer>(GetId(), dispatcher),
   };
 
@@ -178,7 +240,7 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
 
             return true;
           },
-          Button::Delimiters{" ", " "}),
+          button_style),
       .item = std::make_unique<SongLyric>(GetId(), dispatcher),
   };
 }

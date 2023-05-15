@@ -183,6 +183,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /* ******************************************************************************************** */
   //! Default Constants
+
   static constexpr int kMaxBlocks = 4;  //!< Maximum number of blocks (used for focus control)
 
   /* ******************************************************************************************** */

@@ -5,6 +5,7 @@
 
 #include <algorithm>   // for for_each, search, sort
 #include <filesystem>  // for path, directory_iterator
+#include <ftxui/dom/elements.hpp>
 #include <iomanip>
 #include <memory>   // for shared_ptr, __shared_p...
 #include <utility>  // for move
@@ -68,7 +69,7 @@ ftxui::Element ListDirectory::Render() {
   const auto focused = GetFocused();
 
   // Title
-  ftxui::Element curr_dir_title = ftxui::text(GetTitle()) | ftxui::bold;
+  ftxui::Element curr_dir_title = ftxui::text(GetTitle()) | styles_.title;
 
   // Fill list with entries
   for (int i = 0; i < Size(); ++i) {
@@ -105,15 +106,17 @@ ftxui::Element ListDirectory::Render() {
   if (mode_search_) {
     ftxui::InputOption opt{.cursor_position = mode_search_->position};
     ftxui::Element search_box = ftxui::hbox({
-        ftxui::text("Search:"),
+        ftxui::text("Search:") | ftxui::color(ftxui::Color::White),
         ftxui::Input(&mode_search_->text_to_search, " ", &opt)->Render() | ftxui::flex,
     });
 
     content.push_back(search_box);
   }
 
-  return ftxui::window(ftxui::hbox(ftxui::text(" files ") | GetTitleDecorator()),
-                       ftxui::vbox(content) | ftxui::flex | ftxui::size(WIDTH, EQUAL, kMaxColumns));
+  return ftxui::window(
+             ftxui::hbox(ftxui::text(" files ") | GetTitleDecorator()),
+             ftxui::vbox(content) | ftxui::flex | ftxui::size(WIDTH, EQUAL, kMaxColumns)) |
+         GetBorderDecorator();
 }
 
 /* ********************************************************************************************** */

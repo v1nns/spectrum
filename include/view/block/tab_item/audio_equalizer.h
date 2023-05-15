@@ -341,7 +341,7 @@ class AudioEqualizer : public TabItem {
       return ftxui::vbox({
           // title
           empty_line(),
-          ftxui::text(filter->GetFrequency()) | ftxui::hcenter,
+          ftxui::text(filter->GetFrequency()) | ftxui::color(ftxui::Color::White) | ftxui::hcenter,
           empty_line(),
 
           // frequency gauge
@@ -349,8 +349,8 @@ class AudioEqualizer : public TabItem {
 
           // gain input
           empty_line(),
-          ftxui::text(filter->GetGain()) | ftxui::inverted | ftxui::hcenter |
-              ftxui::size(WIDTH, EQUAL, kMaxGainLength),
+          ftxui::text(filter->GetGain()) | ftxui::color(ftxui::Color::White) | ftxui::inverted |
+              ftxui::hcenter | ftxui::size(WIDTH, EQUAL, kMaxGainLength),
           empty_line(),
       });
     }
@@ -485,10 +485,11 @@ class AudioEqualizer : public TabItem {
       if (opened) content |= ftxui::size(HEIGHT, EQUAL, kMaxHeight);
 
       return ftxui::vbox({
-          ftxui::filler(),
-          content | ftxui::center | ftxui::border | ftxui::reflect(box),
-          ftxui::filler(),
-      });
+                 ftxui::filler(),
+                 content | ftxui::center | ftxui::border | ftxui::reflect(box),
+                 ftxui::filler(),
+             }) |
+             ftxui::color(ftxui::Color::White);
     }
 
    private:
