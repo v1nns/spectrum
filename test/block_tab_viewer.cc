@@ -1453,7 +1453,7 @@ TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
 /* ********************************************************************************************** */
 
 /**
- * @brief Tests with TabViewer mock class
+ * @brief Tests with TabViewer mock class (just to test focus)
  */
 class MockTabViewerTest : public ::BlockTest {
   //! Create mock class from TabViewer
@@ -1461,7 +1461,6 @@ class MockTabViewerTest : public ::BlockTest {
    public:
     using TabViewer::TabViewer;
 
-    MOCK_METHOD(bool, OnCustomEvent, (const interface::CustomEvent&), (override));
     MOCK_METHOD(void, OnFocus, (), (override));
     MOCK_METHOD(void, OnLostFocus, (), (override));
   };
@@ -1470,6 +1469,9 @@ class MockTabViewerTest : public ::BlockTest {
   static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
 
   void SetUp() override {
+    // Create a custom screen with fixed size
+    screen = std::make_unique<ftxui::Screen>(95, 15);
+
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
@@ -1492,6 +1494,48 @@ TEST_F(MockTabViewerTest, CheckFocus) {
 
   EXPECT_CALL(*tabviewer_mock, OnLostFocus());
   tabviewer_mock->SetFocused(false);
+
+  // Expect block to send an event asking for focus on block
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+      .WillOnce(Invoke([&](const interface::CustomEvent&) {
+        // Simulate terminal behavior
+        tabviewer_mock->SetFocused(true);
+      }));
+
+  // Set focus on tab item 1
+  EXPECT_CALL(*tabviewer_mock, OnFocus());
+  block->OnEvent(ftxui::Event::Character('1'));
+
+  auto event_bars = interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(22, 0.001));
+  Process(event_bars);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│  ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁ ▁▁▁    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
 }
 
 }  // namespace
