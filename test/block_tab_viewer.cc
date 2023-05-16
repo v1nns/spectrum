@@ -1450,4 +1450,48 @@ TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with TabViewer mock class
+ */
+class MockTabViewerTest : public ::BlockTest {
+  //! Create mock class from TabViewer
+  class TabViewerMock final : public interface::TabViewer {
+   public:
+    using TabViewer::TabViewer;
+
+    MOCK_METHOD(bool, OnCustomEvent, (const interface::CustomEvent&), (override));
+    MOCK_METHOD(void, OnFocus, (), (override));
+    MOCK_METHOD(void, OnLostFocus, (), (override));
+  };
+
+ protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
+  void SetUp() override {
+    // Create mock for event dispatcher
+    dispatcher = std::make_shared<EventDispatcherMock>();
+
+    // Create TabViewer block
+    block = ftxui::Make<TabViewerMock>(dispatcher);
+  }
+
+  //! Getter for mock
+  auto GetMock() -> TabViewerMock* {
+    // Return tab viewer mock
+    return static_cast<TabViewerMock*>(block.get());
+  }
+};
+
+TEST_F(MockTabViewerTest, CheckFocus) {
+  auto tabviewer_mock = GetMock();
+
+  EXPECT_CALL(*tabviewer_mock, OnFocus());
+  tabviewer_mock->SetFocused(true);
+
+  EXPECT_CALL(*tabviewer_mock, OnLostFocus());
+  tabviewer_mock->SetFocused(false);
+}
+
 }  // namespace

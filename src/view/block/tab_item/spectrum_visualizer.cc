@@ -101,8 +101,8 @@ void SpectrumVisualizer::CreateGauge(float value, ftxui::Direction direction,
                         .Angle(dir == ftxui::Direction::Up ? 270 : 90)
                         .Stop(ftxui::Color(95, 135, 215), 0.0f)
                         .Stop(ftxui::Color(115, 155, 215), 0.3f)
-                        .Stop(ftxui::Color(214, 148, 252), 0.6f)
-                        .Stop(ftxui::Color(234, 188, 252), 0.8f);
+                        .Stop(ftxui::Color(155, 188, 235), 0.6f)
+                        .Stop(ftxui::Color(185, 208, 252), 0.8f);
 
     return ftxui::color(gradient);
   };

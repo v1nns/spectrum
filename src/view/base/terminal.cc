@@ -75,9 +75,7 @@ void Terminal::Exit() const {
   LOG("Exit from terminal");
 
   // Trigger exit callback
-  if (cb_exit_ != nullptr) {
-    cb_exit_();
-  }
+  if (cb_exit_) cb_exit_();
 }
 
 /* ********************************************************************************************** */

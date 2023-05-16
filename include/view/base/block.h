@@ -79,8 +79,13 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   /* ******************************************************************************************** */
   //! These have optional implementation by derived class
 
-  virtual void OnFocus() {}
-  virtual void OnLostFocus() {}
+  virtual void OnFocus() {
+    // This method is called whenever block is focused
+  }
+
+  virtual void OnLostFocus() {
+    // This method is called whenever block loses focus
+  }
 
   /* ******************************************************************************************** */
   //! Used by derived class
