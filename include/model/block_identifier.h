@@ -18,6 +18,7 @@ enum class BlockIdentifier {
   FileInfo = 202,
   TabViewer = 203,
   MediaPlayer = 204,
+  None = 205,
 };
 
 //! BlockIdentifier pretty print

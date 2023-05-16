@@ -181,10 +181,18 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Get internal block index based on block identifier
   int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const;
 
+  /**
+   * @brief Update focus state in both old and newly focused block
+   * @param old_index Block index with focus
+   * @param new_index Block index to be focused
+   */
+  void UpdateFocus(int old_index, int new_index);
+
   /* ******************************************************************************************** */
   //! Default Constants
 
-  static constexpr int kMaxBlocks = 4;  //!< Maximum number of blocks (used for focus control)
+  static constexpr int kMaxBlocks = 4;      //!< Maximum number of blocks (used for focus control)
+  static constexpr int kInvalidIndex = -1;  //!< Default index to remove focus from blocks
 
   /* ******************************************************************************************** */
   //! Variables

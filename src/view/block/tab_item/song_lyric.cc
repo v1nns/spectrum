@@ -14,7 +14,8 @@
 namespace interface {
 
 SongLyric::SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher, FocusCallback on_focus)
+                     const std::shared_ptr<EventDispatcher>& dispatcher,
+                     const FocusCallback& on_focus)
     : TabItem(id, dispatcher, on_focus) {}
 
 /* ********************************************************************************************** */

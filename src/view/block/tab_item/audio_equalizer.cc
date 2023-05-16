@@ -5,7 +5,7 @@ namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher,
-                               FocusCallback on_focus)
+                               const FocusCallback& on_focus)
     : TabItem(id, dispatcher, on_focus) {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,

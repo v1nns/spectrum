@@ -14,6 +14,7 @@
 #include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
 #include "ftxui/screen/terminal.hpp"
 #include "model/bar_animation.h"
+#include "model/block_identifier.h"
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/block/file_info.h"
@@ -153,11 +154,19 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (OnGlobalModeEvent(event)) return true;
 
   // Block commands
-  bool result =
-      std::any_of(children_.begin(), children_.end(),
-                  [&event](const ftxui::Component& child) { return child->OnEvent(event); });
+  if (bool result =
+          std::any_of(children_.begin(), children_.end(),
+                      [&event](const ftxui::Component& child) { return child->OnEvent(event); });
+      result)
+    return true;
 
-  return result;
+  // Remove focus from all blocks
+  if (focused_index_ != kInvalidIndex && event == ftxui::Event::Escape) {
+    LOG("Handle key to remove focus from all blocks");
+    UpdateFocus(focused_index_, kInvalidIndex);
+  }
+
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -411,54 +420,25 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::SetPreviousFocused: {
-      // Remove focus from old block
-      auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
-      old_focused->SetFocused(false);
-
       // Calculate new block index to be focused
-      focused_index_ = focused_index_ == 0 ? (kMaxBlocks - 1) : focused_index_ - 1;
+      int new_index = focused_index_ == 0 || focused_index_ == kInvalidIndex ? (kMaxBlocks - 1)
+                                                                             : focused_index_ - 1;
 
-      // Set focus on new block
-      auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
-      new_focused->SetFocused(true);
-
-      LOG("Changed block focus from ", old_focused->GetId(), " to ", new_focused->GetId());
+      UpdateFocus(focused_index_, new_index);
     } break;
 
     case CustomEvent::Identifier::SetNextFocused: {
-      // Remove focus from old block
-      auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
-      old_focused->SetFocused(false);
-
       // Calculate new block index to be focused
-      focused_index_ = focused_index_ == 3 ? 0 : focused_index_ + 1;
+      int new_index = focused_index_ == 3 ? 0 : focused_index_ + 1;
 
-      // Set focus on new block
-      auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
-      new_focused->SetFocused(true);
-
-      LOG("Changed block focus from ", old_focused->GetId(), " to ", new_focused->GetId());
+      UpdateFocus(focused_index_, new_index);
     } break;
 
     case CustomEvent::Identifier::SetFocused: {
       auto content = event.GetContent<model::BlockIdentifier>();
       int new_index = GetIndexFromBlockIdentifier(content);
 
-      // Do nothing
-      if (focused_index_ == new_index) break;
-
-      // Remove focus from old block
-      auto old_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
-      old_focused->SetFocused(false);
-
-      // Update new block index to be focused
-      focused_index_ = new_index;
-
-      // Set focus on new block
-      auto new_focused = std::static_pointer_cast<Block>(children_.at(focused_index_));
-      new_focused->SetFocused(true);
-
-      LOG("Changed block focus from ", old_focused->GetId(), " to ", new_focused->GetId());
+      UpdateFocus(focused_index_, new_index);
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
@@ -520,6 +500,35 @@ int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) cons
     default:
       return 0;
   }
+}
+
+/* ********************************************************************************************** */
+
+void Terminal::UpdateFocus(int old_index, int new_index) {
+  // If equal, do nothing
+  if (old_index == new_index) return;
+
+  auto old_block = model::BlockIdentifier::None;
+  auto new_block = model::BlockIdentifier::None;
+
+  // Remove focus from old block
+  if (old_index != kInvalidIndex) {
+    auto block = std::static_pointer_cast<Block>(children_.at(old_index));
+    block->SetFocused(false);
+    old_block = block->GetId();
+  }
+
+  // Set focus on newly-focused block
+  if (new_index != kInvalidIndex) {
+    auto block = std::static_pointer_cast<Block>(children_.at(new_index));
+    block->SetFocused(true);
+    new_block = block->GetId();
+  }
+
+  // Update internal index
+  focused_index_ = new_index;
+
+  LOG("Changed block focus from ", old_block, " to ", new_block);
 }
 
 }  // namespace interface

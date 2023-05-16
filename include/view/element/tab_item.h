@@ -33,7 +33,8 @@ class TabItem {
    * @param on_focus Callback function to ask for focus
    */
   explicit TabItem(const model::BlockIdentifier& id,
-                   const std::shared_ptr<EventDispatcher>& dispatcher, FocusCallback on_focus);
+                   const std::shared_ptr<EventDispatcher>& dispatcher,
+                   const FocusCallback& on_focus);
 
  public:
   /**
