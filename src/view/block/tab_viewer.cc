@@ -193,22 +193,22 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
       .delimiters = Button::Delimiters{" ", " "},
   };
 
-  views_[View::Visualizer] = Tab{
-      .key = "1",
-      .button = Button::make_button_for_window(
-          std::string{"1:visualizer"},
-          [this]() {
-            LOG("Handle left click mouse event on Tab button for visualizer");
-            active_ = View::Visualizer;
+  views_[View::Visualizer] =
+      Tab{.key = "1",
+          .button = Button::make_button_for_window(
+              std::string{"1:visualizer"},
+              [this]() {
+                LOG("Handle left click mouse event on Tab button for visualizer");
+                active_ = View::Visualizer;
 
-            // Send event to set focus on this block
-            AskForFocus();
+                // Send event to set focus on this block
+                AskForFocus();
 
-            return true;
-          },
-          button_style),
-      .item = std::make_unique<SpectrumVisualizer>(GetId(), dispatcher),
-  };
+                return true;
+              },
+              button_style),
+          .item = std::make_unique<SpectrumVisualizer>(GetId(), dispatcher,
+                                                       std::bind(&TabViewer::AskForFocus, this))};
 
   views_[View::Equalizer] = Tab{
       .key = "2",
@@ -224,7 +224,8 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
             return true;
           },
           button_style),
-      .item = std::make_unique<AudioEqualizer>(GetId(), dispatcher),
+      .item = std::make_unique<AudioEqualizer>(GetId(), dispatcher,
+                                               std::bind(&TabViewer::AskForFocus, this)),
   };
 
   views_[View::Lyric] = Tab{
@@ -241,7 +242,8 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
             return true;
           },
           button_style),
-      .item = std::make_unique<SongLyric>(GetId(), dispatcher),
+      .item = std::make_unique<SongLyric>(GetId(), dispatcher,
+                                          std::bind(&TabViewer::AskForFocus, this)),
   };
 }
 

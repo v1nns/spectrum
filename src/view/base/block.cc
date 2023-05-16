@@ -50,6 +50,8 @@ ftxui::Decorator Block::GetBorderDecorator() const {
 /* ********************************************************************************************** */
 
 void Block::AskForFocus() const {
+  if(focused_) return;
+
   auto dispatcher = GetDispatcher();
 
   // Set this block as active (focused)

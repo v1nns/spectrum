@@ -7,8 +7,9 @@
 namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
-                                       const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher) {}
+                                       const std::shared_ptr<EventDispatcher>& dispatcher,
+                                       FocusCallback on_focus)
+    : TabItem(id, dispatcher, on_focus) {}
 
 /* ********************************************************************************************** */
 

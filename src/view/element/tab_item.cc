@@ -5,8 +5,8 @@
 namespace interface {
 
 TabItem::TabItem(const model::BlockIdentifier& id,
-                 const std::shared_ptr<EventDispatcher>& dispatcher)
-    : dispatcher_{dispatcher}, parent_id_{id} {}
+                 const std::shared_ptr<EventDispatcher>& dispatcher, FocusCallback on_focus)
+    : dispatcher_{dispatcher}, parent_id_{id}, on_focus_{on_focus} {}
 
 /* ********************************************************************************************** */
 

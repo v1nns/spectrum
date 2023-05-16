@@ -71,7 +71,7 @@ bool Button::IsActive() const { return enabled_; }
 /* ********************************************************************************************** */
 
 void Button::OnClick() const {
-  if (on_click_ != nullptr) on_click_();
+  if (on_click_) on_click_();
 }
 
 /* ********************************************************************************************** */
@@ -88,7 +88,7 @@ bool Button::HandleLeftClick(ftxui::Event& event) {
     pressed_ = false;
 
     // Trigger callback for button click and change clicked state
-    if (on_click_ != nullptr) {
+    if (on_click_) {
       on_click_();
       clicked_ = !clicked_;
     }

@@ -33,9 +33,11 @@ class AudioEqualizer : public TabItem {
    * @brief Construct a new AudioEqualizer object
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
+   * @param on_focus Callback function to ask for focus
    */
   explicit AudioEqualizer(const model::BlockIdentifier& id,
-                          const std::shared_ptr<EventDispatcher>& dispatcher);
+                          const std::shared_ptr<EventDispatcher>& dispatcher,
+                          FocusCallback on_focus);
 
   /**
    * @brief Destroy the AudioEqualizer object

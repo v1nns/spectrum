@@ -33,9 +33,10 @@ class SongLyric : public TabItem {
    * @brief Construct a new SongLyric object
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
+   * @param on_focus Callback function to ask for focus
    */
   explicit SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher);
+                     const std::shared_ptr<EventDispatcher>& dispatcher, FocusCallback on_focus);
 
   /**
    * @brief Destroy the SongLyric object

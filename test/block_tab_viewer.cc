@@ -268,14 +268,7 @@ TEST_F(TabViewerTest, RenderEqualizer) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
-  // Setup expectation for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
-
+  // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Change 64Hz frequency (using keybindings for frequency navigation)
@@ -314,14 +307,6 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
           Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::ApplyAudioFilters),
           Field(&interface::CustomEvent::content, VariantWith<EqualizerPreset>(audio_filters)))));
 
-  // Setup expectation for event to set focus on this tab view again
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
-
   // Apply EQ
   block->OnEvent(ftxui::Event::Character('a'));
 
@@ -352,14 +337,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
-  // Setup expectation for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
-
+  // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Change 250Hz frequency (using keybindings for frequency navigation)
@@ -430,14 +408,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
-  // Setup expectation for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
-
+  // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Using keybindings for navigation, open preset picker
@@ -478,14 +449,6 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
-  // Setup expectation for event to set focus on this tab view again
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))));
-
   // Select and apply Electronic EQ
   typed = " a";
   utils::QueueCharacterEvents(*block, typed);
@@ -517,15 +480,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
-  // Setup expectation for event to set focus on this tab view (from keybind '2' and apply button)
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(2);
-
+  // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Setup expectation to check that will send audio filters matching Pop EQ
@@ -605,15 +560,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
-  // Setup expectation for event to set focus on this tab view (from keybind '2' and apply button)
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(2);
-
+  // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Setup expectation to check that will send audio filters matching Pop EQ
@@ -692,15 +639,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(4);
-
+  // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Change some frequencies (using keybindings for frequency navigation)
@@ -833,15 +772,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, FetchSongLyrics) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   ftxui::Render(*screen, block->Render());
@@ -957,15 +888,7 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, FetchSongLyricsFailed) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   auto finder = GetFinder();
@@ -1052,15 +975,7 @@ TEST_F(TabViewerTest, FetchSongLyricsFailed) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   auto finder = GetFinder();
@@ -1150,15 +1065,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   auto finder = GetFinder();
@@ -1206,15 +1113,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   auto finder = GetFinder();
@@ -1300,15 +1199,7 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
 /* ********************************************************************************************** */
 
 TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   auto finder = GetFinder();
@@ -1532,15 +1423,7 @@ TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
   // Wait for Finder async task to finish it
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  // Setup once all expectations for event to set focus on this tab view
-  EXPECT_CALL(
-      *dispatcher,
-      SendEvent(
-          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
-                Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
-      .Times(1);
-
+  // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
   ftxui::Render(*screen, block->Render());

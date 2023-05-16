@@ -4,8 +4,9 @@
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
-                               const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher) {
+                               const std::shared_ptr<EventDispatcher>& dispatcher,
+                               FocusCallback on_focus)
+    : TabItem(id, dispatcher, on_focus) {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,
                      std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
@@ -41,8 +42,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         last_applied_.Update(preset_name_, current);
 
         // Set this block as active (focused)
-        auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
-        disp->SendEvent(event_focus);
+        if (on_focus_) on_focus_();
 
         return true;
       },
@@ -86,8 +86,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         last_applied_.Update(preset_name_, current);
 
         // Set this block as active (focused)
-        auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
-        disp->SendEvent(event_focus);
+        if (on_focus_) on_focus_();
 
         return true;
       },
