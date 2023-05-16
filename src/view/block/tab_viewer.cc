@@ -99,7 +99,7 @@ bool TabViewer::OnCustomEvent(const CustomEvent& event) {
 
 void TabViewer::OnFocus() {
   // Update internal state for all buttons
-  for (auto& [id, tab] : views_) tab.button->UpdateParentFocus(true);
+  for (const auto& [id, item] : views_) item.button->UpdateParentFocus(true);
 
   btn_help_->UpdateParentFocus(true);
   btn_exit_->UpdateParentFocus(true);
@@ -109,7 +109,7 @@ void TabViewer::OnFocus() {
 
 void TabViewer::OnLostFocus() {
   // Update internal state for all buttons
-  for (auto& [view, tab] : views_) tab.button->UpdateParentFocus(false);
+  for (const auto& [id, item] : views_) item.button->UpdateParentFocus(false);
 
   btn_help_->UpdateParentFocus(false);
   btn_exit_->UpdateParentFocus(false);
