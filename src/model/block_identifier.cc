@@ -17,6 +17,9 @@ std::ostream& operator<<(std::ostream& out, const BlockIdentifier& id) {
     case BlockIdentifier::MediaPlayer:
       out << "MediaPlayer";
       break;
+    case BlockIdentifier::None:
+      out << "None";
+      break;
   }
 
   return out;

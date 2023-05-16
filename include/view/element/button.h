@@ -26,16 +26,24 @@ class Button {
   using Delimiter = std::string;           //!< Character delimiter for window buttons
   using Delimiters = std::tuple<Delimiter, Delimiter>;  //!< Left and right
 
- private:
-  //! Style for each part of the button
+  /**
+   * @brief Style for each part of the button, most of them are optional to use it (check button
+   * implementation for more info)
+   */
   struct ButtonStyle {
-    ftxui::Color content;
-    ftxui::Color border_normal;
-    ftxui::Color border_focused;
+    struct State {
+      ftxui::Color foreground;  //!< Color for content foreground
+      ftxui::Color background;  //!< Color for content background
+      ftxui::Color border;      //!< Color for border
+    };
 
-    int height;
-    int width;
-    Delimiters delimiters;
+    State normal;    //!< Colors for normal state
+    State focused;   //!< Colors for focused state
+    State selected;  //!< Colors for selected state
+
+    int height;             //!< Fixed height for button
+    int width;              //!< Fixed width for button
+    Delimiters delimiters;  //!< Used by window buttons as a custom border
   };
 
  protected:
@@ -76,12 +84,12 @@ class Button {
    * @brief Create button for the border of the block window
    * @param content Text content to show
    * @param on_click Callback function for click event
-   * @param delimiter Character delimiter to use as border
+   * @param style Custom style to apply on button
    * @return std::shared_ptr<Button> New instance to Window button
    */
-  static std::shared_ptr<Button> make_button_for_window(
-      const std::string& content, Callback on_click,
-      const Delimiters& delimiters = std::make_tuple("[", "]"));
+  static std::shared_ptr<Button> make_button_for_window(const std::string& content,
+                                                        Callback on_click,
+                                                        const ButtonStyle& style);
 
   /**
    * @brief Create generic button
@@ -126,14 +134,30 @@ class Button {
   void ResetState();
 
   /**
-   * @brief Set button state to active
+   * @brief Set button state to enabled
    */
-  void SetActive();
+  void Enable();
 
   /**
-   * @brief Set button state to inactive
+   * @brief Set button state to disabled
    */
-  void SetInactive();
+  void Disable();
+
+  /**
+   * @brief Set button state to selected
+   */
+  void Select();
+
+  /**
+   * @brief Set button state to unselected
+   */
+  void Unselect();
+
+  /**
+   * @brief Set owner focus state (OPTIONAL, used mainly by window buttons)
+   * @param focused Flag indicating if parent (UI element that created button) is focused or not
+   */
+  void UpdateParentFocus(bool focused);
 
   /**
    * @brief Get button state
@@ -154,11 +178,13 @@ class Button {
   /* ******************************************************************************************** */
   //! Variables
  protected:
-  ftxui::Box box_;        //!< Box to control if mouse cursor is over the button
-  bool active_ = false;   //!< Flag to indicate if button is activated (can be clicked)
-  bool focused_ = false;  //!< Flag to indicate if button is focused (mouse on hover)
-  bool clicked_ = false;  //!< Flag to indicate if button was clicked (mouse click)
-  bool pressed_ = false;  //!< Flag to indicate if button is pressed (mouse hold click)
+  ftxui::Box box_;         //!< Box to control if mouse cursor is over the button
+  bool enabled_ = false;   //!< Flag to indicate if button is enabled (can be clicked)
+  bool focused_ = false;   //!< Flag to indicate if button is focused (mouse on hover)
+  bool selected_ = false;  //!< Flag to indicate if button is selected (set by component owner)
+  bool clicked_ = false;   //!< Flag to indicate if button was clicked (mouse click)
+  bool pressed_ = false;   //!< Flag to indicate if button is pressed (mouse hold click)
+  bool parent_focused_ = false;  //!< Flag to indicate if owner is focused
 
   ButtonStyle style_;  //!< Color style for each part of the button
 

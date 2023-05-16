@@ -73,9 +73,13 @@ ftxui::Element MediaPlayer::Render() {
   }
 
   // Bar to display song duration
+  ftxui::Decorator bar_style =
+      is_duration_focused_
+          ? ftxui::bgcolor(ftxui::Color::LightSteelBlue1) | ftxui::color(ftxui::Color::RedLight)
+          : ftxui::bgcolor(ftxui::Color::LightSteelBlue3) | ftxui::color(ftxui::Color::SteelBlue3);
+
   ftxui::Element bar_duration =
-      ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) |
-      ftxui::bgcolor(ftxui::Color::LightSteelBlue3) | ftxui::color(ftxui::Color::SteelBlue3);
+      ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) | bar_style;
 
   // Format volume information string
   std::ostringstream ss;
@@ -84,7 +88,10 @@ ftxui::Element MediaPlayer::Render() {
 
   // Current volume element
   ftxui::Element volume = ftxui::text(vol_info);
-  if (volume_.IsMuted()) volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
+  if (!volume_.IsMuted())
+    volume |= ftxui::color(ftxui::Color::White);
+  else
+    volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
 
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(5, ' '));
@@ -103,21 +110,21 @@ ftxui::Element MediaPlayer::Render() {
           ftxui::filler(),
           ftxui::vbox({
               ftxui::filler(),
-              std::move(volume),
+              volume,
           }),
           margin,
       }),
       ftxui::text(""),
       ftxui::hbox({
           margin,
-          std::move(bar_duration),
+          bar_duration,
           margin,
       }),
       ftxui::hbox({
           margin,
-          ftxui::text(curr_time) | ftxui::bold,
+          ftxui::text(curr_time) | ftxui::bold | ftxui::color(ftxui::Color::White),
           ftxui::filler(),
-          ftxui::text(total_time) | ftxui::bold,
+          ftxui::text(total_time) | ftxui::bold | ftxui::color(ftxui::Color::White),
           margin,
       }),
   });
@@ -126,8 +133,9 @@ ftxui::Element MediaPlayer::Render() {
   using ftxui::HEIGHT;
 
   return ftxui::window(
-      ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
-      content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows));
+             ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
+             content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows)) |
+         GetBorderDecorator();
 }
 
 /* ********************************************************************************************** */
@@ -274,13 +282,18 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::OnMouseEvent(ftxui::Event event) const {
+bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   if (btn_play_->OnMouseEvent(event)) return true;
 
   if (btn_stop_->OnMouseEvent(event)) return true;
 
-  // Mouse click on duration box
-  if (IsPlaying() && event.mouse().button == ftxui::Mouse::Left &&
+  if (!IsPlaying()) return false;
+
+  // Mouse focus on song duration box
+  is_duration_focused_ = duration_box_.Contain(event.mouse().x, event.mouse().y) ? true : false;
+
+  // Mouse click on song duration box
+  if (event.mouse().button == ftxui::Mouse::Left &&
       duration_box_.Contain(event.mouse().x, event.mouse().y)) {
     // Acquire pointer to dispatcher
     auto dispatcher = GetDispatcher();

@@ -63,6 +63,9 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   //! Get decorator style for title based on internal state
   ftxui::Decorator GetTitleDecorator() const;
 
+  //! Get decorator style for border based on internal state
+  ftxui::Decorator GetBorderDecorator() const;
+
   //! Dispatch event to set focus
   void AskForFocus() const;
 
@@ -72,6 +75,17 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   ftxui::Element Render() override { return ftxui::Element(); }
   bool OnEvent(ftxui::Event) override { return false; }
   virtual bool OnCustomEvent(const CustomEvent&) = 0;
+
+  /* ******************************************************************************************** */
+  //! These have optional implementation by derived class
+
+  virtual void OnFocus() {
+    // This method is called whenever block is focused
+  }
+
+  virtual void OnLostFocus() {
+    // This method is called whenever block loses focus
+  }
 
   /* ******************************************************************************************** */
   //! Used by derived class

@@ -21,14 +21,20 @@ namespace interface {
  * @brief Component to display a single tab and its respective content
  */
 class TabItem {
+ public:
+  //! Callback to ask for focus on parent block
+  using FocusCallback = std::function<void()>;
+
  protected:
   /**
    * @brief Construct a new TabItem object (only called by derived classes)
    * @param id Parent block identifier
    * @param dispatcher Event dispatcher
+   * @param on_focus Callback function to ask for focus
    */
   explicit TabItem(const model::BlockIdentifier& id,
-                   const std::shared_ptr<EventDispatcher>& dispatcher);
+                   const std::shared_ptr<EventDispatcher>& dispatcher,
+                   const FocusCallback& on_focus);
 
  public:
   /**
@@ -60,6 +66,7 @@ class TabItem {
  protected:
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   model::BlockIdentifier parent_id_;           //!< Parent block identifier
+  FocusCallback on_focus_;  //!< Callback function to ask for focus on parent block
 };
 
 }  // namespace interface

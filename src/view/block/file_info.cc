@@ -42,13 +42,12 @@ ftxui::Element FileInfo::Render() {
     lines.push_back(item);
   }
 
-  ftxui::Element content = ftxui::vbox(std::move(lines));
+  ftxui::Element content = ftxui::vbox(lines);
 
-  using ftxui::HEIGHT;
   using ftxui::EQUAL;
-  return ftxui::window(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()),
-                       std::move(content)) |
-         ftxui::size(HEIGHT, EQUAL, kMaxRows);
+  using ftxui::HEIGHT;
+  return ftxui::window(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()), content) |
+         ftxui::size(HEIGHT, EQUAL, kMaxRows) | GetBorderDecorator();
 }
 
 /* ********************************************************************************************** */

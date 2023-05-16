@@ -4,8 +4,9 @@
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
-                               const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher) {
+                               const std::shared_ptr<EventDispatcher>& dispatcher,
+                               const FocusCallback& on_focus)
+    : TabItem(id, dispatcher, on_focus) {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,
                      std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
@@ -35,14 +36,13 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         // Otherwise, send updated values to Audio Player
         auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
         disp->SendEvent(event_filters);
-        btn_apply_->SetInactive();
+        btn_apply_->Disable();
 
         // Update cache
         last_applied_.Update(preset_name_, current);
 
         // Set this block as active (focused)
-        auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
-        disp->SendEvent(event_focus);
+        if (on_focus_) on_focus_();
 
         return true;
       },
@@ -57,8 +57,8 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         LOG("Handle callback for Equalizer reset button");
 
         // Update buttons state
-        btn_apply_->SetInactive();
-        btn_reset_->SetInactive();
+        btn_apply_->Disable();
+        btn_reset_->Disable();
 
         if (preset_name_ != kModifiablePreset) return false;
         auto& current = current_preset();
@@ -86,8 +86,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
         last_applied_.Update(preset_name_, current);
 
         // Set this block as active (focused)
-        auto event_focus = interface::CustomEvent::SetFocused(TabItem::parent_id_);
-        disp->SendEvent(event_focus);
+        if (on_focus_) on_focus_();
 
         return true;
       },
@@ -171,9 +170,9 @@ void AudioEqualizer::UpdateButtonState() {
 
   // Set apply button as active only if current filters are different from cache
   if (last_applied_ != current) {
-    btn_apply_->SetActive();
+    btn_apply_->Enable();
   } else {
-    btn_apply_->SetInactive();
+    btn_apply_->Disable();
   }
 
   // Set reset button as active only if:
@@ -182,9 +181,9 @@ void AudioEqualizer::UpdateButtonState() {
   if (preset_name_ == kModifiablePreset &&
       std::any_of(current.begin(), current.end(),
                   [](const model::AudioFilter& filter) { return filter.gain != 0; })) {
-    btn_reset_->SetActive();
+    btn_reset_->Enable();
   } else {
-    btn_reset_->SetInactive();
+    btn_reset_->Disable();
   }
 }
 

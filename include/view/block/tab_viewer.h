@@ -64,6 +64,16 @@ class TabViewer : public Block {
   bool OnCustomEvent(const CustomEvent& event) override;
 
   /**
+   * @brief Receives an indication that block is now focused
+   */
+  void OnFocus() override;
+
+  /**
+   * @brief Receives an indication that block is not focused anymore
+   */
+  void OnLostFocus() override;
+
+  /**
    * @brief Possible tab views to render on this block
    */
   enum class View {
@@ -81,6 +91,9 @@ class TabViewer : public Block {
 
   //! Get active tabview
   Item& active() { return views_[active_].item; }
+
+  //! Get active tabview
+  WindowButton& active_button() { return views_[active_].button; }
 
   //! Create window buttons
   void CreateButtons();

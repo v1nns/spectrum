@@ -14,20 +14,22 @@
 namespace interface {
 
 SongLyric::SongLyric(const model::BlockIdentifier& id,
-                     const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher) {}
+                     const std::shared_ptr<EventDispatcher>& dispatcher,
+                     const FocusCallback& on_focus)
+    : TabItem(id, dispatcher, on_focus) {}
 
 /* ********************************************************************************************** */
 
 ftxui::Element SongLyric::Render() {
   ftxui::Element content;
+  ftxui::Decorator style = ftxui::color(ftxui::Color::White) | ftxui::bold | ftxui::center;
 
   if (audio_info_.filepath.empty()) {
-    return ftxui::text("No song playing...") | ftxui::bold | ftxui::center;
+    return ftxui::text("No song playing...") | style;
   }
 
   if (IsFetching()) {
-    return ftxui::text("Fetching lyrics...") | ftxui::bold | ftxui::center;
+    return ftxui::text("Fetching lyrics...") | style;
   }
 
   if (IsResultReady()) {
@@ -37,7 +39,7 @@ ftxui::Element SongLyric::Render() {
   }
 
   if (lyrics_.empty()) {
-    return ftxui::text("Failed to fetch =(") | ftxui::bold | ftxui::center;
+    return ftxui::text("Failed to fetch =(") | style;
   }
 
   return DrawSongLyrics(lyrics_);
@@ -201,7 +203,7 @@ ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) const {
   for (const auto& line : lines) {
     formatted_lines.push_back(ftxui::hbox({
         ftxui::filler(),
-        line | ftxui::size(WIDTH, EQUAL, max_length),
+        line | ftxui::size(WIDTH, EQUAL, max_length) | ftxui::color(ftxui::Color::White),
         ftxui::filler(),
     }));
   }

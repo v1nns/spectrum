@@ -7,8 +7,9 @@
 namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
-                                       const std::shared_ptr<EventDispatcher>& dispatcher)
-    : TabItem(id, dispatcher) {}
+                                       const std::shared_ptr<EventDispatcher>& dispatcher,
+                                       const FocusCallback& on_focus)
+    : TabItem(id, dispatcher, on_focus) {}
 
 /* ********************************************************************************************** */
 
@@ -98,12 +99,10 @@ void SpectrumVisualizer::CreateGauge(float value, ftxui::Direction direction,
   constexpr auto color = [](const ftxui::Direction& dir) {
     auto gradient = ftxui::LinearGradient()
                         .Angle(dir == ftxui::Direction::Up ? 270 : 90)
-                        .Stop(ftxui::Color::SlateBlue3, 0.0f)
-                        .Stop(ftxui::Color::RoyalBlue1, 0.1f)
-                        .Stop(ftxui::Color::DodgerBlue1, 0.3f)
-                        .Stop(ftxui::Color::SteelBlue3, 0.5f)
-                        .Stop(ftxui::Color::SteelBlue1, 0.9f)
-                        .Stop(ftxui::Color::LightSteelBlue3, 1.0f);
+                        .Stop(ftxui::Color(95, 135, 215), 0.0f)
+                        .Stop(ftxui::Color(115, 155, 215), 0.3f)
+                        .Stop(ftxui::Color(155, 188, 235), 0.6f)
+                        .Stop(ftxui::Color(185, 208, 252), 0.8f);
 
     return ftxui::color(gradient);
   };
@@ -135,7 +134,7 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
     CreateGauge((float)spectrum_data_[i], ftxui::Direction::Up, entries);
   }
 
-  visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;
+  visualizer = ftxui::hbox(entries) | ftxui::hcenter;
 }
 
 /* ********************************************************************************************** */
@@ -199,7 +198,7 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
     CreateGauge((float)spectrum_data_[i], ftxui::Direction::Up, entries);
   }
 
-  visualizer = ftxui::hbox(std::move(entries)) | ftxui::hcenter;
+  visualizer = ftxui::hbox(entries) | ftxui::hcenter;
 }
 
 }  // namespace interface

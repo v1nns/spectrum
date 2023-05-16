@@ -60,7 +60,7 @@ class MediaPlayer : public Block {
   /* ******************************************************************************************** */
  private:
   //! Handle mouse event
-  bool OnMouseEvent(ftxui::Event event) const;
+  bool OnMouseEvent(ftxui::Event event);
 
   //! Utility to check media state
   bool IsPlaying() const {
@@ -75,7 +75,8 @@ class MediaPlayer : public Block {
   model::Song song_ = model::Song{};  //!< Audio information from current song
   model::Volume volume_;              //!< General sound volume
 
-  ftxui::Box duration_box_;  //!< Box for duration component (gauge)
+  ftxui::Box duration_box_;           //!< Box for song duration component (gauge)
+  bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused
 };
 
 }  // namespace interface

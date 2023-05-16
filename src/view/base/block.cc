@@ -11,7 +11,14 @@ Block::Block(const std::shared_ptr<EventDispatcher>& dispatcher, const model::Bl
 
 /* ********************************************************************************************** */
 
-void Block::SetFocused(bool focused) { focused_ = focused; }
+void Block::SetFocused(bool focused) {
+  focused_ = focused;
+
+  if (focused_)
+    OnFocus();
+  else
+    OnLostFocus();
+}
 
 /* ********************************************************************************************** */
 
@@ -29,7 +36,22 @@ ftxui::Decorator Block::GetTitleDecorator() const {
 
 /* ********************************************************************************************** */
 
+ftxui::Decorator Block::GetBorderDecorator() const {
+  using ftxui::bgcolor;
+  using ftxui::Color;
+  using ftxui::color;
+  using ftxui::nothing;
+
+  ftxui::Decorator style = focused_ ? color(Color::DodgerBlue1) : nothing;
+
+  return style;
+}
+
+/* ********************************************************************************************** */
+
 void Block::AskForFocus() const {
+  if(focused_) return;
+
   auto dispatcher = GetDispatcher();
 
   // Set this block as active (focused)

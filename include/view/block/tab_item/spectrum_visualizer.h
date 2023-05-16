@@ -21,9 +21,11 @@ class SpectrumVisualizer : public TabItem {
    * @brief Construct a new SpectrumVisualizer object
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
+   * @param on_focus Callback function to ask for focus
    */
   explicit SpectrumVisualizer(const model::BlockIdentifier& id,
-                              const std::shared_ptr<EventDispatcher>& dispatcher);
+                              const std::shared_ptr<EventDispatcher>& dispatcher,
+                              const FocusCallback& on_focus);
 
   /**
    * @brief Destroy the SpectrumVisualizer object
