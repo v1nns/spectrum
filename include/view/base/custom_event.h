@@ -57,7 +57,8 @@ struct CustomEvent {
     SetNextFocused = 70005,
     SetFocused = 70006,
     PlaySong = 70007,
-    Exit = 70008,
+    ToggleFullscreen = 70008,
+    Exit = 70009,
   };
 
   //! Overloaded operators
@@ -95,6 +96,7 @@ struct CustomEvent {
   static CustomEvent SetNextFocused();
   static CustomEvent SetFocused(const model::BlockIdentifier& id);
   static CustomEvent PlaySong();
+  static CustomEvent ToggleFullscreen();
 
   static CustomEvent Exit();
 

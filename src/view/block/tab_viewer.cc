@@ -44,6 +44,10 @@ ftxui::Element TabViewer::Render() {
 
 /* ********************************************************************************************** */
 
+ftxui::Element TabViewer::RenderFullscreen() { return active()->Render(); }
+
+/* ********************************************************************************************** */
+
 bool TabViewer::OnEvent(ftxui::Event event) {
   if (event.is_mouse()) return OnMouseEvent(event);
 

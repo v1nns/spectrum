@@ -50,6 +50,12 @@ class TabViewer : public Block {
   ftxui::Element Render() override;
 
   /**
+   * @brief Renders the component in fullscreen (without window borders)
+   * @return Element Built element based on internal state
+   */
+  ftxui::Element RenderFullscreen();
+
+  /**
    * @brief Handles an event (from mouse/keyboard)
    * @param event Received event from screen
    * @return true if event was handled, otherwise false

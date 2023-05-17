@@ -137,6 +137,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "PlaySong";
       break;
 
+    case CustomEvent::Identifier::ToggleFullscreen:
+      out << "ToggleFullscreen";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -387,6 +391,16 @@ CustomEvent CustomEvent::PlaySong() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::PlaySong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::ToggleFullscreen() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ToggleFullscreen,
   };
 }
 

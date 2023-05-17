@@ -58,6 +58,16 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
     return true;
   }
 
+  // Enable/disable fullscreen mode with spectrum visualizer
+  if (event == ftxui::Event::Character('h')) {
+    LOG("Handle key to toggle visualizer in fullscreen mode");
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return false;
+
+    auto event_toggle = CustomEvent::ToggleFullscreen();
+    dispatcher->SendEvent(event_toggle);
+  }
+
   return false;
 }
 

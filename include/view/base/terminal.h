@@ -37,6 +37,13 @@ using Callback = std::function<void()>;
  * @brief Manages the whole screen and contains all block views
  */
 class Terminal : public EventDispatcher, public ftxui::ComponentBase {
+  //! Unique index for each block rendered by terminal class
+  //! WARNING: focus handling will obey this block order
+  static constexpr int kBlockListDirectory = 0;
+  static constexpr int kBlockFileInfo = 1;
+  static constexpr int kBlockTabViewer = 2;
+  static constexpr int kBlockMediaPlayer = 3;
+
  private:
   /**
    * @brief Construct a new Terminal object
@@ -140,7 +147,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool HandleEventToSwitchBlockFocus(const ftxui::Event& event);
+  bool OnFocusEvent(const ftxui::Event& event);
 
   /**
    * @brief Handle custom events sent from interface to audio thread (music player)
@@ -179,7 +186,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Utils
  private:
   //! Get internal block index based on block identifier
-  int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const;
+  constexpr int GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const;
 
   /**
    * @brief Update focus state in both old and newly focused block
@@ -213,6 +220,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   ftxui::Dimensions size_ = ftxui::Terminal::Size();  //!< Terminal maximum size
   int focused_index_ = 0;                             //!< Index of focused block
+
+  bool fullscreen_mode_ = false;  //!< Control flag to show spectrum visualizer in fullscreen
 };
 
 }  // namespace interface
