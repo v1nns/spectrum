@@ -162,21 +162,17 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Global commands
   if (OnGlobalModeEvent(event)) return true;
 
-  // Check if fullscreen mode is enabled
-  if (fullscreen_mode_) {
-    // In this case, only spectrum visualizer may handle this event
-    auto tab_viewer = std::static_pointer_cast<TabViewer>(children_.at(2));
-    return tab_viewer->OnEvent(event);
-  }
+  // If fullscreen mode is enabled, only a subset of blocks are able to handle this event
+  if (fullscreen_mode_) return OnFullscreenModeEvent(event);
 
   // Switch block focus based on a predefined index
   if (OnFocusEvent(event)) return true;
 
   // Block commands
-  if (bool result =
+  if (bool event_handled =
           std::any_of(children_.begin(), children_.end(),
                       [&event](const ftxui::Component& child) { return child->OnEvent(event); });
-      result)
+      event_handled)
     return true;
 
   return false;
@@ -273,6 +269,21 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
 
     return true;
   }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
+  // In this case, only spectrum visualizer and media player may handle this event
+  std::vector<ftxui::Component>::const_iterator first = children_.begin() + 2;
+  std::vector<ftxui::Component>::const_iterator last = children_.end();
+
+  if (bool event_handled = std::any_of(
+          first, last, [&event](const ftxui::Component& child) { return child->OnEvent(event); });
+      event_handled)
+    return true;
 
   return false;
 }

@@ -143,6 +143,13 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   bool OnGlobalModeEvent(const ftxui::Event& event);
 
   /**
+   * @brief Handle event when fullscreen mode is enabled
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnFullscreenModeEvent(const ftxui::Event& event);
+
+  /**
    * @brief Handle event to switch block focus
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
