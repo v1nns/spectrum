@@ -41,10 +41,11 @@ ftxui::Element Help::Render() const {
                   title("block focus"),
                   command("Shift+1", "Focus files"),
                   command("Shift+2", "Focus information"),
-                  command("Shift+3", "Focus visualizer/equalizer"),
+                  command("Shift+3", "Focus tab viewer"),
                   command("Shift+4", "Focus player"),
                   command("Tab", "Focus next block"),
                   command("Shift+Tab", "Focus previous block"),
+                  command("Esc", "Remove focus"),
 
                   title("files"),
                   command("←/↓/↑/→", "Navigate on list"),
@@ -52,12 +53,11 @@ ftxui::Element Help::Render() const {
                   command("Home", "Go to first entry"),
                   command("End", "Go to last entry"),
                   command("/", "Enter search mode"),
-                  command("Esc", "Cancel search mode"),
+                  command("Esc", "Cancel search mode (when focused)"),
                   command("Return", "Enter directory/play song"),
 
                   title("information"),
                   command("", "N/A"),
-
               }) | block_decorator,
 
               margin(),
@@ -66,6 +66,7 @@ ftxui::Element Help::Render() const {
               ftxui::vbox({
                   title("visualizer"),
                   command("a", "Change spectrum animation"),
+                  command("h", "Hide other blocks"),
 
                   title("equalizer"),
                   command("←/↓/↑/→", "Navigate on elements"),
@@ -75,6 +76,9 @@ ftxui::Element Help::Render() const {
                   command("Esc", "Cancel focus"),
                   command("a", "Apply equalizer settings"),
                   command("r", "Reset equalizer settings"),
+
+                  title("lyrics"),
+                  command("", "N/A"),
 
                   title("player"),
                   command("p", "Pause/Resume current song"),
