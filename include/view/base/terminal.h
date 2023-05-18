@@ -44,7 +44,6 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   static constexpr int kBlockTabViewer = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
- private:
   /**
    * @brief Construct a new Terminal object
    */
