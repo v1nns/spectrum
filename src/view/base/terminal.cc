@@ -64,6 +64,7 @@ void Terminal::Init(const std::string& initial_path) {
   list_dir->SetFocused(true);
 
   // Make every block as a child of this terminal
+  // WARNING: be careful with the order you add (must be synced with unique indexes in header)
   Add(list_dir);
   Add(file_info);
   Add(tab_viewer);
@@ -118,17 +119,25 @@ ftxui::Element Terminal::Render() {
     SendEvent(event_calculate);
   }
 
-  // Render each block
-  ftxui::Element list_dir = children_.at(0)->Render();
-  ftxui::Element file_info = children_.at(1)->Render();
-  ftxui::Element tab_viewer = children_.at(2)->Render();
-  ftxui::Element audio_player = children_.at(3)->Render();
+  ftxui::Element terminal;
 
-  // Glue everything together
-  ftxui::Element terminal = ftxui::hbox({
-      ftxui::vbox({list_dir, file_info}),
-      ftxui::vbox({tab_viewer, audio_player}) | ftxui::xflex_grow,
-  });
+  if (!fullscreen_mode_) {
+    // Render each block
+    ftxui::Element list_dir = children_.at(kBlockListDirectory)->Render();
+    ftxui::Element file_info = children_.at(kBlockFileInfo)->Render();
+    ftxui::Element tab_viewer = children_.at(kBlockTabViewer)->Render();
+    ftxui::Element media_player = children_.at(kBlockMediaPlayer)->Render();
+
+    // Glue everything together
+    terminal = ftxui::hbox({
+        ftxui::vbox({list_dir, file_info}),
+        ftxui::vbox({tab_viewer, media_player}) | ftxui::xflex_grow,
+    });
+  } else {
+    // Render only spectrum visualizer
+    auto tab_viewer = std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer));
+    terminal = tab_viewer->RenderFullscreen() | ftxui::xflex_grow;
+  }
 
   // Render dialog box as overlay
   ftxui::Element overlay = error_dialog_->IsVisible() ? error_dialog_->Render()
@@ -153,18 +162,18 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Global commands
   if (OnGlobalModeEvent(event)) return true;
 
+  // If fullscreen mode is enabled, only a subset of blocks are able to handle this event
+  if (fullscreen_mode_) return OnFullscreenModeEvent(event);
+
+  // Switch block focus based on a predefined index
+  if (OnFocusEvent(event)) return true;
+
   // Block commands
-  if (bool result =
+  if (bool event_handled =
           std::any_of(children_.begin(), children_.end(),
                       [&event](const ftxui::Component& child) { return child->OnEvent(event); });
-      result)
+      event_handled)
     return true;
-
-  // Remove focus from all blocks
-  if (focused_index_ != kInvalidIndex && event == ftxui::Event::Escape) {
-    LOG("Handle key to remove focus from all blocks");
-    UpdateFocus(focused_index_, kInvalidIndex);
-  }
 
   return false;
 }
@@ -173,7 +182,10 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 int Terminal::CalculateNumberBars() {
   // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
-  int block_width = std::static_pointer_cast<Block>(children_.at(0))->GetSize().width;
+  int block_width =
+      !fullscreen_mode_
+          ? std::static_pointer_cast<Block>(children_.at(kBlockListDirectory))->GetSize().width
+          : 0;
 
   // crazy math function = (a - b - c - d) / e;
   // considering these:
@@ -258,68 +270,74 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Switch focus
-  if (event == ftxui::Event::Tab) {
-    LOG("Handle key to focus next UI block");
+  return false;
+}
 
-    // Send event to focus next UI block
-    auto focus_event = interface::CustomEvent::SetNextFocused();
-    ProcessEvent(focus_event);
+/* ********************************************************************************************** */
 
+bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
+  // In this case, only spectrum visualizer and media player may handle this event
+  std::vector<ftxui::Component>::const_iterator first = children_.begin() + 2;
+  std::vector<ftxui::Component>::const_iterator last = children_.end();
+
+  if (bool event_handled = std::any_of(
+          first, last, [&event](const ftxui::Component& child) { return child->OnEvent(event); });
+      event_handled)
     return true;
-  }
-
-  // Switch focus reverse
-  if (event == ftxui::Event::TabReverse) {
-    LOG("Handle key to focus previous UI block");
-
-    // Send event to focus next/previous UI block
-    auto focus_event = interface::CustomEvent::SetPreviousFocused();
-    ProcessEvent(focus_event);
-
-    return true;
-  }
-
-  // Switch block focus based on a predefined index
-  if (HandleEventToSwitchBlockFocus(event)) return true;
 
   return false;
 }
 
 /* ********************************************************************************************** */
 
-bool Terminal::HandleEventToSwitchBlockFocus(const ftxui::Event& event) {
+bool Terminal::OnFocusEvent(const ftxui::Event& event) {
+  // Switch focus
+  if (event == ftxui::Event::Tab) {
+    LOG("Handle key to focus next UI block");
+    return HandleEventFromInterfaceToInterface(interface::CustomEvent::SetNextFocused());
+  }
+
+  // Switch focus reverse
+  if (event == ftxui::Event::TabReverse) {
+    LOG("Handle key to focus previous UI block");
+    return HandleEventFromInterfaceToInterface(interface::CustomEvent::SetPreviousFocused());
+  }
+
+  // Remove focus from all blocks
+  if (focused_index_ != kInvalidIndex && event == ftxui::Event::Escape) {
+    LOG("Handle key to remove focus from all blocks");
+    UpdateFocus(focused_index_, kInvalidIndex);
+    return true;
+  }
+
+  // To avoid checking the upcoming if statements, first check if event is a character
   if (!event.is_character()) return false;
 
   // Set ListDirectory block as focused (shift+1)
   if (event == ftxui::Event::Character('!')) {
-    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::ListDirectory);
-    ProcessEvent(event_focus);
-
+    LOG("Handle key to focus ListDirectory block");
+    UpdateFocus(focused_index_, kBlockListDirectory);
     return true;
   }
 
   // Set FileInfo block as focused (shift+2)
   if (event == ftxui::Event::Character('@')) {
-    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::FileInfo);
-    ProcessEvent(event_focus);
-
+    LOG("Handle key to focus FileInfo block");
+    UpdateFocus(focused_index_, kBlockFileInfo);
     return true;
   }
 
   // Set TabViewer block as focused (shift+3)
   if (event == ftxui::Event::Character('#')) {
-    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::TabViewer);
-    ProcessEvent(event_focus);
-
+    LOG("Handle key to focus TabViewer block");
+    UpdateFocus(focused_index_, kBlockTabViewer);
     return true;
   }
 
   // Set MediaPlayer block as focused (shift+4)
   if (event == ftxui::Event::Character('$')) {
-    auto event_focus = interface::CustomEvent::SetFocused(model::BlockIdentifier::MediaPlayer);
-    ProcessEvent(event_focus);
-
+    LOG("Handle key to focus MediaPlayer block");
+    UpdateFocus(focused_index_, kBlockMediaPlayer);
     return true;
   }
 
@@ -421,15 +439,16 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 
     case CustomEvent::Identifier::SetPreviousFocused: {
       // Calculate new block index to be focused
-      int new_index = focused_index_ == 0 || focused_index_ == kInvalidIndex ? (kMaxBlocks - 1)
-                                                                             : focused_index_ - 1;
+      int new_index = focused_index_ == kBlockListDirectory || focused_index_ == kInvalidIndex
+                          ? (kMaxBlocks - 1)
+                          : focused_index_ - 1;
 
       UpdateFocus(focused_index_, new_index);
     } break;
 
     case CustomEvent::Identifier::SetNextFocused: {
       // Calculate new block index to be focused
-      int new_index = focused_index_ == 3 ? 0 : focused_index_ + 1;
+      int new_index = focused_index_ == kBlockMediaPlayer ? 0 : focused_index_ + 1;
 
       UpdateFocus(focused_index_, new_index);
     } break;
@@ -443,6 +462,17 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 
     case CustomEvent::Identifier::ShowHelper: {
       helper_->Show();
+    } break;
+
+    case CustomEvent::Identifier::ToggleFullscreen: {
+      fullscreen_mode_ = !fullscreen_mode_;
+
+      // Recalculate maximum number of bars to show in spectrum graphic
+      int number_bars = CalculateNumberBars();
+
+      // Send value to spectrum visualizer
+      auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);
+      SendEvent(event_calculate);
     } break;
 
     case CustomEvent::Identifier::Exit: {
@@ -487,17 +517,18 @@ void Terminal::SetApplicationError(error::Code id) {
 
 /* ********************************************************************************************** */
 
-int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const {
+constexpr int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const {
   switch (id) {
     case model::BlockIdentifier::ListDirectory:
-      return 0;
+      return kBlockListDirectory;
     case model::BlockIdentifier::FileInfo:
-      return 1;
+      return kBlockFileInfo;
     case model::BlockIdentifier::TabViewer:
-      return 2;
+      return kBlockTabViewer;
     case model::BlockIdentifier::MediaPlayer:
-      return 3;
+      return kBlockMediaPlayer;
     default:
+      ERROR("Received wrong block identifier=", id);
       return 0;
   }
 }

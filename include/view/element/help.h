@@ -19,7 +19,7 @@ namespace interface {
  */
 class Help {
   static constexpr int kMaxColumns = 90;  //!< Maximum columns for Element
-  static constexpr int kMaxLines = 25;    //!< Maximum lines for Element
+  static constexpr int kMaxLines = 30;    //!< Maximum lines for Element
 
  public:
   /**

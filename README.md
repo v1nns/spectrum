@@ -38,7 +38,8 @@ To build spectrum, you need to have a C++ compiler installed on your system.
 ```bash
 # Package dependencies (on Ubuntu)
 sudo apt install build-essential libasound2-dev libavcodec-dev \
-     libavfilter-dev libavformat-dev libfftw3-dev libswresample-dev
+     libavfilter-dev libavformat-dev libfftw3-dev libswresample-dev \
+     libcurl4-openssl-dev libxml++2.6-dev
 
 # Clone repository
 git clone https://github.com/v1nns/spectrum.git
