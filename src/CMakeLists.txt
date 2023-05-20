@@ -77,6 +77,7 @@ target_sources(
             view/element/help.cc
             view/element/tab_item.cc
             # logger
+            util/arg_parser.cc
             util/logger.cc
             util/sink.cc)
 

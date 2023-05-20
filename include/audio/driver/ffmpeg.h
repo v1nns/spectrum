@@ -40,7 +40,7 @@ class FFmpeg final : public Decoder {
    * @brief Construct a new FFmpeg object
    * @param verbose Enable verbose logging messages
    */
-  FFmpeg(bool verbose);
+  explicit FFmpeg(bool verbose);
 
   /**
    * @brief Destroy the FFmpeg object
