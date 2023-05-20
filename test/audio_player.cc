@@ -58,7 +58,7 @@ class PlayerTest : public ::testing::Test {
     EXPECT_CALL(*pb_mock, GetPeriodSize());
 
     // Create Player without thread
-    audio_player = audio::Player::Create(pb_mock, dc_mock, asynchronous);
+    audio_player = audio::Player::Create(/*verbose=*/true, pb_mock, dc_mock, asynchronous);
 
     // Register interface notifier to Audio Player
     notifier = std::make_shared<InterfaceNotifierMock>();

@@ -18,6 +18,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace util {
@@ -35,6 +36,7 @@ struct Argument {
   std::string name;                              //!< Unique identifier
   std::array<std::string, kMaxChoices> choices;  //!< Possible choices to match
   std::string description;                       //!< Detailed description
+  bool is_empty = false;                         //!< Argument expects a value to be parsed
 
   //! Overloaded operator
   bool operator<(const Argument& rhs) const { return name < rhs.name; }
@@ -47,8 +49,16 @@ using ExpectedArguments = std::vector<Argument>;
  * @brief Contains all arguments parsed from command-line
  */
 struct ParsedArguments {
-  // Argument may contain or not a value associated
-  using Arguments = std::unordered_map<std::string, std::optional<std::string>>;
+  //! Available type values to store
+  struct Value : std::variant<std::monostate, bool, std::string> {
+    using std::variant<std::monostate, bool, std::string>::variant;
+
+    const bool& get_bool() const { return std::get<bool>(*this); }
+    const std::string& get_string() const { return std::get<std::string>(*this); }
+  };
+
+  //! Argument may contain or not a value associated
+  using Arguments = std::unordered_map<std::string, std::optional<Value>>;
 
   Arguments parsed;  //!< Map of parsed arguments with value
 
@@ -60,7 +70,7 @@ struct ParsedArguments {
   //! Overloaded operators
   bool operator==(const ParsedArguments& other) const { return parsed == other.parsed; };
   bool operator!=(const ParsedArguments& other) const { return !operator==(other); };
-  std::optional<std::string>& operator[](const std::string& key) { return parsed[key]; }
+  std::optional<Value>& operator[](const std::string& key) { return parsed[key]; }
 };
 
 /* ********************************************************************************************** */
@@ -83,7 +93,7 @@ class parsing_error : public std::exception {
   const char* what() const noexcept override { return message_.c_str(); }
 
  private:
-  std::string message_;  //!< Custom message
+  std::string message_;  //!< Custom error message
 };
 
 /* ********************************************************************************************** */
@@ -187,15 +197,23 @@ class ArgumentParser {
         throw parsing_error("Received unexpected argument");
       }
 
-      // Get value for expected argument (for the first version, always expected value for argument)
-      std::string value{values[++index]};
-      if (value.rfind('-', 0) == 0 || value.empty()) {
-        PrintError(argument, value);
-        throw parsing_error("Received unexpected value for argument");
+      // Argument does not expect a value
+      if (found->is_empty) {
+        opts[found->name] = true;
+      } else {
+        // Parse value for argument
+        std::string value = values[++index];
+
+        // Get value for expected argument
+        if (value.rfind('-', 0) == 0 || value.empty()) {
+          PrintError(argument, value);
+          throw parsing_error("Received unexpected value for argument");
+        }
+
+        // Everything is fine, should include into opts
+        opts[found->name] = value;
       }
 
-      // Everything is fine, should include into opts
-      opts[found->name] = value;
       ++index;
     }
 

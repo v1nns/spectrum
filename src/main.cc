@@ -13,8 +13,23 @@
 #include "util/logger.h"                           // For Logger
 #include "view/base/terminal.h"                    // for Terminal
 
-//! Command-line argument parsing
-bool parse(int argc, char** argv, std::string& path) {
+/**
+ * @brief A structure containing all available options to configure using command-line arguments
+ */
+struct Settings {
+  std::string initial_dir = "";  //!< Initial directory to list in files block
+  bool verbose_logging = false;  //!< Enable verbose log messages
+};
+
+/**
+ * @brief Command-line argument parsing
+ *
+ * @param argc Size of array
+ * @param argv Array of arguments
+ * @param options Configuration options parsed from command-line
+ * @return true if parsed successfully, otherwise false
+ */
+bool parse(int argc, char** argv, Settings& options) {
   using util::Argument;
   using util::ExpectedArguments;
   using util::ParsedArguments;
@@ -33,6 +48,12 @@ bool parse(int argc, char** argv, std::string& path) {
             .choices = {"-d", "--directory"},
             .description = "Initialize listing files from the given directory path",
         },
+        Argument{
+            .name = "verbose",
+            .choices = {"-v", "--verbose"},
+            .description = "Enable verbose logging messages",
+            .is_empty = true,
+        },
     };
 
     // Configure argument parser and run to get parsed arguments
@@ -40,19 +61,24 @@ bool parse(int argc, char** argv, std::string& path) {
     ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
 
     // Check if contains filepath for logging
-    if (auto logging_path = parsed_args["log"]; logging_path) {
+    if (auto& logging_path = parsed_args["log"]; logging_path) {
       // Enable logging to specified path
-      util::Logger::GetInstance().Configure(*logging_path);
+      util::Logger::GetInstance().Configure(logging_path->get_string());
+    }
+
+    // Check if contains flag for verbose logging
+    if (auto& verbose = parsed_args["verbose"]; verbose) {
+      options.verbose_logging = verbose->get_bool();
     }
 
     // Check if contains dirpath for initial file listing
-    if (auto initial_path = parsed_args["directory"]; initial_path) {
-      path = *initial_path;
+    if (auto& initial_path = parsed_args["directory"]; initial_path) {
+      options.initial_dir = initial_path->get_string();
     }
 
   } catch (util::parsing_error&) {
     // Got some error while trying to parse, or even received help as argument
-    // Just let ArgumentParser handle it
+    // Just let ArgumentParser handle it and exit application
     return false;
   }
 
@@ -62,18 +88,17 @@ bool parse(int argc, char** argv, std::string& path) {
 /* ********************************************************************************************** */
 
 int main(int argc, char** argv) {
-  // In case of getting some unexpected argument or some other error:
-  // Do not execute the program
-  std::string initial_dir;
-  if (!parse(argc, argv, initial_dir)) {
+  // In case of getting some unexpected argument or some other error: do not execute the program
+  Settings options;
+  if (!parse(argc, argv, options)) {
     return EXIT_SUCCESS;
   }
 
   // Create and initialize a new player
-  auto player = audio::Player::Create();
+  auto player = audio::Player::Create(options.verbose_logging);
 
   // Create and initialize a new terminal window
-  auto terminal = interface::Terminal::Create(initial_dir);
+  auto terminal = interface::Terminal::Create(options.initial_dir);
 
   // Use terminal maximum width as input to decide how many bars should display on audio visualizer
   int number_bars = terminal->CalculateNumberBars();
