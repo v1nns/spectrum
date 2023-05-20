@@ -64,11 +64,6 @@ struct ParsedArguments {
 
   Arguments parsed;  //!< Map of parsed arguments with value
 
-  //! Constructors and destructor
-  ParsedArguments() = default;
-  explicit ParsedArguments(const Arguments& args) : parsed{args} {}
-  ~ParsedArguments() = default;
-
   //! Overloaded operators
   bool operator==(const ParsedArguments& other) const { return parsed == other.parsed; };
   bool operator!=(const ParsedArguments& other) const { return !operator==(other); };
@@ -162,20 +157,20 @@ class ArgumentParser {
   /**
    * @brief Utility method to print a CLI helper based on expected arguments and abort parsing
    */
-  void PrintHelpAndThrow() const;
+  [[noreturn]] void PrintHelpAndThrow() const;
 
   /**
    * @brief Utility method to print error on CLI and abort parsing
    * @param parsed Argument parsed from command-line
    */
-  void PrintErrorAndThrow(const std::string& parsed) const;
+  [[noreturn]] void PrintErrorAndThrow(const std::string& parsed) const;
 
   /**
    * @brief Utility method to print error on CLI and abort parsing
    * @param argument Argument parsed from command-line
    * @param value Value parsed from command-line
    */
-  void PrintErrorAndThrow(const std::string& argument, const std::string& value) const;
+  [[noreturn]] void PrintErrorAndThrow(const std::string& argument, const std::string& value) const;
 
   /* ******************************************************************************************** */
   //! Variables

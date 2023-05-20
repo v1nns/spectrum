@@ -493,13 +493,9 @@ TEST_F(ArgparserTest, ParseMultipleExpectedArgsWithEmptyType) {
   ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
 
   // Setup expectations
-  ParsedArguments expected_args{{
-      {"testing", true},
-      {"coverage", "off"},
-  }};
-
-  EXPECT_EQ(expected_args, parsed_args);
   EXPECT_TRUE(buffer.str().empty());
+  EXPECT_EQ(true, parsed_args["testing"]->get_bool());
+  EXPECT_EQ("off", parsed_args["coverage"]->get_string());
 }
 
 }  // namespace
