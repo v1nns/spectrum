@@ -47,18 +47,19 @@ using ExpectedArguments = std::vector<Argument>;
 
 /* ********************************************************************************************** */
 
-//! Available type values an argument can have it
-struct Value : std::variant<std::monostate, bool, std::string> {
-  using std::variant<std::monostate, bool, std::string>::variant;
-
-  const bool& get_bool() const { return std::get<bool>(*this); }
-  const std::string& get_string() const { return std::get<std::string>(*this); }
-};
-
 /**
  * @brief Contains all arguments parsed from command-line
  */
 struct ParsedArguments {
+  //! Available type values an argument can have it
+  struct Value : std::variant<std::monostate, bool, std::string> {
+    using std::variant<std::monostate, bool, std::string>::variant;
+
+    //! Create custom getters to avoid user calling std::get
+    const bool& get_bool() const { return std::get<bool>(*this); }
+    const std::string& get_string() const { return std::get<std::string>(*this); }
+  };
+
   //! Argument may contain or not a value associated
   using Arguments = std::unordered_map<std::string, std::optional<Value>>;
 
