@@ -8,12 +8,10 @@
 
 namespace {
 
-using ::testing::StrEq;
 using util::Argument;
 using util::ExpectedArguments;
 using util::ParsedArguments;
 using util::Parser;
-using util::parsing_error;
 
 /**
  * @brief Tests with ArgumentParser class
@@ -405,6 +403,99 @@ TEST_F(ArgparserTest, SetupHelpAsExpectedArgument) {
   }
 
   EXPECT_TRUE(buffer.str().empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgWithEmptyType) {
+  SetupCommandArguments({"--testing"});
+
+  // Configure argument parser and run to get parsed arguments
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
+      Argument{.name = "testing",
+               .choices = {"-t", "--testing"},
+               .description = "Enable dummy testing",
+               .is_empty = true},
+  });
+
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  // Setup expectations
+  EXPECT_TRUE(buffer.str().empty());
+
+  ParsedArguments expected_args{{{"testing", true}}};
+  EXPECT_EQ(expected_args, parsed_args);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgWithEmptyTypeWithValue) {
+  SetupCommandArguments({"--testing", "true"});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing",
+                 .is_empty = true},
+
+    });
+
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
+  }
+
+  // Setup console output expectation
+  EXPECT_EQ(buffer.str(), "spectrum: invalid option [true]\n");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgWithEmptyTypeWithEmptyValue) {
+  SetupCommandArguments({"--testing", ""});
+
+  try {
+    // Configure argument parser and run to get parsed arguments
+    Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
+        Argument{.name = "testing",
+                 .choices = {"-t", "--testing"},
+                 .description = "Enable dummy testing",
+                 .is_empty = true},
+
+    });
+
+    ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Received unexpected argument"));
+  }
+
+  // Setup console output expectation
+  EXPECT_EQ(buffer.str(), "spectrum: empty option\n");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseMultipleExpectedArgsWithEmptyType) {
+  SetupCommandArguments({"--testing", "--coverage", "off"});
+
+  // Configure argument parser and run to get parsed arguments
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
+      Argument{.name = "testing",
+               .choices = {"-t", "--testing"},
+               .description = "Enable dummy testing",
+               .is_empty = true},
+      Argument{
+          .name = "coverage", .choices = {"-c", "--coverage"}, .description = "Enable coverage"},
+  });
+
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  // Setup expectations
+  EXPECT_TRUE(buffer.str().empty());
+  EXPECT_EQ(true, parsed_args["testing"]->get_bool());
+  EXPECT_EQ("off", parsed_args["coverage"]->get_string());
 }
 
 }  // namespace

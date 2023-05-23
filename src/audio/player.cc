@@ -15,8 +15,8 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decoder* decoder,
-                                       bool asynchronous) {
+std::shared_ptr<Player> Player::Create(bool verbose, driver::Playback* playback,
+                                       driver::Decoder* decoder, bool asynchronous) {
   LOG("Create new instance of player");
 
 #ifndef SPECTRUM_DEBUG
@@ -26,7 +26,7 @@ std::shared_ptr<Player> Player::Create(driver::Playback* playback, driver::Decod
 
   // Create decoder object
   auto dec = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
-                                : std::make_unique<driver::FFmpeg>();
+                                : std::make_unique<driver::FFmpeg>(verbose);
 #else
   // Create playback object
   auto pb = std::make_unique<driver::DummyPlayback>();

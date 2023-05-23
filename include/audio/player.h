@@ -72,12 +72,13 @@ class Player : public AudioControl {
  public:
   /**
    * @brief Factory method: Create, initialize internal components and return Player object
+   * @param verbose Enable verbose logging messages
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
    * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(driver::Playback* playback = nullptr,
+  static std::shared_ptr<Player> Create(bool verbose, driver::Playback* playback = nullptr,
                                         driver::Decoder* decoder = nullptr,
                                         bool asynchronous = true);
 

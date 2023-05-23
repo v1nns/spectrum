@@ -23,18 +23,21 @@ static void log_callback(void *, int level, const char *fmt, va_list vargs) {
   LOG("[LOG_CALLBACK] LEVEL:", level, " MESSAGE:", message);
 }
 
-FFmpeg::FFmpeg() {
+FFmpeg::FFmpeg(bool verbose) {
+  LOG("Initialize FFmpeg with verbose logging=", verbose);
+
 #if LIBAVUTIL_VERSION_MAJOR > 56
   ch_layout_.reset(new AVChannelLayout{});
   // Set output channel layout to stereo (2-channel)
   av_channel_layout_default(ch_layout_.get(), 2);
 #endif
 
-  // TODO: Control this with a parameter
-  //   av_log_set_level(AV_LOG_QUIET);
-
-  av_log_set_level(AV_LOG_ERROR);
-  av_log_set_callback(log_callback);
+  if (verbose) {
+    av_log_set_level(AV_LOG_WARNING);
+    av_log_set_callback(log_callback);
+  } else {
+    av_log_set_level(AV_LOG_QUIET);
+  }
 }
 
 /* ********************************************************************************************** */

@@ -27,7 +27,6 @@ using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::Invoke;
-using ::testing::Ne;
 using ::testing::Return;
 using ::testing::VariantWith;
 
