@@ -182,12 +182,13 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 int Terminal::CalculateNumberBars() {
   // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
-  int block_width =
+  float block_width = static_cast<float>(
       !fullscreen_mode_
           ? std::static_pointer_cast<Block>(children_.at(kBlockListDirectory))->GetSize().width
-          : 0;
+          : 0);
 
-  int bar_width = std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer))->GetBarWidth();
+  float bar_width = static_cast<float>(
+      std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer))->GetBarWidth());
 
   // crazy math function = (a - b - c - d) / e;
   // considering these:
@@ -196,14 +197,15 @@ int Terminal::CalculateNumberBars() {
   // c = border width
   // d = audio bar spacing
   // e = bar width + audio bar spacing
-  int border_width = !fullscreen_mode_ ? 2 : -1;
+  float border_width = !fullscreen_mode_ ? 2 : -1;
   float crazy_math =
       (static_cast<float>(size_.dimx) - block_width - border_width - 1) / (bar_width + 1);
 
   // Round to nearest odd number
-  int number_bars = static_cast<int>(floor(crazy_math)) % 2 ? crazy_math - 1 : crazy_math;
+  crazy_math = static_cast<int>(floor(crazy_math)) % 2 ? crazy_math - 1 : crazy_math;
 
-  return number_bars;
+  // Return number of audio bars
+  return static_cast<int>(crazy_math);
 }
 
 /* ********************************************************************************************** */
