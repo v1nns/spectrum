@@ -165,11 +165,24 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
     LOG("Received new song information from player");
 
-    // Exit search mode if enabled
-    mode_search_.reset();
-
     // Set current song
     curr_playing_ = event.GetContent<model::Song>().filepath;
+
+    // Exit search mode if enabled
+    if (mode_search_) {
+      mode_search_.reset();
+
+      // To get a better experience, update focused and select indexes,
+      // to highlight current playing song entry in list
+      auto it = std::find(entries_.begin(), entries_.end(), *curr_playing_);
+      int index = it != entries_.end() ? static_cast<int>(it - entries_.begin()) : 0;
+
+      focused_ = index;
+      selected_ = index;
+    }
+
+    // Update active entry (to enable/disable text animation)
+    UpdateActiveEntry();
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
@@ -198,7 +211,6 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     // In case that song has finished successfully, attempt to play next one
     if (auto content = event.GetContent<model::Song::CurrentInformation>();
         content.state == model::Song::MediaState::Finished) {
-
       if (auto file = SelectNextToPlay(); !file.empty()) {
         LOG("Song finished, attempt to play next file: ", file);
         // Send user action to controller

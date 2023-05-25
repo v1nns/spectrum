@@ -189,12 +189,15 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to decrease volume");
     auto dispatcher = GetDispatcher();
 
+    auto old_value = volume_;
     volume_--;
 
-    auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
-    dispatcher->SendEvent(event_volume);
+    if (old_value != volume_) {
+      auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
+      dispatcher->SendEvent(event_volume);
 
-    return true;
+      return true;
+    }
   }
 
   // Increase volume
@@ -202,12 +205,15 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
     LOG("Handle key to increase volume");
     auto dispatcher = GetDispatcher();
 
+    auto old_value = volume_;
     volume_++;
 
-    auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
-    dispatcher->SendEvent(event_volume);
+    if (old_value != volume_) {
+      auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
+      dispatcher->SendEvent(event_volume);
 
-    return true;
+      return true;
+    }
   }
 
   // Toggle volume mute

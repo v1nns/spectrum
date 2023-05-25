@@ -31,6 +31,9 @@ ftxui::Element Help::Render() const {
                    ftxui::borderDouble | ftxui::bgcolor(style_.background) |
                    ftxui::color(style_.foreground) | ftxui::clear_under | ftxui::center;
 
+  // TODO: create a second render specific for TabItems
+  // include commands </> for visualizer
+
   static ftxui::Element content =
       ftxui::gridbox({
           {
