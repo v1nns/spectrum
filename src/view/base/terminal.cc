@@ -182,12 +182,12 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 int Terminal::CalculateNumberBars() {
   // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
-  float block_width = static_cast<float>(
+  auto block_width = static_cast<float>(
       !fullscreen_mode_
           ? std::static_pointer_cast<Block>(children_.at(kBlockListDirectory))->GetSize().width
           : 0);
 
-  float bar_width = static_cast<float>(
+  auto bar_width = static_cast<float>(
       std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer))->GetBarWidth());
 
   // crazy math function = (a - b - c - d) / e;
