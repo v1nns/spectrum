@@ -165,15 +165,15 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // If fullscreen mode is enabled, only a subset of blocks are able to handle this event
   if (fullscreen_mode_) return OnFullscreenModeEvent(event);
 
-  // Switch block focus based on a predefined index
-  if (OnFocusEvent(event)) return true;
-
   // Block commands
   if (bool event_handled =
           std::any_of(children_.begin(), children_.end(),
                       [&event](const ftxui::Component& child) { return child->OnEvent(event); });
       event_handled)
     return true;
+
+  // Switch block focus based on a predefined index
+  if (OnFocusEvent(event)) return true;
 
   return false;
 }
@@ -187,22 +187,21 @@ int Terminal::CalculateNumberBars() {
           ? std::static_pointer_cast<Block>(children_.at(kBlockListDirectory))->GetSize().width
           : 0;
 
+  int bar_width = std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer))->GetBarWidth();
+
   // crazy math function = (a - b - c - d) / e;
   // considering these:
   // a = terminal maximum width
   // b = ListDirectory width
-  // c = border characters
-  // d = some constant to represent spacing between bars
-  // e = bar thickness + 1
-  float crazy_math = ((float)(size_.dimx - block_width - 2 - 10) / 4);
-  crazy_math += (float)(crazy_math * .01);
+  // c = border width
+  // d = audio bar spacing
+  // e = bar width + audio bar spacing
+  int border_width = !fullscreen_mode_ ? 2 : -1;
+  float crazy_math =
+      (static_cast<float>(size_.dimx) - block_width - border_width - 1) / (bar_width + 1);
 
   // Round to nearest odd number
-  int number_bars;
-  if ((int)floor(crazy_math) % 2 == 0)
-    number_bars = (int)floor(crazy_math);
-  else
-    number_bars = (int)ceil(crazy_math);
+  int number_bars = static_cast<int>(floor(crazy_math)) % 2 ? crazy_math - 1 : crazy_math;
 
   return number_bars;
 }
@@ -428,7 +427,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
   // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
   // size and calculate maximum number of bars
   switch (event.GetId()) {
-    case CustomEvent::Identifier::ChangeBarAnimation: {
+    case CustomEvent::Identifier::ChangeBarAnimation:
+    case CustomEvent::Identifier::UpdateBarWidth: {
       // Recalculate maximum number of bars to show in spectrum visualizer
       int number_bars = CalculateNumberBars();
 

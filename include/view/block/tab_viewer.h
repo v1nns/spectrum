@@ -89,6 +89,12 @@ class TabViewer : public Block {
     LAST,
   };
 
+  /**
+   * @brief Get width for a single bar (used for Terminal calculation)
+   * @return Audio bar width
+   */
+  int GetBarWidth();
+
   /* ******************************************************************************************** */
   //! Private methods
  private:

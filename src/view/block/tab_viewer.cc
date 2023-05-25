@@ -1,5 +1,7 @@
 #include "view/block/tab_viewer.h"
 
+#include <memory>
+
 #include "util/logger.h"
 #include "view/block/tab_item/audio_equalizer.h"
 #include "view/block/tab_item/song_lyric.h"
@@ -117,6 +119,13 @@ void TabViewer::OnLostFocus() {
 
   btn_help_->UpdateParentFocus(false);
   btn_exit_->UpdateParentFocus(false);
+}
+
+/* ********************************************************************************************** */
+
+int TabViewer::GetBarWidth() {
+  auto visualizer = static_cast<SpectrumVisualizer*>(views_[View::Visualizer].item.get());
+  return visualizer->GetBarWidth();
 }
 
 /* ********************************************************************************************** */

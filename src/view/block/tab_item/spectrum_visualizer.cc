@@ -66,6 +66,31 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
 
     auto event_toggle = CustomEvent::ToggleFullscreen();
     dispatcher->SendEvent(event_toggle);
+
+    return true;
+  }
+
+  // Increase/decrease bar width
+  if (bool increase = event == ftxui::Event::Character('>');
+      event == ftxui::Event::Character('<') || event == ftxui::Event::Character('>')) {
+    LOG("Handle key to ", increase ? "increase" : "decrease", " audio bar width");
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return false;
+
+    auto old_value = gauge_width_;
+
+    if (increase && gauge_width_ < kGaugeMaxWidth)
+      gauge_width_++;
+    else if (!increase && gauge_width_ > kGaugeMinWidth)
+      gauge_width_--;
+
+    if (old_value != gauge_width_) {
+      LOG("Changed audio bar width from ", old_value, " to ", gauge_width_);
+      auto event_update = CustomEvent::UpdateBarWidth();
+      dispatcher->SendEvent(event_update);
+
+      return true;
+    }
   }
 
   return false;
@@ -104,8 +129,9 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void SpectrumVisualizer::CreateGauge(float value, ftxui::Direction direction,
+void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
                                      ftxui::Elements& elements) const {
+  using ftxui::gaugeDirection;
   constexpr auto color = [](const ftxui::Direction& dir) {
     auto gradient = ftxui::LinearGradient()
                         .Angle(dir == ftxui::Direction::Up ? 270 : 90)
@@ -117,11 +143,11 @@ void SpectrumVisualizer::CreateGauge(float value, ftxui::Direction direction,
     return ftxui::color(gradient);
   };
 
-  for (int i = 0; i < kGaugeThickness - 1; i++) {
-    elements.push_back(ftxui::gaugeDirection(value, direction) | color(direction));
+  for (int i = 0; i < gauge_width_; i++) {
+    elements.push_back(gaugeDirection(static_cast<float>(value), direction) | color(direction));
   }
 
-  elements.push_back(ftxui::text(" "));
+  elements.push_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
 }
 
 /* ********************************************************************************************** */
@@ -133,16 +159,19 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * kGaugeThickness;
+  int total_size = size * (kGaugeDefaultWidth + kGaugeSpacing);
   entries.reserve(total_size);
 
   for (int i = (size / 2) - 1; i >= 0; i--) {
-    CreateGauge((float)spectrum_data_[i], ftxui::Direction::Up, entries);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge((float)spectrum_data_[i], ftxui::Direction::Up, entries);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries);
   }
+
+  // Remove last empty space
+  entries.pop_back();
 
   visualizer = ftxui::hbox(entries) | ftxui::hcenter;
 }
@@ -157,17 +186,21 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
   ftxui::Elements right;
 
   // Preallocate memory
-  int total_size = (size / 2) * kGaugeThickness;
+  int total_size = (size / 2) * (kGaugeDefaultWidth + kGaugeSpacing);
   left.reserve(total_size);
   right.reserve(total_size);
 
   for (int i = 0; i < size / 2; i++) {
-    CreateGauge((float)spectrum_data_[i], ftxui::Direction::Up, left);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, left);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge((float)spectrum_data_[i], ftxui::Direction::Down, right);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Down, right);
   }
+
+  // Remove last empty space
+  left.pop_back();
+  right.pop_back();
 
   visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
                            ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
@@ -201,12 +234,15 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * kGaugeThickness;
+  int total_size = size * (kGaugeDefaultWidth + kGaugeSpacing);
   entries.reserve(total_size);
 
   for (int i = 0; i < size; i++) {
-    CreateGauge((float)spectrum_data_[i], ftxui::Direction::Up, entries);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries);
   }
+
+  // Remove last empty space
+  entries.pop_back();
 
   visualizer = ftxui::hbox(entries) | ftxui::hcenter;
 }

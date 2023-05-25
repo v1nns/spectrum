@@ -15,7 +15,11 @@ namespace interface {
  * @brief Component to render different animations using audio spectrum data from current song
  */
 class SpectrumVisualizer : public TabItem {
-  static constexpr int kGaugeThickness = 4;  //!< Gauge thickness + empty space
+  static constexpr int kGaugeDefaultWidth = 3;  //!< Default gauge width (audio bar width)
+  static constexpr int kGaugeMinWidth = 2;      //!< Maximum value for gauge width
+  static constexpr int kGaugeMaxWidth = 4;      //!< Minimum value for gauge width
+  static constexpr int kGaugeSpacing = 1;       //!< Spacing between gauges
+
  public:
   /**
    * @brief Construct a new SpectrumVisualizer object
@@ -52,11 +56,17 @@ class SpectrumVisualizer : public TabItem {
    */
   bool OnCustomEvent(const CustomEvent& event) override;
 
+  /**
+   * @brief Get width for a single bar (used for Terminal calculation)
+   * @return Audio bar width
+   */
+  int GetBarWidth() const { return gauge_width_; }
+
   /* ******************************************************************************************** */
   // Private methods
  private:
   //! Utility to create UI gauge
-  void CreateGauge(float value, ftxui::Direction direction, ftxui::Elements& elements) const;
+  void CreateGauge(double value, ftxui::Direction direction, ftxui::Elements& elements) const;
 
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
@@ -68,6 +78,7 @@ class SpectrumVisualizer : public TabItem {
   model::BarAnimation curr_anim_ =
       model::BarAnimation::HorizontalMirror;  //!< Control which bar animation to draw
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
+  int gauge_width_ = kGaugeDefaultWidth;  //!< Current audio bar width
 };
 
 }  // namespace interface

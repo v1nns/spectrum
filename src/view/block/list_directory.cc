@@ -165,11 +165,24 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
     LOG("Received new song information from player");
 
-    // Exit search mode if enabled
-    mode_search_.reset();
-
     // Set current song
     curr_playing_ = event.GetContent<model::Song>().filepath;
+
+    // Exit search mode if enabled
+    if (mode_search_) {
+      mode_search_.reset();
+
+      // To get a better experience, update focused and select indexes,
+      // to highlight current playing song entry in list
+      auto it = std::find(entries_.begin(), entries_.end(), *curr_playing_);
+      int index = it != entries_.end() ? it - entries_.begin() : 0;
+
+      focused_ = index;
+      selected_ = index;
+    }
+
+    // Update active entry (to enable/disable text animation)
+    UpdateActiveEntry();
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
