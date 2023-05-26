@@ -71,8 +71,8 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
   }
 
   // Increase/decrease bar width
-  if (bool increase = event == ftxui::Event::Character('>');
-      event == ftxui::Event::Character('<') || event == ftxui::Event::Character('>')) {
+  if (bool increase = event == ftxui::Event::Character('.');
+      event == ftxui::Event::Character(',') || event == ftxui::Event::Character('.')) {
     LOG("Handle key to ", increase ? "increase" : "decrease", " audio bar width");
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;

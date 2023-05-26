@@ -81,6 +81,20 @@ class Button {
   static std::shared_ptr<Button> make_button_stop(Callback on_click);
 
   /**
+   * @brief Create a Skip to Previous Song button
+   * @param on_click Callback function for click event
+   * @return std::shared_ptr<Button> New instance to Play button
+   */
+  static std::shared_ptr<Button> make_button_skip_previous(Callback on_click);
+
+  /**
+   * @brief Create a Skip to Next Song button
+   * @param on_click Callback function for click event
+   * @return std::shared_ptr<Button> New instance to Play button
+   */
+  static std::shared_ptr<Button> make_button_skip_next(Callback on_click);
+
+  /**
    * @brief Create button for the border of the block window
    * @param content Text content to show
    * @param on_click Callback function for click event

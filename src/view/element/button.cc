@@ -210,6 +210,125 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
 
 /* ********************************************************************************************** */
 
+std::shared_ptr<Button> Button::make_button_skip_previous(Callback on_click) {
+  class SkipPrevious : public Button {
+   public:
+    explicit SkipPrevious(const ButtonStyle& style, Callback on_click)
+        : Button(style, on_click, true) {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      ftxui::Canvas content = Draw();
+
+      auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
+
+      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
+
+      button = button | ftxui::color(border_color);
+      return button;
+    }
+
+   private:
+    //! To make life easier
+    using Point = std::pair<int, int>;
+
+    //! Draw Skip Previous button
+    ftxui::Canvas Draw() const {
+      ftxui::Canvas skip_next(12, 12);
+
+      auto [a_x, a_y] = Point{8, 1};
+      auto [b_x, b_y] = Point{3, 5};
+      auto [c_x, c_y] = Point{8, 10};
+
+      const auto& color = style_.normal.foreground;
+
+      for (int i = 0; i < 6; ++i) {
+        skip_next.DrawPointLine(a_x - i, a_y + i, b_x + i, b_y, color);
+        skip_next.DrawPointLine(b_x + i, b_y, c_x, c_y, color);
+        skip_next.DrawPointLine(c_x, c_y, a_x - i, a_y + i, color);
+      }
+
+      auto [d_x, d_y] = Point{3, 1};
+      auto [e_x, e_y] = Point{3, 10};
+
+      skip_next.DrawPointLine(d_x, d_y, e_x, e_y, color);
+      skip_next.DrawPointLine(--d_x, d_y, --e_x, e_y, color);
+
+      return skip_next;
+    }
+  };
+
+  auto style = ButtonStyle{
+      .normal = ButtonStyle::State{.foreground = ftxui::Color::SteelBlue,
+                                   .border = ftxui::Color::GrayDark},
+
+      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
+  };
+
+  return std::make_shared<SkipPrevious>(style, on_click);
+}
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button_skip_next(Callback on_click) {
+  class SkipNext : public Button {
+   public:
+    explicit SkipNext(const ButtonStyle& style, Callback on_click)
+        : Button(style, on_click, true) {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      ftxui::Canvas content = Draw();
+
+      auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
+
+      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
+
+      button = button | ftxui::color(border_color);
+      return button;
+    }
+
+   private:
+    //! To make life easier
+    using Point = std::pair<int, int>;
+
+    //! Draw Skip Next button
+    ftxui::Canvas Draw() const {
+      ftxui::Canvas skip_next(12, 12);
+
+      auto [a_x, a_y] = Point{2, 0};
+      auto [b_x, b_y] = Point{8, 6};
+      auto [c_x, c_y] = Point{2, 11};
+
+      const auto& color = style_.normal.foreground;
+
+      for (int i = 1; i < 6; ++i) {
+        skip_next.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, color);
+        skip_next.DrawPointLine(b_x - i, b_y - i, c_x + i, c_y - i, color);
+        skip_next.DrawPointLine(c_x + i, c_y - i, a_x + i, a_y + i, color);
+      }
+
+      auto [d_x, d_y] = Point{8, 1};
+      auto [e_x, e_y] = Point{8, 10};
+
+      skip_next.DrawPointLine(d_x, d_y, e_x, e_y, color);
+      skip_next.DrawPointLine(++d_x, d_y, ++e_x, e_y, color);
+
+      return skip_next;
+    }
+  };
+
+  auto style = ButtonStyle{
+      .normal = ButtonStyle::State{.foreground = ftxui::Color::SteelBlue,
+                                   .border = ftxui::Color::GrayDark},
+
+      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
+  };
+
+  return std::make_shared<SkipNext>(style, on_click);
+}
+
+/* ********************************************************************************************** */
+
 std::shared_ptr<Button> Button::make_button_for_window(const std::string& content,
                                                        Callback on_click,
                                                        const ButtonStyle& style) {

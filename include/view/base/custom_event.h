@@ -59,7 +59,9 @@ struct CustomEvent {
     PlaySong = 70007,
     ToggleFullscreen = 70008,
     UpdateBarWidth = 70009,
-    Exit = 70010,
+    SkipToNextSong = 70010,
+    SkipToPreviousSong = 70011,
+    Exit = 70012,
   };
 
   //! Overloaded operators
@@ -99,6 +101,8 @@ struct CustomEvent {
   static CustomEvent PlaySong();
   static CustomEvent ToggleFullscreen();
   static CustomEvent UpdateBarWidth();
+  static CustomEvent SkipToNextSong();
+  static CustomEvent SkipToPreviousSong();
 
   static CustomEvent Exit();
 

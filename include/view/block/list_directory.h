@@ -170,10 +170,11 @@ class ListDirectory : public Block {
   void UpdateActiveEntry();
 
   /**
-   * @brief Select next file to play
+   * @brief Select file to play based on the current song playing
+   * @param pick_next Pick next or previous file to play
    * @return Filepath
    */
-  File SelectNextToPlay();
+  File SelectFileToPlay(bool pick_next);
 
   /* ******************************************************************************************** */
  protected:
