@@ -71,28 +71,28 @@ class Button {
    * @param on_click Callback function for click event
    * @return std::shared_ptr<Button> New instance to Play button
    */
-  static std::shared_ptr<Button> make_button_play(Callback on_click);
+  static std::shared_ptr<Button> make_button_play(const Callback& on_click);
 
   /**
    * @brief Create a Stop button
    * @param on_click Callback function for click event
    * @return std::shared_ptr<Button> New instance to Stop button
    */
-  static std::shared_ptr<Button> make_button_stop(Callback on_click);
+  static std::shared_ptr<Button> make_button_stop(const Callback& on_click);
 
   /**
    * @brief Create a Skip to Previous Song button
    * @param on_click Callback function for click event
-   * @return std::shared_ptr<Button> New instance to Play button
+   * @return std::shared_ptr<Button> New instance to Skip to Previous Song button
    */
-  static std::shared_ptr<Button> make_button_skip_previous(Callback on_click);
+  static std::shared_ptr<Button> make_button_skip_previous(const Callback& on_click);
 
   /**
    * @brief Create a Skip to Next Song button
    * @param on_click Callback function for click event
-   * @return std::shared_ptr<Button> New instance to Play button
+   * @return std::shared_ptr<Button> New instance to Skip to Next Song button
    */
-  static std::shared_ptr<Button> make_button_skip_next(Callback on_click);
+  static std::shared_ptr<Button> make_button_skip_next(const Callback& on_click);
 
   /**
    * @brief Create button for the border of the block window
@@ -102,7 +102,7 @@ class Button {
    * @return std::shared_ptr<Button> New instance to Window button
    */
   static std::shared_ptr<Button> make_button_for_window(const std::string& content,
-                                                        Callback on_click,
+                                                        const Callback& on_click,
                                                         const ButtonStyle& style);
 
   /**
@@ -112,7 +112,7 @@ class Button {
    * @param active Button state (if it is clickable or not)
    * @return std::shared_ptr<Button> New instance to button
    */
-  static std::shared_ptr<Button> make_button(const std::string& content, Callback on_click,
+  static std::shared_ptr<Button> make_button(const std::string& content, const Callback& on_click,
                                              bool active = true);
 
   /* ******************************************************************************************** */

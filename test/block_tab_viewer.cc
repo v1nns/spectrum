@@ -274,8 +274,8 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
       .Times(1);
 
   // Increase bar width
-  block->OnEvent(ftxui::Event::Character('>'));
-  block->OnEvent(ftxui::Event::Character('>'));
+  block->OnEvent(ftxui::Event::Character('.'));
+  block->OnEvent(ftxui::Event::Character('.'));
 
   values = std::vector<double>{0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
                                0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06};
@@ -314,9 +314,9 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
       .Times(2);
 
   // Decrease bar width
-  block->OnEvent(ftxui::Event::Character('<'));
-  block->OnEvent(ftxui::Event::Character('<'));
-  block->OnEvent(ftxui::Event::Character('<'));
+  block->OnEvent(ftxui::Event::Character(','));
+  block->OnEvent(ftxui::Event::Character(','));
+  block->OnEvent(ftxui::Event::Character(','));
 
   values = std::vector<double>{
       0.99, 0.90, 0.80, 0.70, 0.60, 0.48, 0.40, 0.35, 0.30, 0.24, 0.20, 0.15, 0.10, 0.06, 0.02,

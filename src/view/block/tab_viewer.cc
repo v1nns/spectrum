@@ -63,6 +63,7 @@ bool TabViewer::OnEvent(ftxui::Event event) {
       LOG("Handle key to focus tab viewer block");
       AskForFocus();
     }
+
     // Change tab item selected
     if (active_ != found->first) {
       LOG("Handle key to change tab item selected");
@@ -212,7 +213,13 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
               std::string{"1:visualizer"},
               [this]() {
                 LOG("Handle left click mouse event on Tab button for visualizer");
+
+                // Unselect window button from old active item
+                active_button()->Unselect();
+
+                // Update active tab and button state
                 active_ = View::Visualizer;
+                active_button()->Select();
 
                 // Send event to set focus on this block
                 AskForFocus();
@@ -229,7 +236,13 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
           std::string{"2:equalizer"},
           [this]() {
             LOG("Handle left click mouse event on Tab button for equalizer");
+
+            // Unselect window button from old active item
+            active_button()->Unselect();
+
+            // Update active tab and button state
             active_ = View::Equalizer;
+            active_button()->Select();
 
             // Send event to set focus on this block
             AskForFocus();
@@ -247,7 +260,13 @@ void TabViewer::CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher) 
           std::string{"3:lyric"},
           [this]() {
             LOG("Handle left click mouse event on Tab button for lyric");
+
+            // Unselect window button from old active item
+            active_button()->Unselect();
+
+            // Update active tab and button state
             active_ = View::Lyric;
+            active_button()->Select();
 
             // Send event to set focus on this block
             AskForFocus();

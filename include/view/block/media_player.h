@@ -67,7 +67,7 @@ class MediaPlayer : public Block {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool HandleMediaEvent(const ftxui::Event& event);
+  bool HandleMediaEvent(const ftxui::Event& event) const;
 
   /**
    * @brief Handle event for volume control
@@ -81,7 +81,7 @@ class MediaPlayer : public Block {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool HandleSeekEvent(const ftxui::Event& event);
+  bool HandleSeekEvent(const ftxui::Event& event) const;
 
   //! Utility to check media state
   bool IsPlaying() const {

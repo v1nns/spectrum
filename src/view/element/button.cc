@@ -101,10 +101,11 @@ bool Button::HandleLeftClick(ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
+std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
   class Play : public Button {
    public:
-    explicit Play(const ButtonStyle& style, Callback on_click) : Button(style, on_click, true) {}
+    explicit Play(const ButtonStyle& style, const Callback& on_click)
+        : Button(style, on_click, true) {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
@@ -174,10 +175,11 @@ std::shared_ptr<Button> Button::make_button_play(Callback on_click) {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
+std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
   class Stop : public Button {
    public:
-    explicit Stop(const ButtonStyle& style, Callback on_click) : Button(style, on_click, true) {}
+    explicit Stop(const ButtonStyle& style, const Callback& on_click)
+        : Button(style, on_click, true) {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
@@ -210,10 +212,10 @@ std::shared_ptr<Button> Button::make_button_stop(Callback on_click) {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button_skip_previous(Callback on_click) {
+std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_click) {
   class SkipPrevious : public Button {
    public:
-    explicit SkipPrevious(const ButtonStyle& style, Callback on_click)
+    explicit SkipPrevious(const ButtonStyle& style, const Callback& on_click)
         : Button(style, on_click, true) {}
 
     //! Override base class method to implement custom rendering
@@ -252,7 +254,7 @@ std::shared_ptr<Button> Button::make_button_skip_previous(Callback on_click) {
       auto [e_x, e_y] = Point{3, 10};
 
       skip_next.DrawPointLine(d_x, d_y, e_x, e_y, color);
-      skip_next.DrawPointLine(--d_x, d_y, --e_x, e_y, color);
+      skip_next.DrawPointLine(d_x - 1, d_y, e_x - 1, e_y, color);
 
       return skip_next;
     }
@@ -269,10 +271,10 @@ std::shared_ptr<Button> Button::make_button_skip_previous(Callback on_click) {
 }
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button_skip_next(Callback on_click) {
+std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) {
   class SkipNext : public Button {
    public:
-    explicit SkipNext(const ButtonStyle& style, Callback on_click)
+    explicit SkipNext(const ButtonStyle& style, const Callback& on_click)
         : Button(style, on_click, true) {}
 
     //! Override base class method to implement custom rendering
@@ -311,7 +313,7 @@ std::shared_ptr<Button> Button::make_button_skip_next(Callback on_click) {
       auto [e_x, e_y] = Point{8, 10};
 
       skip_next.DrawPointLine(d_x, d_y, e_x, e_y, color);
-      skip_next.DrawPointLine(++d_x, d_y, ++e_x, e_y, color);
+      skip_next.DrawPointLine(d_x + 1, d_y, e_x + 1, e_y, color);
 
       return skip_next;
     }
@@ -330,11 +332,12 @@ std::shared_ptr<Button> Button::make_button_skip_next(Callback on_click) {
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_for_window(const std::string& content,
-                                                       Callback on_click,
+                                                       const Callback& on_click,
                                                        const ButtonStyle& style) {
   class WindowButton : public Button {
    public:
-    explicit WindowButton(const ButtonStyle& style, const std::string& content, Callback on_click)
+    explicit WindowButton(const ButtonStyle& style, const std::string& content,
+                          const Callback& on_click)
         : Button(style, on_click, true), content_{content} {}
 
     //! Override base class method to implement custom rendering
@@ -381,12 +384,12 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button(const std::string& content, Callback on_click,
+std::shared_ptr<Button> Button::make_button(const std::string& content, const Callback& on_click,
                                             bool active) {
   class GenericButton : public Button {
    public:
-    explicit GenericButton(const ButtonStyle& style, const std::string& content, Callback on_click,
-                           bool active)
+    explicit GenericButton(const ButtonStyle& style, const std::string& content,
+                           const Callback& on_click, bool active)
         : Button(style, on_click, active), content_{content} {}
 
     //! Override base class method to implement custom rendering

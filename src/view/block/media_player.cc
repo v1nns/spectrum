@@ -270,7 +270,7 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
+bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
   // Play a song or pause/resume current song
   if (event == ftxui::Event::Character('p')) {
     LOG("Handle key to play/pause song");
@@ -316,8 +316,8 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
     LOG("Handle key to skip to previous song");
     auto dispatcher = GetDispatcher();
 
-    auto event = interface::CustomEvent::SkipToPreviousSong();
-    dispatcher->SendEvent(event);
+    auto event_skip = interface::CustomEvent::SkipToPreviousSong();
+    dispatcher->SendEvent(event_skip);
 
     btn_play_->ResetState();
 
@@ -328,8 +328,8 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
     LOG("Handle key to skip to next song");
     auto dispatcher = GetDispatcher();
 
-    auto event = interface::CustomEvent::SkipToNextSong();
-    dispatcher->SendEvent(event);
+    auto event_skip = interface::CustomEvent::SkipToNextSong();
+    dispatcher->SendEvent(event_skip);
 
     btn_play_->ResetState();
 
@@ -393,7 +393,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) {
+bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
   // Seek forward in current song
   if (event == ftxui::Event::Character('f') && IsPlaying()) {
     LOG("Handle key to seek forward in current song");
