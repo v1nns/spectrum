@@ -101,32 +101,54 @@ bool Button::HandleLeftClick(ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
+/**
+ * @class GraphicButton
+ * @brief Base class interface for all media buttons that use Canvas for custom drawing
+ */
+class GraphicButton : public Button {
+ public:
+  explicit GraphicButton(const ButtonStyle& style, const Callback& on_click)
+      : Button(style, on_click, /*active*/ true) {}
+
+  //! Override base class method to implement custom rendering
+  ftxui::Element Render() override {
+    ftxui::Canvas content = Draw();
+
+    auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
+
+    const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
+
+    return button | ftxui::color(border_color);
+  }
+
+  /**
+   * @brief Custom drawing (implemented by derived class)
+   */
+  virtual ftxui::Canvas Draw() const = 0;
+
+ protected:
+  //! To make life easier
+  using Point = std::pair<int, int>;
+
+  static constexpr int kWidth = 12;   //!< Width size for Canvas
+  static constexpr int kHeight = 12;  //!< Height size for Canvas
+};
+
+/* ********************************************************************************************** */
+
 std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
-  class Play : public Button {
+  class Play : public GraphicButton {
    public:
     explicit Play(const ButtonStyle& style, const Callback& on_click)
-        : Button(style, on_click, true) {}
+        : GraphicButton(style, on_click) {}
 
-    //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
-      ftxui::Canvas content = !clicked_ ? DrawPlay() : DrawPause();
-
-      auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
-
-      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
-
-      button = button | ftxui::color(border_color);
-      return button;
-    }
+    //! Override base class method to implement custom drawing
+    ftxui::Canvas Draw() const override { return !clicked_ ? DrawPlay() : DrawPause(); }
 
    private:
-    //! To make life easier
-    using Point = std::pair<int, int>;
-
     //! Draw Play button
     ftxui::Canvas DrawPlay() const {
-      // play
-      ftxui::Canvas play(12, 12);
+      ftxui::Canvas play(kWidth, kHeight);
 
       auto [a_x, a_y] = Point{3, 0};
       auto [b_x, b_y] = Point{9, 6};
@@ -146,7 +168,7 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
     // Draw Pause button
     ftxui::Canvas DrawPause() const {
       // pause
-      ftxui::Canvas pause(12, 12);
+      ftxui::Canvas pause(kWidth, kHeight);
 
       auto [g_x, g_y] = Point{2, 1};
       auto [h_x, h_y] = Point{2, 10};
@@ -176,33 +198,28 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
-  class Stop : public Button {
+  class Stop : public GraphicButton {
    public:
     explicit Stop(const ButtonStyle& style, const Callback& on_click)
-        : Button(style, on_click, true) {}
+        : GraphicButton(style, on_click) {}
 
-    //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
+    //! Override base class method to implement custom drawing
+    ftxui::Canvas Draw() const override {
       // stop
-      ftxui::Canvas stop(12, 12);
+      ftxui::Canvas stop(kWidth, kHeight);
 
-      for (int i = 1; i < 11; ++i) {
-        stop.DrawPointLine(2, i, 9, i, style_.normal.foreground);
-      }
+      for (int i = 1; i < 11; ++i) stop.DrawPointLine(2, i, 9, i, style_.normal.foreground);
 
-      auto button_stop =
-          ftxui::canvas(stop) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
-
-      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
-
-      button_stop = button_stop | ftxui::color(border_color);
-      return button_stop;
+      return stop;
     }
   };
 
   auto style = ButtonStyle{
       .normal =
-          ButtonStyle::State{.foreground = ftxui::Color::Red, .border = ftxui::Color::GrayDark},
+          ButtonStyle::State{
+              .foreground = ftxui::Color::Red,
+              .border = ftxui::Color::GrayDark,
+          },
 
       .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
   };
@@ -213,30 +230,14 @@ std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_click) {
-  class SkipPrevious : public Button {
+  class SkipPrevious : public GraphicButton {
    public:
     explicit SkipPrevious(const ButtonStyle& style, const Callback& on_click)
-        : Button(style, on_click, true) {}
+        : GraphicButton(style, on_click) {}
 
-    //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
-      ftxui::Canvas content = Draw();
-
-      auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
-
-      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
-
-      button = button | ftxui::color(border_color);
-      return button;
-    }
-
-   private:
-    //! To make life easier
-    using Point = std::pair<int, int>;
-
-    //! Draw Skip Previous button
-    ftxui::Canvas Draw() const {
-      ftxui::Canvas skip_next(12, 12);
+    //! Override base class method to implement custom drawing
+    ftxui::Canvas Draw() const override {
+      ftxui::Canvas skip_next(kWidth, kHeight);
 
       auto [a_x, a_y] = Point{8, 1};
       auto [b_x, b_y] = Point{3, 5};
@@ -272,30 +273,14 @@ std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_cli
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) {
-  class SkipNext : public Button {
+  class SkipNext : public GraphicButton {
    public:
     explicit SkipNext(const ButtonStyle& style, const Callback& on_click)
-        : Button(style, on_click, true) {}
+        : GraphicButton(style, on_click) {}
 
-    //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
-      ftxui::Canvas content = Draw();
-
-      auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
-
-      const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
-
-      button = button | ftxui::color(border_color);
-      return button;
-    }
-
-   private:
-    //! To make life easier
-    using Point = std::pair<int, int>;
-
-    //! Draw Skip Next button
+    //! Override base class method to implement custom drawing
     ftxui::Canvas Draw() const {
-      ftxui::Canvas skip_next(12, 12);
+      ftxui::Canvas skip_next(kWidth, kHeight);
 
       auto [a_x, a_y] = Point{2, 0};
       auto [b_x, b_y] = Point{8, 6};
