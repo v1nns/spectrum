@@ -139,13 +139,11 @@ class GraphicButton : public Button {
 std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
   class Play : public GraphicButton {
    public:
-    explicit Play(const ButtonStyle& style, const Callback& on_click)
-        : GraphicButton(style, on_click) {}
+    using GraphicButton::GraphicButton;
 
     //! Override base class method to implement custom drawing
     ftxui::Canvas Draw() const override { return !clicked_ ? DrawPlay() : DrawPause(); }
 
-   private:
     //! Draw Play button
     ftxui::Canvas DrawPlay() const {
       ftxui::Canvas play(kWidth, kHeight);
@@ -199,9 +197,7 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
 
 std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
   class Stop : public GraphicButton {
-   public:
-    explicit Stop(const ButtonStyle& style, const Callback& on_click)
-        : GraphicButton(style, on_click) {}
+    using GraphicButton::GraphicButton;
 
     //! Override base class method to implement custom drawing
     ftxui::Canvas Draw() const override {
@@ -232,8 +228,7 @@ std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
 std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_click) {
   class SkipPrevious : public GraphicButton {
    public:
-    explicit SkipPrevious(const ButtonStyle& style, const Callback& on_click)
-        : GraphicButton(style, on_click) {}
+    using GraphicButton::GraphicButton;
 
     //! Override base class method to implement custom drawing
     ftxui::Canvas Draw() const override {
@@ -275,11 +270,10 @@ std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_cli
 std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) {
   class SkipNext : public GraphicButton {
    public:
-    explicit SkipNext(const ButtonStyle& style, const Callback& on_click)
-        : GraphicButton(style, on_click) {}
+    using GraphicButton::GraphicButton;
 
     //! Override base class method to implement custom drawing
-    ftxui::Canvas Draw() const {
+    ftxui::Canvas Draw() const override {
       ftxui::Canvas skip_next(kWidth, kHeight);
 
       auto [a_x, a_y] = Point{2, 0};
