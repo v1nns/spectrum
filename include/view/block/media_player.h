@@ -62,6 +62,27 @@ class MediaPlayer : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
+  /**
+   * @brief Handle event for media control (e.g., play/pause, stop, clear and skip song)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleMediaEvent(const ftxui::Event& event) const;
+
+  /**
+   * @brief Handle event for volume control
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleVolumeEvent(const ftxui::Event& event);
+
+  /**
+   * @brief Handle event for seek position in song
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleSeekEvent(const ftxui::Event& event) const;
+
   //! Utility to check media state
   bool IsPlaying() const {
     return song_.curr_info.state == model::Song::MediaState::Play ||
@@ -70,8 +91,12 @@ class MediaPlayer : public Block {
 
   /* ******************************************************************************************** */
   //! Variables
-  MediaButton btn_play_;              //!< Media player button for Play/Pause
-  MediaButton btn_stop_;              //!< Media player button for Stop
+
+  MediaButton btn_play_;      //!< Media player button for Play/Pause
+  MediaButton btn_stop_;      //!< Media player button for Stop
+  MediaButton btn_previous_;  //!< Media player button for Play next song
+  MediaButton btn_next_;      //!< Media player button for Play previous song
+
   model::Song song_ = model::Song{};  //!< Audio information from current song
   model::Volume volume_;              //!< General sound volume
 

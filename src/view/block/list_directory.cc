@@ -201,6 +201,34 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     return true;
   }
 
+  if (event == CustomEvent::Identifier::SkipToPreviousSong) {
+    LOG("Received request from media player to play previous song");
+
+    if (auto file = SelectFileToPlay(/*pick_next=*/false); !file.empty()) {
+      LOG("Skipping song, attempt to play previous file: ", file);
+      // Send user action to controller
+      auto dispatcher = GetDispatcher();
+      auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
+      dispatcher->SendEvent(event_selection);
+    }
+
+    return true;
+  }
+
+  if (event == CustomEvent::Identifier::SkipToNextSong) {
+    LOG("Received request from media player to play next song");
+
+    if (auto file = SelectFileToPlay(/*pick_next=*/true); !file.empty()) {
+      LOG("Skipping song, attempt to play next file: ", file);
+      // Send user action to controller
+      auto dispatcher = GetDispatcher();
+      auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
+      dispatcher->SendEvent(event_selection);
+    }
+
+    return true;
+  }
+
 #ifndef SPECTRUM_DEBUG
   // Do not return true because other blocks may use it
   if (curr_playing_ && event == CustomEvent::Identifier::UpdateSongState) {
@@ -211,7 +239,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     // In case that song has finished successfully, attempt to play next one
     if (auto content = event.GetContent<model::Song::CurrentInformation>();
         content.state == model::Song::MediaState::Finished) {
-      if (auto file = SelectNextToPlay(); !file.empty()) {
+      if (auto file = SelectFileToPlay(/*pick_next=*/true); !file.empty()) {
         LOG("Song finished, attempt to play next file: ", file);
         // Send user action to controller
         auto dispatcher = GetDispatcher();
@@ -538,27 +566,29 @@ void ListDirectory::UpdateActiveEntry() {
 
 /* ********************************************************************************************** */
 
-File ListDirectory::SelectNextToPlay() {
+File ListDirectory::SelectFileToPlay(bool is_next) {
   if (entries_.size() <= 2) return File{};
 
   // Get index from current song playing
-  auto index = (int)std::distance(entries_.begin(),
-                                  std::find(entries_.begin(), entries_.end(), *curr_playing_));
+  auto index = static_cast<int>(
+      std::distance(entries_.begin(), std::find(entries_.begin(), entries_.end(), *curr_playing_)));
 
-  int next = (index + 1) % entries_.size();
-  auto attempts = (int)entries_.size();
+  auto size = static_cast<int>(entries_.size());
+
+  int new_index = is_next ? (index + 1) % size : (index + size - 1) % size;
+  int attempts = size;
   File file;
 
   // Iterate circularly through all file entries
   bool found = false;
-  for (file = entries_[next]; attempts > 0; --attempts, file = entries_[next]) {
+  for (file = entries_[new_index]; attempts > 0; --attempts, file = entries_[new_index]) {
     // Found a possible file to play
-    if (next != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file)) {
+    if (new_index != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file)) {
       found = true;
       break;
     }
 
-    next = (next + 1) % entries_.size();
+    new_index = is_next ? (new_index + 1) % size : (new_index + size - 1) % size;
   }
 
   return found ? file : File{};

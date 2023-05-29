@@ -145,6 +145,14 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "UpdateBarWidth";
       break;
 
+    case CustomEvent::Identifier::SkipToNextSong:
+      out << "SkipToNextSong";
+      break;
+
+    case CustomEvent::Identifier::SkipToPreviousSong:
+      out << "SkipToPreviousSong";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -415,6 +423,26 @@ CustomEvent CustomEvent::UpdateBarWidth() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::UpdateBarWidth,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SkipToNextSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SkipToNextSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+// Static
+CustomEvent CustomEvent::SkipToPreviousSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SkipToPreviousSong,
   };
 }
 
