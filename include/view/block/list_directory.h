@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <filesystem>  // for path
 #include <memory>      // for shared_ptr
@@ -176,6 +177,12 @@ class ListDirectory : public Block {
    */
   File SelectFileToPlay(bool pick_next);
 
+  /**
+   * @brief Execute click action on active entry (may change directory or play song)
+   * @return true if click action was executed, false otherwise
+   */
+  bool ClickOnActiveEntry();
+
   /* ******************************************************************************************** */
  protected:
   std::filesystem::path curr_dir_;                                    //!< Current directory
@@ -288,6 +295,8 @@ class ListDirectory : public Block {
           Colored(ftxui::Color::SteelBlue1)};  //!< Style for each possible type of entry on menu
 
   TextAnimation animation_;  //!< Text animation for selected entry
+
+  std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
 
   /* ******************************************************************************************** */
   //! Friend test

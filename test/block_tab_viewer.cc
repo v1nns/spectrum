@@ -354,6 +354,55 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
 
 /* ********************************************************************************************** */
 
+TEST_F(TabViewerTest, VisualizerOnFullscreen) {
+  auto tab_viewer = std::static_pointer_cast<interface::TabViewer>(block);
+
+  // Send audio data to show on visualizer
+  std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
+                             0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06};
+
+  auto event_bars = interface::CustomEvent::DrawAudioSpectrum(values);
+  Process(event_bars);
+
+  // Render block as fullscreen
+  ftxui::Render(*screen, tab_viewer->RenderFullscreen());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+                                            ▇▇▇ ▇▇▇                                            
+                                        ▄▄▄ ███ ███ ▄▄▄                                        
+                                    ▂▂▂ ███ ███ ███ ███ ▂▂▂                                    
+                                    ███ ███ ███ ███ ███ ███                                    
+                                ▇▇▇ ███ ███ ███ ███ ███ ███ ▇▇▇                                
+                            ▂▂▂ ███ ███ ███ ███ ███ ███ ███ ███ ▂▂▂                            
+                            ███ ███ ███ ███ ███ ███ ███ ███ ███ ███                            
+                        ▇▇▇ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ▇▇▇                        
+                    ▂▂▂ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ▂▂▂                    
+                    ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███                    
+                ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███                
+            ▅▅▅ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ▅▅▅            
+        ▂▂▂ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ▂▂▂        
+        ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███        
+    ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███ ███    )";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Make sure that tab_viewer will not change active tab item while on fullscreen
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Render again
+  screen->Clear();
+  ftxui::Render(*screen, tab_viewer->RenderFullscreen());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // And check that screen is equal to before
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(TabViewerTest, RenderEqualizer) {
   block->OnEvent(ftxui::Event::Character('2'));
 

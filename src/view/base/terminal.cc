@@ -263,10 +263,18 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Show helper
+  // Show general helper
   if (event == ftxui::Event::F1) {
-    LOG("Handle key to show helper");
-    helper_->Show();
+    LOG("Handle key to show general helper");
+    helper_->ShowGeneralInfo();
+
+    return true;
+  }
+
+  // Show tab helper
+  if (event == ftxui::Event::F2) {
+    LOG("Handle key to show tab helper");
+    helper_->ShowTabInfo();
 
     return true;
   }
@@ -463,7 +471,7 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
-      helper_->Show();
+      helper_->ShowGeneralInfo();
     } break;
 
     case CustomEvent::Identifier::ToggleFullscreen: {

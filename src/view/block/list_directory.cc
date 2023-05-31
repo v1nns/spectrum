@@ -281,6 +281,12 @@ bool ListDirectory::OnMouseEvent(ftxui::Event event) {
 
       // Send event for setting focus on this block
       AskForFocus();
+
+      // Check if this is a double-click event
+      auto now = std::chrono::system_clock::now();
+      if (now - last_click_ <= std::chrono::milliseconds(500)) return ClickOnActiveEntry();
+
+      last_click_ = now;
       return true;
     }
   }
@@ -347,32 +353,8 @@ bool ListDirectory::OnMenuNavigation(const ftxui::Event& event) {
 
   // Otherwise, user may want to change current directory
   if (event == ftxui::Event::Return) {
-    std::filesystem::path new_dir;
-    auto active = GetActiveEntry();
-
-    if (active != nullptr) {
-      LOG("Handle menu navigation key=", util::EventToString(event));
-
-      if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
-        new_dir = curr_dir_.parent_path();
-      } else if (std::filesystem::is_directory(*active)) {
-        new_dir = curr_dir_ / active->filename();
-      } else {
-        // Send user action to controller
-        auto dispatcher = GetDispatcher();
-        auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
-        dispatcher->SendEvent(event_selection);
-      }
-
-      if (!new_dir.empty()) {
-        RefreshList(new_dir);
-
-        // Exit search mode if enabled
-        mode_search_.reset();
-
-        event_handled = true;
-      }
-    }
+    LOG("Handle menu navigation key=", util::EventToString(event));
+    event_handled = ClickOnActiveEntry();
   }
 
   return event_handled;
@@ -592,6 +574,38 @@ File ListDirectory::SelectFileToPlay(bool is_next) {
   }
 
   return found ? file : File{};
+}
+
+/* ********************************************************************************************** */
+
+bool ListDirectory::ClickOnActiveEntry() {
+  std::filesystem::path new_dir;
+
+  auto active = GetActiveEntry();
+  if (active == nullptr) return false;
+
+  if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
+    new_dir = curr_dir_.parent_path();
+  } else if (std::filesystem::is_directory(*active)) {
+    new_dir = curr_dir_ / active->filename();
+  } else {
+    // Send user action to controller
+    auto dispatcher = GetDispatcher();
+    auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
+    dispatcher->SendEvent(event_selection);
+    return true;
+  }
+
+  if (!new_dir.empty()) {
+    RefreshList(new_dir);
+
+    // Exit search mode if enabled
+    mode_search_.reset();
+
+    return true;
+  }
+
+  return false;
 }
 
 }  // namespace interface
