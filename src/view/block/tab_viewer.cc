@@ -25,6 +25,9 @@ TabViewer::TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher)
 /* ********************************************************************************************** */
 
 ftxui::Element TabViewer::Render() {
+  // Toggle flag
+  if (is_fullscreen_) is_fullscreen_ = false;
+
   auto btn_visualizer = views_[View::Visualizer].button->Render();
   auto btn_equalizer = views_[View::Equalizer].button->Render();
   auto btn_lyric = views_[View::Lyric].button->Render();
@@ -46,7 +49,12 @@ ftxui::Element TabViewer::Render() {
 
 /* ********************************************************************************************** */
 
-ftxui::Element TabViewer::RenderFullscreen() { return active()->Render(); }
+ftxui::Element TabViewer::RenderFullscreen() {
+  // Toggle flag
+  if (!is_fullscreen_) is_fullscreen_ = true;
+
+  return active()->Render();
+}
 
 /* ********************************************************************************************** */
 
@@ -57,7 +65,7 @@ bool TabViewer::OnEvent(ftxui::Event event) {
   if (auto found =
           std::find_if(views_.begin(), views_.end(),
                        [&event](const auto& t) { return t.second.key == event.character(); });
-      found != views_.end()) {
+      found != views_.end() && !is_fullscreen_) {
     // Ask for focus if block is not focused
     if (!IsFocused()) {
       LOG("Handle key to focus tab viewer block");

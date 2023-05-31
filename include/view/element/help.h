@@ -49,7 +49,12 @@ class Help {
   /**
    * @brief Set dialog state to visible
    */
-  void Show();
+  void ShowGeneralInfo();
+
+  /**
+   * @brief Set dialog state to visible
+   */
+  void ShowTabInfo();
 
   /**
    * @brief Reset dialog state to initial value
@@ -64,7 +69,43 @@ class Help {
   bool IsVisible() const { return opened_; }
 
   /* ******************************************************************************************** */
+  //! UI utilities
  private:
+  /**
+   * @brief Possible tab views to render on this block
+   */
+  enum class View {
+    General,  //!< Display general info (default)
+    Tab,      //!< Display tab info
+    LAST,
+  };
+
+  /**
+   * @brief Build UI component for title
+   * @param message Content to show as title
+   */
+  ftxui::Element title(const std::string& message) const;
+
+  /**
+   * @brief Build UI component for keybinding + command
+   * @param keybind Keybinding option
+   * @param description Command description
+   */
+  ftxui::Element command(const std::string& keybind, const std::string& description) const;
+
+  /**
+   * @brief Build UI component for general block information
+   */
+  ftxui::Element BuildGeneralInfo() const;
+
+  /**
+   * @brief Build UI component for tab information
+   */
+  ftxui::Element BuildTabInfo() const;
+
+  /* ******************************************************************************************** */
+  //! Variables
+
   //! Style for each part of the dialog
   struct DialogStyle {
     ftxui::Color background;
@@ -73,7 +114,9 @@ class Help {
 
   DialogStyle style_ = DialogStyle{.background = ftxui::Color::BlueLight,
                                    .foreground = ftxui::Color::Grey93};  //!< Color style
-  bool opened_ = false;  //!< Flag to indicate dialog visilibity
+
+  bool opened_ = false;          //!< Flag to indicate dialog visilibity
+  View active_ = View::General;  //!< Current view displayed on dialog
 };
 
 }  // namespace interface

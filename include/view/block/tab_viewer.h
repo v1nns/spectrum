@@ -130,6 +130,8 @@ class TabViewer : public Block {
   View active_ = View::Visualizer;       //!< Current view displayed on block
   std::unordered_map<View, Tab> views_;  //!< All possible views to render in this component
 
+  bool is_fullscreen_ = false;  //!< Control flag to determine if fullscreen is enabled
+
   /* ******************************************************************************************** */
   //! Friend class for testing purpose
 
