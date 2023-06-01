@@ -8,15 +8,9 @@
 
 https://github.com/v1nns/spectrum/assets/22479290/5ab537cf-34d6-4627-8d66-4f7128cd6915
 
-Introducing yet another music player for tech enthusiasts that will simplify the
-way you experience your favorite tunes! Immerse yourself in the sound with the
-powerful equalizer, allowing you to fine-tune every aspect of the music to your
-exact specifications, perfectly matching your mood.
+Introducing yet another music player for tech enthusiasts that will simplify the way you experience your favorite tunes! Immerse yourself in the sound with the powerful equalizer, allowing you to fine-tune every aspect of the music to your exact specifications, perfectly matching your mood.
 
-With an intuitive user interface and lightning-fast performance, this music
-player is the perfect addition to any audiophile's collection. Whether you're a
-casual listener or a serious music lover, this console-based music player will
-exceed your expectations.
+With an intuitive user interface and lightning-fast performance, this music player is the perfect addition to any audiophile's collection. Whether you're a casual listener or a serious music lover, this console-based music player will exceed your expectations.
 
 ## Features :speech_balloon:
 
@@ -69,10 +63,8 @@ This software uses the following open source packages:
 
 ## Contributing
 
-Contributions are always welcome! If you find any bugs or have suggestions for
-new features, please open an issue or submit a pull request.
+Contributions are always welcome! If you find any bugs or have suggestions for new features, please open an issue or submit a pull request.
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for
-details.
+This project is licensed under the MIT License. See the LICENSE file for details.
