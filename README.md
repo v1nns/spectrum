@@ -1,37 +1,34 @@
-# spectrum
+<h1 align="center">
+  <br>
+  :headphones: spectrum
+  <br>
+</h1>
 
-Introducing yet another music player for audiophiles and tech enthusiasts alike:
-**spectrum**, a console-based music player written in C++ that will simplify the
-way you experience your favorite tunes!
+<h4 align="center">A simple and intuitive console-based music player written in C++</h4>
 
-Immerse yourself in the sound with the powerful equalizer, allowing you to
-fine-tune every aspect of the music to your exact specifications. With
-real-time adjustments, you can easily adjust the bass, treble, and mid-range to
-create a personalized sound that perfectly matches your mood.
+https://github.com/v1nns/spectrum/assets/22479290/5ab537cf-34d6-4627-8d66-4f7128cd6915
 
-But that's not all - spectrum also features an audio visualizer that takes your
-listening experience to the next level. Watch as the sound waves come to life in
-a stunning display of color and movement, adding a mesmerizing visual element to
-your music.
+Introducing yet another music player for tech enthusiasts that will simplify the
+way you experience your favorite tunes! Immerse yourself in the sound with the
+powerful equalizer, allowing you to fine-tune every aspect of the music to your
+exact specifications, perfectly matching your mood.
 
 With an intuitive user interface and lightning-fast performance, this music
 player is the perfect addition to any audiophile's collection. Whether you're a
 casual listener or a serious music lover, this console-based music player will
 exceed your expectations.
 
-https://user-images.githubusercontent.com/22479290/228603757-12a38a15-f7ac-4bfb-addb-b6c0e3f9a57d.mov
-
-## Features
+## Features :speech_balloon:
 
 - Simple and intuitive terminal user interface;
 - Plays music in any format;
 - Basic playback controls such as play, pause, stop, and skip;
 - Displays information about the currently playing track;
-- Audio spectrum visualizer and equalizer.
+- Audio spectrum visualizer;
+- Audio equalizer;
+- Fetch song lyrics.
 
----
-
-## Installation
+## Installation :floppy_disk:
 
 To build spectrum, you need to have a C++ compiler installed on your system.
 
@@ -59,7 +56,16 @@ sudo cmake --install build
 
 ```
 
----
+## Credits :placard:
+
+This software uses the following open source packages:
+
+- [FFmpeg](https://ffmpeg.org/)
+- [FFTW](https://www.fftw.org/)
+- [curl](https://curl.se/)
+- [libxml++](https://libxmlplusplus.github.io/libxmlplusplus/)
+- [FTXUI](https://github.com/ArthurSonzogni/FTXUI)
+- [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on Cava algorithm)</sup>
 
 ## Contributing
 
