@@ -1,4 +1,4 @@
-#include "view/block/tab_item/song_lyric.h"
+#include "view/block/main_content/song_lyric.h"
 
 #include <algorithm>
 #include <cmath>
@@ -15,8 +15,8 @@ namespace interface {
 
 SongLyric::SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
-                     const FocusCallback& on_focus)
-    : TabItem(id, dispatcher, on_focus) {}
+                     const FocusCallback& on_focus, const std::string& keybinding)
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
 
 /* ********************************************************************************************** */
 

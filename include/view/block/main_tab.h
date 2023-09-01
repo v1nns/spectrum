@@ -3,8 +3,8 @@
  * \brief  Class for block containing tab view
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_TAB_VIEWER_H_
-#define INCLUDE_VIEW_BLOCK_TAB_VIEWER_H_
+#ifndef INCLUDE_VIEW_BLOCK_MAIN_TAB_H_
+#define INCLUDE_VIEW_BLOCK_MAIN_TAB_H_
 
 #include <memory>
 #include <unordered_map>
@@ -12,12 +12,11 @@
 #include "audio/lyric/base/html_parser.h"
 #include "audio/lyric/base/url_fetcher.h"
 #include "view/base/block.h"
-#include "view/element/button.h"
-#include "view/element/tab_item.h"
+#include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
 namespace {
-class TabViewerTest;
+class MainTabTest;
 }
 #endif
 
@@ -26,22 +25,22 @@ namespace interface {
 /**
  * @brief Component to display a set of tabs and their respective content
  */
-class TabViewer : public Block {
+class MainTab : public Block {
   //! For readability
   using Item = std::unique_ptr<TabItem>;
   using Keybinding = std::string;
 
  public:
   /**
-   * @brief Construct a new TabViewer object
+   * @brief Construct a new MainTab object
    * @param dispatcher Block event dispatcher
    */
-  explicit TabViewer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit MainTab(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
-   * @brief Destroy the TabViewer object
+   * @brief Destroy the MainTab object
    */
-  ~TabViewer() override = default;
+  ~MainTab() override = default;
 
   /**
    * @brief Renders the component
@@ -82,7 +81,7 @@ class TabViewer : public Block {
   /**
    * @brief Possible tab views to render on this block
    */
-  enum class View {
+  enum View {
     Visualizer,  //!< Display spectrum visualizer (default)
     Equalizer,   //!< Display audio equalizer
     Lyric,       //!< Display song lyric
@@ -101,17 +100,8 @@ class TabViewer : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
-  //! Get active tabview
-  Item& active() { return views_[active_].item; }
-
-  //! Get active tabview
-  WindowButton& active_button() { return views_[active_].button; }
-
-  //! Create window buttons
+  //! Create general buttons
   void CreateButtons();
-
-  //! Create all tab views
-  void CreateViews(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -120,26 +110,20 @@ class TabViewer : public Block {
   WindowButton btn_help_;  //!< Help button
   WindowButton btn_exit_;  //!< Exit button
 
-  //! Represent a single tab item entry
-  struct Tab {
-    Keybinding key;       //!< Keybinding to set item as active
-    WindowButton button;  //!< Button to render in the tab border
-    Item item;            //!< View to render in the tab content
-  };
+  Tab tab_elem_;  //!< Tab containing multiple panels with some content
 
-  View active_ = View::Visualizer;       //!< Current view displayed on block
-  std::unordered_map<View, Tab> views_;  //!< All possible views to render in this component
-
-  bool is_fullscreen_ = false;  //!< Control flag to determine if fullscreen is enabled
+  bool is_fullscreen_ =
+      false;  //!< Cache flag set by parent(Terminal block) via Render or RenderFullscreen, this is
+              //!< used later by OnEvent to decide if could process event or not
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose
 
 #ifdef ENABLE_TESTS
-  friend class ::TabViewerTest;
+  friend class ::MainTabTest;
 #endif
 };
 
 }  // namespace interface
 
-#endif  // INCLUDE_VIEW_BLOCK_TAB_VIEWER_H_
+#endif  // INCLUDE_VIEW_BLOCK_MAIN_TAB_H_

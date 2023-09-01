@@ -13,7 +13,7 @@
 #include <memory>  // for shared_ptr
 #include <string>  // for string
 
-#include "view/block/list_directory.h"  // for ListDirectory
+#include "view/block/sidebar_content/list_directory.h"  // for ListDirectory
 
 namespace {
 

@@ -3,22 +3,23 @@
  * \brief  Class for tab view containing song lyrics
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_SONG_LYRIC_H_
-#define INCLUDE_VIEW_BLOCK_TAB_ITEM_SONG_LYRIC_H_
+#ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_SONG_LYRIC_H_
+#define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_SONG_LYRIC_H_
 
 #include <chrono>
 #include <future>
 #include <optional>
+#include <string_view>
 
 #include "audio/lyric/base/html_parser.h"
 #include "audio/lyric/base/url_fetcher.h"
 #include "audio/lyric/lyric_finder.h"
 #include "model/song.h"
-#include "view/element/tab_item.h"
+#include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
 namespace {
-class TabViewerTest;
+class MainTabTest;
 }
 #endif
 
@@ -28,16 +29,19 @@ namespace interface {
  * @brief Component to render lyric from current song
  */
 class SongLyric : public TabItem {
+  static constexpr std::string_view kTabName = "lyric";  //!< Tab title
+
  public:
   /**
    * @brief Construct a new SongLyric object
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
+   * @param keybinding Keybinding to set item as active
    */
   explicit SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
-                     const FocusCallback& on_focus);
+                     const FocusCallback& on_focus, const std::string& keybinding);
 
   /**
    * @brief Destroy the SongLyric object
@@ -119,9 +123,9 @@ class SongLyric : public TabItem {
   //! Friend class for testing purpose
 
 #ifdef ENABLE_TESTS
-  friend class ::TabViewerTest;
+  friend class ::MainTabTest;
 #endif
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BLOCK_TAB_ITEM_SONG_LYRIC_H_
+#endif  // INCLUDE_VIEW_BLOCK_MAIN_CONTENT_SONG_LYRIC_H_

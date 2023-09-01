@@ -1,12 +1,13 @@
-#include "view/block/tab_item/audio_equalizer.h"
+#include "view/block/main_content/audio_equalizer.h"
 
 #include <functional>
+
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher,
-                               const FocusCallback& on_focus)
-    : TabItem(id, dispatcher, on_focus) {
+                               const FocusCallback& on_focus, const std::string& keybinding)
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)) {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,
                      std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
@@ -99,6 +100,7 @@ ftxui::Element AudioEqualizer::Render() {
   ftxui::Elements elements;
 
   // EQ picker + frequency bars
+  // TODO: constexpr these values
   elements.reserve(3 + 2 * bars_.size());
 
   elements.push_back(ftxui::filler());

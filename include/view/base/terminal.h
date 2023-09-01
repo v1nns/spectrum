@@ -41,7 +41,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! WARNING: focus handling will obey this block order
   static constexpr int kBlockListDirectory = 0;
   static constexpr int kBlockFileInfo = 1;
-  static constexpr int kBlockTabViewer = 2;
+  static constexpr int kBlockMainTab = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
   /**

@@ -8,9 +8,9 @@
 #include "mock/event_dispatcher_mock.h"
 #include "mock/lyric_finder_mock.h"
 #include "util/logger.h"
-#include "view/block/tab_item/song_lyric.h"
-#include "view/block/tab_item/spectrum_visualizer.h"
-#include "view/block/tab_viewer.h"
+#include "view/block/main_content/song_lyric.h"
+#include "view/block/main_content/spectrum_visualizer.h"
+#include "view/block/main_tab.h"
 
 namespace {
 
@@ -23,9 +23,9 @@ using ::testing::StrEq;
 using ::testing::VariantWith;
 
 /**
- * @brief Tests with TabViewer class
+ * @brief Tests with MainTab class
  */
-class TabViewerTest : public ::BlockTest {
+class MainTabTest: public ::BlockTest {
  protected:
   static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
 
@@ -36,8 +36,8 @@ class TabViewerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create TabViewer block
-    block = ftxui::Make<interface::TabViewer>(dispatcher);
+    // Create MainTab block
+    block = ftxui::Make<interface::MainTab>(dispatcher);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
@@ -45,11 +45,11 @@ class TabViewerTest : public ::BlockTest {
 
     // As we dot want to use dependency injection for Tabview::SongLyrics, we will override
     // LyricFinder manually...  First of all, get tab viewer
-    auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
+    auto block_main_tab = static_cast<interface::MainTab*>(block.get());
 
     // Then get song lyric tab item
     auto song_lyric = static_cast<interface::SongLyric*>(
-        tab_viewer->views_[interface::TabViewer::View::Lyric].item.get());
+        block_main_tab->tab_elem_[interface::MainTab::View::Lyric].get());
 
     // And finally, override lyric finder to use a mock
     song_lyric->finder_ = std::make_unique<LyricFinderMock>();
@@ -58,11 +58,11 @@ class TabViewerTest : public ::BlockTest {
   //! Getter for LyricFinder (necessary as inner variable is an unique_ptr)
   auto GetFinder() -> LyricFinderMock* {
     // Get tab viewer
-    auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
+    auto main_tab = static_cast<interface::MainTab*>(block.get());
 
     // Get song lyric tab item
     auto song_lyric = static_cast<interface::SongLyric*>(
-        tab_viewer->views_[interface::TabViewer::View::Lyric].item.get());
+        main_tab->tab_elem_[interface::MainTab::View::Lyric].get());
 
     // Return lyric finder mock
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
@@ -73,7 +73,7 @@ class TabViewerTest : public ::BlockTest {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, InitialRender) {
+TEST_F(MainTabTest, InitialRender) {
   auto event_bars =
       interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(kNumberBars, 0.001));
   Process(event_bars);
@@ -104,7 +104,7 @@ TEST_F(TabViewerTest, InitialRender) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AnimationHorizontalMirror) {
+TEST_F(MainTabTest, AnimationHorizontalMirror) {
   std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
                              0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06};
 
@@ -137,7 +137,7 @@ TEST_F(TabViewerTest, AnimationHorizontalMirror) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AnimationVerticalMirror) {
+TEST_F(MainTabTest, AnimationVerticalMirror) {
   std::vector<double> values{0.1, 0.2, 0.3,  0.4, 0.5,  0.4, 0.3,  0.2, 0.1,  0.2, 0.3,
                              0.4, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95,
 
@@ -184,7 +184,7 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AnimationMono) {
+TEST_F(MainTabTest, AnimationMono) {
   std::vector<double> values{0.1, 0.2,  0.3, 0.4,  0.5, 0.6,  0.5, 0.4, 0.3, 0.2, 0.1,
                              0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6, 0.7, 0.8, 0.9,
 
@@ -238,7 +238,7 @@ TEST_F(TabViewerTest, AnimationMono) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
+TEST_F(MainTabTest, IncreaseAndDecreaseBarWidth) {
   std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
                              0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06};
 
@@ -354,8 +354,8 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, VisualizerOnFullscreen) {
-  auto tab_viewer = std::static_pointer_cast<interface::TabViewer>(block);
+TEST_F(MainTabTest, VisualizerOnFullscreen) {
+  auto tab_viewer = std::static_pointer_cast<interface::MainTab>(block);
 
   // Send audio data to show on visualizer
   std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
@@ -403,7 +403,7 @@ TEST_F(TabViewerTest, VisualizerOnFullscreen) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, RenderEqualizer) {
+TEST_F(MainTabTest, RenderEqualizer) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   ftxui::Render(*screen, block->Render());
@@ -432,7 +432,7 @@ TEST_F(TabViewerTest, RenderEqualizer) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
+TEST_F(MainTabTest, ModifyEqualizerAndApply) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -501,7 +501,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
+TEST_F(MainTabTest, ModifyEqualizerAndReset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -572,7 +572,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
+TEST_F(MainTabTest, SelectOtherPresetAndApply) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -644,7 +644,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
+TEST_F(MainTabTest, AttemptToModifyFixedPreset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -724,7 +724,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
+TEST_F(MainTabTest, AttemptToResetFixedPreset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -803,7 +803,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
+TEST_F(MainTabTest, ModifyEqualizerChangePresetAndSwitchback) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -936,7 +936,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyrics) {
+TEST_F(MainTabTest, FetchSongLyrics) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1052,7 +1052,7 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsFailed) {
+TEST_F(MainTabTest, FetchSongLyricsFailed) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1139,7 +1139,7 @@ TEST_F(TabViewerTest, FetchSongLyricsFailed) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
+TEST_F(MainTabTest, FetchSongLyricsWithoutMetadata) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1229,7 +1229,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
+TEST_F(MainTabTest, FetchSongLyricsWithDifferentFilenames) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1277,7 +1277,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
+TEST_F(MainTabTest, FetchSongLyricsAndClear) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1363,7 +1363,7 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
+TEST_F(MainTabTest, FetchScrollableSongLyrics) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1552,7 +1552,7 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
+TEST_F(MainTabTest, FetchSongLyricsOnBackground) {
   auto finder = GetFinder();
 
   std::string expected_artist{"The Virgins"};
@@ -1618,13 +1618,13 @@ TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
 /* ********************************************************************************************** */
 
 /**
- * @brief Tests with TabViewer mock class (just to test focus)
+ * @brief Tests with MainTab mock class (just to test focus)
  */
-class MockTabViewerTest : public ::BlockTest {
-  //! Create mock class from TabViewer
-  class TabViewerMock final : public interface::TabViewer {
+class MockMainTabTest : public ::BlockTest {
+  //! Create mock class from MainTab
+  class MainTabMock final : public interface::MainTab{
    public:
-    using TabViewer::TabViewer;
+    using MainTab::MainTab;
 
     MOCK_METHOD(void, OnFocus, (), (override));
     MOCK_METHOD(void, OnLostFocus, (), (override));
@@ -1640,25 +1640,25 @@ class MockTabViewerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create TabViewer block
-    block = ftxui::Make<TabViewerMock>(dispatcher);
+    // Create MainTab block
+    block = ftxui::Make<MainTabMock>(dispatcher);
   }
 
   //! Getter for mock
-  auto GetMock() -> TabViewerMock* {
+  auto GetMock() -> MainTabMock* {
     // Return tab viewer mock
-    return static_cast<TabViewerMock*>(block.get());
+    return static_cast<MainTabMock*>(block.get());
   }
 };
 
-TEST_F(MockTabViewerTest, CheckFocus) {
-  auto tabviewer_mock = GetMock();
+TEST_F(MockMainTabTest, CheckFocus) {
+  auto maintab_mock = GetMock();
 
-  EXPECT_CALL(*tabviewer_mock, OnFocus());
-  tabviewer_mock->SetFocused(true);
+  EXPECT_CALL(*maintab_mock, OnFocus());
+  maintab_mock->SetFocused(true);
 
-  EXPECT_CALL(*tabviewer_mock, OnLostFocus());
-  tabviewer_mock->SetFocused(false);
+  EXPECT_CALL(*maintab_mock, OnLostFocus());
+  maintab_mock->SetFocused(false);
 
   // Expect block to send an event asking for focus on block
   EXPECT_CALL(
@@ -1666,14 +1666,14 @@ TEST_F(MockTabViewerTest, CheckFocus) {
       SendEvent(
           AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
                 Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::MainTab)))))
       .WillOnce(Invoke([&](const interface::CustomEvent&) {
         // Simulate terminal behavior
-        tabviewer_mock->SetFocused(true);
+        maintab_mock->SetFocused(true);
       }));
 
   // Set focus on tab item 1
-  EXPECT_CALL(*tabviewer_mock, OnFocus());
+  EXPECT_CALL(*maintab_mock, OnFocus());
   block->OnEvent(ftxui::Event::Character('1'));
 
   auto event_bars = interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(22, 0.001));

@@ -11,8 +11,8 @@ std::ostream& operator<<(std::ostream& out, const BlockIdentifier& id) {
     case BlockIdentifier::FileInfo:
       out << "FileInfo";
       break;
-    case BlockIdentifier::TabViewer:
-      out << "TabViewer";
+    case BlockIdentifier::MainTab:
+      out << "MainTab";
       break;
     case BlockIdentifier::MediaPlayer:
       out << "MediaPlayer";

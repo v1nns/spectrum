@@ -16,7 +16,7 @@ namespace model {
 enum class BlockIdentifier {
   ListDirectory = 201,
   FileInfo = 202,
-  TabViewer = 203,
+  MainTab = 203,
   MediaPlayer = 204,
   None = 205,
 };

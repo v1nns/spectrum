@@ -9,7 +9,7 @@ if(NOT SPECTRUM_DEBUG)
     pkg_search_module(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
     pkg_search_module(SWRESAMPLE REQUIRED IMPORTED_TARGET libswresample)
 
-    # Audio Library for Playback (using direclty ALSA)
+    # Audio Library for Playback (using directly ALSA)
     pkg_search_module(ALSA REQUIRED IMPORTED_TARGET alsa)
 
     # DSP Processing (FFTW3)
@@ -66,18 +66,19 @@ target_sources(
             view/base/custom_event.cc
             view/base/terminal.cc
             view/block/file_info.cc
-            view/block/list_directory.cc
             view/block/media_player.cc
-            view/block/tab_item/audio_equalizer.cc
-            view/block/tab_item/spectrum_visualizer.cc
-            view/block/tab_item/song_lyric.cc
-            view/block/tab_viewer.cc
+            view/block/main_tab.cc
+            view/block/main_content/audio_equalizer.cc
+            view/block/main_content/spectrum_visualizer.cc
+            view/block/main_content/song_lyric.cc
+            view/block/sidebar_content/list_directory.cc
             view/element/button.cc
             view/element/error_dialog.cc
             view/element/help.cc
-            view/element/tab_item.cc
+            view/element/tab.cc
             # logger
             util/arg_parser.cc
+            util/file_handler.cc
             util/logger.cc
             util/sink.cc)
 

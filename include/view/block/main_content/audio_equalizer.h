@@ -3,8 +3,8 @@
  * \brief  Class for tab view containing audio equalizer control
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
-#define INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
+#ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
+#define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 
 #include <algorithm>
 #include <array>
@@ -18,7 +18,7 @@
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/element/button.h"
-#include "view/element/tab_item.h"
+#include "view/element/tab.h"
 
 namespace interface {
 
@@ -26,6 +26,7 @@ namespace interface {
  * @brief Component to control multiple frequency bars, in order to setup audio equalization
  */
 class AudioEqualizer : public TabItem {
+  static constexpr std::string_view kTabName = "equalizer";        //!< Tab title
   static constexpr std::string_view kModifiablePreset = "Custom";  //!< Only preset modifiable
 
  public:
@@ -34,10 +35,11 @@ class AudioEqualizer : public TabItem {
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
+   * @param keybinding Keybinding to set item as active
    */
   explicit AudioEqualizer(const model::BlockIdentifier& id,
                           const std::shared_ptr<EventDispatcher>& dispatcher,
-                          const FocusCallback& on_focus);
+                          const FocusCallback& on_focus, const std::string& keybinding);
 
   /**
    * @brief Destroy the AudioEqualizer object
@@ -471,6 +473,7 @@ class AudioEqualizer : public TabItem {
           bool active = presets[i] == *preset_name;
           bool is_focused =
               (focused && i == (entry_focused - 1)) || (hovered && i == (entry_hovered - 1));
+
           auto state = ftxui::EntryState{
               presets[i],
               active,
@@ -643,4 +646,4 @@ class AudioEqualizer : public TabItem {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
+#endif  // INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_

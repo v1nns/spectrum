@@ -1,4 +1,4 @@
-#include "view/block/tab_item/spectrum_visualizer.h"
+#include "view/block/main_content/spectrum_visualizer.h"
 
 #include <algorithm>
 
@@ -8,8 +8,8 @@ namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
                                        const std::shared_ptr<EventDispatcher>& dispatcher,
-                                       const FocusCallback& on_focus)
-    : TabItem(id, dispatcher, on_focus) {}
+                                       const FocusCallback& on_focus, const std::string& keybinding)
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
 
 /* ********************************************************************************************** */
 

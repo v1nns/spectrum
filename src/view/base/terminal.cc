@@ -18,9 +18,9 @@
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/block/file_info.h"
-#include "view/block/list_directory.h"
 #include "view/block/media_player.h"
-#include "view/block/tab_viewer.h"
+#include "view/block/sidebar_content/list_directory.h"
+#include "view/block/main_tab.h"
 
 namespace interface {
 
@@ -57,7 +57,7 @@ void Terminal::Init(const std::string& initial_path) {
   // Create blocks
   auto list_dir = std::make_shared<ListDirectory>(dispatcher, initial_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
-  auto tab_viewer = std::make_shared<TabViewer>(dispatcher);
+  auto tab_viewer = std::make_shared<MainTab>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
 
   // As default, make ListDirectory focused to receive input commands
@@ -125,7 +125,7 @@ ftxui::Element Terminal::Render() {
     // Render each block
     ftxui::Element list_dir = children_.at(kBlockListDirectory)->Render();
     ftxui::Element file_info = children_.at(kBlockFileInfo)->Render();
-    ftxui::Element tab_viewer = children_.at(kBlockTabViewer)->Render();
+    ftxui::Element tab_viewer = children_.at(kBlockMainTab)->Render();
     ftxui::Element media_player = children_.at(kBlockMediaPlayer)->Render();
 
     // Glue everything together
@@ -135,7 +135,7 @@ ftxui::Element Terminal::Render() {
     });
   } else {
     // Render only spectrum visualizer
-    auto tab_viewer = std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer));
+    auto tab_viewer = std::static_pointer_cast<MainTab>(children_.at(kBlockMainTab));
     terminal = tab_viewer->RenderFullscreen() | ftxui::xflex_grow;
   }
 
@@ -188,7 +188,7 @@ int Terminal::CalculateNumberBars() {
           : 0);
 
   auto bar_width = static_cast<float>(
-      std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer))->GetBarWidth());
+      std::static_pointer_cast<MainTab>(children_.at(kBlockMainTab))->GetBarWidth());
 
   // crazy math function = (a - b - c - d) / e;
   // considering these:
@@ -336,10 +336,10 @@ bool Terminal::OnFocusEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Set TabViewer block as focused (shift+3)
+  // Set MainTab block as focused (shift+3)
   if (event == ftxui::Event::Character('#')) {
-    LOG("Handle key to focus TabViewer block");
-    UpdateFocus(focused_index_, kBlockTabViewer);
+    LOG("Handle key to focus MainTab block");
+    UpdateFocus(focused_index_, kBlockMainTab);
     return true;
   }
 
@@ -533,8 +533,8 @@ constexpr int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier
       return kBlockListDirectory;
     case model::BlockIdentifier::FileInfo:
       return kBlockFileInfo;
-    case model::BlockIdentifier::TabViewer:
-      return kBlockTabViewer;
+    case model::BlockIdentifier::MainTab:
+      return kBlockMainTab;
     case model::BlockIdentifier::MediaPlayer:
       return kBlockMediaPlayer;
     default:

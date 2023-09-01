@@ -3,8 +3,8 @@
  * \brief  Class for block containing file list
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
-#define INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
+#ifndef INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_LIST_DIRECTORY_H_
+#define INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_LIST_DIRECTORY_H_
 
 #include <atomic>
 #include <chrono>
@@ -22,7 +22,8 @@
 #include "ftxui/component/component_options.hpp"  // for MenuEntryOption
 #include "ftxui/dom/elements.hpp"                 // for Element
 #include "ftxui/screen/box.hpp"                   // for Box
-#include "view/base/block.h"                      // for Block, BlockEvent...
+#include "util/file_handler.h"
+#include "view/base/block.h"  // for Block, BlockEvent...
 
 #ifdef ENABLE_TESTS
 #include <gtest/gtest_prod.h>
@@ -41,10 +42,6 @@ class ListDirectoryCtorTest_CreateWithBadInitialPath_Test;
 #endif
 
 namespace interface {
-
-//! For better readability
-using File = std::filesystem::path;  //!< Single file path
-using Files = std::vector<File>;     //!< List of file paths
 
 //! Custom style for menu entry
 struct MenuEntryOption {
@@ -125,18 +122,25 @@ class ListDirectory : public Block {
   bool OnSearchModeEvent(const ftxui::Event& event);
 
   /* ******************************************************************************************** */
+
   //! Getter for entries size
   int Size() const {
     return mode_search_ ? (int)mode_search_->entries.size() : (int)entries_.size();
   }
+
   //! Getter for selected index
   int* GetSelected() { return mode_search_ ? &mode_search_->selected : &selected_; }
+
   //! Getter for focused index
   int* GetFocused() { return mode_search_ ? &mode_search_->focused : &focused_; }
+
   //! Getter for entry at informed index
-  File& GetEntry(int i) { return mode_search_ ? mode_search_->entries.at(i) : entries_.at(i); }
+  util::File& GetEntry(int i) {
+    return mode_search_ ? mode_search_->entries.at(i) : entries_.at(i);
+  }
+
   //! Getter for active entry (focused/selected)
-  File* GetActiveEntry() {
+  util::File* GetActiveEntry() {
     if (!Size()) return nullptr;
 
     return mode_search_ ? &mode_search_->entries.at(mode_search_->selected)
@@ -153,7 +157,6 @@ class ListDirectory : public Block {
   //! File list operations
 
   /**
-   * TODO: move this to a controller?
    * @brief Refresh list with all files from the given directory path
    * @param dir_path Full path to directory
    * @return true if directory was parsed succesfully, false otherwise
@@ -175,7 +178,7 @@ class ListDirectory : public Block {
    * @param pick_next Pick next or previous file to play
    * @return Filepath
    */
-  File SelectFileToPlay(bool pick_next);
+  util::File SelectFileToPlay(bool pick_next);
 
   /**
    * @brief Execute click action on active entry (may change directory or play song)
@@ -191,10 +194,10 @@ class ListDirectory : public Block {
   //! Parameters for when search mode is enabled
   struct Search {
     std::string text_to_search;  //!< Text to search in file entries
-    Files entries;  //!< List containing only files from current directory matching the text
-    int selected;   //!< Entry index in files list for entry selected
-    int focused;    //!< Entry index in files list for entry focused
-    int position;   //!< Cursor position for text to search
+    util::Files entries;  //!< List containing only files from current directory matching the text
+    int selected;         //!< Entry index in files list for entry selected
+    int focused;          //!< Entry index in files list for entry focused
+    int position;         //!< Cursor position for text to search
   };
 
   //! Put together all possible styles for an entry in this component
@@ -277,9 +280,9 @@ class ListDirectory : public Block {
   /* ******************************************************************************************** */
   //! Variables
 
-  Files entries_;  //!< List containing files from current directory
-  int selected_;   //!< Entry index in files list for entry selected
-  int focused_;    //!< Entry index in files list for entry focused
+  util::Files entries_;  //!< List containing files from current directory
+  int selected_;         //!< Entry index in files list for entry selected
+  int focused_;          //!< Entry index in files list for entry focused
 
   std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
   ftxui::Box box_;                 //!< Box for whole component
@@ -298,6 +301,8 @@ class ListDirectory : public Block {
 
   std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
 
+  util::FileHandler file_handler_;  //!< Utility class to list files
+
   /* ******************************************************************************************** */
   //! Friend test
 
@@ -312,4 +317,4 @@ class ListDirectory : public Block {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BLOCK_LIST_DIRECTORY_H_
+#endif  // INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_LIST_DIRECTORY_H_

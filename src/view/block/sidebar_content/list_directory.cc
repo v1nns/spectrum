@@ -1,5 +1,4 @@
-
-#include "view/block/list_directory.h"
+#include "view/block/sidebar_content/list_directory.h"
 
 #include <ctype.h>  // for tolower
 
@@ -76,7 +75,7 @@ ftxui::Element ListDirectory::Render() {
     bool is_focused = (*focused == i);
     bool is_selected = (*selected == i);
 
-    const File& entry = GetEntry(i);
+    const util::File& entry = GetEntry(i);
     const auto& type = entry == curr_playing_                 ? styles_.playing
                        : std::filesystem::is_directory(entry) ? styles_.directory
                                                               : styles_.file;
@@ -454,15 +453,9 @@ std::string ListDirectory::GetTitle() {
 
 bool ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   LOG("Refresh list with files from new directory=", std::quoted(dir_path.c_str()));
-  Files tmp;
+  util::Files tmp;
 
-  try {
-    // Add all files from the given directory
-    for (auto const& entry : std::filesystem::directory_iterator(dir_path)) {
-      tmp.emplace_back(entry);
-    }
-  } catch (std::exception& e) {
-    ERROR("Cannot access directory, exception=", e.what());
+  if (!file_handler_.ListFiles(dir_path, tmp)) {
     auto dispatcher = GetDispatcher();
     dispatcher->SetApplicationError(error::kAccessDirFailed);
     return false;
@@ -474,29 +467,6 @@ bool ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   selected_ = 0;
   focused_ = 0;
 
-  // Transform whole string into uppercase
-  constexpr auto to_lower = [](char& c) { c = (char)std::tolower(c); };
-
-  // Created a custom file sort
-  auto custom_sort = [to_lower](const File& a, const File& b) {
-    std::string lhs{a.filename()};
-    std::string rhs{b.filename()};
-
-    // Don't care if it is hidden (tried to make it similar to "ls" output)
-    if (lhs.at(0) == '.') lhs.erase(0, 1);
-    if (rhs.at(0) == '.') rhs.erase(0, 1);
-
-    std::for_each(lhs.begin(), lhs.end(), to_lower);
-    std::for_each(rhs.begin(), rhs.end(), to_lower);
-
-    return lhs < rhs;
-  };
-
-  // Sort list alphabetically (case insensitive)
-  std::sort(entries_.begin(), entries_.end(), custom_sort);
-
-  // Add option to go back one level
-  entries_.emplace(entries_.begin(), "..");
   return true;
 }
 
@@ -548,8 +518,8 @@ void ListDirectory::UpdateActiveEntry() {
 
 /* ********************************************************************************************** */
 
-File ListDirectory::SelectFileToPlay(bool is_next) {
-  if (entries_.size() <= 2) return File{};
+util::File ListDirectory::SelectFileToPlay(bool is_next) {
+  if (entries_.size() <= 2) return util::File{};
 
   // Get index from current song playing
   auto index = static_cast<int>(
@@ -559,7 +529,7 @@ File ListDirectory::SelectFileToPlay(bool is_next) {
 
   int new_index = is_next ? (index + 1) % size : (index + size - 1) % size;
   int attempts = size;
-  File file;
+  util::File file;
 
   // Iterate circularly through all file entries
   bool found = false;
@@ -573,7 +543,7 @@ File ListDirectory::SelectFileToPlay(bool is_next) {
     new_index = is_next ? (new_index + 1) % size : (new_index + size - 1) % size;
   }
 
-  return found ? file : File{};
+  return found ? file : util::File{};
 }
 
 /* ********************************************************************************************** */

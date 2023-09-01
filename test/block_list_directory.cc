@@ -69,8 +69,8 @@ TEST_F(ListDirectoryTest, InitialRender) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -102,8 +102,8 @@ TEST_F(ListDirectoryTest, NavigateOnMenu) {
 │  audio_player.cc             │
 │> block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -162,8 +162,8 @@ TEST_F(ListDirectoryTest, EnterOnSearchMode) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -192,12 +192,12 @@ TEST_F(ListDirectoryTest, SingleCharacterInSearchMode) {
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
 │  middleware_media_controller.│
 │  util_argparser.cc           │
+│                              │
 │Search:e                      │
 ╰──────────────────────────────╯)";
 
@@ -284,8 +284,8 @@ TEST_F(ListDirectoryTest, EnterAndExitSearchMode) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -324,8 +324,8 @@ TEST_F(ListDirectoryTest, NotifyFileSelection) {
 │> audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -362,8 +362,8 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -391,8 +391,8 @@ TEST_F(ListDirectoryTest, RunTextAnimation) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -498,7 +498,7 @@ TEST_F(ListDirectoryTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ files ───────────────────────╮
 │test                          │
-│  block_tab_viewer.cc         │
+│  block_media_player.cc       │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -546,8 +546,8 @@ TEST_F(ListDirectoryTest, PlayNextFileAfterFinished) {
 │> audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │
@@ -622,8 +622,8 @@ TEST_F(ListDirectoryTest, StartPlayingLastFileAndPlayNextAfterFinished) {
 │  audio_player.cc             │
 │  block_file_info.cc          │
 │  block_list_directory.cc     │
+│  block_main_tab.cc           │
 │  block_media_player.cc       │
-│  block_tab_viewer.cc         │
 │  CMakeLists.txt              │
 │  driver_fftw.cc              │
 │  general                     │

@@ -3,11 +3,13 @@
  * \brief  Class for tab view containing spectrum visualizer
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_VISUALIZER_H_
-#define INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_VISUALIZER_H_
+#ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
+#define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
+
+#include <string_view>
 
 #include "model/bar_animation.h"
-#include "view/element/tab_item.h"
+#include "view/element/tab.h"
 
 namespace interface {
 
@@ -15,6 +17,7 @@ namespace interface {
  * @brief Component to render different animations using audio spectrum data from current song
  */
 class SpectrumVisualizer : public TabItem {
+  static constexpr std::string_view kTabName = "visualizer";  //!< Tab title
   static constexpr int kGaugeDefaultWidth = 3;  //!< Default gauge width (audio bar width)
   static constexpr int kGaugeMinWidth = 2;      //!< Maximum value for gauge width
   static constexpr int kGaugeMaxWidth = 4;      //!< Minimum value for gauge width
@@ -26,10 +29,11 @@ class SpectrumVisualizer : public TabItem {
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
+   * @param keybinding Keybinding to set item as active
    */
   explicit SpectrumVisualizer(const model::BlockIdentifier& id,
                               const std::shared_ptr<EventDispatcher>& dispatcher,
-                              const FocusCallback& on_focus);
+                              const FocusCallback& on_focus, const std::string& keybinding);
 
   /**
    * @brief Destroy the SpectrumVisualizer object
@@ -82,4 +86,4 @@ class SpectrumVisualizer : public TabItem {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_VISUALIZER_H_
+#endif  // INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
