@@ -1,5 +1,7 @@
 #include "view/element/help.h"
 
+#include "view/base/keybinding.h"
+
 namespace interface {
 
 ftxui::Element Help::Render() const {
@@ -19,8 +21,8 @@ ftxui::Element Help::Render() const {
 /* ********************************************************************************************** */
 
 bool Help::OnEvent(const ftxui::Event& event) {
-  if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
-      event == ftxui::Event::Character('q')) {
+  using Keybind = keybinding::Navigation;
+  if (event == Keybind::Return || event == Keybind::Escape || event == Keybind::Close) {
     Close();
   }
 

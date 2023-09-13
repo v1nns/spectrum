@@ -1,5 +1,6 @@
 #include "view/element/tab.h"
 
+#include "util/formatter.h"
 #include "util/logger.h"
 
 namespace interface {
@@ -30,14 +31,14 @@ static const Button::ButtonStyle kTabButtonStyle = Button::ButtonStyle{
 
 TabItem::TabItem(const model::BlockIdentifier& id,
                  const std::shared_ptr<EventDispatcher>& dispatcher, const FocusCallback& on_focus,
-                 const std::string& keybinding, const std::string& title)
+                 const keybinding::Key& keybinding, const std::string& title)
     : dispatcher_{dispatcher},
       parent_id_{id},
       on_focus_{on_focus},
       key_{keybinding},
       title_{title},
       button_{Button::make_button_for_window(
-          keybinding + ":" + title,
+          util::EventToString(keybinding) + ":" + title,
           [this]() {
             LOG("Handle left click mouse event on Tab button for ", title_);
 
@@ -58,7 +59,7 @@ bool TabItem::OnCustomEvent(const CustomEvent&) { return false; }
 
 /* ********************************************************************************************** */
 
-bool TabItem::OnMouseEvent(const ftxui::Event&) { return false; }
+bool TabItem::OnMouseEvent(ftxui::Event&) { return false; }
 
 /* ******************************************** Tab ********************************************* */
 

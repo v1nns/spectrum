@@ -39,9 +39,9 @@ using Callback = std::function<void()>;
 class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   //! Unique index for each block rendered by terminal class
   //! WARNING: focus handling will obey this block order
-  static constexpr int kBlockListDirectory = 0;
+  static constexpr int kBlockSidebar = 0;
   static constexpr int kBlockFileInfo = 1;
-  static constexpr int kBlockMainTab = 2;
+  static constexpr int kBlockMainContent = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
   /**

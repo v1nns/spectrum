@@ -19,7 +19,7 @@
 
 #ifdef ENABLE_TESTS
 namespace {
-class MainTabTest;
+class MainContentTest;
 }
 #endif
 
@@ -41,7 +41,7 @@ class SongLyric : public TabItem {
    */
   explicit SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
-                     const FocusCallback& on_focus, const std::string& keybinding);
+                     const FocusCallback& on_focus, const keybinding::Key& keybinding);
 
   /**
    * @brief Destroy the SongLyric object
@@ -123,7 +123,7 @@ class SongLyric : public TabItem {
   //! Friend class for testing purpose
 
 #ifdef ENABLE_TESTS
-  friend class ::MainTabTest;
+  friend class ::MainContentTest;
 #endif
 };
 

@@ -28,9 +28,9 @@ target_sources(
     PRIVATE audio_lyric_finder.cc
             audio_player.cc
             block_file_info.cc
-            block_list_directory.cc
-            block_main_tab.cc
+            block_main_content.cc
             block_media_player.cc
+            block_sidebar.cc
             driver_fftw.cc
             middleware_media_controller.cc
             util_argparser.cc)

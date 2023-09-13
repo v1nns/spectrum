@@ -90,6 +90,19 @@ inline std::string EventToString(const ftxui::Event& e) {
   if (e == ftxui::Event::TabReverse) return "Shift+Tab";
   if (e == ftxui::Event::Return) return "Return";
   if (e == ftxui::Event::Escape) return "Escape";
+  if (e == ftxui::Event::Delete) return "Delete";
+  if (e == ftxui::Event::F1) return "F1";
+  if (e == ftxui::Event::F2) return "F2";
+  if (e == ftxui::Event::F3) return "F3";
+  if (e == ftxui::Event::F4) return "F4";
+  if (e == ftxui::Event::F5) return "F5";
+  if (e == ftxui::Event::F6) return "F6";
+  if (e == ftxui::Event::F7) return "F7";
+  if (e == ftxui::Event::F8) return "F8";
+  if (e == ftxui::Event::F9) return "F9";
+  if (e == ftxui::Event::F10) return "F10";
+  if (e == ftxui::Event::F11) return "F11";
+  if (e == ftxui::Event::F12) return "F12";
 
   if (e == ftxui::Event::Character(' ')) return "Space";
   if (e.is_character()) return e.character();

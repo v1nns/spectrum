@@ -2,11 +2,13 @@
 
 #include <functional>
 
+#include "view/base/keybinding.h"
+
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher,
-                               const FocusCallback& on_focus, const std::string& keybinding)
+                               const FocusCallback& on_focus, const keybinding::Key& keybinding)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)) {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,
@@ -123,14 +125,14 @@ ftxui::Element AudioEqualizer::Render() {
 
 bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
   // Apply audio filters
-  if (btn_apply_->IsActive() && event == ftxui::Event::Character('a')) {
+  if (btn_apply_->IsActive() && event == keybinding::Equalizer::ApplyFilters) {
     LOG("Handle key to apply audio filters");
     btn_apply_->OnClick();
     return true;
   }
 
   // Reset audio filters
-  if (btn_reset_->IsActive() && event == ftxui::Event::Character('r')) {
+  if (btn_reset_->IsActive() && event == keybinding::Equalizer::ResetFilters) {
     LOG("Handle key to reset audio filters");
     btn_reset_->OnClick();
     return true;
@@ -147,7 +149,7 @@ bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-bool AudioEqualizer::OnMouseEvent(const ftxui::Event& event) {
+bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
   if (btn_apply_->OnMouseEvent(event)) return true;
 
   if (btn_reset_->OnMouseEvent(event)) return true;

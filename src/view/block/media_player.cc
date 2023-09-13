@@ -11,6 +11,7 @@
 #include "model/volume.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
+#include "view/base/keybinding.h"
 
 namespace interface {
 
@@ -272,7 +273,7 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
 bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
   // Play a song or pause/resume current song
-  if (event == ftxui::Event::Character('p')) {
+  if (event == keybinding::MediaPlayer::PlayOrPause) {
     LOG("Handle key to play/pause song");
     auto dispatcher = GetDispatcher();
 
@@ -287,7 +288,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
   }
 
   // Stop current song
-  if (event == ftxui::Event::Character('s') && IsPlaying()) {
+  if (event == keybinding::MediaPlayer::Stop && IsPlaying()) {
     LOG("Handle key to stop current song");
     auto dispatcher = GetDispatcher();
 
@@ -300,7 +301,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
   }
 
   // Clear current song
-  if (event == ftxui::Event::Character('c') && IsPlaying()) {
+  if (event == keybinding::MediaPlayer::ClearSong && IsPlaying()) {
     LOG("Handle key to clear current song");
     auto dispatcher = GetDispatcher();
 
@@ -312,7 +313,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     return true;
   }
 
-  if (event == ftxui::Event::Character('<') && IsPlaying()) {
+  if (event == keybinding::MediaPlayer::SkipToPrevious && IsPlaying()) {
     LOG("Handle key to skip to previous song");
     auto dispatcher = GetDispatcher();
 
@@ -324,7 +325,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     return true;
   }
 
-  if (event == ftxui::Event::Character('>') && IsPlaying()) {
+  if (event == keybinding::MediaPlayer::SkipToNext && IsPlaying()) {
     LOG("Handle key to skip to next song");
     auto dispatcher = GetDispatcher();
 
@@ -336,7 +337,6 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     return true;
   }
 
-
   return false;
 }
 
@@ -344,7 +344,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
 
 bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
   // Increase volume
-  if (event == ftxui::Event::Character('+')) {
+  if (event == keybinding::MediaPlayer::VolumeUp) {
     LOG("Handle key to increase volume");
     auto dispatcher = GetDispatcher();
 
@@ -360,7 +360,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
   }
 
   // Decrease volume
-  if (event == ftxui::Event::Character('-')) {
+  if (event == keybinding::MediaPlayer::VolumeDown) {
     LOG("Handle key to decrease volume");
     auto dispatcher = GetDispatcher();
 
@@ -376,7 +376,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
   }
 
   // Toggle volume mute
-  if (event == ftxui::Event::Character('m')) {
+  if (event == keybinding::MediaPlayer::Mute) {
     LOG("Handle key to mute/unmute volume");
     auto dispatcher = GetDispatcher();
 
@@ -395,7 +395,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
 
 bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
   // Seek forward in current song
-  if (event == ftxui::Event::Character('f') && IsPlaying()) {
+  if (event == keybinding::MediaPlayer::SeekForward && IsPlaying()) {
     LOG("Handle key to seek forward in current song");
     auto dispatcher = GetDispatcher();
 
@@ -406,7 +406,7 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
   }
 
   // Seek backward in current song
-  if (event == ftxui::Event::Character('b') && IsPlaying()) {
+  if (event == keybinding::MediaPlayer::SeekBackward && IsPlaying()) {
     LOG("Handle key to seek backward in current song");
     auto dispatcher = GetDispatcher();
 

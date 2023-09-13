@@ -3,12 +3,14 @@
 #include <algorithm>
 
 #include "util/logger.h"
+#include "view/base/keybinding.h"
 
 namespace interface {
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
                                        const std::shared_ptr<EventDispatcher>& dispatcher,
-                                       const FocusCallback& on_focus, const std::string& keybinding)
+                                       const FocusCallback& on_focus,
+                                       const keybinding::Key& keybinding)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
 
 /* ********************************************************************************************** */
@@ -42,7 +44,7 @@ ftxui::Element SpectrumVisualizer::Render() {
 
 bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
   // Notify terminal to recalculate new size for spectrum data
-  if (event == ftxui::Event::Character('a')) {
+  if (event == keybinding::Visualizer::ChangeAnimation) {
     LOG("Handle key to change audio animation");
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
@@ -59,7 +61,7 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
   }
 
   // Enable/disable fullscreen mode with spectrum visualizer
-  if (event == ftxui::Event::Character('h')) {
+  if (event == keybinding::Visualizer::ToggleFullscreen) {
     LOG("Handle key to toggle visualizer in fullscreen mode");
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
@@ -71,8 +73,9 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
   }
 
   // Increase/decrease bar width
-  if (bool increase = event == ftxui::Event::Character('.');
-      event == ftxui::Event::Character(',') || event == ftxui::Event::Character('.')) {
+  if (bool increase = event == keybinding::Visualizer::IncreaseBarWidth;
+      event == keybinding::Visualizer::DecreaseBarWidth ||
+      event == keybinding::Visualizer::IncreaseBarWidth) {
     LOG("Handle key to ", increase ? "increase" : "decrease", " audio bar width");
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;

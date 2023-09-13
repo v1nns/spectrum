@@ -16,6 +16,7 @@
 #include "model/block_identifier.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
+#include "view/base/keybinding.h"
 #include "view/element/button.h"
 
 namespace interface {
@@ -41,7 +42,7 @@ class TabItem {
    */
   explicit TabItem(const model::BlockIdentifier& id,
                    const std::shared_ptr<EventDispatcher>& dispatcher,
-                   const FocusCallback& on_focus, const std::string& keybinding,
+                   const FocusCallback& on_focus, const keybinding::Key& keybinding,
                    const std::string& title);
 
  public:
@@ -59,17 +60,17 @@ class TabItem {
   //! Implementation by derived is optional
 
   virtual bool OnEvent(const ftxui::Event&);
-  virtual bool OnMouseEvent(const ftxui::Event&);
+  virtual bool OnMouseEvent(ftxui::Event&);
   virtual bool OnCustomEvent(const CustomEvent&);
 
   /* ******************************************************************************************** */
   //! Getters
 
   //! Get mapped keybinding
-  std::string& GetKeybinding() { return key_; }
+  const keybinding::Key& GetKeybinding() const { return key_; }
 
   //! Get border button
-  WindowButton& GetButton() { return button_; }
+  const WindowButton& GetButton() const { return button_; }
 
   /* ******************************************************************************************** */
   //! Variables
@@ -79,7 +80,7 @@ class TabItem {
 
   FocusCallback on_focus_;  //!< Callback function to ask for focus on parent block
 
-  std::string key_;      //!< Keybinding to set item as active
+  keybinding::Key key_;  //!< Keybinding to set item as active
   std::string title_;    //!< Item title (to show on window border)
   WindowButton button_;  //!< Button to render in the tab border
 };

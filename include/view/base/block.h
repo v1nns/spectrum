@@ -72,6 +72,7 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
  public:
+
   ftxui::Element Render() override { return ftxui::Element(); }
   bool OnEvent(ftxui::Event) override { return false; }
   virtual bool OnCustomEvent(const CustomEvent&) = 0;

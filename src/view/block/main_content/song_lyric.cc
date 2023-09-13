@@ -10,12 +10,13 @@
 #include "audio/lyric/lyric_finder.h"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "view/base/keybinding.h"
 
 namespace interface {
 
 SongLyric::SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
-                     const FocusCallback& on_focus, const std::string& keybinding)
+                     const FocusCallback& on_focus, const keybinding::Key& keybinding)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
 
 /* ********************************************************************************************** */
@@ -48,27 +49,28 @@ ftxui::Element SongLyric::Render() {
 /* ********************************************************************************************** */
 
 bool SongLyric::OnEvent(const ftxui::Event& event) {
+  using Keybind = keybinding::Navigation;
   if (lyrics_.empty()) return false;
 
   int old_focus = focused_;
 
   // Calculate new index based on upper bound
-  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+  if (event == Keybind::ArrowUp || event == Keybind::Up) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = focused_ - (focused_ > 0 ? 1 : 0);
   }
 
-  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+  if (event == Keybind::ArrowDown || event == Keybind::Down) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = focused_ + (focused_ < (static_cast<int>(lyrics_.size()) - 1) ? 1 : 0);
   }
 
-  if (event == ftxui::Event::Home) {
+  if (event == Keybind::Home) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = 0;
   }
 
-  if (event == ftxui::Event::End) {
+  if (event == Keybind::End) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = static_cast<int>(lyrics_.size() - 1);
   }

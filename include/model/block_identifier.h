@@ -14,9 +14,9 @@ namespace model {
  * @brief Contains an unique ID for each existing UI block
  */
 enum class BlockIdentifier {
-  ListDirectory = 201,
+  Sidebar = 201,
   FileInfo = 202,
-  MainTab = 203,
+  MainContent = 203,
   MediaPlayer = 204,
   None = 205,
 };

@@ -64,10 +64,12 @@ target_sources(
             # view
             view/base/block.cc
             view/base/custom_event.cc
+            view/base/keybinding.cc
             view/base/terminal.cc
             view/block/file_info.cc
             view/block/media_player.cc
-            view/block/main_tab.cc
+            view/block/main_content.cc
+            view/block/sidebar.cc
             view/block/main_content/audio_equalizer.cc
             view/block/main_content/spectrum_visualizer.cc
             view/block/main_content/song_lyric.cc

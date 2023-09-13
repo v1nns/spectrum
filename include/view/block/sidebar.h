@@ -1,58 +1,49 @@
 /**
  * \file
- * \brief  Class for block containing tab view
+ * \brief  Class for block containing sidebar view
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_MAIN_TAB_H_
-#define INCLUDE_VIEW_BLOCK_MAIN_TAB_H_
+#ifndef INCLUDE_VIEW_BLOCK_SIDEBAR_H_
+#define INCLUDE_VIEW_BLOCK_SIDEBAR_H_
 
 #include <memory>
-#include <unordered_map>
 
-#include "audio/lyric/base/html_parser.h"
-#include "audio/lyric/base/url_fetcher.h"
 #include "view/base/block.h"
 #include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
 namespace {
-class MainTabTest;
+class SidebarTest;
 }
 #endif
 
 namespace interface {
 
 /**
- * @brief Component to display a set of tabs and their respective content
+ * @brief Component to display a set of tabs and their respective content in the sidebar
  */
-class MainTab : public Block {
-  //! For readability
-  using Item = std::unique_ptr<TabItem>;
-  using Keybinding = std::string;
+class Sidebar : public Block {
+  static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
 
  public:
   /**
-   * @brief Construct a new MainTab object
+   * @brief Construct a new Sidebar object
    * @param dispatcher Block event dispatcher
+   * @param optional_path List files from custom path instead of the current one
    */
-  explicit MainTab(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
+                   const std::string& optional_path = "");
 
   /**
-   * @brief Destroy the MainTab object
+   * @brief Destroy the Sidebar object
    */
-  ~MainTab() override = default;
+  ~Sidebar() override = default;
 
   /**
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
   ftxui::Element Render() override;
-
-  /**
-   * @brief Renders the component in fullscreen (without window borders)
-   * @return Element Built element based on internal state
-   */
-  ftxui::Element RenderFullscreen();
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -82,17 +73,10 @@ class MainTab : public Block {
    * @brief Possible tab views to render on this block
    */
   enum View {
-    Visualizer,  //!< Display spectrum visualizer (default)
-    Equalizer,   //!< Display audio equalizer
-    Lyric,       //!< Display song lyric
+    Files,     //!< Display file list from directory (default)
+    Playlist,  //!< Display playlist
     LAST,
   };
-
-  /**
-   * @brief Get width for a single bar (used for Terminal calculation)
-   * @return Audio bar width
-   */
-  int GetBarWidth();
 
   /* ******************************************************************************************** */
   //! Private methods
@@ -100,30 +84,19 @@ class MainTab : public Block {
   //! Handle mouse event
   bool OnMouseEvent(ftxui::Event event);
 
-  //! Create general buttons
-  void CreateButtons();
-
   /* ******************************************************************************************** */
   //! Variables
 
-  //! Buttons located on the upper-right border of block window
-  WindowButton btn_help_;  //!< Help button
-  WindowButton btn_exit_;  //!< Exit button
-
   Tab tab_elem_;  //!< Tab containing multiple panels with some content
-
-  bool is_fullscreen_ =
-      false;  //!< Cache flag set by parent(Terminal block) via Render or RenderFullscreen, this is
-              //!< used later by OnEvent to decide if could process event or not
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose
 
 #ifdef ENABLE_TESTS
-  friend class ::MainTabTest;
+  friend class ::SidebarTest;
 #endif
 };
 
 }  // namespace interface
 
-#endif  // INCLUDE_VIEW_BLOCK_MAIN_TAB_H_
+#endif  // INCLUDE_VIEW_BLOCK_SIDEBAR_H_

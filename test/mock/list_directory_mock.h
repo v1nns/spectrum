@@ -25,15 +25,19 @@ ACTION_P(ReturnPointee, p) { return p->filename().string(); }
 //! Mock class to change default behaviour when rendering the inner element corresponding to Title
 class ListDirectoryMock final : public interface::ListDirectory {
  public:
-  ListDirectoryMock(const std::shared_ptr<interface::EventDispatcher>& d, const std::string& s)
-      : interface::ListDirectory(d, s) {
+  explicit ListDirectoryMock(const model::BlockIdentifier& id,
+                             const std::shared_ptr<interface::EventDispatcher>& dispatcher,
+                             const FocusCallback& on_focus,
+                             const interface::keybinding::Key& keybinding, int max_columns,
+                             const std::string& optional_path = "")
+      : interface::ListDirectory(id, dispatcher, on_focus, keybinding, max_columns, optional_path) {
     SetupTitleExpectation();
   }
 
   MOCK_METHOD(std::string, GetTitle, (), (override));
 
   void SetupTitleExpectation() {
-    ON_CALL(*this, GetTitle()).WillByDefault(ReturnPointee(&curr_dir_));
+    ON_CALL(*this, GetTitle()).WillByDefault(ReturnPointee(&GetCurrentDir()));
 
     // Instead of using NiceMock to ignore uninteresting calls from "GetTitle"
     // create this expectation for every Render()

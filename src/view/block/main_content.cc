@@ -1,27 +1,32 @@
-#include "view/block/main_tab.h"
+#include "view/block/main_content.h"
 
 #include <memory>
 #include <vector>
 
 #include "util/logger.h"
+#include "view/base/keybinding.h"
 #include "view/block/main_content/audio_equalizer.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/block/main_content/spectrum_visualizer.h"
 
 namespace interface {
 
-MainTab::MainTab(const std::shared_ptr<EventDispatcher>& dispatcher)
-    : Block{dispatcher, model::BlockIdentifier::MainTab, interface::Size{.width = 0, .height = 0}},
+MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher)
+    : Block{dispatcher, model::BlockIdentifier::MainContent,
+            interface::Size{.width = 0, .height = 0}},
       tab_elem_{} {
   // Create all tabs
   tab_elem_[View::Visualizer] = std::make_unique<SpectrumVisualizer>(
-      GetId(), dispatcher, std::bind(&MainTab::AskForFocus, this), "1");
+      GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
+      keybinding::MainContent::FocusVisualizer);
 
   tab_elem_[View::Equalizer] = std::make_unique<AudioEqualizer>(
-      GetId(), dispatcher, std::bind(&MainTab::AskForFocus, this), "2");
+      GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
+      keybinding::MainContent::FocusEqualizer);
 
   tab_elem_[View::Lyric] =
-      std::make_unique<SongLyric>(GetId(), dispatcher, std::bind(&MainTab::AskForFocus, this), "3");
+      std::make_unique<SongLyric>(GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
+                                  keybinding::MainContent::FocusLyric);
 
   // Set visualizer as active tab
   tab_elem_.SetActive(View::Visualizer);
@@ -32,7 +37,7 @@ MainTab::MainTab(const std::shared_ptr<EventDispatcher>& dispatcher)
 
 /* ********************************************************************************************** */
 
-ftxui::Element MainTab::Render() {
+ftxui::Element MainContent::Render() {
   // Toggle flag only if it was enabled
   if (is_fullscreen_) is_fullscreen_ = false;
 
@@ -61,7 +66,7 @@ ftxui::Element MainTab::Render() {
 
 /* ********************************************************************************************** */
 
-ftxui::Element MainTab::RenderFullscreen() {
+ftxui::Element MainContent::RenderFullscreen() {
   // Toggle flag only if it was disabled
   if (!is_fullscreen_) is_fullscreen_ = true;
 
@@ -70,23 +75,24 @@ ftxui::Element MainTab::RenderFullscreen() {
 
 /* ********************************************************************************************** */
 
-bool MainTab::OnEvent(ftxui::Event event) {
+bool MainContent::OnEvent(ftxui::Event event) {
   if (event.is_mouse()) return OnMouseEvent(event);
 
   // Check if event is equal to a registered keybinding for any of the tab items
-  if (auto found = std::find_if(
-          tab_elem_.items().begin(), tab_elem_.items().end(),
-          [&event](const auto& t) { return t.second->GetKeybinding() == event.character(); });
+  if (auto found =
+          std::find_if(tab_elem_.items().begin(), tab_elem_.items().end(),
+                       [&event](const auto& t) { return t.second->GetKeybinding() == event; });
       found != tab_elem_.items().end() && !is_fullscreen_) {
     // Ask for focus if block is not focused
     if (!IsFocused()) {
-      LOG("Handle key to focus tab viewer block");
+      LOG("Asking for focus on MainContent block");
       AskForFocus();
     }
 
     // Change tab item selected
     if (tab_elem_.active() != found->first) {
-      LOG("Handle key to change tab item selected");
+      // TODO: instead of index, print view name
+      LOG("Handle key to change tab item selected from ", tab_elem_.active(), " to ", found->first);
       tab_elem_.SetActive(found->first);
     }
 
@@ -104,7 +110,7 @@ bool MainTab::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool MainTab::OnCustomEvent(const CustomEvent& event) {
+bool MainContent::OnCustomEvent(const CustomEvent& event) {
   // Even if TabItem::SongLyrics is not active, force it to process these events
   // By doing this, it makes possible to fetch lyrics on background
   if ((event == CustomEvent::Identifier::ClearSongInfo ||
@@ -118,7 +124,7 @@ bool MainTab::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void MainTab::OnFocus() {
+void MainContent::OnFocus() {
   // Update internal state for all buttons
   for (const auto& [id, item] : tab_elem_.items()) item->GetButton()->UpdateParentFocus(true);
 
@@ -128,7 +134,7 @@ void MainTab::OnFocus() {
 
 /* ********************************************************************************************** */
 
-void MainTab::OnLostFocus() {
+void MainContent::OnLostFocus() {
   // Update internal state for all buttons
   for (const auto& [id, item] : tab_elem_.items()) item->GetButton()->UpdateParentFocus(false);
 
@@ -138,14 +144,14 @@ void MainTab::OnLostFocus() {
 
 /* ********************************************************************************************** */
 
-int MainTab::GetBarWidth() {
+int MainContent::GetBarWidth() {
   auto visualizer = static_cast<SpectrumVisualizer*>(tab_elem_[View::Visualizer].get());
   return visualizer->GetBarWidth();
 }
 
 /* ********************************************************************************************** */
 
-bool MainTab::OnMouseEvent(ftxui::Event event) {
+bool MainContent::OnMouseEvent(ftxui::Event event) {
   if (btn_help_->OnMouseEvent(event)) return true;
 
   if (btn_exit_->OnMouseEvent(event)) return true;
@@ -162,7 +168,7 @@ bool MainTab::OnMouseEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-void MainTab::CreateButtons() {
+void MainContent::CreateButtons() {
   const auto button_style = Button::ButtonStyle{
       .focused =
           Button::ButtonStyle::State{
@@ -173,7 +179,7 @@ void MainTab::CreateButtons() {
   };
 
   btn_help_ = Button::make_button_for_window(
-      std::string("F1:help"),
+      std::string("F12:help"),
       [this]() {
         auto disp = GetDispatcher();
 
