@@ -1,7 +1,13 @@
 #include "util/file_handler.h"
 
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <exception>
+#include <fstream>
+#include <set>
 
 #include "util/logger.h"
 
@@ -58,6 +64,63 @@ bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed
   // Update structure with parsed files
   parsed_files.swap(tmp);
 
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
+  const char* home_dir;
+
+  if ((home_dir = getenv("HOME")) == NULL) {
+    home_dir = getpwuid(getuid())->pw_dir;
+  }
+
+  std::string file_path{std::string(home_dir) + "/.cache/spectrum/playlists.json"};
+  if (!std::filesystem::exists(file_path)) return false;
+
+  std::ifstream json(file_path);
+  nlohmann::json parsed = nlohmann::json::parse(json);
+
+  LOG("Found playlist file, parsed=", parsed.dump());
+  if (!parsed.contains("playlists")) return false;
+
+  model::Playlists tmp;
+
+  // Parse all playlists
+  for (auto& [_, playlist] : parsed["playlists"].items()) {
+    if (!playlist.contains("name") || !playlist.contains("songs")) continue;
+
+    model::Playlist entry{.name = playlist["name"], .songs = {}};
+    std::set<std::filesystem::path> filepaths;
+
+    // Parse all songs from a single playlist
+    for (auto& [_, song] : playlist["songs"].items()) {
+      if (!song.contains("path")) continue;
+
+      // Only get artist and title, if both exists
+      std::string artist, title;
+
+      if (song.contains("artist") && song.contains("title")) {
+        artist = song["artist"];
+        title = song["title"];
+      }
+
+      // Insert only if filepath is not duplicated
+      if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
+        entry.songs.emplace_back(model::Song{
+            .filepath = song["path"],
+            .artist = artist,
+            .title = title,
+        });
+      }
+    }
+
+    // Append playlist
+    tmp.push_back(entry);
+  }
+
+  playlists = std::move(tmp);
   return true;
 }
 

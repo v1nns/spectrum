@@ -13,6 +13,7 @@
 #include "model/audio_filter.h"
 #include "model/bar_animation.h"
 #include "model/block_identifier.h"
+#include "model/playlist.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -48,6 +49,7 @@ struct CustomEvent {
     SeekForwardPosition = 60006,
     SeekBackwardPosition = 60007,
     ApplyAudioFilters = 60008,
+    NotifyPlaylistSelection = 60009,
     // Events from interface to interface
     Refresh = 70000,
     ChangeBarAnimation = 70001,
@@ -89,6 +91,7 @@ struct CustomEvent {
   static CustomEvent SeekForwardPosition(int offset);
   static CustomEvent SeekBackwardPosition(int offset);
   static CustomEvent ApplyAudioFilters(const model::EqualizerPreset& filters);
+  static CustomEvent NotifyPlaylistSelection(const model::Playlist& playlist);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
@@ -110,7 +113,7 @@ struct CustomEvent {
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
-                   model::BarAnimation, model::BlockIdentifier>;
+                   model::BarAnimation, model::BlockIdentifier, model::Playlist>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

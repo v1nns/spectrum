@@ -21,8 +21,9 @@ bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other)
 }
 
 bool Song::operator==(const Song& other) const {
-  return std::tie(filepath, artist, title, num_channels, sample_rate, bit_rate, bit_depth, duration,
-                  curr_info) == std::tie(other.filepath, other.artist, other.title,
+  return std::tie(filepath, artist, title, playlist, num_channels, sample_rate, bit_rate, bit_depth,
+                  duration,
+                  curr_info) == std::tie(other.filepath, other.artist, other.title, other.playlist,
                                          other.num_channels, other.sample_rate, other.bit_rate,
                                          other.bit_depth, other.duration, other.curr_info);
 }
@@ -67,7 +68,8 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
   std::string artist = s.artist.empty() ? "<unknown>" : s.artist;
   std::string title = s.title.empty() ? "<unknown>" : s.title;
 
-  out << "{artist:" << artist << " title:" << title << " duration:" << s.duration
+  out << "{artist:" << artist << " title:" << title
+      << " playlist:" << (s.playlist ? *s.playlist : "") << " duration:" << s.duration
       << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
       << " bit_depth:" << s.bit_depth << "}";
   return out;

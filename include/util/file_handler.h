@@ -9,6 +9,9 @@
 #include <filesystem>
 #include <vector>
 
+#include "model/playlist.h"
+#include "nlohmann/json.hpp"
+
 namespace util {
 
 //! For better readability
@@ -46,6 +49,13 @@ class FileHandler {
    * @return true if directory was parsed succesfully, false otherwise
    */
   bool ListFiles(const std::filesystem::path& dir_path, Files& parsed_files);
+
+  /**
+   * @brief Parse playlists JSON
+   * @param playlists[out] Playlists object filled by data from JSON parsed
+   * @return true if JSON was parsed succesfully, false otherwise
+   */
+  bool ParsePlaylists(model::Playlists& playlists);
 
   /* ******************************************************************************************** */
   //! Private implementation

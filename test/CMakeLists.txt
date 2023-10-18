@@ -2,9 +2,9 @@
 # External dependencies
 
 FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest
-    GIT_TAG v1.14.0)
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest
+  GIT_TAG v1.14.0)
 
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt
@@ -24,20 +24,22 @@ enable_testing()
 
 add_executable(test)
 target_sources(
-    test
-    PRIVATE audio_lyric_finder.cc
-            audio_player.cc
-            block_file_info.cc
-            block_main_content.cc
-            block_media_player.cc
-            block_sidebar.cc
-            driver_fftw.cc
-            middleware_media_controller.cc
-            util_argparser.cc)
+  test
+  PRIVATE audio_lyric_finder.cc
+          audio_player.cc
+          block_file_info.cc
+          block_main_content.cc
+          block_media_player.cc
+          block_sidebar.cc
+          driver_fftw.cc
+          middleware_media_controller.cc
+          util_argparser.cc)
 
-target_link_libraries(test PRIVATE GTest::gtest GTest::gmock GTest::gtest_main spectrum_lib)
+target_link_libraries(test PRIVATE GTest::gtest GTest::gmock GTest::gtest_main
+                                   spectrum_lib)
 
-target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/test)
+target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/include
+                                        ${CMAKE_SOURCE_DIR}/test)
 
 target_compile_options(test PRIVATE -Wall -Werror -Wno-sign-compare)
 

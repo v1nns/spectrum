@@ -28,9 +28,11 @@ class ListDirectoryMock final : public interface::ListDirectory {
   explicit ListDirectoryMock(const model::BlockIdentifier& id,
                              const std::shared_ptr<interface::EventDispatcher>& dispatcher,
                              const FocusCallback& on_focus,
-                             const interface::keybinding::Key& keybinding, int max_columns,
-                             const std::string& optional_path = "")
-      : interface::ListDirectory(id, dispatcher, on_focus, keybinding, max_columns, optional_path) {
+                             const interface::keybinding::Key& keybinding,
+                             const std::shared_ptr<util::FileHandler>& file_handler,
+                             int max_columns, const std::string& optional_path = "")
+      : interface::ListDirectory(id, dispatcher, on_focus, keybinding, file_handler, max_columns,
+                                 optional_path) {
     SetupTitleExpectation();
   }
 

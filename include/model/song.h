@@ -8,7 +8,9 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -19,9 +21,11 @@ namespace model {
  * @brief Detailed audio metadata information from song
  */
 struct Song {
-  std::string filepath;  //!< Full path to file
-  std::string artist;    //!< Song artist name
-  std::string title;     //!< Song title name
+  std::filesystem::path filepath;  //!< Full path to file
+  std::string artist;              //!< Song artist name
+  std::string title;               //!< Song title name
+
+  std::optional<std::string> playlist;  //!< Playlist name
 
   uint16_t num_channels;  //!< Number of channels (1=Mono 2=Stereo)
   uint32_t sample_rate;   //!< Number of samples (of signal amplitude or “sound”) per second

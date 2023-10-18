@@ -24,6 +24,7 @@
 #include "ftxui/screen/box.hpp"                   // for Box
 #include "util/file_handler.h"
 #include "view/base/block.h"  // for Block, BlockEvent...
+#include "view/element/style.h"
 #include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
@@ -37,28 +38,6 @@ class ListDirectoryCtorTest;
 #endif
 
 namespace interface {
-
-//! Custom style for menu entry
-struct MenuEntryOption {
-  ftxui::Decorator normal;
-  ftxui::Decorator focused;
-  ftxui::Decorator selected;
-  ftxui::Decorator selected_focused;
-};
-
-//! Create a new custom style for Menu Entry
-inline MenuEntryOption Colored(ftxui::Color c) {
-  using ftxui::color;
-  using ftxui::Decorator;
-  using ftxui::inverted;
-
-  return MenuEntryOption{
-      .normal = Decorator(color(c)),
-      .focused = Decorator(color(c)) | inverted,
-      .selected = Decorator(color(c)) | inverted,
-      .selected_focused = Decorator(color(c)) | inverted,
-  };
-}
 
 /**
  * @brief Component to list files from given directory
@@ -74,18 +53,20 @@ class ListDirectory : public TabItem {
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
    * @param keybinding Keybinding to set item as active
-   * @param max_columns Maximum number of columns to render this component
-   * @param optional_path List files from custom path instead of the current one
+   * @param file_handler Utility handler to manage any file operation
+   * @param max_columns Maximum number of visual columns to be used by this element
+   * @param optional_path Custom directory path to fill initial list of files
    */
   explicit ListDirectory(const model::BlockIdentifier& id,
                          const std::shared_ptr<EventDispatcher>& dispatcher,
                          const FocusCallback& on_focus, const keybinding::Key& keybinding,
-                         int max_columns, const std::string& optional_path = "");
+                         const std::shared_ptr<util::FileHandler>& file_handler, int max_columns,
+                         const std::string& optional_path = "");
 
   /**
    * @brief Destroy the List Directory object
    */
-  ~ListDirectory() override;
+  ~ListDirectory() override = default;
 
   /**
    * @brief Renders the component
@@ -116,9 +97,6 @@ class ListDirectory : public TabItem {
 
   /* ******************************************************************************************** */
  private:
-  //! Handle mouse event
-  bool OnMouseEvent(ftxui::Event event);
-
   //! Handle mouse wheel event
   bool OnMouseWheel(ftxui::Event event);
 
@@ -218,6 +196,7 @@ class ListDirectory : public TabItem {
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
     ftxui::Decorator title;
+    ftxui::Decorator prefix;
     MenuEntryOption directory;
     MenuEntryOption file;
     MenuEntryOption playing;
@@ -225,9 +204,10 @@ class ListDirectory : public TabItem {
 
   /* ******************************************************************************************** */
   //! Custom class for text animation
-
+ private:
   /**
    * @brief An structure to offset selected entry text when its content is too long (> 32 columns)
+   * TODO: move to exclusive header
    */
   struct TextAnimation {
     std::mutex mutex;                  //!< Control access for internal resources
@@ -239,13 +219,16 @@ class ListDirectory : public TabItem {
 
     std::function<void()> cb_update;  //!< Force an UI refresh
 
+    //! Destructor
+    ~TextAnimation() { Stop(); }
+
     /**
      * @brief Start animation thread
-     *
      * @param entry Text content from selected entry
      */
     void Start(const std::string& entry) {
-      text = entry;
+      // Append an empty space for better aesthetics
+      text = entry + " ";
       enabled = true;
 
       thread = std::thread([this] {
@@ -296,6 +279,8 @@ class ListDirectory : public TabItem {
   //! Variables
 
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
+  std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
+
   util::Files entries_;  //!< List containing files from current directory
   int selected_;         //!< Entry index in files list for entry selected
   int focused_;          //!< Entry index in files list for entry focused
@@ -306,18 +291,18 @@ class ListDirectory : public TabItem {
   std::optional<Search> mode_search_ =
       std::nullopt;  //!< Mode to render only files matching the search pattern
 
-  EntryStyles styles_ = EntryStyles{
-      .title = ftxui::color(ftxui::Color::White) | ftxui::bold,
-      .directory = Colored(ftxui::Color::Green),
-      .file = Colored(ftxui::Color::White),
-      .playing =
-          Colored(ftxui::Color::SteelBlue1)};  //!< Style for each possible type of entry on menu
-
   TextAnimation animation_;  //!< Text animation for selected entry
 
   std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
 
-  util::FileHandler file_handler_;  //!< Utility class to list files
+  //!< Style for each element inside this component
+  EntryStyles styles_ = EntryStyles{
+      .title = ftxui::color(ftxui::Color::White) | ftxui::bold,
+      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
+      .directory = Colored(ftxui::Color::Green),
+      .file = Colored(ftxui::Color::White),
+      .playing = Colored(ftxui::Color::SteelBlue1),
+  };
 
   /* ******************************************************************************************** */
   //! Friend test

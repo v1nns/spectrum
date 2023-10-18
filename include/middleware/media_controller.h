@@ -151,6 +151,12 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void ApplyAudioFilters(const model::EqualizerPreset& frequencies) override;
 
+  /**
+   * @brief Notify Audio Player about playlist selected by user on Terminal User Interface (TUI)
+   * @param playlist Song queue
+   */
+  void NotifyPlaylistSelection(const model::Playlist& playlist) override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

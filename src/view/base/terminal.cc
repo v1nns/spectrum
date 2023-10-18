@@ -91,8 +91,10 @@ void Terminal::RegisterPlayerNotifier(const std::shared_ptr<audio::Notifier>& no
 
 void Terminal::RegisterEventSenderCallback(EventCallback cb) {
   cb_send_event_ = cb;
-  cb_send_event_(ftxui::Event::Custom);  // force a refresh to handle any pending custom event
-                                         // (update UI with volume information)
+
+  // Force a refresh to handle any pending custom event
+  // (this is necessary, in order to update UI with volume information)
+  cb_send_event_(ftxui::Event::Custom);
 }
 
 /* ********************************************************************************************** */
@@ -412,7 +414,11 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
     case CustomEvent::Identifier::ApplyAudioFilters: {
       auto content = event.GetContent<model::EqualizerPreset>();
       media_ctl->ApplyAudioFilters(content);
+    } break;
 
+    case CustomEvent::Identifier::NotifyPlaylistSelection: {
+      auto content = event.GetContent<model::Playlist>();
+      media_ctl->NotifyPlaylistSelection(content);
     } break;
 
     default:

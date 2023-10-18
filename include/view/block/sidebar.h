@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/element/tab.h"
 
@@ -88,6 +89,9 @@ class Sidebar : public Block {
   //! Variables
 
   Tab tab_elem_;  //!< Tab containing multiple panels with some content
+
+  //!< Utility class to manage files (read/write)
+  std::shared_ptr<util::FileHandler> file_handler_ = std::make_shared<util::FileHandler>();
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

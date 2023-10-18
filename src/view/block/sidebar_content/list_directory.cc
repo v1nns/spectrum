@@ -19,27 +19,27 @@
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
+#include "view/element/util.h"
 
 namespace interface {
-
-//! Similar to std::clamp, but allow hi to be lower than lo.
-template <class T>
-constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
-  return v < lo ? lo : hi < v ? hi : v;
-}
-
-/* ********************************************************************************************** */
 
 ListDirectory::ListDirectory(const model::BlockIdentifier& id,
                              const std::shared_ptr<EventDispatcher>& dispatcher,
                              const FocusCallback& on_focus, const keybinding::Key& keybinding,
+                             const std::shared_ptr<util::FileHandler>& file_handler,
                              int max_columns, const std::string& optional_path)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)),
-      max_columns_{max_columns} {
+      file_handler_(file_handler),
+      max_columns_(max_columns) {
+  // Remove last slash
+  std::string clean_path = optional_path.back() == '/'
+                               ? optional_path.substr(0, optional_path.size() - 1)
+                               : optional_path;
+
   // TODO: this is not good, read this below
   // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
-  auto path = !optional_path.empty() ? std::filesystem::path(optional_path)
-                                     : std::filesystem::current_path();
+  auto path =
+      !clean_path.empty() ? std::filesystem::path(clean_path) : std::filesystem::current_path();
 
   if (bool parsed = RefreshList(path); !optional_path.empty() && !parsed) {
     // If we can't list files from current path, then everything is gone
@@ -48,21 +48,20 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
 
   animation_.cb_update = [this] {
     // Send user action to controller
-    if (auto dispatcher = dispatcher_.lock(); dispatcher) {
-      dispatcher->SendEvent(interface::CustomEvent::Refresh());
-    }
+    auto disp = dispatcher_.lock();
+    if (!disp) return;
+
+    disp->SendEvent(interface::CustomEvent::Refresh());
   };
 }
-
-/* ********************************************************************************************** */
-
-ListDirectory::~ListDirectory() { animation_.Stop(); }
 
 /* ********************************************************************************************** */
 
 ftxui::Element ListDirectory::Render() {
   using ftxui::EQUAL;
   using ftxui::WIDTH;
+
+  auto max_size = ftxui::size(WIDTH, EQUAL, max_columns_);
 
   Clamp();
   ftxui::Elements entries;
@@ -83,7 +82,7 @@ ftxui::Element ListDirectory::Render() {
     const auto& type = entry == curr_playing_                 ? styles_.playing
                        : std::filesystem::is_directory(entry) ? styles_.directory
                                                               : styles_.file;
-    const char* icon = is_selected ? "> " : "  ";
+    auto prefix = ftxui::text(is_selected ? "▶ " : "  ");
 
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                          : (is_focused ? type.focused : type.normal);
@@ -92,11 +91,14 @@ ftxui::Element ListDirectory::Render() {
 
     // In case of entry text too long, animation thread will be running, so we gotta take the text
     // content from there
-    std::string text =
-        animation_.enabled && is_selected ? animation_.text : entry.filename().string();
+    auto text = ftxui::text(animation_.enabled && is_selected ? animation_.text
+                                                              : entry.filename().string());
 
-    entries.push_back(ftxui::text(icon + text) | ftxui::size(WIDTH, EQUAL, max_columns_) | style |
-                      focus_management | ftxui::reflect(boxes_[i]));
+    entries.push_back(ftxui::hbox({
+                          prefix | styles_.prefix,
+                          text | style | ftxui::xflex,
+                      }) |
+                      max_size | focus_management | ftxui::reflect(boxes_[i]));
   }
 
   // Build up the content
@@ -116,14 +118,12 @@ ftxui::Element ListDirectory::Render() {
     content.push_back(search_box);
   }
 
-  return ftxui::vbox(content) | ftxui::flex | ftxui::size(WIDTH, EQUAL, max_columns_);
+  return ftxui::vbox(content);
 }
 
 /* ********************************************************************************************** */
 
 bool ListDirectory::OnEvent(const ftxui::Event& event) {
-  Clamp();
-
   if (mode_search_ && OnSearchModeEvent(event)) {
     return true;
   }
@@ -163,9 +163,12 @@ bool ListDirectory::OnMouseEvent(ftxui::Event& event) {
   int* selected = GetSelected();
   int* focused = GetFocused();
 
+  bool entry_focused = false;
+
   for (int i = 0; i < Size(); ++i) {
     if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
 
+    entry_focused = true;
     *focused = i;
 
     if (event.mouse().button == ftxui::Mouse::Left &&
@@ -184,6 +187,9 @@ bool ListDirectory::OnMouseEvent(ftxui::Event& event) {
       return true;
     }
   }
+
+  // If no entry was focused with mouse, reset index
+  if (!entry_focused) *focused = *selected;
 
   return false;
 }
@@ -269,6 +275,8 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     // TODO: disable this attempt to play next song for the following situations:
     // - with SPECTRUM_DEBUG=ON
     // - when user stopped song (by stop button or S key)
+    // P.S.: in the future, remove this code block and make ListDirectory always send a queue of
+    // files to AudioPlayer
 
     // In case that song has finished successfully, attempt to play next one
     if (auto content = event.GetContent<model::Song::CurrentInformation>();
@@ -299,6 +307,8 @@ bool ListDirectory::OnMouseWheel(ftxui::Event event) {
   LOG("Handle mouse wheel event");
   int* selected = GetSelected();
   int* focused = GetFocused();
+
+  *selected = *focused;
 
   if (event.mouse().button == ftxui::Mouse::WheelUp) {
     (*selected)--;
@@ -454,7 +464,7 @@ bool ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
   LOG("Refresh list with files from new directory=", std::quoted(dir_path.c_str()));
   util::Files tmp;
 
-  if (!file_handler_.ListFiles(dir_path, tmp)) {
+  if (!file_handler_->ListFiles(dir_path, tmp)) {
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
 
@@ -510,7 +520,8 @@ void ListDirectory::UpdateActiveEntry() {
   if (Size() > 0) {
     // Check text length of active entry
     const auto selected = GetSelected();
-    std::string text{GetEntry(*selected).filename().string().append(" ")};
+    std::string text{GetEntry(*selected).filename().string()};
+
     int max_chars = (int)text.length() + kMaxIconColumns;
 
     // Start animation thread

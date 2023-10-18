@@ -60,6 +60,7 @@ This software uses the following open source packages:
 - [libxml++](https://libxmlplusplus.github.io/libxmlplusplus/)
 - [FTXUI](https://github.com/ArthurSonzogni/FTXUI)
 - [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on Cava algorithm)</sup>
+- [json](https://github.com/nlohmann/json)
 
 ## Contributing
 

@@ -113,8 +113,13 @@ int main(int argc, char** argv) {
   // Create a full-size screen and register callbacks
   ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
 
+  // Register callbacks
   terminal->RegisterEventSenderCallback([&screen](const ftxui::Event& e) { screen.PostEvent(e); });
-  terminal->RegisterExitCallback([&screen]() { screen.ExitLoopClosure()(); });
+  terminal->RegisterExitCallback([&screen, &player, &middleware]() {
+    player->Exit();
+    middleware->Exit();
+    screen.ExitLoopClosure()();
+  });
 
   // Set hidden cursor, start GUI loop and clear screen after exit
   screen.SetCursor(ftxui::Screen::Cursor{.shape = ftxui::Screen::Cursor::Shape::Hidden});

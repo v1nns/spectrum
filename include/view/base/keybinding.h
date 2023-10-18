@@ -76,6 +76,7 @@ struct MainContent {
 //! Sidebar keybindings
 struct Sidebar {
   static Key FocusList;
+  static Key FocusPlaylist;
 };
 
 /* ********************************************************************************************** */

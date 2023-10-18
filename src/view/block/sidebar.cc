@@ -2,20 +2,25 @@
 
 #include <memory>
 
+#include "model/playlist.h"
 #include "util/logger.h"
 #include "view/block/sidebar_content/list_directory.h"
+#include "view/block/sidebar_content/playlist_manager.h"
 
 namespace interface {
 
 Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
                  const std::string& optional_path)
     : Block{dispatcher, model::BlockIdentifier::Sidebar,
-            interface::Size{.width = kMaxColumns, .height = 0}},
-      tab_elem_{} {
+            interface::Size{.width = kMaxColumns, .height = 0}} {
   // Create all tabs
-  tab_elem_[View::Files] =
-      std::make_unique<ListDirectory>(GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this),
-                                      keybinding::Sidebar::FocusList, kMaxColumns, optional_path);
+  tab_elem_[View::Files] = std::make_unique<ListDirectory>(
+      GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this), keybinding::Sidebar::FocusList,
+      file_handler_, kMaxColumns, optional_path);
+
+  tab_elem_[View::Playlist] = std::make_unique<PlaylistManager>(
+      GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this),
+      keybinding::Sidebar::FocusPlaylist, file_handler_, kMaxColumns);
 
   // Set visualizer as active tab
   tab_elem_.SetActive(View::Files);
@@ -24,6 +29,8 @@ Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
 /* ********************************************************************************************** */
 
 ftxui::Element Sidebar::Render() {
+
+  auto max_size = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, kMaxColumns);
   ftxui::Elements buttons;
 
   // Append tab buttons
@@ -33,7 +40,7 @@ ftxui::Element Sidebar::Render() {
 
   ftxui::Element title_border = ftxui::hbox(buttons);
 
-  ftxui::Element view = tab_elem_.active_item()->Render();
+  ftxui::Element view = tab_elem_.active_item()->Render() | max_size;
 
   return ftxui::window(title_border, view | ftxui::yflex) | GetBorderDecorator();
 }
@@ -76,6 +83,12 @@ bool Sidebar::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool Sidebar::OnCustomEvent(const CustomEvent& event) {
+  // Process this event for all tab items
+  if (event == CustomEvent::Identifier::UpdateSongInfo) {
+    for (const auto& [id, item] : tab_elem_.items()) item->OnCustomEvent(event);
+    return false;
+  }
+
   return tab_elem_.active_item()->OnCustomEvent(event);
 }
 

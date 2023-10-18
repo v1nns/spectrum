@@ -57,8 +57,8 @@ Key MainContent::FocusLyric = Key::Character('3');
 
 /* ------------------------------------------ Sidebar ------------------------------------------- */
 
-Key Sidebar::FocusList = Key::Special("\x1BOP");  //! F1
-// TODO: FocusPlaylist
+Key Sidebar::FocusList = Key::Special("\x1BOP");      //! F1
+Key Sidebar::FocusPlaylist = Key::Special("\x1BOQ");  //! F2
 
 /* ---------------------------------------- Media Player ---------------------------------------- */
 

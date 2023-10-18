@@ -107,9 +107,7 @@ void MediaController::Exit() {
 void MediaController::AnalysisHandler() {
   LOG("Start analysis handler thread");
 
-  std::vector<double> input;
-  std::vector<double> output;
-  std::vector<double> previous;
+  std::vector<double> input, output, previous;
 
   while (sync_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
@@ -243,6 +241,16 @@ void MediaController::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 
 /* ********************************************************************************************** */
 
+void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
+  auto player = player_ctl_.lock();
+  // TODO: add error log for every time that was not possible to acquire a lock for player instance
+  if (!player) return;
+
+  player->Play(playlist);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimationWithoutRegain);
 
@@ -251,7 +259,7 @@ void MediaController::ClearSongInformation(bool playing) {
 
   auto event = interface::CustomEvent::ClearSongInfo();
 
-  // Notify File Info block with to clear info about song
+  // Notify all blocks to clear info about song
   dispatcher->SendEvent(event);
 }
 
@@ -263,7 +271,7 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 
   auto event = interface::CustomEvent::UpdateSongInfo(info);
 
-  // Notify File Info block with information about the recently loaded song
+  // Notify all blocks with information about the recently loaded song
   dispatcher->SendEvent(event);
 }
 

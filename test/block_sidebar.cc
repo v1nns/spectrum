@@ -92,7 +92,8 @@ class SidebarTest : public ::BlockTest {
     sidebar->tab_elem_[interface::Sidebar::View::Files] = std::make_unique<ListDirectoryMock>(
         sidebar->GetId(), sidebar->GetDispatcher(),
         std::bind(&interface::Sidebar::AskForFocus, sidebar.get()),
-        interface::keybinding::Sidebar::FocusList, interface::Sidebar::kMaxColumns, source_dir);
+        interface::keybinding::Sidebar::FocusList, sidebar->file_handler_,
+        interface::Sidebar::kMaxColumns, source_dir);
   }
 };
 
@@ -104,9 +105,9 @@ TEST_F(SidebarTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│> ..                                │
+│▶ ..                                │
 │  audio_lyric_finder.cc             │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
@@ -137,12 +138,12 @@ TEST_F(SidebarTest, NavigateOnMenu) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  ..                                │
 │  audio_lyric_finder.cc             │
 │  audio_player.cc                   │
-│> block_file_info.cc                │
+│▶ block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
@@ -168,9 +169,9 @@ TEST_F(SidebarTest, NavigateToMockDir) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │mock                                │
-│> ..                                │
+│▶ ..                                │
 │  analyzer_mock.h                   │
 │  audio_control_mock.h              │
 │  decoder_mock.h                    │
@@ -197,9 +198,9 @@ TEST_F(SidebarTest, EnterOnSearchMode) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│> ..                                │
+│▶ ..                                │
 │  audio_lyric_finder.cc             │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
@@ -227,9 +228,9 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│> audio_lyric_finder.cc             │
+│▶ audio_lyric_finder.cc             │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
@@ -258,9 +259,9 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │mock                                │
-│> ..                                │
+│▶ ..                                │
 │  analyzer_mock.h                   │
 │  audio_control_mock.h              │
 │  decoder_mock.h                    │
@@ -289,7 +290,7 @@ TEST_F(SidebarTest, NonExistentTextInSearchMode) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │                                    │
 │                                    │
@@ -319,9 +320,9 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│> ..                                │
+│▶ ..                                │
 │  audio_lyric_finder.cc             │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
@@ -359,11 +360,11 @@ TEST_F(SidebarTest, NotifyFileSelection) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  ..                                │
 │  audio_lyric_finder.cc             │
-│> audio_player.cc                   │
+│▶ audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
@@ -382,7 +383,7 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 
 TEST_F(SidebarTest, RunTextAnimation) {
   // Hacky method to add new entry
-  EmplaceEntryToList(std::filesystem::path{"this_is_a_really_long_pathname.mp3"});
+  EmplaceEntryToList(std::filesystem::path{"this_is_a_really_long_pathname_to_test.mp3"});
 
   // Setup expectation for event sending (to refresh UI)
   // p.s.: Times(5) is based on refresh timing from thread animation
@@ -397,7 +398,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
@@ -410,7 +411,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
-│> this_is_a_really_long_pathname.mp3│
+│▶ this_is_a_really_long_pathname_to_│
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -426,7 +427,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
@@ -439,7 +440,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
-│> is_a_really_long_pathname.mp3 this│
+│▶ is_a_really_long_pathname_to_test.│
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -460,7 +461,7 @@ TEST_F(SidebarTest, TryToNavigateOnEmptySearch) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │                                    │
 │                                    │
@@ -500,7 +501,7 @@ TEST_F(SidebarTest, NavigateAndEraseCharactersOnSearch) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │                                    │
 │                                    │
@@ -534,7 +535,7 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
@@ -547,7 +548,7 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
 │  some_music_1.mp3                  │
 │  some_music_2.mp3                  │
 │  some_music_3.mp3                  │
-│> some_music_4.mp3                  │
+│▶ some_music_4.mp3                  │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -577,11 +578,11 @@ TEST_F(SidebarTest, PlayNextFileAfterFinished) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  ..                                │
 │  audio_lyric_finder.cc             │
-│> audio_player.cc                   │
+│▶ audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
@@ -654,7 +655,7 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ F1:files ──────────────────────────╮
+╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  audio_lyric_finder.cc             │
 │  audio_player.cc                   │
@@ -667,7 +668,7 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
-│> util_argparser.cc                 │
+│▶ util_argparser.cc                 │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

@@ -15,6 +15,8 @@
 #include "mock/audio_control_mock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "model/application_error.h"
+#include "model/playlist.h"
+#include "model/song.h"
 #include "util/logger.h"
 #include "view/base/notifier.h"
 
@@ -123,6 +125,7 @@ TEST_F(MediaControllerTestThread, CreateDummyController) {
 /* ********************************************************************************************** */
 
 TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
+  using ::testing::TypedEq;
   auto notifier = GetPlayerNotifier();
   auto audio_ctl = GetAudioControl();
   auto analyzer = GetAnalyzer();
@@ -130,7 +133,7 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   InSequence seq;
 
   std::filesystem::path music{"/stairway/to/heaven.flac"};
-  EXPECT_CALL(*audio_ctl, Play(Eq(music)));
+  EXPECT_CALL(*audio_ctl, Play(TypedEq<const std::filesystem::path&>(music)));
   notifier->NotifyFileSelection(music);
 
   EXPECT_CALL(*audio_ctl, PauseOrResume());
@@ -160,6 +163,13 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
   EXPECT_CALL(*audio_ctl, ApplyAudioFilters(preset));
   notifier->ApplyAudioFilters(preset);
+
+  model::Playlist playlist = model::Playlist{
+      .name = "Summer Eletrohits Vol. 1",
+      .songs = {model::Song{.artist = "Kasino", .title = "Can't get over"}},
+  };
+  EXPECT_CALL(*audio_ctl, Play(TypedEq<const model::Playlist&>(playlist)));
+  notifier->NotifyPlaylistSelection(playlist);
 }
 
 /* ********************************************************************************************** */
