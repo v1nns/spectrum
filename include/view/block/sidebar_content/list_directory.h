@@ -26,6 +26,7 @@
 #include "view/base/block.h"  // for Block, BlockEvent...
 #include "view/element/style.h"
 #include "view/element/tab.h"
+#include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
 #include <gtest/gtest_prod.h>
@@ -203,81 +204,8 @@ class ListDirectory : public TabItem {
   };
 
   /* ******************************************************************************************** */
-  //! Custom class for text animation
- private:
-  /**
-   * @brief An structure to offset selected entry text when its content is too long (> 32 columns)
-   * TODO: move to exclusive header
-   */
-  struct TextAnimation {
-    std::mutex mutex;                  //!< Control access for internal resources
-    std::condition_variable notifier;  //!< Conditional variable to block thread
-    std::thread thread;                //!< Thread to perform offset animation on text
-
-    std::atomic<bool> enabled = false;  //!< Flag to control thread animation
-    std::string text;                   //!< Entry text to perform animation
-
-    std::function<void()> cb_update;  //!< Force an UI refresh
-
-    //! Destructor
-    ~TextAnimation() { Stop(); }
-
-    /**
-     * @brief Start animation thread
-     * @param entry Text content from selected entry
-     */
-    void Start(const std::string& entry) {
-      // Append an empty space for better aesthetics
-      text = entry + " ";
-      enabled = true;
-
-      thread = std::thread([this] {
-        using namespace std::chrono_literals;
-        std::unique_lock lock(mutex);
-
-        // Run the animation every 0.2 seconds while enabled is true
-        while (!notifier.wait_for(lock, 0.2s, [this] { return enabled == false; })) {
-          // Here comes the magic
-          text += text.front();
-          text.erase(text.begin());
-
-          // Notify UI
-          cb_update();
-        }
-      });
-    }
-
-    /**
-     * @brief Stop animation thread
-     */
-    void Stop() {
-      if (enabled) {
-        Notify();
-        Exit();
-      }
-    }
-
-   private:
-    /**
-     * @brief Disable thread execution
-     */
-    void Notify() {
-      std::scoped_lock lock(mutex);
-      enabled = false;
-    }
-
-    /**
-     * @brief Notify thread and wait for its stop
-     */
-    void Exit() {
-      notifier.notify_one();
-      thread.join();
-    }
-  };
-
-  /* ******************************************************************************************** */
   //! Variables
-
+ private:
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 

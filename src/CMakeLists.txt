@@ -77,6 +77,7 @@ target_sources(
           # view
           view/base/block.cc
           view/base/custom_event.cc
+          view/base/dialog.cc
           view/base/keybinding.cc
           view/base/terminal.cc
           view/block/file_info.cc
@@ -92,6 +93,7 @@ target_sources(
           view/element/error_dialog.cc
           view/element/help.cc
           view/element/tab.cc
+          view/element/text_animation.cc
           # logger
           util/arg_parser.cc
           util/file_handler.cc

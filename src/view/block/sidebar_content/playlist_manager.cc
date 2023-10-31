@@ -15,6 +15,28 @@
 
 namespace interface {
 
+Button::ButtonStyle PlaylistManager::kTabButtonStyle = Button::ButtonStyle{
+    .normal =
+        Button::ButtonStyle::State{
+            .foreground = ftxui::Color::DarkBlue,
+            .background = ftxui::Color::SteelBlue1,
+        },
+    .focused =
+        Button::ButtonStyle::State{
+            .foreground = ftxui::Color::GrayLight,
+            .background = ftxui::Color::GrayDark,
+        },
+    .selected =
+        Button::ButtonStyle::State{
+            .foreground = ftxui::Color::DarkBlue,
+            .background = ftxui::Color::DodgerBlue1,
+        },
+
+    .delimiters = Button::Delimiters{" ", " "},
+};
+
+/* ********************************************************************************************** */
+
 PlaylistManager::PlaylistManager(const model::BlockIdentifier& id,
                                  const std::shared_ptr<EventDispatcher>& dispatcher,
                                  const FocusCallback& on_focus, const keybinding::Key& keybinding,
@@ -23,10 +45,8 @@ PlaylistManager::PlaylistManager(const model::BlockIdentifier& id,
     : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}),
       file_handler_(file_handler),
       max_columns_(max_columns) {
-  model::Playlists parsed;
-
-  // Parse cache to check if exists any playlist saved from before
-  if (file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
+  // Attempt to parse playlists file
+  if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
     entries_.reserve(parsed.size());
 
     for (const auto& playlist : parsed) {
@@ -36,6 +56,17 @@ PlaylistManager::PlaylistManager(const model::BlockIdentifier& id,
       });
     }
   }
+
+  // Set callback to update UI when text animation is enabled
+  animation_.cb_update = [this] {
+    auto disp = dispatcher_.lock();
+    if (!disp) return;
+
+    disp->SendEvent(interface::CustomEvent::Refresh());
+  };
+
+  // Initialize playlist buttons
+  CreateButtons();
 }
 
 /* ********************************************************************************************** */
@@ -61,17 +92,23 @@ ftxui::Element PlaylistManager::Render() {
     bool is_selected = (*selected == index);
 
     auto prefix = ftxui::text(entry.collapsed ? "▼ " : "▶ ");
-    auto text = ftxui::text(entry.playlist.name);
+    auto text =
+        ftxui::text(animation_.enabled && is_selected ? animation_.text : entry.playlist.name);
 
-    ftxui::Decorator playlist_style =
-        is_selected ? (is_focused ? styles_.playlist.selected_focused : styles_.playlist.selected)
-                    : (is_focused ? styles_.playlist.focused : styles_.playlist.normal);
+    const auto& style_playlist =
+        is_curr_playing ? styles_.playlist.playing : styles_.playlist.normal;
+
+    ftxui::Decorator decorator_playlist =
+        is_selected ? (is_focused ? style_playlist.selected_focused : style_playlist.selected)
+                    : (is_focused ? style_playlist.focused : style_playlist.normal);
+
+    if (is_curr_playing) decorator_playlist = decorator_playlist | ftxui::bold;
 
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
     entries.push_back(ftxui::hbox({
                           prefix | styles_.prefix,
-                          text | playlist_style | ftxui::xflex,
+                          text | decorator_playlist | ftxui::bold | ftxui::xflex,
                       }) |
                       max_size | focus_management | ftxui::reflect(boxes_[index]));
 
@@ -87,27 +124,41 @@ ftxui::Element PlaylistManager::Render() {
       is_selected = (*selected == index);
 
       prefix = ftxui::text("  ");
-      text = ftxui::text(" " + song.filepath.filename().string());
+      text = ftxui::text(" " + (animation_.enabled && is_selected
+                                    ? animation_.text
+                                    : song.filepath.filename().string()));
 
-      const auto& type = is_curr_playing && curr_playing_->filepath == song.filepath
-                             ? styles_.playing
-                             : styles_.song;
+      const auto& style_song = is_curr_playing && curr_playing_->filepath == song.filepath
+                                   ? styles_.song.playing
+                                   : styles_.song.normal;
 
-      ftxui::Decorator song_style = is_selected
-                                        ? (is_focused ? type.selected_focused : type.selected)
-                                        : (is_focused ? type.focused : type.normal);
+      ftxui::Decorator decorator_song =
+          is_selected ? (is_focused ? style_song.selected_focused : style_song.selected)
+                      : (is_focused ? style_song.focused : style_song.normal);
 
       focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
       entries.push_back(ftxui::hbox({
                             prefix | styles_.prefix,
-                            text | song_style | ftxui::xflex,
+                            text | decorator_song | ftxui::xflex,
                         }) |
                         max_size | focus_management | ftxui::reflect(boxes_[index]));
     }
 
     index++;
   }
+
+  // Append all buttons at the bottom of the block
+  entries.push_back(ftxui::filler());
+  entries.push_back(ftxui::hbox({
+      ftxui::filler(),
+      btn_create_->Render() | ftxui::bold,
+      ftxui::filler(),
+      btn_modify_->Render() | ftxui::bold,
+      ftxui::filler(),
+      btn_delete_->Render() | ftxui::bold,
+      ftxui::filler(),
+  }));
 
   return ftxui::vbox(entries) | ftxui::reflect(box_) | ftxui::frame | ftxui::flex;
 }
@@ -127,8 +178,13 @@ bool PlaylistManager::OnMouseEvent(ftxui::Event& event) {
       event.mouse().button == ftxui::Mouse::WheelUp)
     return OnMouseWheel(event);
 
+  // Do not process any other mouse button
   if (event.mouse().button != ftxui::Mouse::Left && event.mouse().button != ftxui::Mouse::None)
     return false;
+
+  if (btn_create_->OnMouseEvent(event)) return true;
+  if (btn_modify_->OnMouseEvent(event)) return true;
+  if (btn_delete_->OnMouseEvent(event)) return true;
 
   int* selected = GetSelected();
   int* focused = GetFocused();
@@ -166,6 +222,11 @@ bool PlaylistManager::OnCustomEvent(const CustomEvent& event) {
 
     // Set current song
     curr_playing_ = event.GetContent<model::Song>();
+  }
+
+  if (event == CustomEvent::Identifier::ClearSongInfo) {
+    LOG("Clear current song information");
+    curr_playing_.reset();
   }
 
   return false;
@@ -285,6 +346,25 @@ void PlaylistManager::Clamp() {
 
 /* ********************************************************************************************** */
 
+void PlaylistManager::UpdateActiveEntry() {
+  // Stop animation thread
+  animation_.Stop();
+
+  if (Size() > 0) {
+    // Check text length of active entry
+    const auto selected = GetSelected();
+    std::string text{GetTextFromEntry(*selected)};
+
+    // TODO: must test against a song entry, I think that "  " will impact the aesthetics of this
+    int max_chars = (int)text.length() + kMaxIconColumns;
+
+    // Start animation thread
+    if (max_chars > max_columns_) animation_.Start(text);
+  }
+}
+
+/* ********************************************************************************************** */
+
 bool PlaylistManager::ClickOnActiveEntry() {
   if (entries_.empty()) return false;
 
@@ -304,9 +384,8 @@ bool PlaylistManager::ClickOnActiveEntry() {
     }
 
     if (entry.collapsed) {
-      for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end(); ++it) {
-        index++;
-
+      for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end();
+           ++it, ++index) {
         if (index == *selected) {
           // Selected index is on song from playlist
           auto dispatcher = dispatcher_.lock();
@@ -331,6 +410,61 @@ bool PlaylistManager::ClickOnActiveEntry() {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistManager::CreateButtons() {
+  btn_create_ = Button::make_button_for_window(
+      std::string("create"),
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
+
+        LOG("Handle callback for Create button");
+
+        // TODO: call new dialog to create and manage playlist entries
+
+        // Set this block as active (focused)
+        if (on_focus_) on_focus_();
+
+        return true;
+      },
+      kTabButtonStyle);
+
+  btn_modify_ = Button::make_button_for_window(
+      std::string("modify"),
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
+
+        LOG("Handle callback for Create button");
+
+        // TODO: call new dialog to manage playlist entries
+
+        // Set this block as active (focused)
+        if (on_focus_) on_focus_();
+
+        return true;
+      },
+      kTabButtonStyle);
+
+  btn_delete_ = Button::make_button_for_window(
+      std::string("delete"),
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
+
+        LOG("Handle callback for Create button");
+
+        // TODO: call new dialog to delete playlist
+
+        // Set this block as active (focused)
+        if (on_focus_) on_focus_();
+
+        return true;
+      },
+      kTabButtonStyle);
 }
 
 }  // namespace interface

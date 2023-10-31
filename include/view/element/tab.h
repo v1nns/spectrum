@@ -83,6 +83,9 @@ class TabItem {
   keybinding::Key key_;  //!< Keybinding to set item as active
   std::string title_;    //!< Item title (to show on window border)
   WindowButton button_;  //!< Button to render in the tab border
+
+  //!< Style for a button displayed as tab button
+  static Button::ButtonStyle kTabButtonStyle;
 };
 
 /* ********************************************************************************************** */

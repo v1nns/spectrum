@@ -142,12 +142,16 @@ ftxui::Element Terminal::Render() {
     terminal = tab_viewer->RenderFullscreen() | ftxui::xflex_grow;
   }
 
+  // Apply decorator to dim terminal
+  ftxui::Decorator dim =
+      (error_dialog_->IsVisible() | helper_->IsVisible()) ? ftxui::dim : ftxui::nothing;
+
   // Render dialog box as overlay
   ftxui::Element overlay = error_dialog_->IsVisible() ? error_dialog_->Render()
                            : helper_->IsVisible()     ? helper_->Render()
                                                       : ftxui::text("");
 
-  return ftxui::dbox({terminal, overlay});
+  return ftxui::dbox({terminal | dim, overlay});
 }
 
 /* ********************************************************************************************** */

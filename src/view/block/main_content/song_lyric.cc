@@ -99,6 +99,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
       LOG("Launch async task to fetch song lyrics");
       // As we do not want to hold UI at all, fetch song lyrics asynchronously
       async_fetcher_ = std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this));
+      // TODO: kill this async task when application exits
     }
   }
 

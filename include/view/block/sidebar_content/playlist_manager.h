@@ -11,8 +11,11 @@
 
 #include "model/playlist.h"
 #include "util/file_handler.h"
+#include "util/logger.h"
+#include "view/element/button.h"
 #include "view/element/style.h"
 #include "view/element/tab.h"
+#include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
 namespace {
@@ -27,6 +30,7 @@ namespace interface {
  */
 class PlaylistManager : public TabItem {
   static constexpr std::string_view kTabName = "playlist";  //!< Tab title
+  static constexpr int kMaxIconColumns = 2;                 //!< Maximum columns for Icon
 
  public:
   /**
@@ -86,9 +90,14 @@ class PlaylistManager : public TabItem {
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
     ftxui::Decorator prefix;
-    MenuEntryOption playlist;
-    MenuEntryOption song;
-    MenuEntryOption playing;
+
+    struct State {
+      MenuEntryOption normal;
+      MenuEntryOption playing;
+    };
+
+    State playlist;
+    State song;
   };
 
   /* ******************************************************************************************** */
@@ -113,6 +122,26 @@ class PlaylistManager : public TabItem {
     return size;
   }
 
+  //! Getter for text entry at specified index
+  std::string GetTextFromEntry(int index) {
+    int tmp = 0;
+
+    for (const auto& entry : entries_) {
+      if (tmp == index) return entry.playlist.name;
+
+      if (entry.collapsed) {
+        for (int aux = 0; aux < entry.playlist.songs.size(); ++aux) {
+          tmp++;  // count song
+          if (tmp == index) return entry.playlist.songs.at(aux).filepath.filename().string();
+        }
+      }
+      tmp++;  // count playlist
+    }
+
+    ERROR("Could not find the entry associated with the index=", index);
+    return "";
+  }
+
   //! Getter for selected index
   int* GetSelected() { return &selected_; }
 
@@ -126,10 +155,23 @@ class PlaylistManager : public TabItem {
   //! Playlist operations
 
   /**
+   * @brief Update content from active entry (decides if animation thread should run or not)
+   */
+  void UpdateActiveEntry();
+
+  /**
    * @brief Execute click action on active entry (start playing selected playlist/song)
    * @return true if click action was executed, false otherwise
    */
   bool ClickOnActiveEntry();
+
+  /* ******************************************************************************************** */
+  //! UI initialization
+
+  /**
+   * @brief Initialize all UI buttons to manage playlists
+   */
+  void CreateButtons();
 
   /* ******************************************************************************************** */
   //! Variables
@@ -146,15 +188,31 @@ class PlaylistManager : public TabItem {
   std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
   ftxui::Box box_;                 //!< Box for whole component
 
+  TextAnimation animation_;  //!< Text animation for selected entry
+
   std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
+
+  GenericButton btn_create_;  //!< Button to create a new playlist
+  GenericButton btn_modify_;  //!< Button to modify a playlist
+  GenericButton btn_delete_;  //!< Button to delete a playlist
 
   //!< Style for each element inside this component
   EntryStyles styles_ = EntryStyles{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue3),
-      .playlist = Colored(ftxui::Color::SteelBlue3),
-      .song = Colored(ftxui::Color::White),
-      .playing = Colored(ftxui::Color::SteelBlue1),
+      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
+      .playlist =
+          EntryStyles::State{
+              .normal = Colored(ftxui::Color::White),
+              .playing = Colored(ftxui::Color::SteelBlue1Bis),
+          },
+      .song =
+          EntryStyles::State{
+              .normal = Colored(ftxui::Color::White),
+              .playing = Colored(ftxui::Color::SteelBlue1),
+          },
   };
+
+  //!< Style for a button displayed as tab button
+  static Button::ButtonStyle kTabButtonStyle;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

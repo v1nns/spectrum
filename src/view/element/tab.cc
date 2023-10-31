@@ -7,7 +7,7 @@ namespace interface {
 
 /* ****************************************** TabItem ******************************************* */
 
-static const Button::ButtonStyle kTabButtonStyle = Button::ButtonStyle{
+Button::ButtonStyle TabItem::kTabButtonStyle = Button::ButtonStyle{
     .normal =
         Button::ButtonStyle::State{
             .foreground = ftxui::Color::GrayDark,
