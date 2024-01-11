@@ -43,6 +43,12 @@ class FileHandler {
   //! Public API
 
   /**
+   * @brief Get full path to home directory
+   * @return String containing directory path
+   */
+  std::string GetHome() const;
+
+  /**
    * @brief List all files from the given directory path
    * @param dir_path Full path to directory
    * @param parsed_files[out] Existing files in the given directory path

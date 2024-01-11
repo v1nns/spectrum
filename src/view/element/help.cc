@@ -5,11 +5,8 @@
 namespace interface {
 
 Help::Help()
-    : Dialog(kMaxColumns, kMaxLines,
-             DialogStyle{
-                 .background = ftxui::Color::BlueLight,
-                 .foreground = ftxui::Color::Grey93,
-             }) {}
+    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {}
 
 /* ********************************************************************************************** */
 
@@ -61,7 +58,7 @@ ftxui::Element Help::command(const std::string& keybind, const std::string& desc
   return ftxui::hbox({
       ftxui::text(keybind) | ftxui::color(ftxui::Color::PaleTurquoise1),
       ftxui::text(!keybind.empty() ? " - " : ""),
-      ftxui::text(description) | ftxui::color(ftxui::Color::Black),
+      ftxui::text(description) | ftxui::color(ftxui::Color::Grey11),
   });
 }
 

@@ -80,6 +80,9 @@ class AudioEqualizer : public TabItem {
   //! Handle mapped keyboard events for navigation
   bool OnNavigationEvent(const ftxui::Event& event);
 
+  //! Create general buttons
+  void CreateButtons();
+
   //! Update UI components state based on internal cache
   void UpdateButtonState();
 

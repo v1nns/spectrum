@@ -133,6 +133,13 @@ struct Files {
   static Key EnableSearch;
 };
 
+/* ********************************************************************************************** */
+
+//! Playlist keybindings
+struct Playlist {
+  static Key Modify;
+};
+
 }  // namespace keybinding
 }  // namespace interface
 #endif  // INCLUDE_VIEW_BASE_KEYBINDING_H_

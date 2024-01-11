@@ -2,7 +2,7 @@
 
 namespace interface {
 
-Button::Button(const ButtonStyle& style, Callback on_click, bool active)
+Button::Button(const Style& style, Callback on_click, bool active)
     : enabled_{active}, style_{style}, on_click_{on_click} {}
 
 /* ********************************************************************************************** */
@@ -107,7 +107,7 @@ bool Button::HandleLeftClick(ftxui::Event& event) {
  */
 class GraphicButton : public Button {
  public:
-  explicit GraphicButton(const ButtonStyle& style, const Callback& on_click)
+  explicit GraphicButton(const Style& style, const Callback& on_click)
       : Button(style, on_click, /*active*/ true) {}
 
   //! Override base class method to implement custom rendering
@@ -183,11 +183,11 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
     }
   };
 
-  auto style = ButtonStyle{
-      .normal = ButtonStyle::State{.foreground = ftxui::Color::SpringGreen2,
-                                   .border = ftxui::Color::GrayDark},
+  auto style = Style{
+      .normal =
+          Style::State{.foreground = ftxui::Color::SpringGreen2, .border = ftxui::Color::GrayDark},
 
-      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
+      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
   };
 
   return std::make_shared<Play>(style, on_click);
@@ -210,14 +210,14 @@ std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
     }
   };
 
-  auto style = ButtonStyle{
+  auto style = Style{
       .normal =
-          ButtonStyle::State{
+          Style::State{
               .foreground = ftxui::Color::Red,
               .border = ftxui::Color::GrayDark,
           },
 
-      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
+      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
   };
 
   return std::make_shared<Stop>(style, on_click);
@@ -256,11 +256,11 @@ std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_cli
     }
   };
 
-  auto style = ButtonStyle{
-      .normal = ButtonStyle::State{.foreground = ftxui::Color::SteelBlue,
-                                   .border = ftxui::Color::GrayDark},
+  auto style = Style{
+      .normal =
+          Style::State{.foreground = ftxui::Color::SteelBlue, .border = ftxui::Color::GrayDark},
 
-      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
+      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
   };
 
   return std::make_shared<SkipPrevious>(style, on_click);
@@ -298,11 +298,11 @@ std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) 
     }
   };
 
-  auto style = ButtonStyle{
-      .normal = ButtonStyle::State{.foreground = ftxui::Color::SteelBlue,
-                                   .border = ftxui::Color::GrayDark},
+  auto style = Style{
+      .normal =
+          Style::State{.foreground = ftxui::Color::SteelBlue, .border = ftxui::Color::GrayDark},
 
-      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
+      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
   };
 
   return std::make_shared<SkipNext>(style, on_click);
@@ -312,18 +312,17 @@ std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) 
 
 std::shared_ptr<Button> Button::make_button_for_window(const std::string& content,
                                                        const Callback& on_click,
-                                                       const ButtonStyle& style) {
+                                                       const Style& style) {
   class WindowButton : public Button {
    public:
-    explicit WindowButton(const ButtonStyle& style, const std::string& content,
-                          const Callback& on_click)
+    explicit WindowButton(const Style& style, const std::string& content, const Callback& on_click)
         : Button(style, on_click, true), content_{content} {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element Render() override {
       auto left = ftxui::text(std::get<0>(style_.delimiters)) | ftxui::bold;
       auto right = ftxui::text(std::get<1>(style_.delimiters)) | ftxui::bold;
-      auto content = ftxui::text(content_);
+      auto content = ftxui::text(content_);  // TODO: apply bold only when parent block is focused
 
       constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg,
                                        bool invert) {
@@ -364,11 +363,11 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button(const std::string& content, const Callback& on_click,
-                                            bool active) {
+                                            const Style& style, bool active) {
   class GenericButton : public Button {
    public:
-    explicit GenericButton(const ButtonStyle& style, const std::string& content,
-                           const Callback& on_click, bool active)
+    explicit GenericButton(const Style& style, const std::string& content, const Callback& on_click,
+                           bool active)
         : Button(style, on_click, active), content_{content} {}
 
     //! Override base class method to implement custom rendering
@@ -377,7 +376,7 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
       using ftxui::HEIGHT;
       using ftxui::WIDTH;
 
-      auto content = ftxui::text(content_);
+      auto content = ftxui::text(content_) | (style_.decorator ? style_.decorator : ftxui::nothing);
 
       // default decorator
       ftxui::Decorator style = ftxui::center;
@@ -387,8 +386,9 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
       if (style_.width) style = style | ftxui::size(WIDTH, EQUAL, style_.width);
 
       if (enabled_) {
-        const auto& content_color = style_.normal.foreground;
-        style = style | ftxui::color(content_color) | (focused_ ? ftxui::inverted : ftxui::nothing);
+        // TODO: use focused style here
+        const auto& button_color = style_.normal.foreground;
+        style = style | ftxui::color(button_color) | (focused_ ? ftxui::inverted : ftxui::nothing);
       } else {
         style = style | ftxui::color(ftxui::Color::GrayDark);
       }
@@ -400,14 +400,6 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
     }
 
     std::string content_;
-  };
-
-  auto style = ButtonStyle{
-      .normal =
-          ButtonStyle::State{.foreground = ftxui::Color::White, .border = ftxui::Color::GrayDark},
-
-      .focused = ButtonStyle::State{.border = ftxui::Color::SteelBlue3},
-      .width = 15,
   };
 
   return std::make_shared<GenericButton>(style, content, on_click, active);

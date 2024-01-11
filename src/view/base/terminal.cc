@@ -143,13 +143,10 @@ ftxui::Element Terminal::Render() {
   }
 
   // Apply decorator to dim terminal
-  ftxui::Decorator dim =
-      (error_dialog_->IsVisible() | helper_->IsVisible()) ? ftxui::dim : ftxui::nothing;
+  ftxui::Decorator dim = IsDialogVisible() ? ftxui::dim : ftxui::nothing;
 
-  // Render dialog box as overlay
-  ftxui::Element overlay = error_dialog_->IsVisible() ? error_dialog_->Render()
-                           : helper_->IsVisible()     ? helper_->Render()
-                                                      : ftxui::text("");
+  // Render element as overlay
+  ftxui::Element overlay = GetOverlay();
 
   return ftxui::dbox({terminal | dim, overlay});
 }
@@ -165,6 +162,9 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
   // Or if helper is opened
   if (helper_->IsVisible()) return helper_->OnEvent(event);
+
+  // Or if playlist manager is opened
+  if (playlist_dialog_->IsVisible()) return playlist_dialog_->OnEvent(event);
 
   // Global commands
   if (OnGlobalModeEvent(event)) return true;
@@ -286,6 +286,16 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
+  // Show playlist manager
+  // TODO: create a block for global events
+  // if (event == keybinding::Playlist::Modify) {
+  //   LOG("Handle key to show playlist manager");
+  //   // TODO: remove from here and use a CustomEvent to trigger it
+  //   playlist_dialog_->Open();
+  //
+  //   return true;
+  // }
+
   return false;
 }
 
@@ -293,7 +303,7 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
 
 bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
   // In this case, only spectrum visualizer and media player may handle this event
-  std::vector<ftxui::Component>::const_iterator first = children_.begin() + 2;
+  std::vector<ftxui::Component>::const_iterator first = children_.begin() + kBlockMainContent;
   std::vector<ftxui::Component>::const_iterator last = children_.end();
 
   if (bool event_handled = std::any_of(
@@ -560,8 +570,8 @@ void Terminal::UpdateFocus(int old_index, int new_index) {
   // If equal, do nothing
   if (old_index == new_index) return;
 
-  auto old_block = model::BlockIdentifier::None;
-  auto new_block = model::BlockIdentifier::None;
+  model::BlockIdentifier old_block = model::BlockIdentifier::None;
+  model::BlockIdentifier new_block = model::BlockIdentifier::None;
 
   // Remove focus from old block
   if (old_index != kInvalidIndex) {
@@ -581,6 +591,18 @@ void Terminal::UpdateFocus(int old_index, int new_index) {
   focused_index_ = new_index;
 
   LOG("Changed block focus from ", old_block, " to ", new_block);
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element Terminal::GetOverlay() const {
+  if (error_dialog_->IsVisible()) return error_dialog_->Render(size_);
+
+  if (helper_->IsVisible()) return helper_->Render(size_);
+
+  if (playlist_dialog_->IsVisible()) return playlist_dialog_->Render(size_);
+
+  return ftxui::text("");
 }
 
 }  // namespace interface

@@ -123,9 +123,9 @@ struct CustomEvent {
   T GetContent() const {
     if (std::holds_alternative<T>(content)) {
       return std::get<T>(content);
-    } else {
-      return T();
     }
+
+    return T();
   }
 
   //! Variables

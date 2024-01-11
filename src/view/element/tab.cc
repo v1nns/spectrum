@@ -7,21 +7,21 @@ namespace interface {
 
 /* ****************************************** TabItem ******************************************* */
 
-Button::ButtonStyle TabItem::kTabButtonStyle = Button::ButtonStyle{
+Button::Style TabItem::kTabButtonStyle = Button::Style{
     .normal =
-        Button::ButtonStyle::State{
+        Button::Style::State{
             .foreground = ftxui::Color::GrayDark,
             .background = ftxui::Color(),
         },
     .focused =
-        Button::ButtonStyle::State{
+        Button::Style::State{
             .foreground = ftxui::Color::GrayLight,
             .background = ftxui::Color::GrayDark,
         },
     .selected =
-        Button::ButtonStyle::State{
-            .foreground = ftxui::Color::DarkBlue,
-            .background = ftxui::Color::DodgerBlue1,
+        Button::Style::State{
+            .foreground = ftxui::Color::PaleTurquoise1,
+            .background = ftxui::Color::SteelBlue3,
         },
 
     .delimiters = Button::Delimiters{" ", " "},

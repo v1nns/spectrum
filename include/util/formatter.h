@@ -13,7 +13,6 @@
 #include <cmath>
 #include <sstream>
 #include <string>
-#include <tuple>
 
 #include "ftxui/component/event.hpp"  // for Event
 
@@ -136,6 +135,25 @@ inline std::string rtrim(const std::string& s) {
  * @return Formatted string
  */
 inline std::string trim(const std::string& s) { return rtrim(ltrim(s)); }
+
+/**
+ * @brief Compare a single character in undercase
+ * @param a Character a
+ * @param b Character b
+ * @return true if 'a' is equal to 'b', false otherwise
+ */
+inline bool compare(const char& a, const char& b) { return std::tolower(a) == std::tolower(b); };
+
+/**
+ * @brief Search for a substring in the given string
+ * @param string Raw string
+ * @param substring Substring to search for
+ * @return true if 'substring' exists in 'string', false otherwise
+ */
+inline bool contains(const std::string& string, const std::string& substring) {
+  auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), compare);
+  return it != string.end();
+}
 
 }  // namespace util
 #endif  // INCLUDE_UTIL_PREFIX_FORMATTER_H_

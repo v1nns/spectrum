@@ -2,10 +2,9 @@
 
 #include <memory>
 
-#include "model/playlist.h"
 #include "util/logger.h"
 #include "view/block/sidebar_content/list_directory.h"
-#include "view/block/sidebar_content/playlist_manager.h"
+#include "view/block/sidebar_content/playlist_viewer.h"
 
 namespace interface {
 
@@ -18,7 +17,7 @@ Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this), keybinding::Sidebar::FocusList,
       file_handler_, kMaxColumns, optional_path);
 
-  tab_elem_[View::Playlist] = std::make_unique<PlaylistManager>(
+  tab_elem_[View::Playlist] = std::make_unique<PlaylistViewer>(
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this),
       keybinding::Sidebar::FocusPlaylist, file_handler_, kMaxColumns);
 
@@ -29,13 +28,16 @@ Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
 /* ********************************************************************************************** */
 
 ftxui::Element Sidebar::Render() {
-
-  auto max_size = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, kMaxColumns);
+  ftxui::Decorator max_size = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, kMaxColumns);
   ftxui::Elements buttons;
+
+  auto block_focused = IsFocused();
+  auto active_button = tab_elem_.active();
 
   // Append tab buttons
   for (const auto& [id, item] : tab_elem_.items()) {
-    buttons.emplace_back(item->GetButton()->Render());
+    buttons.emplace_back(item->GetButton()->Render() |
+                         (block_focused && id == active_button ? ftxui::bold : ftxui::nothing));
   }
 
   ftxui::Element title_border = ftxui::hbox(buttons);

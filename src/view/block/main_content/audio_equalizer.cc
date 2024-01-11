@@ -24,76 +24,8 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
   // Set zeroed custom EQ as last EQ applied
   last_applied_.Update(preset_name_, current_preset());
 
-  btn_apply_ = Button::make_button(
-      std::string("Apply"),
-      [this]() {
-        auto disp = dispatcher_.lock();
-        if (!disp) return false;
-
-        LOG("Handle callback for Equalizer apply button");
-        const auto& current = current_preset();
-
-        // Do nothing if they are equal
-        if (last_applied_ == current) return false;
-
-        // Otherwise, send updated values to Audio Player
-        auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
-        disp->SendEvent(event_filters);
-        btn_apply_->Disable();
-
-        // Update cache
-        last_applied_.Update(preset_name_, current);
-
-        // Set this block as active (focused)
-        if (on_focus_) on_focus_();
-
-        return true;
-      },
-      false);
-
-  btn_reset_ = Button::make_button(
-      std::string("Reset"),
-      [this]() {
-        auto disp = dispatcher_.lock();
-        if (!disp) return false;
-
-        LOG("Handle callback for Equalizer reset button");
-
-        // Update buttons state
-        btn_apply_->Disable();
-        btn_reset_->Disable();
-
-        if (preset_name_ != kModifiablePreset) return false;
-        auto& current = current_preset();
-
-        // Reset current EQ
-        std::transform(current.begin(), current.end(), current.begin(),
-                       [](model::AudioFilter& filter) {
-                         filter.gain = 0;
-                         return filter;
-                       });
-
-        // Do nothing if all frequencies contains gain equal to zero
-        if (bool all_zero =
-                std::all_of(last_applied_.preset.begin(), last_applied_.preset.end(),
-                            [](const model::AudioFilter& filter) { return filter.gain == 0; });
-            all_zero) {
-          return false;
-        }
-
-        // // Otherwise, send updated values to Audio Player
-        auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
-        disp->SendEvent(event_filters);
-
-        // Update cache
-        last_applied_.Update(preset_name_, current);
-
-        // Set this block as active (focused)
-        if (on_focus_) on_focus_();
-
-        return true;
-      },
-      false);
+  // Initialize buttons
+  CreateButtons();
 }
 
 /* ********************************************************************************************** */
@@ -166,6 +98,92 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::CreateButtons() {
+  auto style = Button::Style{
+      .normal =
+          Button::Style::State{
+              .foreground = ftxui::Color::White,
+              .border = ftxui::Color::GrayDark,
+          },
+
+      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
+      .width = 15,
+  };
+
+  btn_apply_ = Button::make_button(
+      std::string("Apply"),
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
+
+        LOG("Handle callback for Equalizer apply button");
+        const auto& current = current_preset();
+
+        // Do nothing if they are equal
+        if (last_applied_ == current) return false;
+
+        // Otherwise, send updated values to Audio Player
+        auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
+        disp->SendEvent(event_filters);
+        btn_apply_->Disable();
+
+        // Update cache
+        last_applied_.Update(preset_name_, current);
+
+        // Set this block as active (focused)
+        if (on_focus_) on_focus_();
+
+        return true;
+      },
+      style, false);
+
+  btn_reset_ = Button::make_button(
+      std::string("Reset"),
+      [this]() {
+        auto disp = dispatcher_.lock();
+        if (!disp) return false;
+
+        LOG("Handle callback for Equalizer reset button");
+
+        // Update buttons state
+        btn_apply_->Disable();
+        btn_reset_->Disable();
+
+        if (preset_name_ != kModifiablePreset) return false;
+        auto& current = current_preset();
+
+        // Reset current EQ
+        std::transform(current.begin(), current.end(), current.begin(),
+                       [](model::AudioFilter& filter) {
+                         filter.gain = 0;
+                         return filter;
+                       });
+
+        // Do nothing if all frequencies contains gain equal to zero
+        if (bool all_zero =
+                std::all_of(last_applied_.preset.begin(), last_applied_.preset.end(),
+                            [](const model::AudioFilter& filter) { return filter.gain == 0; });
+            all_zero) {
+          return false;
+        }
+
+        // // Otherwise, send updated values to Audio Player
+        auto event_filters = interface::CustomEvent::ApplyAudioFilters(current);
+        disp->SendEvent(event_filters);
+
+        // Update cache
+        last_applied_.Update(preset_name_, current);
+
+        // Set this block as active (focused)
+        if (on_focus_) on_focus_();
+
+        return true;
+      },
+      style, false);
+}
 
 /* ********************************************************************************************** */
 

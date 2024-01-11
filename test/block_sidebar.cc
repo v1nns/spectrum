@@ -12,11 +12,9 @@
 #include "ftxui/dom/node.hpp"                  // for Render
 #include "ftxui/screen/screen.hpp"             // for Screen
 #include "general/block.h"
-#include "general/utils.h"          // for FilterAnsiCommands
-#include "gtest/gtest_pred_impl.h"  // for SuiteApiResolver, TEST_F
+#include "general/utils.h"  // for FilterAnsiCommands
 #include "mock/event_dispatcher_mock.h"
 #include "mock/list_directory_mock.h"
-#include "util/logger.h"
 #include "view/base/keybinding.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
@@ -38,8 +36,6 @@ MATCHER_P(IsSameFilename, n, "") { return arg.filename() == n; }
  */
 class SidebarTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(38, 15);
@@ -65,7 +61,7 @@ class SidebarTest : public ::BlockTest {
     auto files = reinterpret_cast<interface::ListDirectory*>(
         sidebar->tab_elem_[interface::Sidebar::View::Files].get());
 
-    files->entries_.emplace_back(entry);
+    files->menu_->Emplace(entry);
   }
 
   //! Getter for ListDirectory(necessary as inner variable is an unique_ptr)
@@ -87,6 +83,7 @@ class SidebarTest : public ::BlockTest {
   void InjectMock(const std::string& source_dir) {
     auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
 
+    // TODO: use dependency injection instead of this
     sidebar->tab_elem_[interface::Sidebar::View::Files].reset();
 
     sidebar->tab_elem_[interface::Sidebar::View::Files] = std::make_unique<ListDirectoryMock>(
@@ -716,8 +713,6 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
  */
 class ListDirectoryCtorTest : public ::SidebarTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
@@ -725,8 +720,8 @@ class ListDirectoryCtorTest : public ::SidebarTest {
 };
 
 TEST_F(ListDirectoryCtorTest, CreateWithBadInitialPath) {
-  // Setup expectation (twice because of mock injection)
-  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed)));
+  // Setup expectation
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed))).Times(0);
 
   // Use bad path as base dir, block will notify an error about not being to access it
   std::string source_dir{"/path/that/does/not/exist"};

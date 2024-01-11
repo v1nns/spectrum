@@ -11,11 +11,8 @@
 
 #include "model/playlist.h"
 #include "util/file_handler.h"
-#include "util/logger.h"
 #include "view/element/button.h"
-#include "view/element/style.h"
 #include "view/element/tab.h"
-#include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
 namespace {
@@ -28,7 +25,7 @@ namespace interface {
 /**
  * @brief Component to render and manage playlists
  */
-class PlaylistManager : public TabItem {
+class PlaylistViewer : public TabItem {
   static constexpr std::string_view kTabName = "playlist";  //!< Tab title
   static constexpr int kMaxIconColumns = 2;                 //!< Maximum columns for Icon
 
@@ -42,15 +39,15 @@ class PlaylistManager : public TabItem {
    * @param file_handler Utility handler to manage any file operation
    * @param max_columns Maximum number of visual columns to be used by this element
    */
-  explicit PlaylistManager(const model::BlockIdentifier& id,
-                           const std::shared_ptr<EventDispatcher>& dispatcher,
-                           const FocusCallback& on_focus, const keybinding::Key& keybinding,
-                           const std::shared_ptr<util::FileHandler>& file_handler, int max_columns);
+  explicit PlaylistViewer(const model::BlockIdentifier& id,
+                          const std::shared_ptr<EventDispatcher>& dispatcher,
+                          const FocusCallback& on_focus, const keybinding::Key& keybinding,
+                          const std::shared_ptr<util::FileHandler>& file_handler, int max_columns);
 
   /**
    * @brief Destroy the PlaylistManager object
    */
-  ~PlaylistManager() override = default;
+  ~PlaylistViewer() override = default;
 
   /**
    * @brief Renders the component
@@ -92,78 +89,13 @@ class PlaylistManager : public TabItem {
     ftxui::Decorator prefix;
 
     struct State {
-      MenuEntryOption normal;
-      MenuEntryOption playing;
+      // MenuEntryOption normal;
+      // MenuEntryOption playing;
     };
 
     State playlist;
     State song;
   };
-
-  /* ******************************************************************************************** */
-  //! Private methods
-
-  //! Handle mouse wheel event
-  bool OnMouseWheel(ftxui::Event event);
-
-  //! Handle keyboard event mapped to a menu navigation command
-  bool OnMenuNavigation(const ftxui::Event& event);
-
-  /* ******************************************************************************************** */
-
-  //! Getter for entries size
-  int Size() const {
-    int size = 0;
-    for (const auto& entry : entries_) {
-      // sum playlist + songs
-      size += 1;
-      if (entry.collapsed) size += entry.playlist.songs.size();
-    }
-    return size;
-  }
-
-  //! Getter for text entry at specified index
-  std::string GetTextFromEntry(int index) {
-    int tmp = 0;
-
-    for (const auto& entry : entries_) {
-      if (tmp == index) return entry.playlist.name;
-
-      if (entry.collapsed) {
-        for (int aux = 0; aux < entry.playlist.songs.size(); ++aux) {
-          tmp++;  // count song
-          if (tmp == index) return entry.playlist.songs.at(aux).filepath.filename().string();
-        }
-      }
-      tmp++;  // count playlist
-    }
-
-    ERROR("Could not find the entry associated with the index=", index);
-    return "";
-  }
-
-  //! Getter for selected index
-  int* GetSelected() { return &selected_; }
-
-  //! Getter for focused index
-  int* GetFocused() { return &focused_; }
-
-  //! Clamp both selected and focused indexes
-  void Clamp();
-
-  /* ******************************************************************************************** */
-  //! Playlist operations
-
-  /**
-   * @brief Update content from active entry (decides if animation thread should run or not)
-   */
-  void UpdateActiveEntry();
-
-  /**
-   * @brief Execute click action on active entry (start playing selected playlist/song)
-   * @return true if click action was executed, false otherwise
-   */
-  bool ClickOnActiveEntry();
 
   /* ******************************************************************************************** */
   //! UI initialization
@@ -182,13 +114,7 @@ class PlaylistManager : public TabItem {
   std::optional<model::Song> curr_playing_ = std::nullopt;  //!< Current song playing
 
   std::vector<InternalPlaylist> entries_;  //!< List containing all playlists created by user
-  int selected_;                           //!< Index in list for selected entry
-  int focused_;                            //!< Index in list for focused entry
-
-  std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
-  ftxui::Box box_;                 //!< Box for whole component
-
-  TextAnimation animation_;  //!< Text animation for selected entry
+  ftxui::Box box_;                         //!< Box for whole component
 
   std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
 
@@ -199,20 +125,20 @@ class PlaylistManager : public TabItem {
   //!< Style for each element inside this component
   EntryStyles styles_ = EntryStyles{
       .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .playlist =
-          EntryStyles::State{
-              .normal = Colored(ftxui::Color::White),
-              .playing = Colored(ftxui::Color::SteelBlue1Bis),
-          },
-      .song =
-          EntryStyles::State{
-              .normal = Colored(ftxui::Color::White),
-              .playing = Colored(ftxui::Color::SteelBlue1),
-          },
+      // .playlist =
+      // EntryStyles::State{
+      // .normal = Colored(ftxui::Color::White),
+      // .playing = Colored(ftxui::Color::SteelBlue1Bis),
+      // },
+      // .song =
+      // EntryStyles::State{
+      // .normal = Colored(ftxui::Color::White),
+      // .playing = Colored(ftxui::Color::SteelBlue1),
+      // },
   };
 
   //!< Style for a button displayed as tab button
-  static Button::ButtonStyle kTabButtonStyle;
+  static Button::Style kTabButtonStyle;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

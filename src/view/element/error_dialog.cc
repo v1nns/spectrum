@@ -5,11 +5,8 @@
 namespace interface {
 
 ErrorDialog::ErrorDialog()
-    : Dialog(kMaxColumns, kMaxLines,
-             DialogStyle{
-                 .background = ftxui::Color::DarkRedBis,
-                 .foreground = ftxui::Color::Grey93,
-             }) {}
+    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+             Style{.background = ftxui::Color::DarkRedBis, .foreground = ftxui::Color::Grey93}) {}
 
 /* ********************************************************************************************** */
 

@@ -20,7 +20,8 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Displays information about the currently playing track;
 - Audio spectrum visualizer;
 - Audio equalizer;
-- Fetch song lyrics.
+- Fetch song lyrics;
+- Support for playlists.
 
 ## Installation :floppy_disk:
 

@@ -10,27 +10,7 @@
 
 namespace interface {
 
-//! Custom style for menu entry
-struct MenuEntryOption {
-  ftxui::Decorator normal;
-  ftxui::Decorator focused;
-  ftxui::Decorator selected;
-  ftxui::Decorator selected_focused;
-};
-
-//! Decorator for custom style to apply on menu entry
-inline MenuEntryOption Colored(ftxui::Color c) {
-  using ftxui::color;
-  using ftxui::Decorator;
-  using ftxui::inverted;
-
-  return MenuEntryOption{
-      .normal = Decorator(color(c)),
-      .focused = Decorator(color(c)) | inverted,
-      .selected = Decorator(color(c)) | inverted,
-      .selected_focused = Decorator(color(c)) | inverted,
-  };
-}
+// TODO: use this to set UI size constants
 
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_STYLE_H_

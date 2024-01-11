@@ -12,20 +12,32 @@
 namespace interface {
 
 class Dialog {
+  static constexpr int kBorderSize = 2;  //!< Extra padding based on border size
+
  protected:
+  struct Size {
+    float width = 0.f;   //!< Width percentage
+    float height = 0.f;  //!< Height percentage
+
+    int min_column = 0;  //!< Minimum value of columns
+    int min_line = 0;    //!< Minimum value of lines
+
+    int max_column = 0;  //!< Maximum value of columns
+    int max_line = 0;    //!< Maximum value of lines
+  };
+
   //! Style for each part of the dialog
-  struct DialogStyle {
+  struct Style {
     ftxui::Color background;
     ftxui::Color foreground;
   };
 
   /**
    * @brief Construct a new Dialog object
-   * @param max_columns Maximum number of columns for this dialog instance
-   * @param max_lines Maximum number of lines for this dialog instance
+   * @param size Size settings for dialog
    * @param style Dialog style to apply
    */
-  Dialog(int max_columns, int max_lines, DialogStyle style);
+  Dialog(Size size, Style style);
 
  public:
   /**
@@ -35,9 +47,10 @@ class Dialog {
 
   /**
    * @brief Renders the component
+   * @param curr_size Current terminal size
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() const;
+  ftxui::Element Render(ftxui::Dimensions curr_size) const;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -100,10 +113,9 @@ class Dialog {
   /* ******************************************************************************************** */
   //! Variables
 
-  bool opened_ = false;    //!< Flag to indicate dialog visilibity
-  const int max_columns_;  //!< Maximum number of columns
-  const int max_lines_;    //!< Maximum number of lines
-  DialogStyle style_;      //!< Color style
+  bool opened_ = false;  //!< Flag to indicate dialog visilibity
+  Size size_;            //!< Dialog size settings
+  Style style_;          //!< Color style
 };
 
 }  // namespace interface

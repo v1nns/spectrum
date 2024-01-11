@@ -85,7 +85,7 @@ class TabItem {
   WindowButton button_;  //!< Button to render in the tab border
 
   //!< Style for a button displayed as tab button
-  static Button::ButtonStyle kTabButtonStyle;
+  static Button::Style kTabButtonStyle;
 };
 
 /* ********************************************************************************************** */

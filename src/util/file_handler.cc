@@ -42,6 +42,18 @@ static bool sort_files(const File& a, const File& b) {
 
 /* ********************************************************************************************** */
 
+std::string FileHandler::GetHome() const {
+  const char* home_dir;
+
+  if ((home_dir = getenv("HOME")) == NULL) {
+    home_dir = getpwuid(getuid())->pw_dir;
+  }
+
+  return std::string{home_dir};
+}
+
+/* ********************************************************************************************** */
+
 bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed_files) {
   Files tmp;
 
@@ -70,19 +82,14 @@ bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed
 /* ********************************************************************************************** */
 
 bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
-  const char* home_dir;
+  std::string file_path{GetHome() + "/.cache/spectrum/playlists.json"};
 
-  if ((home_dir = getenv("HOME")) == NULL) {
-    home_dir = getpwuid(getuid())->pw_dir;
-  }
-
-  std::string file_path{std::string(home_dir) + "/.cache/spectrum/playlists.json"};
   if (!std::filesystem::exists(file_path)) return false;
 
   std::ifstream json(file_path);
   nlohmann::json parsed = nlohmann::json::parse(json);
 
-  LOG("Found playlist file, parsed=", parsed.dump());
+  LOG("Found playlist file, start parsing it");
   if (!parsed.contains("playlists")) return false;
 
   model::Playlists tmp;

@@ -17,8 +17,6 @@ using ::testing::StrEq;
  */
 class MediaPlayerTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(96, 12);
@@ -780,8 +778,9 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
   EXPECT_THAT(rendered, StrEq(expected));
 
   // Process keyboard event to skip song
-  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::SkipToPreviousSong)));
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToPreviousSong)));
 
   auto event_stop = ftxui::Event::Character('<');
   block->OnEvent(event_stop);
@@ -820,7 +819,5 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 }
-
-
 
 }  // namespace

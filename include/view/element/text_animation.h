@@ -19,6 +19,8 @@ namespace interface {
  * @brief An structure to offset selected entry text when its content is too long
  */
 struct TextAnimation {
+  using Callback = std::function<void()>;  //!< Callback triggered by internal thread
+
   std::mutex mutex;                  //!< Control access for internal resources
   std::condition_variable notifier;  //!< Conditional variable to block thread
   std::thread thread;                //!< Thread to perform offset animation on text
@@ -26,7 +28,7 @@ struct TextAnimation {
   std::atomic<bool> enabled = false;  //!< Flag to control thread animation
   std::string text;                   //!< Entry text to perform animation
 
-  std::function<void()> cb_update;  //!< Force an UI refresh
+  Callback cb_update;  //!< Force an UI refresh
 
   //! Destructor
   ~TextAnimation();

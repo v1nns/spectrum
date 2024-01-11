@@ -88,10 +88,12 @@ target_sources(
           view/block/main_content/spectrum_visualizer.cc
           view/block/main_content/song_lyric.cc
           view/block/sidebar_content/list_directory.cc
-          view/block/sidebar_content/playlist_manager.cc
+          view/block/sidebar_content/playlist_viewer.cc
           view/element/button.cc
           view/element/error_dialog.cc
           view/element/help.cc
+          view/element/internal/file_menu.cc
+          view/element/playlist_dialog.cc
           view/element/tab.cc
           view/element/text_animation.cc
           # logger

@@ -27,8 +27,6 @@ using ::testing::VariantWith;
  */
 class MainContentTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(95, 15);
@@ -1631,8 +1629,6 @@ class MockMainContentTest : public ::BlockTest {
   };
 
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(95, 15);

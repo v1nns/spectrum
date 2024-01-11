@@ -21,6 +21,7 @@
 #include "view/base/event_dispatcher.h"
 #include "view/element/error_dialog.h"
 #include "view/element/help.h"
+#include "view/element/playlist_dialog.h"
 
 //! Forward declaration
 namespace audio {
@@ -201,6 +202,19 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   void UpdateFocus(int old_index, int new_index);
 
+  /**
+   * @brief Check for all dialogs if any is opened
+   * @return true if any dialog is visible, otherwise false
+   */
+  bool IsDialogVisible() const {
+    return error_dialog_->IsVisible() || helper_->IsVisible() || playlist_dialog_->IsVisible();
+  }
+
+  /**
+   * @brief Get element to show as overlay (may be a dialog or nothing at all)
+   */
+  ftxui::Element GetOverlay() const;
+
   /* ******************************************************************************************** */
   //! Default Constants
 
@@ -215,6 +229,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   //!< Dialog box to show customized error messages
   std::unique_ptr<ErrorDialog> error_dialog_ = std::make_unique<ErrorDialog>();
+
+  //!< Dialog box to manage playlists
+  std::unique_ptr<PlaylistDialog> playlist_dialog_ = std::make_unique<PlaylistDialog>();
+
   std::unique_ptr<Help> helper_ = std::make_unique<Help>();  //!< Dialog box to show help menu
 
   //! Custom event receiver

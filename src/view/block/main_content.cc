@@ -41,11 +41,15 @@ ftxui::Element MainContent::Render() {
   // Toggle flag only if it was enabled
   if (is_fullscreen_) is_fullscreen_ = false;
 
+  auto block_focused = IsFocused();
+  auto active_button = tab_elem_.active();
+
   ftxui::Elements buttons;
 
   // Append tab buttons
   for (const auto& [id, item] : tab_elem_.items()) {
-    buttons.emplace_back(item->GetButton()->Render());
+    buttons.emplace_back(item->GetButton()->Render() |
+                         (block_focused && id == active_button ? ftxui::bold : ftxui::nothing));
   }
 
   // Append general buttons
@@ -169,9 +173,9 @@ bool MainContent::OnMouseEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 void MainContent::CreateButtons() {
-  const auto button_style = Button::ButtonStyle{
+  const auto button_style = Button::Style{
       .focused =
-          Button::ButtonStyle::State{
+          Button::Style::State{
               .foreground = ftxui::Color::GrayLight,
               .background = ftxui::Color::GrayDark,
           },

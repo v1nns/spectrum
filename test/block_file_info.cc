@@ -15,8 +15,6 @@ using ::testing::StrEq;
  */
 class FileInfoTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(32, 15);
