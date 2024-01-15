@@ -1,7 +1,7 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
-#include <gtest/gtest-message.h>    // for Message
-#include <gtest/gtest-test-part.h>  // for TestPartResult
+#include <gtest/gtest-message.h>
+#include <gtest/gtest-test-part.h>
 
 #include <cmath>
 #include <iostream>
@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "audio/driver/fftw.h"
-#include "model/application_error.h"
 #include "util/logger.h"
 
 namespace {

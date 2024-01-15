@@ -1,18 +1,18 @@
 
-#include <gmock/gmock-matchers.h>   // for StrEq, EXPECT_THAT
-#include <gtest/gtest-message.h>    // for Message
-#include <gtest/gtest-test-part.h>  // for TestPartResult
+#include <gmock/gmock-matchers.h>
+#include <gtest/gtest-message.h>
+#include <gtest/gtest-test-part.h>
 
-#include <filesystem>  // for current_path, path
-#include <memory>      // for __shared_ptr_access
+#include <filesystem>
+#include <memory>
 
-#include "ftxui/component/component.hpp"       // for Make
-#include "ftxui/component/component_base.hpp"  // for Component, ComponentBase
-#include "ftxui/component/event.hpp"           // for Event, Event::ArrowDown
-#include "ftxui/dom/node.hpp"                  // for Render
-#include "ftxui/screen/screen.hpp"             // for Screen
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/component_base.hpp"
+#include "ftxui/component/event.hpp"
+#include "ftxui/dom/node.hpp"
+#include "ftxui/screen/screen.hpp"
 #include "general/block.h"
-#include "general/utils.h"  // for FilterAnsiCommands
+#include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/list_directory_mock.h"
 #include "view/base/keybinding.h"
@@ -24,7 +24,9 @@ namespace {
 using ::testing::AllOf;
 using ::testing::Eq;
 using ::testing::Field;
+using ::testing::HasSubstr;
 using ::testing::InSequence;
+using ::testing::Invoke;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -188,6 +190,11 @@ TEST_F(SidebarTest, NavigateToMockDir) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, EnterOnSearchMode) {
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
   block->OnEvent(ftxui::Event::Character('/'));
 
   ftxui::Render(*screen, block->Render());
@@ -217,6 +224,11 @@ TEST_F(SidebarTest, EnterOnSearchMode) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, SingleCharacterInSearchMode) {
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
   std::string typed{"/e"};
   utils::QueueCharacterEvents(*block, typed);
 
@@ -247,6 +259,15 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
+  // Setup expectation for event disabling/enabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
   std::string typed{"/mock"};
   utils::QueueCharacterEvents(*block, typed);
   block->OnEvent(ftxui::Event::Return);
@@ -278,6 +299,11 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, NonExistentTextInSearchMode) {
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
   std::string typed{"/inexistentfilename"};
   utils::QueueCharacterEvents(*block, typed);
   block->OnEvent(ftxui::Event::Return);
@@ -309,6 +335,15 @@ TEST_F(SidebarTest, NonExistentTextInSearchMode) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, EnterAndExitSearchMode) {
+  // Setup expectation for event disabling/enabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
   block->OnEvent(ftxui::Event::Character('/'));
   block->OnEvent(ftxui::Event::Escape);
 
@@ -334,6 +369,131 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
+  // Setup expectation for event disabling/enabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
+  std::string typed{"/q"};
+  utils::QueueCharacterEvents(*block, typed);
+  block->OnEvent(ftxui::Event::Escape);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│test                                │
+│▶ ..                                │
+│  audio_lyric_finder.cc             │
+│  audio_player.cc                   │
+│  block_file_info.cc                │
+│  block_main_content.cc             │
+│  block_media_player.cc             │
+│  block_sidebar.cc                  │
+│  CMakeLists.txt                    │
+│  driver_fftw.cc                    │
+│  general                           │
+│  middleware_media_controller.cc    │
+│  mock                              │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  // Setup expectation for file selection
+  std::filesystem::path file{std::string(LISTDIR_PATH) + "/audio_player.cc"};
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::filesystem::path>(file)))))
+      .WillOnce(Invoke([&](const interface::CustomEvent&) {
+        // As we don't have an instance of Terminal, process custom event directly
+        auto derived = GetListDirectory();
+
+        // Send event simulating the audio thread notifying that is playing a new song
+        auto update_song = interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = file});
+        derived->OnCustomEvent(update_song);
+      }));
+
+  std::string typed{"/player"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Setup expectation for event enabling global mode again
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+  block->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│test                                │
+│  ..                                │
+│  audio_lyric_finder.cc             │
+│▶ audio_player.cc                   │
+│  block_file_info.cc                │
+│  block_main_content.cc             │
+│  block_media_player.cc             │
+│  block_sidebar.cc                  │
+│  CMakeLists.txt                    │
+│  driver_fftw.cc                    │
+│  general                           │
+│  middleware_media_controller.cc    │
+│  mock                              │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  typed = "/..";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Setup expectation for event enabling global mode again
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+  block->OnEvent(ftxui::Event::Return);
+
+  // Clear screen and check for new render state
+  screen->Clear();
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│spectrum                            │
+│▶ ..                                │)";
+
+  // Instead of checking for the whole list, just check that changed the base directory
+  EXPECT_THAT(rendered, HasSubstr(expected));
 }
 
 /* ********************************************************************************************** */

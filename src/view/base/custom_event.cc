@@ -114,6 +114,14 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "Refresh";
       break;
 
+    case CustomEvent::Identifier::EnableGlobalEvent:
+      out << "EnableGlobalEvent";
+      break;
+
+    case CustomEvent::Identifier::DisableGlobalEvent:
+      out << "DisableGlobalEvent";
+      break;
+
     case CustomEvent::Identifier::ChangeBarAnimation:
       out << "ChangeBarAnimation";
       break;
@@ -330,6 +338,24 @@ CustomEvent CustomEvent::Refresh() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::Refresh,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::EnableGlobalEvent() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::EnableGlobalEvent,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::DisableGlobalEvent() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::DisableGlobalEvent,
   };
 }
 

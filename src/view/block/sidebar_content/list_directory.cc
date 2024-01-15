@@ -1,15 +1,15 @@
 #include "view/block/sidebar_content/list_directory.h"
 
-#include <algorithm>   // for for_each, search, sort
-#include <filesystem>  // for path, directory_iterator
+#include <algorithm>
+#include <filesystem>
 #include <ftxui/dom/elements.hpp>
 #include <iomanip>
-#include <memory>  // for shared_ptr, __shared_p...
+#include <memory>
 
-#include "ftxui/component/component.hpp"       // for Input
-#include "ftxui/component/component_base.hpp"  // for Component, ComponentBase
-#include "ftxui/component/event.hpp"           // for Event
-#include "ftxui/screen/color.hpp"              // for Color
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/component_base.hpp"
+#include "ftxui/component/event.hpp"
+#include "ftxui/screen/color.hpp"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
@@ -25,6 +25,8 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
       file_handler_(file_handler),
       max_columns_(max_columns),
       menu_(menu::CreateFileMenu(
+          dispatcher,
+
           // Callback to force a UI refresh
           [this] {
             auto disp = dispatcher_.lock();
@@ -114,13 +116,13 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
 
     // Update highlighted entry in menu
     menu_->ResetSearch();
-    // file_menu_.SetEntryHighlighted(*curr_playing_);
+    menu_->SetEntryHighlighted(*curr_playing_);
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     curr_playing_.reset();
-    // file_menu_.ResetHighlight();
+    menu_->ResetHighlight();
   }
 
   if (event == CustomEvent::Identifier::PlaySong) {
@@ -234,7 +236,7 @@ std::filesystem::path ListDirectory::ComposeDirectoryPath(const std::string& opt
     auto tmp = std::filesystem::canonical(clean_path);
     filepath = tmp;
   } catch (...) {
-    ERROR("Invalid path, tried to compose canonical path using ", std::quoted(optional_path));
+    ERROR("Invalid path, tried to compose canonical path using ", std::quoted(clean_path));
   }
 
   return filepath;
@@ -254,6 +256,8 @@ bool ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
 
     return false;
   }
+
+  LOG("Updating list with new entries, size=", tmp.size());
 
   // Reset internal values
   curr_dir_ = dir_path;

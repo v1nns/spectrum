@@ -7,12 +7,9 @@
 #define INCLUDE_MODEL_AUDIO_FILTER_H_
 
 #include <array>
-#include <cstdio>
-#include <fstream>
 #include <functional>
 #include <map>
 #include <ostream>
-#include <sstream>
 #include <string>
 
 namespace model {

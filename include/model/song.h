@@ -7,12 +7,9 @@
 #define INCLUDE_MODEL_SONG_H_
 
 #include <cstdint>
-#include <cstdio>
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <ostream>
-#include <sstream>
 #include <string>
 
 namespace model {

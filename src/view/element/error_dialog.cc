@@ -1,7 +1,5 @@
 #include "view/element/error_dialog.h"
 
-#include "view/base/keybinding.h"
-
 namespace interface {
 
 ErrorDialog::ErrorDialog()

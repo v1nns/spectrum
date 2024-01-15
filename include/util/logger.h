@@ -6,10 +6,7 @@
 #ifndef INCLUDE_UTIL_LOGGER_H_
 #define INCLUDE_UTIL_LOGGER_H_
 
-#include <chrono>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -103,6 +100,7 @@ class Logger {
 
   /* ******************************************************************************************** */
   //! Variables
+
   std::mutex mutex_;            //!< Control access for internal resources
   std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
 };

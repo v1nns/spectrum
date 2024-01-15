@@ -14,11 +14,13 @@
 #include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
 #include "view/element/text_animation.h"
 #include "view/element/util.h"
 
 namespace interface {
+namespace internal {
 
 /**
  * @brief Interface for customized menu list (using CRTP pattern for static polymorphism)
@@ -69,10 +71,12 @@ class Menu {
 
   /**
    * @brief Construct a new Menu object (called by derived class constructor)
+   * @param dispatcher Event dispatcher
    * @param force_refresh Callback function to force UI update
    */
-  explicit Menu(const TextAnimation::Callback& force_refresh)
-      : animation_{TextAnimation{.cb_update = force_refresh}} {}
+  explicit Menu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                const TextAnimation::Callback& force_refresh)
+      : dispatcher_{dispatcher}, animation_{TextAnimation{.cb_update = force_refresh}} {}
 
  public:
   /**
@@ -237,7 +241,7 @@ class Menu {
       if (event_handled) ResetSearch();
     }
 
-    LOG_IF(event_handled, "Handle menu navigation key=", std::quoted(util::EventToString(event)));
+    LOG_IF(event_handled, "Handled menu navigation key=", std::quoted(util::EventToString(event)));
     return event_handled;
   }
 
@@ -287,16 +291,14 @@ class Menu {
     // Quit search mode
     if (event == Keybind::Escape) {
       LOG("Exit from search mode in menu");
-      search_params_.reset();
+      ResetSearch();
+
       event_handled = true;
       exit_from_search_mode = true;
     }
 
-    if (event_handled) {
-      if (!exit_from_search_mode) RefreshSearchList();
-
-      // Check if must enable text animation
-      UpdateActiveEntry();
+    if (event_handled && !exit_from_search_mode) {
+      RefreshSearchList();
     }
 
     return event_handled;
@@ -317,10 +319,11 @@ class Menu {
    */
   template <typename T>
   void SetEntries(const T& entries) {
+    LOG("Set a new list of entries");
     actual().SetEntriesImpl(entries);
 
-    Clamp();
     ResetState();
+    Clamp();
   }
 
   /**
@@ -329,6 +332,7 @@ class Menu {
    */
   template <typename T>
   void Emplace(const T& entry) {
+    LOG("Emplace a new entry to list");
     actual().EmplaceImpl(entry);
     Clamp();
   }
@@ -338,9 +342,15 @@ class Menu {
    * @param new_index Index to force select/focus state
    */
   void ResetState(int new_index = 0) {
+    LOG("Reset state with new index=", new_index);
     selected_ = new_index;
     focused_ = new_index;
-    ResetSearch();
+
+    int size = GetSize();
+
+    selected_ = clamp(selected_, 0, size - 1);
+    focused_ = clamp(focused_, 0, size - 1);
+    // ResetSearch();
   }
 
   /* ******************************************************************************************** */
@@ -362,16 +372,18 @@ class Menu {
   std::vector<ftxui::Box>& GetBoxes() { return boxes_; }
 
   //! Getter for selected index
-  int* GetSelected() { return search_params_ ? &search_params_->selected : &selected_; }
+  int* GetSelected() { return search_params_.has_value() ? &search_params_->selected : &selected_; }
 
   //! Getter for selected index (const)
-  int GetSelected() const { return search_params_ ? search_params_->selected : selected_; }
+  int GetSelected() const {
+    return search_params_.has_value() ? search_params_->selected : selected_;
+  }
 
   //! Getter for focused index
-  int* GetFocused() { return search_params_ ? &search_params_->focused : &focused_; }
+  int* GetFocused() { return search_params_.has_value() ? &search_params_->focused : &focused_; }
 
   //! Getter for focused index (const)
-  int GetFocused() const { return search_params_ ? search_params_->focused : focused_; }
+  int GetFocused() const { return search_params_.has_value() ? search_params_->focused : focused_; }
 
   //! Getter for maximum columns
   int GetMaxColumns() const { return max_columns_; }
@@ -383,8 +395,25 @@ class Menu {
   std::string GetTextFromAnimation() const { return animation_.text; }
 
   /* ******************************************************************************************** */
-  //! Search mode
+  //! Highlight entry
+ public:
+  /**
+   * @brief Set entry to be highlighted
+   * @param entry Menu entry to get highlight
+   */
+  template <typename T>
+  void SetEntryHighlighted(const T& entry) {
+    actual().SetEntryHighlightedImpl(entry);
+  }
 
+  /**
+   * @brief Reset highlighted entry
+   */
+  void ResetHighlight() { actual().ResetHighlightImpl(); }
+
+  /* ******************************************************************************************** */
+  //! Search mode
+ protected:
   //! Getter for search parameters
   const std::optional<Search>& GetSearch() const { return search_params_; }
 
@@ -397,8 +426,15 @@ class Menu {
    */
   void EnableSearch() {
     LOG("Enable search mode");
-    search_params_ = Search{};
+    search_params_ = Search{.selected = selected_, .focused = focused_};
     actual().FilterEntriesBy(search_params_->text_to_search);
+
+    // Send user action to controller, disable global events
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return;
+
+    auto event_global = interface::CustomEvent::DisableGlobalEvent();
+    dispatcher->SendEvent(event_global);
   }
 
   /**
@@ -407,9 +443,19 @@ class Menu {
   void ResetSearch() {
     if (!search_params_.has_value()) return;
 
+    LOG("Reset search mode");
+
+    // Send user action to controller, enable global events again
+    if (auto dispatcher = dispatcher_.lock(); dispatcher) {
+      auto event_global = interface::CustomEvent::EnableGlobalEvent();
+      dispatcher->SendEvent(event_global);
+    }
+
     // Reset search parameters and entries
     search_params_.reset();
     actual().ResetSearchImpl();
+
+    Clamp();
 
     // Update active entry (to enable/disable text animation)
     UpdateActiveEntry();
@@ -420,13 +466,13 @@ class Menu {
   void RefreshSearchList() {
     LOG("Refresh list on search mode, text=", std::quoted(search_params_->text_to_search));
 
-    search_params_->selected = 0;
-    search_params_->focused = 0;
-
     // Trigger callback (from derived class) to filter entries
     actual().FilterEntriesBy(search_params_->text_to_search);
 
     Clamp();
+
+    // Check if must enable text animation
+    UpdateActiveEntry();
   }
 
   /* ******************************************************************************************** */
@@ -437,8 +483,11 @@ class Menu {
     int size = GetSize();
     boxes_.resize(size);
 
-    selected_ = clamp(selected_, 0, size - 1);
-    focused_ = clamp(focused_, 0, size - 1);
+    int* selected = IsSearchEnabled() ? &search_params_->selected : &selected_;
+    int* focused = IsSearchEnabled() ? &search_params_->focused : &focused_;
+
+    *selected = clamp(*selected, 0, size - 1);
+    *focused = clamp(*focused, 0, size - 1);
   }
 
   //! Update content from active entry (decides if text_animation should run or not)
@@ -446,19 +495,19 @@ class Menu {
     // Stop animation thread
     animation_.Stop();
 
-    if (max_columns_ && GetSize() > 0) {
-      std::string text = GetActiveEntryAsText();
+    if (!max_columns_ || !GetSize()) return;
 
-      int count_chars = (int)text.length() + kMaxIconColumns;
+    std::string text = GetActiveEntryAsText();
+    int count_chars = (int)text.length() + kMaxIconColumns;
 
-      // Start animation thread
-      if (count_chars > max_columns_) animation_.Start(text);
-    }
+    // Start animation thread
+    if (count_chars > max_columns_) animation_.Start(text);
   }
 
   /* ******************************************************************************************** */
   //! Variables
  private:
+  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   int max_columns_ = 0;  //!< Maximum value of columns available to render text
 
   ftxui::Box box_;                 //!< Box to control if mouse cursor is over the menu
@@ -475,5 +524,6 @@ class Menu {
   TextAnimation animation_;  //!< Text animation for selected entry
 };
 
+}  // namespace internal
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_MENU_H_

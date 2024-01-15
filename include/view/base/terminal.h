@@ -8,10 +8,8 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/component/component_base.hpp"  // for Component
+#include "ftxui/component/component_base.hpp"
 #include "ftxui/component/receiver.hpp"
 #include "middleware/media_controller.h"
 #include "model/application_error.h"
@@ -38,6 +36,9 @@ using Callback = std::function<void()>;
  * @brief Manages the whole screen and contains all block views
  */
 class Terminal : public EventDispatcher, public ftxui::ComponentBase {
+  static constexpr int kMaxBlocks = 4;      //!< Maximum number of blocks (used for focus control)
+  static constexpr int kInvalidIndex = -1;  //!< Default index to remove focus from blocks
+
   //! Unique index for each block rendered by terminal class
   //! WARNING: focus handling will obey this block order
   static constexpr int kBlockSidebar = 0;
@@ -216,12 +217,6 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   ftxui::Element GetOverlay() const;
 
   /* ******************************************************************************************** */
-  //! Default Constants
-
-  static constexpr int kMaxBlocks = 4;      //!< Maximum number of blocks (used for focus control)
-  static constexpr int kInvalidIndex = -1;  //!< Default index to remove focus from blocks
-
-  /* ******************************************************************************************** */
   //! Variables
 
   std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
@@ -245,6 +240,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   ftxui::Dimensions size_ = ftxui::Terminal::Size();  //!< Terminal maximum size
   int focused_index_ = 0;                             //!< Index of focused block
 
+  bool global_mode_ = true;       //!< Control flag to process events in global mode
   bool fullscreen_mode_ = false;  //!< Control flag to show spectrum visualizer in fullscreen
 };
 

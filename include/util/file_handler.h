@@ -10,7 +10,6 @@
 #include <vector>
 
 #include "model/playlist.h"
-#include "nlohmann/json.hpp"
 
 namespace util {
 

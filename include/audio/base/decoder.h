@@ -7,7 +7,6 @@
 #define INCLUDE_AUDIO_BASE_DECODER_H_
 
 #include <functional>
-#include <vector>
 
 #include "model/application_error.h"
 #include "model/audio_filter.h"

@@ -8,8 +8,6 @@
 
 #include <math.h>
 
-#include <cstdio>
-#include <fstream>
 #include <ostream>
 #include <sstream>
 #include <string>

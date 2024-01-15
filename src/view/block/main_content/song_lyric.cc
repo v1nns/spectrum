@@ -1,11 +1,9 @@
 #include "view/block/main_content/song_lyric.h"
 
 #include <algorithm>
-#include <cmath>
 #include <ftxui/dom/elements.hpp>
 #include <optional>
 #include <string>
-#include <thread>
 
 #include "audio/lyric/lyric_finder.h"
 #include "util/formatter.h"

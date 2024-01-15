@@ -7,8 +7,6 @@
 #define INCLUDE_DEBUG_DUMMY_DECODER_H_
 
 #include <functional>
-#include <map>
-#include <vector>
 
 #include "audio/base/decoder.h"
 #include "model/application_error.h"

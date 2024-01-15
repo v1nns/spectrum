@@ -2,12 +2,10 @@
 
 #include <cstdlib>
 #include <sstream>
-#include <utility>  // for move
-#include <vector>   // for vector
+#include <utility>
 
 #include "ftxui/component/component.hpp"
-#include "ftxui/component/component_options.hpp"
-#include "ftxui/component/event.hpp"  // for Event
+#include "ftxui/component/event.hpp"
 #include "model/volume.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"

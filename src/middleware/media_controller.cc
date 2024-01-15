@@ -1,6 +1,5 @@
 #include "middleware/media_controller.h"
 
-#include <string>
 #include <thread>
 
 #ifndef SPECTRUM_DEBUG
@@ -10,7 +9,6 @@
 #endif
 
 #include "audio/player.h"
-#include "ftxui/component/event.hpp"
 #include "model/application_error.h"
 #include "model/song.h"
 #include "util/logger.h"

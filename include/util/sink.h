@@ -7,11 +7,8 @@
 #define INCLUDE_UTIL_SINK_H_
 
 #include <chrono>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <memory>
-#include <sstream>
 #include <string>
 
 namespace util {

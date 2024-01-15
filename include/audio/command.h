@@ -9,7 +9,6 @@
 #include <iostream>
 #include <string>
 #include <variant>
-#include <vector>
 
 #include "model/audio_filter.h"
 #include "model/volume.h"
@@ -66,9 +65,8 @@ struct Command {
   T GetContent() const {
     if (std::holds_alternative<T>(content)) {
       return std::get<T>(content);
-    } else {
-      return T();
     }
+    return T();
   }
 
   //! Variables

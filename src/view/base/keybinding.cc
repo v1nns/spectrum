@@ -1,7 +1,5 @@
 #include "view/base/keybinding.h"
 
-#include <utility>
-
 namespace interface {
 
 namespace keybinding {

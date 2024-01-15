@@ -9,6 +9,7 @@
 #include <fstream>
 #include <set>
 
+#include "nlohmann/json.hpp"
 #include "util/logger.h"
 
 namespace util {

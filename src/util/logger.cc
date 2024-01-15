@@ -1,7 +1,5 @@
 #include "util/logger.h"
 
-#include <iostream>
-
 namespace util {
 
 std::string get_timestamp() {

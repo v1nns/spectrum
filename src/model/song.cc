@@ -1,12 +1,8 @@
 #include "model/song.h"
 
-#include <math.h>
-
-#include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include <string_view>
 
 #include "util/formatter.h"
 

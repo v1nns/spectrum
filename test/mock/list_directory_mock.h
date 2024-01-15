@@ -6,14 +6,14 @@
 #ifndef INCLUDE_TEST_LIST_DIRECTORY_MOCK_H_
 #define INCLUDE_TEST_LIST_DIRECTORY_MOCK_H_
 
-#include <gmock/gmock-actions.h>          // for GMOCK_PP_INTERNAL_IF_0, GMO...
-#include <gmock/gmock-function-mocker.h>  // for GMOCK_INTERNAL_DETECT_OVERR...
-#include <gmock/gmock-spec-builders.h>    // for FunctionMocker, MockSpec
+#include <gmock/gmock-actions.h>
+#include <gmock/gmock-function-mocker.h>
+#include <gmock/gmock-spec-builders.h>
 
-#include <memory>  // for shared_ptr
-#include <string>  // for string
+#include <memory>
+#include <string>
 
-#include "view/block/sidebar_content/list_directory.h"  // for ListDirectory
+#include "view/block/sidebar_content/list_directory.h"
 
 namespace {
 

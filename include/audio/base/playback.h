@@ -7,6 +7,7 @@
 #define INCLUDE_AUDIO_BASE_PLAYBACK_H_
 
 #include <cstdint>
+
 #include "model/application_error.h"
 #include "model/volume.h"
 

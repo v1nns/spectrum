@@ -1,11 +1,19 @@
 #include "view/element/tab.h"
 
+#include <iomanip>
+
 #include "util/formatter.h"
 #include "util/logger.h"
 
 namespace interface {
 
 /* ****************************************** TabItem ******************************************* */
+
+//!  TabItem pretty print
+std::ostream& operator<<(std::ostream& out, const TabItem& item) {
+  out << std::quoted(item.title_);
+  return out;
+}
 
 Button::Style TabItem::kTabButtonStyle = Button::Style{
     .normal =

@@ -24,7 +24,6 @@ namespace interface {
 
 namespace internal {
 class FileMenu : public Menu<FileMenu> {
- private:
   friend class Menu;
 
   //! Put together all possible styles for an entry in this component
@@ -45,10 +44,12 @@ class FileMenu : public Menu<FileMenu> {
 
   /**
    * @brief Construct a new FileMenu object
+   * @param dispatcher Event dispatcher
    * @param force_refresh Callback function to update UI
    * @param on_click Callback function for click event on active entry
    */
-  explicit FileMenu(const TextAnimation::Callback& force_refresh, const Callback& on_click);
+  explicit FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                    const TextAnimation::Callback& force_refresh, const Callback& on_click);
 
   /**
    * @brief Destroy Menu object
@@ -102,12 +103,22 @@ class FileMenu : public Menu<FileMenu> {
 
   //! Getter for active entry (focused/selected)
   std::optional<util::File> GetActiveEntryImpl() const {
+    int size = GetSizeImpl();
+
     // Empty list
-    if (!GetSize()) return std::nullopt;
+    if (!size) return std::nullopt;
 
     // Get active entry
+    std::optional<util::File> entry = std::nullopt;
     int index = GetSelected();
-    return IsSearchEnabled() ? filtered_entries_->at(index) : entries_.at(index);
+
+    // Check for boundary and if vector not empty
+    if (index >= size || entries_.empty() ||
+        (filtered_entries_.has_value() && filtered_entries_->empty()))
+      return entry;
+
+    entry = IsSearchEnabled() ? filtered_entries_->at(index) : entries_.at(index);
+    return entry;
   }
 
   //! Reset search mode (if enabled) and highlight the given entry

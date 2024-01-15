@@ -1,10 +1,8 @@
 #include "view/block/file_info.h"
 
 #include <string>
-#include <utility>  // for move
-#include <vector>   // for vector
 
-#include "ftxui/component/event.hpp"  // for Event
+#include "ftxui/component/event.hpp"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 

@@ -92,10 +92,11 @@ target_sources(
           view/element/button.cc
           view/element/error_dialog.cc
           view/element/help.cc
-          view/element/internal/file_menu.cc
+          view/element/menu.cc
           view/element/playlist_dialog.cc
           view/element/tab.cc
           view/element/text_animation.cc
+          view/element/internal/file_menu.cc
           # logger
           util/arg_parser.cc
           util/file_handler.cc

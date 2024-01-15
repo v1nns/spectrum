@@ -11,8 +11,9 @@
 namespace interface {
 namespace internal {
 
-FileMenu::FileMenu(const TextAnimation::Callback& force_refresh, const Callback& on_click)
-    : Menu(std::move(force_refresh)), on_click_{on_click} {}
+FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                   const TextAnimation::Callback& force_refresh, const Callback& on_click)
+    : Menu(dispatcher, force_refresh), on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 
@@ -130,7 +131,7 @@ void FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
     return;
   }
 
-  highlighted_ = entry;
+  highlighted_ = *it;
 
   // To get a better experience, update focused and select indexes,
   // to highlight current playing song entry in list

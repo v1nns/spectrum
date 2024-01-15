@@ -39,6 +39,7 @@ struct CustomEvent {
     UpdateSongInfo = 50002,
     UpdateSongState = 50003,
     DrawAudioSpectrum = 50004,
+
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
@@ -50,20 +51,23 @@ struct CustomEvent {
     SeekBackwardPosition = 60007,
     ApplyAudioFilters = 60008,
     NotifyPlaylistSelection = 60009,
+
     // Events from interface to interface
     Refresh = 70000,
-    ChangeBarAnimation = 70001,
-    ShowHelper = 70002,
-    CalculateNumberOfBars = 70003,
-    SetPreviousFocused = 70004,
-    SetNextFocused = 70005,
-    SetFocused = 70006,
-    PlaySong = 70007,
-    ToggleFullscreen = 70008,
-    UpdateBarWidth = 70009,
-    SkipToNextSong = 70010,
-    SkipToPreviousSong = 70011,
-    Exit = 70012,
+    EnableGlobalEvent = 70001,
+    DisableGlobalEvent = 70002,
+    ChangeBarAnimation = 70003,
+    ShowHelper = 70004,
+    CalculateNumberOfBars = 70005,
+    SetPreviousFocused = 70006,
+    SetNextFocused = 70007,
+    SetFocused = 70008,
+    PlaySong = 70009,
+    ToggleFullscreen = 70010,
+    UpdateBarWidth = 70011,
+    SkipToNextSong = 70012,
+    SkipToPreviousSong = 70013,
+    Exit = 70014,
   };
 
   //! Overloaded operators
@@ -95,6 +99,8 @@ struct CustomEvent {
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
+  static CustomEvent EnableGlobalEvent();
+  static CustomEvent DisableGlobalEvent();
   static CustomEvent ChangeBarAnimation(const model::BarAnimation& animation);
   static CustomEvent ShowHelper();
   static CustomEvent CalculateNumberOfBars(int number);

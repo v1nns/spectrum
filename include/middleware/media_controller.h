@@ -6,7 +6,6 @@
 #ifndef INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>

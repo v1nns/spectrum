@@ -1,9 +1,8 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 
 #include "general/block.h"
-#include "general/utils.h"  // for FilterAnsiCommands
+#include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
-#include "util/logger.h"
 #include "view/block/media_player.h"
 
 namespace {

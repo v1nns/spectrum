@@ -7,7 +7,6 @@
 #define INCLUDE_AUDIO_BASE_NOTIFIER_H_
 
 #include <filesystem>
-#include <vector>
 
 #include "model/audio_filter.h"
 #include "model/playlist.h"

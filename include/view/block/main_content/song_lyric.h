@@ -12,7 +12,6 @@
 #include <string_view>
 
 #include "audio/lyric/base/html_parser.h"
-#include "audio/lyric/base/url_fetcher.h"
 #include "audio/lyric/lyric_finder.h"
 #include "model/song.h"
 #include "view/element/tab.h"

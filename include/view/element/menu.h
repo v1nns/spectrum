@@ -12,7 +12,7 @@
 namespace interface {
 
 //! Aliases for all existing menu specializations
-using FileMenu = std::unique_ptr<Menu<internal::FileMenu>>;
+using FileMenu = std::unique_ptr<internal::Menu<internal::FileMenu>>;
 
 /* --------------------------------------- Menu creation ---------------------------------------- */
 
@@ -20,13 +20,13 @@ namespace menu {
 
 /**
  * @brief Construct a new FileMenu object
+ * @param dispatcher Event dispatcher
  * @param force_refresh Callback function to update UI
  * @param on_click Callback function for click event on active entry
  */
-inline FileMenu CreateFileMenu(const TextAnimation::Callback& force_refresh,
-                               const internal::FileMenu::Callback& on_click) {
-  return std::make_unique<internal::FileMenu>(force_refresh, on_click);
-}
+FileMenu CreateFileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                        const TextAnimation::Callback& force_refresh,
+                        const internal::FileMenu::Callback& on_click);
 
 }  // namespace menu
 }  // namespace interface

@@ -9,7 +9,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
@@ -71,6 +70,9 @@ class TabItem {
 
   //! Get border button
   const WindowButton& GetButton() const { return button_; }
+
+  //! Output tab item to ostream
+  friend std::ostream& operator<<(std::ostream& out, const TabItem& item);
 
   /* ******************************************************************************************** */
   //! Variables

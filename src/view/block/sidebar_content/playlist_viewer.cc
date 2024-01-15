@@ -4,10 +4,8 @@
 #include <optional>
 #include <string>
 
-#include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
-#include "view/element/util.h"
 
 namespace interface {
 

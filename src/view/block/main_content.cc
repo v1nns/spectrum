@@ -95,8 +95,8 @@ bool MainContent::OnEvent(ftxui::Event event) {
 
     // Change tab item selected
     if (tab_elem_.active() != found->first) {
-      // TODO: instead of index, print view name
-      LOG("Handle key to change tab item selected from ", tab_elem_.active(), " to ", found->first);
+      LOG("Handle key to change tab item selected from ", *tab_elem_.active_item(), " to ",
+          *found->second);
       tab_elem_.SetActive(found->first);
     }
 

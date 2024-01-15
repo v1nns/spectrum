@@ -1,16 +1,13 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 
 #include <memory>
 
-#include "audio/lyric/search_config.h"
 #include "general/block.h"
-#include "general/utils.h"  // for FilterAnsiCommands
+#include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/lyric_finder_mock.h"
-#include "util/logger.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/song_lyric.h"
-#include "view/block/main_content/spectrum_visualizer.h"
 
 namespace {
 

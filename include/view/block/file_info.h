@@ -6,13 +6,11 @@
 #ifndef INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 #define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
-#include <memory>  // for shared_ptr, unique_ptr
-#include <string>  // for string
+#include <memory>
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/dom/elements.hpp"              // for Element
-#include "model/song.h"                        // for Song
-#include "view/base/block.h"                   // for Block, BlockEvent (ptr...
+#include "ftxui/dom/elements.hpp"
+#include "model/song.h"
+#include "view/base/block.h"
 
 namespace interface {
 

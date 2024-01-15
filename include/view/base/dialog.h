@@ -6,8 +6,8 @@
 #ifndef INCLUDE_VIEW_ELEMENT_DIALOG_H_
 #define INCLUDE_VIEW_ELEMENT_DIALOG_H_
 
-#include "ftxui/component/event.hpp"  // for Event
-#include "ftxui/dom/elements.hpp"     // for Element
+#include "ftxui/component/event.hpp"
+#include "ftxui/dom/elements.hpp"
 
 namespace interface {
 

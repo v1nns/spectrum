@@ -14,7 +14,7 @@
 #include <sstream>
 #include <string>
 
-#include "ftxui/component/event.hpp"  // for Event
+#include "ftxui/component/event.hpp"
 
 namespace util {
 

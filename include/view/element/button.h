@@ -9,10 +9,9 @@
 #include <memory>
 #include <string>
 #include <tuple>
-#include <utility>
 
-#include "ftxui/component/event.hpp"  // for Event
-#include "ftxui/dom/elements.hpp"     // for Element
+#include "ftxui/component/event.hpp"
+#include "ftxui/dom/elements.hpp"
 
 namespace interface {
 

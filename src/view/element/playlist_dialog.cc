@@ -3,8 +3,6 @@
 #include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 
-#include "view/base/keybinding.h"
-
 namespace interface {
 
 PlaylistDialog::PlaylistDialog()
@@ -72,7 +70,7 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
 
   if (btn_remove_->OnMouseEvent(event)) return true;
 
-  return true;
+  return false;
 }
 
 /* ********************************************************************************************** */

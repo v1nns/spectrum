@@ -1,19 +1,15 @@
 
 #include "view/base/terminal.h"
 
-#include <stdlib.h>  // for exit, EXIT_FAILURE
-
 #include <cmath>
-#include <functional>  // for function
+#include <functional>
 #include <memory>
 #include <set>
-#include <utility>  // for move
 
-#include "ftxui/component/component.hpp"           // for CatchEvent, Make
-#include "ftxui/component/event.hpp"               // for Event
-#include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/event.hpp"
+#include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
-#include "model/bar_animation.h"
 #include "model/block_identifier.h"
 #include "util/logger.h"
 #include "view/base/block.h"
@@ -167,7 +163,7 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (playlist_dialog_->IsVisible()) return playlist_dialog_->OnEvent(event);
 
   // Global commands
-  if (OnGlobalModeEvent(event)) return true;
+  if (global_mode_ && OnGlobalModeEvent(event)) return true;
 
   // If fullscreen mode is enabled, only a subset of blocks are able to handle this event
   if (fullscreen_mode_) return OnFullscreenModeEvent(event);
@@ -458,6 +454,11 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
   // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
   // size and calculate maximum number of bars
   switch (event.GetId()) {
+    case CustomEvent::Identifier::DisableGlobalEvent:
+    case CustomEvent::Identifier::EnableGlobalEvent: {
+      global_mode_ = event.GetId() == CustomEvent::Identifier::EnableGlobalEvent ? true : false;
+    } break;
+
     case CustomEvent::Identifier::ChangeBarAnimation:
     case CustomEvent::Identifier::UpdateBarWidth: {
       // Recalculate maximum number of bars to show in spectrum visualizer

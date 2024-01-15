@@ -1,7 +1,7 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
-#include <gtest/gtest-message.h>    // for Message
-#include <gtest/gtest-test-part.h>  // for TestPartResult
+#include <gtest/gtest-message.h>
+#include <gtest/gtest-test-part.h>
 
 #include <chrono>
 #include <memory>
