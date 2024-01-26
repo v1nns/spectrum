@@ -39,6 +39,7 @@ class Button {
     State normal;    //!< Colors for normal state
     State focused;   //!< Colors for focused state
     State selected;  //!< Colors for selected state
+    State pressed;   //!< Colors for pressed state
 
     ftxui::Decorator decorator;  //!< Style decorator for content
 
@@ -105,6 +106,16 @@ class Button {
   static std::shared_ptr<Button> make_button_for_window(const std::string& content,
                                                         const Callback& on_click,
                                                         const Style& style);
+
+  /**
+   * @brief Create a minimal button
+   * @param content Text content to show
+   * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
+   * @return std::shared_ptr<Button> New instance to Window button
+   */
+  static std::shared_ptr<Button> make_button_minimal(const std::string& content,
+                                                     const Callback& on_click, const Style& style);
 
   /**
    * @brief Create generic button

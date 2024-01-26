@@ -1,11 +1,11 @@
 #include "view/block/main_content/song_lyric.h"
 
 #include <algorithm>
-#include <ftxui/dom/elements.hpp>
 #include <optional>
 #include <string>
 
 #include "audio/lyric/lyric_finder.h"
+#include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
@@ -16,6 +16,10 @@ SongLyric::SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
                      const FocusCallback& on_focus, const keybinding::Key& keybinding)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
+
+/* ********************************************************************************************** */
+
+SongLyric::~SongLyric() { async_fetcher_.reset(); }
 
 /* ********************************************************************************************** */
 
@@ -33,8 +37,9 @@ ftxui::Element SongLyric::Render() {
 
   if (IsResultReady()) {
     // It is not that great to have this inside Render(), but it is working fine...
-    // TODO: Must rethink this in the near future.
-    if (auto result = async_fetcher_.get(); result) lyrics_ = *result;
+    // TODO: Must rethink this in the near "future"
+    // Use something like producer/consumer and remove std::future
+    if (auto result = async_fetcher_->get(); result) lyrics_ = *result;
   }
 
   if (lyrics_.empty()) {
@@ -83,7 +88,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     audio_info_ = model::Song{};
-    async_fetcher_ = std::future<FetchResult>();
+    async_fetcher_.reset();
     lyrics_.clear();
     focused_ = 0;
   }
@@ -96,8 +101,8 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     if (!audio_info_.filepath.empty()) {
       LOG("Launch async task to fetch song lyrics");
       // As we do not want to hold UI at all, fetch song lyrics asynchronously
-      async_fetcher_ = std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this));
-      // TODO: kill this async task when application exits
+      async_fetcher_ = std::make_unique<std::future<FetchResult>>(
+          std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this)));
     }
   }
 

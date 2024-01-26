@@ -137,6 +137,7 @@ struct Files {
 
 //! Playlist keybindings
 struct Playlist {
+  static Key EnableSearch;
   static Key Modify;
 };
 

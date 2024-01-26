@@ -2,13 +2,13 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <ftxui/dom/elements.hpp>
 #include <iomanip>
 #include <memory>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
+#include "ftxui/dom/elements.hpp"
 #include "ftxui/screen/color.hpp"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"

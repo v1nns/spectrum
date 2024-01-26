@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "model/audio_filter.h"
 #include "model/volume.h"
@@ -41,6 +42,7 @@ struct Command {
 
   //! Output command to ostream
   friend std::ostream& operator<<(std::ostream& out, const Command& cmd);
+  friend std::ostream& operator<<(std::ostream& out, const std::vector<Command>& cmds);
 
   //! Possible commands to be handled by audio player
   static Command None();

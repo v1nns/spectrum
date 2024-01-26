@@ -173,7 +173,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
       // Received command different from PauseOrResume
       if (auto command_after_wait = media_control_.Pop();
           !keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
-        LOG("Audio handler received command to", command_after_wait);
+        LOG("Audio handler received command to ", command_after_wait);
 
         if (command_after_wait == Command::Identifier::Play) {
           LOG("Re-adding command to play new song in the queue");
@@ -193,7 +193,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
     case Command::Identifier::Stop:
     case Command::Identifier::Exit: {
-      LOG("Audio handler received command to", command);
+      LOG("Audio handler received command to ", command);
       media_control_.state = TranslateCommand(command);
       playback_->Stop();
       return false;
@@ -329,7 +329,7 @@ void Player::CheckForNextSongFromPlaylist() {
     media_control_.Push(Command::Play(next_song.filepath));
   } else {
     // No need to keep this anymore, so reset it
-    LOG("Clearing internal playlist cache");
+    LOG("Clearing internal cache, playlist does not contain any song");
     curr_playlist_.reset();
   }
 }
@@ -349,7 +349,7 @@ void Player::Play(const std::filesystem::path& filepath) {
 
   // Reset song queue
   if (curr_playlist_) {
-    LOG("Clearing internal playlist cache");
+    LOG("Clearing internal cache");
     curr_playlist_.reset();
   }
 }
@@ -358,12 +358,18 @@ void Player::Play(const std::filesystem::path& filepath) {
 
 void Player::Play(const model::Playlist& playlist) {
   LOG("Add command to queue: Play (with ", playlist, ")");
+  bool already_playing = curr_playlist_.has_value();
 
-  // Update internal song queue and enqueue first song
+  // Update internal song queue
   curr_playlist_ = playlist;
 
-  // TODO: check behavior for playing same or other playlist, whilst one is playing
-  CheckForNextSongFromPlaylist();
+  if (!already_playing) {
+    // Enqueue first song
+    CheckForNextSongFromPlaylist();
+  } else {
+    // Add directly to command queue
+    media_control_.Push(Command::Stop());
+  }
 }
 
 /* ********************************************************************************************** */
@@ -379,6 +385,9 @@ void Player::PauseOrResume() {
 void Player::Stop() {
   LOG("Add command to queue: Stop");
   media_control_.Push(Command::Stop());
+
+  // Clear playlist
+  if (curr_playlist_.has_value()) curr_playlist_.reset();
 }
 
 /* ********************************************************************************************** */

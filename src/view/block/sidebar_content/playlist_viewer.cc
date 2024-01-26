@@ -1,32 +1,30 @@
 #include "view/block/sidebar_content/playlist_viewer.h"
 
-#include <ftxui/dom/elements.hpp>
 #include <optional>
 #include <string>
 
+#include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 
 namespace interface {
 
-Button::Style PlaylistViewer::kTabButtonStyle = Button::Style{
+Button::Style PlaylistViewer::kButtonStyle = Button::Style{
     .normal =
         Button::Style::State{
-            .foreground = ftxui::Color::DarkBlue,
-            .background = ftxui::Color::SteelBlue1,
+            .foreground = ftxui::Color::LightSkyBlue1,
+            .background = ftxui::Color::DeepSkyBlue4Ter,
         },
     .focused =
         Button::Style::State{
-            .foreground = ftxui::Color::GrayLight,
-            .background = ftxui::Color::GrayDark,
+            .foreground = ftxui::Color::DeepSkyBlue4Ter,
+            .background = ftxui::Color::LightSkyBlue1,
         },
-    .selected =
+    .pressed =
         Button::Style::State{
-            .foreground = ftxui::Color::DarkBlue,
-            .background = ftxui::Color::DodgerBlue1,
+            .foreground = ftxui::Color::SkyBlue1,
+            .background = ftxui::Color::Blue1,
         },
-
-    .delimiters = Button::Delimiters{" ", " "},
 };
 
 /* ********************************************************************************************** */
@@ -37,20 +35,41 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
                                const std::shared_ptr<util::FileHandler>& file_handler,
                                int max_columns)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}),
+      max_columns_(max_columns),
       file_handler_(file_handler),
-      max_columns_(max_columns) {
-  // TODO: Think how to disable this on unit testing
+      menu_(menu::CreatePlaylistMenu(
+          dispatcher,
+
+          // Callback to force a UI refresh
+          [this] {
+            auto disp = dispatcher_.lock();
+            if (!disp) return;
+
+            disp->SendEvent(interface::CustomEvent::Refresh());
+          },
+
+          // Callback triggered on menu item click
+          [this](const auto& active) {
+            if (!active) return false;
+
+            if (active->songs.empty()) return false;
+
+            auto dispatcher = dispatcher_.lock();
+            if (!dispatcher) return false;
+
+            LOG("Handle on_click event on playlist menu entry=", active->name);
+            auto event_selection = interface::CustomEvent::NotifyPlaylistSelection(*active);
+            dispatcher->SendEvent(event_selection);
+
+            return true;
+          })) {
+  // Set max columns for an entry in menu
+  menu_->SetMaxColumns(max_columns);
+
   // Attempt to parse playlists file
-  // if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
-  //   entries_.reserve(parsed.size());
-  //
-  //   for (const auto& playlist : parsed) {
-  //     entries_.push_back(InternalPlaylist{
-  //         .playlist = playlist,
-  //         .collapsed = false,
-  //     });
-  //   }
-  // }
+  if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
+    menu_->SetEntries(parsed);
+  }
 
   // Initialize playlist buttons
   CreateButtons();
@@ -61,8 +80,9 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
 ftxui::Element PlaylistViewer::Render() {
   ftxui::Elements entries;
 
+  entries.push_back(menu_->Render());
+
   // Append all buttons at the bottom of the block
-  entries.push_back(ftxui::filler());
   entries.push_back(ftxui::hbox({
       ftxui::filler(),
       btn_create_->Render() | ftxui::bold,
@@ -79,18 +99,20 @@ ftxui::Element PlaylistViewer::Render() {
 /* ********************************************************************************************** */
 
 bool PlaylistViewer::OnEvent(const ftxui::Event& event) {
-  // TODO: implement
+  if (menu_->OnEvent(event)) return true;
+
   return false;
 }
 
 /* ********************************************************************************************** */
 
 bool PlaylistViewer::OnMouseEvent(ftxui::Event& event) {
+  if (menu_->OnMouseEvent(event)) return true;
+
   if (btn_create_->OnMouseEvent(event)) return true;
   if (btn_delete_->OnMouseEvent(event)) return true;
   if (btn_modify_->OnMouseEvent(event)) return true;
 
-  // TODO: implement
   return false;
 }
 
@@ -102,11 +124,13 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
 
     // Set current song
     curr_playing_ = event.GetContent<model::Song>();
+    menu_->SetEntryHighlighted(*curr_playing_);
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     curr_playing_.reset();
+    menu_->ResetHighlight();
   }
 
   return false;
@@ -114,57 +138,8 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-// bool PlaylistViewer::ClickOnActiveEntry() {
-//   if (entries_.empty()) return false;
-//
-//   int* selected = GetSelected();
-//
-//   int index = 0;
-//   for (const auto& entry : entries_) {
-//     if (index == *selected) {
-//       // Selected index is on playlist title
-//       auto dispatcher = dispatcher_.lock();
-//       if (!dispatcher) return false;
-//
-//       auto event_selection = interface::CustomEvent::NotifyPlaylistSelection(entry.playlist);
-//       dispatcher->SendEvent(event_selection);
-//
-//       return true;
-//     }
-//
-//     if (entry.collapsed) {
-//       for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end();
-//            ++it, ++index) {
-//         if (index == *selected) {
-//           // Selected index is on song from playlist
-//           auto dispatcher = dispatcher_.lock();
-//           if (!dispatcher) return false;
-//
-//           // Shuffle playlist based on selected entry
-//           model::Playlist playlist{
-//               .name = entry.playlist.name,
-//               .songs = std::deque<model::Song>(it, entry.playlist.songs.end()),
-//           };
-//           playlist.songs.insert(playlist.songs.end(), entry.playlist.songs.begin(), it);
-//
-//           auto event_selection = interface::CustomEvent::NotifyPlaylistSelection(playlist);
-//           dispatcher->SendEvent(event_selection);
-//
-//           return true;
-//         }
-//       }
-//     }
-//
-//     index++;
-//   }
-//
-//   return false;
-// }
-
-/* ********************************************************************************************** */
-
 void PlaylistViewer::CreateButtons() {
-  btn_create_ = Button::make_button_for_window(
+  btn_create_ = Button::make_button_minimal(
       std::string("create"),
       [this]() {
         auto disp = dispatcher_.lock();
@@ -179,15 +154,15 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kTabButtonStyle);
+      kButtonStyle);
 
-  btn_modify_ = Button::make_button_for_window(
+  btn_modify_ = Button::make_button_minimal(
       std::string("modify"),
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
 
-        LOG("Handle callback for Create button");
+        LOG("Handle callback for Modify button");
 
         // TODO: call new dialog to manage playlist entries
 
@@ -196,15 +171,15 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kTabButtonStyle);
+      kButtonStyle);
 
-  btn_delete_ = Button::make_button_for_window(
+  btn_delete_ = Button::make_button_minimal(
       std::string("delete"),
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
 
-        LOG("Handle callback for Create button");
+        LOG("Handle callback for Delete button");
 
         // TODO: call new dialog to delete playlist
 
@@ -213,7 +188,7 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kTabButtonStyle);
+      kButtonStyle);
 }
 
 }  // namespace interface

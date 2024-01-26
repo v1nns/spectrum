@@ -97,6 +97,7 @@ target_sources(
           view/element/tab.cc
           view/element/text_animation.cc
           view/element/internal/file_menu.cc
+          view/element/internal/playlist_menu.cc
           # logger
           util/arg_parser.cc
           util/file_handler.cc

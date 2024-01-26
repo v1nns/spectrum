@@ -6,31 +6,31 @@ namespace audio {
 std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
   switch (i) {
     case Command::Identifier::None:
-      out << " None ";
+      out << "None";
       break;
     case Command::Identifier::Play:
-      out << " Play ";
+      out << "Play";
       break;
     case Command::Identifier::PauseOrResume:
-      out << " PauseOrResume ";
+      out << "PauseOrResume";
       break;
     case Command::Identifier::Stop:
-      out << " Stop ";
+      out << "Stop";
       break;
     case Command::Identifier::SeekForward:
-      out << " SeekForward ";
+      out << "SeekForward";
       break;
     case Command::Identifier::SeekBackward:
-      out << " SeekBackward ";
+      out << "SeekBackward";
       break;
     case Command::Identifier::SetVolume:
-      out << " SetVolume ";
+      out << "SetVolume";
       break;
     case Command::Identifier::UpdateAudioFilters:
-      out << " UpdateAudioFilter ";
+      out << "UpdateAudioFilter";
       break;
     case Command::Identifier::Exit:
-      out << " Exit ";
+      out << "Exit";
       break;
   }
 
@@ -40,6 +40,26 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
 //! Command pretty print
 std::ostream& operator<<(std::ostream& out, const Command& cmd) {
   out << cmd.id;
+  return out;
+}
+
+//! Commands pretty print
+std::ostream& operator<<(std::ostream& out, const std::vector<Command>& cmds) {
+  if (cmds.empty()) {
+    out << "Empty";
+    return out;
+  }
+
+  out << "{";
+
+  std::vector<Command>::const_iterator i, j;
+  for (i = cmds.begin(), j = --cmds.end(); i != j; ++i) {
+    out << i->id << ",";
+  }
+
+  out << j->id;
+  out << "}";
+
   return out;
 }
 

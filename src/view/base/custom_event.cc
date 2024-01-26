@@ -1,5 +1,6 @@
 #include "view/base/custom_event.h"
 
+#include <iomanip>
 #include <iostream>
 
 namespace interface {
@@ -16,7 +17,7 @@ struct ContentVisitor {
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
-  void operator()(const std::filesystem::path& p) const { out << p.c_str(); }
+  void operator()(const std::filesystem::path& p) const { out << std::quoted(p.c_str()); }
   void operator()(const std::vector<double>&) const { out << "{vector data...}"; }
   void operator()(const model::EqualizerPreset&) const {
     // TODO: maybe implement detailed info here

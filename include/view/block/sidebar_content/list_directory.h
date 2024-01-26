@@ -130,7 +130,7 @@ class ListDirectory : public TabItem {
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 
-  FileMenu menu_;  //!< UI element to show files in a menu
+  FileMenu menu_;  //!< Menu with a list of files
 
   /* ******************************************************************************************** */
   //! Friend test

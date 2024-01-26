@@ -9,9 +9,9 @@
 #include <optional>
 #include <string_view>
 
-#include "model/playlist.h"
 #include "util/file_handler.h"
 #include "view/element/button.h"
+#include "view/element/menu.h"
 #include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
@@ -77,27 +77,6 @@ class PlaylistViewer : public TabItem {
   bool OnCustomEvent(const CustomEvent& event) override;
 
   /* ******************************************************************************************** */
-  //! Custom class to link playlists with UI state
- private:
-  struct InternalPlaylist {
-    model::Playlist playlist;
-    bool collapsed;
-  };
-
-  //! Put together all possible styles for an entry in this component
-  struct EntryStyles {
-    ftxui::Decorator prefix;
-
-    struct State {
-      // MenuEntryOption normal;
-      // MenuEntryOption playing;
-    };
-
-    State playlist;
-    State song;
-  };
-
-  /* ******************************************************************************************** */
   //! UI initialization
 
   /**
@@ -113,32 +92,18 @@ class PlaylistViewer : public TabItem {
 
   std::optional<model::Song> curr_playing_ = std::nullopt;  //!< Current song playing
 
-  std::vector<InternalPlaylist> entries_;  //!< List containing all playlists created by user
-  ftxui::Box box_;                         //!< Box for whole component
+  ftxui::Box box_;  //!< Box for whole component
 
   std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
+
+  PlaylistMenu menu_;  //!< Menu to render a list of playlists
 
   GenericButton btn_create_;  //!< Button to create a new playlist
   GenericButton btn_modify_;  //!< Button to modify a playlist
   GenericButton btn_delete_;  //!< Button to delete a playlist
 
-  //!< Style for each element inside this component
-  EntryStyles styles_ = EntryStyles{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      // .playlist =
-      // EntryStyles::State{
-      // .normal = Colored(ftxui::Color::White),
-      // .playing = Colored(ftxui::Color::SteelBlue1Bis),
-      // },
-      // .song =
-      // EntryStyles::State{
-      // .normal = Colored(ftxui::Color::White),
-      // .playing = Colored(ftxui::Color::SteelBlue1),
-      // },
-  };
-
-  //!< Style for a button displayed as tab button
-  static Button::Style kTabButtonStyle;
+  //!< Style for any button displayed in this element
+  static Button::Style kButtonStyle;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

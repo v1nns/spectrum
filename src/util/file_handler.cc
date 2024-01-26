@@ -106,20 +106,10 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
     for (auto& [_, song] : playlist["songs"].items()) {
       if (!song.contains("path")) continue;
 
-      // Only get artist and title, if both exists
-      std::string artist, title;
-
-      if (song.contains("artist") && song.contains("title")) {
-        artist = song["artist"];
-        title = song["title"];
-      }
-
       // Insert only if filepath is not duplicated
       if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
         entry.songs.emplace_back(model::Song{
             .filepath = song["path"],
-            .artist = artist,
-            .title = title,
         });
       }
     }
@@ -128,6 +118,7 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
     tmp.push_back(entry);
   }
 
+  LOG("Parsed ", tmp.size(), " playlists");
   playlists = std::move(tmp);
   return true;
 }

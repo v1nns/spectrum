@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <deque>
 #include <filesystem>
+#include <iomanip>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -315,17 +316,18 @@ class Player : public AudioControl {
      */
     template <typename... Args>
     bool WaitFor(Args&&... cmds) {
-      LOG("Waiting for commands: {", cmds..., "}");
+      std::vector<Command> expected = {cmds...};
+      LOG("Waiting for commands: ", expected);
+
       std::unique_lock lock(mutex);
-      notifier.wait(lock, [this, cmds...]() mutable {
+      notifier.wait(lock, [this, expected]() mutable {
         // Simply exit, do not wait for any command
         if (state == State::Exit) return true;
 
         // Pop commands from queue
-        std::vector<Command> expected = {cmds...};
         while (!queue.empty()) {
           Command current = queue.front();
-          LOG("Received command:", current);
+          LOG("Received command: ", current);
 
           if (current == Command::Exit()) {
             // In case of exit, update state

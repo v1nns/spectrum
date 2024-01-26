@@ -89,8 +89,8 @@ bool Button::HandleLeftClick(ftxui::Event& event) {
 
     // Trigger callback for button click and change clicked state
     if (on_click_) {
-      on_click_();
-      clicked_ = !clicked_;
+      // Only change internal state if owner's callback did something
+      clicked_ = on_click_();
     }
 
     return true;
@@ -337,7 +337,7 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
       if (focused_) {
         background = selected_ ? &style_.selected.background : &style_.focused.background;
         foreground = selected_ ? &style_.selected.foreground : &style_.focused.foreground;
-        invert = !selected_;
+        invert = !selected_ && !pressed_;
 
       } else if (parent_focused_) {
         background = selected_ ? &style_.selected.background : &style_.normal.background;
@@ -358,6 +358,50 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
   };
 
   return std::make_shared<WindowButton>(style, content, on_click);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button_minimal(const std::string& content,
+                                                    const Callback& on_click, const Style& style) {
+  class MinimalButton : public Button {
+   public:
+    explicit MinimalButton(const Style& style, const std::string& content, const Callback& on_click)
+        : Button(style, on_click, true), content_{content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      auto left = ftxui::text(" ");
+      auto right = ftxui::text(" ");
+      auto content = ftxui::text(content_);
+
+      constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg) {
+        return ftxui::bgcolor(bg) | ftxui::color(fg);
+      };
+
+      // Based on internal state, determine which style to apply
+      ftxui::Color const* background;
+      ftxui::Color const* foreground;
+      bool invert = false;
+
+      if (focused_) {
+        background = pressed_ ? &style_.pressed.background : &style_.focused.background;
+        foreground = pressed_ ? &style_.pressed.foreground : &style_.focused.foreground;
+
+      } else {
+        background = &style_.normal.background;
+        foreground = &style_.normal.foreground;
+      }
+
+      auto style = create_style(*background, *foreground);
+
+      return ftxui::hbox({left, content, right}) | style | ftxui::reflect(box_);
+    }
+
+    std::string content_;
+  };
+
+  return std::make_shared<MinimalButton>(style, content, on_click);
 }
 
 /* ********************************************************************************************** */

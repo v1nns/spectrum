@@ -1,7 +1,6 @@
 #include "view/base/dialog.h"
 
-#include <ftxui/dom/elements.hpp>
-
+#include "ftxui/dom/elements.hpp"
 #include "view/base/keybinding.h"
 
 namespace interface {

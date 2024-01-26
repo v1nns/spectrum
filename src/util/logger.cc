@@ -26,7 +26,7 @@ void Logger::Configure(const std::string& path) {
 
   // Write initial message to log
   std::ostringstream ss;
-  std::string header(15, '-');
+  std::string header(kHeaderColumns, '-');
 
   ss << header << " Initializing log file " << header << "\n";
   Write(std::move(ss).str());

@@ -107,7 +107,7 @@ ftxui::Element Terminal::Render() {
 
   // Check if terminal has been resized
   if (auto current_size = ftxui::Terminal::Size(); size_ != current_size) {
-    LOG("Resize terminal size with new value=(x:", current_size.dimx, "y:", current_size.dimy, ")");
+    LOG("Resize terminal size with new value={x:", current_size.dimx, " y:", current_size.dimy, "}");
     size_ = current_size;
 
     // Recalculate maximum number of bars to show in spectrum graphic

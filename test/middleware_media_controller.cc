@@ -319,10 +319,10 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
       InSequence seq;
 
       // As we can get a lot of DrawAudioSpectrum events, calculate result and create expectations
-      // Each loop will reduce its previous value by 45%
+      // Each loop will reduce its previous value by 35%
       for (int i = 0; i < 10; i++) {
         std::transform(result.begin(), result.end(), result.begin(),
-                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
+                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.35));
 
         EXPECT_CALL(
             *dispatcher,

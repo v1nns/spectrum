@@ -1,16 +1,17 @@
 /**
  * \file
- * \brief  Class for rendering a customized menu containing file entries
+ * \brief  Class for rendering a customized menu containing playlist entries
  */
 
-#ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_FILE_MENU_H_
-#define INCLUDE_VIEW_ELEMENT_INTERNAL_FILE_MENU_H_
+#ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_PLAYLIST_MENU_H_
+#define INCLUDE_VIEW_ELEMENT_INTERNAL_PLAYLIST_MENU_H_
 
+#include <memory>
 #include <string>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
-#include "util/file_handler.h"
+#include "model/playlist.h"
 #include "view/element/internal/menu.h"
 #include "view/element/text_animation.h"
 
@@ -23,20 +24,34 @@ class SidebarTest;
 namespace interface {
 
 namespace internal {
-class FileMenu : public Menu<FileMenu> {
+class PlaylistMenu : public Menu<PlaylistMenu> {
   friend class Menu;
 
   //! Put together all possible styles for an entry in this component
-  struct Style {
+  struct EntryStyles {
     ftxui::Decorator prefix;
-    MenuEntryOption directory;
-    MenuEntryOption file;
-    MenuEntryOption playing;
+
+    struct State {
+      MenuEntryOption normal;
+      MenuEntryOption playing;
+    };
+
+    State playlist;
+    State song;
   };
+
+  //! A single menu entry (instead of using model::Playlist, wrap it with additional info)
+  struct InternalPlaylist {
+    model::Playlist playlist;
+    bool collapsed;
+  };
+
+  //! Definition of menu content (list of menu entries)
+  using InternalPlaylists = std::vector<InternalPlaylist>;
 
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
-  using Callback = Callback<util::File>;
+  using Callback = Callback<model::Playlist>;
 
   /**
    * @brief Construct a new FileMenu object
@@ -44,13 +59,13 @@ class FileMenu : public Menu<FileMenu> {
    * @param force_refresh Callback function to update UI
    * @param on_click Callback function for click event on active entry
    */
-  explicit FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
-                    const TextAnimation::Callback& force_refresh, const Callback& on_click);
+  explicit PlaylistMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                        const TextAnimation::Callback& force_refresh, const Callback& on_click);
 
   /**
    * @brief Destroy Menu object
    */
-  ~FileMenu() override = default;
+  ~PlaylistMenu() override = default;
 
   /* ******************************************************************************************** */
   //! Mandatory API implementation
@@ -77,47 +92,65 @@ class FileMenu : public Menu<FileMenu> {
   //! Setters and getters
 
   //! Save entries internally to render it as a menu
-  void SetEntriesImpl(const util::Files& entries);
+  void SetEntriesImpl(const model::Playlists& entries);
 
   //! Getter for entries
-  util::Files GetEntriesImpl() const { return IsSearchEnabled() ? *filtered_entries_ : entries_; }
+  InternalPlaylists GetEntriesImpl() const {
+    return IsSearchEnabled() ? *filtered_entries_ : entries_;
+  }
 
   //! Emplace a new entry
-  void EmplaceImpl(const util::File& entry) {
+  void EmplaceImpl(const model::Playlist& entry) {
     LOG("Emplace a new entry to list");
-    entries_.emplace_back(entry);
+    // TODO: evaluate this method... Maybe also use it on unit testing
+    entries_.emplace_back(InternalPlaylist{.playlist = entry, .collapsed = false});
   }
 
   //! Set entry to be highlighted
-  void SetEntryHighlightedImpl(const util::File& entry);
+  void SetEntryHighlightedImpl(const model::Song& entry);
 
   //! Reset highlighted entry
   void ResetHighlightImpl() { highlighted_.reset(); };
 
   //! Getter for active entry (focused/selected)
-  std::optional<util::File> GetActiveEntryImpl() const;
+  std::optional<model::Playlist> GetActiveEntryImpl() const;
 
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
 
+  //! Create UI element for a single entry (playlist and song have different styles)
+  ftxui::Element CreateEntry(int index, const std::string& text, bool is_highlighted,
+                             bool is_playlist);
+
+  //! Toggle collapse state for current selected entry (only available for playlist entries)
+  bool ToggleActivePlaylist(bool collapse);
+
   /* ******************************************************************************************** */
   //! Variables
  private:
-  util::Files entries_;  //!< List containing files from current directory
+  InternalPlaylists entries_;  //!< List containing all parsed playlists
 
-  //!< List containing only files matching the text from search
-  std::optional<util::Files> filtered_entries_ = std::nullopt;
+  //!< List containing only playlists (+ songs) matching the text from search
+  std::optional<InternalPlaylists> filtered_entries_ = std::nullopt;
 
-  std::optional<util::File> highlighted_ = std::nullopt;  //!< Entry highlighted by owner
+  //!< Index of song entry highlighted by owner
+  std::optional<model::Song> highlighted_ = std::nullopt;
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 
   //!< Style for each element inside this component
-  Style style_ = Style{
+  EntryStyles styles_ = EntryStyles{
       .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .directory = Colored(ftxui::Color::Green),
-      .file = Colored(ftxui::Color::White),
-      .playing = Colored(ftxui::Color::SteelBlue1),
+      .playlist =
+          EntryStyles::State{
+              .normal = Colored(ftxui::Color::DeepSkyBlue1, /*bold=*/true),
+              .playing = Colored(ftxui::Color::PaleGreen1, /*bold=*/true),
+          },
+      .song =
+          EntryStyles::State{
+              .normal = Colored(ftxui::Color::White),
+              .playing = Colored(ftxui::Color::SteelBlue1),
+          },
   };
 
   /* ******************************************************************************************** */
@@ -130,4 +163,4 @@ class FileMenu : public Menu<FileMenu> {
 
 }  // namespace internal
 }  // namespace interface
-#endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_FILE_MENU_H_
+#endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_PLAYLIST_MENU_H_

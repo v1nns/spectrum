@@ -55,6 +55,9 @@ struct Song {
   friend std::ostream& operator<<(std::ostream& out, const Song& s);
   bool operator==(const Song& other) const;
   bool operator!=(const Song& other) const;
+
+  //! Check if song is empty
+  bool IsEmpty() const;
 };
 
 /**

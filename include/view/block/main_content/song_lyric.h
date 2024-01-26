@@ -45,7 +45,7 @@ class SongLyric : public TabItem {
   /**
    * @brief Destroy the SongLyric object
    */
-  ~SongLyric() override = default;
+  ~SongLyric() override;
 
   /**
    * @brief Renders the component
@@ -86,13 +86,13 @@ class SongLyric : public TabItem {
    * @brief Check state from fetch operation that is executed asynchronously
    * @return true if fetch operation is still executing, otherwise false
    */
-  bool IsFetching() { return is_state(async_fetcher_, std::future_status::timeout); }
+  bool IsFetching() { return is_state(*async_fetcher_, std::future_status::timeout); }
 
   /**
    * @brief Check state from fetch operation that is executed asynchronously
    * @return true if fetch operation finished, otherwise false
    */
-  bool IsResultReady() { return is_state(async_fetcher_, std::future_status::ready); }
+  bool IsResultReady() { return is_state(*async_fetcher_, std::future_status::ready); }
 
   //! Result from asynchronous fetch operation (if empty, it means that failed)
   using FetchResult = std::optional<lyric::SongLyric>;
@@ -116,7 +116,7 @@ class SongLyric : public TabItem {
   int focused_ = 0;          //!< Index for paragraph focused from song lyric
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
-  std::future<FetchResult> async_fetcher_;  //!< Use lyric finder asynchronously
+  std::unique_ptr<std::future<FetchResult>> async_fetcher_;  //!< Use lyric finder asynchronously
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

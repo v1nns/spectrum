@@ -1,9 +1,7 @@
 #include "view/element/internal/file_menu.h"
 
-#include <ftxui/component/component.hpp>
-#include <ftxui/component/component_options.hpp>
-#include <ftxui/dom/elements.hpp>
-
+#include "ftxui/component/component.hpp"
+#include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
@@ -24,7 +22,9 @@ ftxui::Element FileMenu::RenderImpl() {
   auto max_size = GetMaxColumns() ? ftxui::size(WIDTH, EQUAL, GetMaxColumns()) : ftxui::nothing;
 
   ftxui::Elements menu_entries;
-  menu_entries.reserve(GetSize());
+
+  int size = GetSize();
+  menu_entries.reserve(size);
 
   const auto selected = GetSelected();
   const auto focused = GetFocused();
@@ -32,7 +32,7 @@ ftxui::Element FileMenu::RenderImpl() {
   auto& boxes = GetBoxes();
 
   // Fill list with entries
-  for (int i = 0; i < GetSize(); ++i) {
+  for (int i = 0; i < size; ++i) {
     const auto& entry = IsSearchEnabled() ? filtered_entries_->at(i) : entries_.at(i);
 
     bool is_focused = (*focused == i);
@@ -68,12 +68,7 @@ ftxui::Element FileMenu::RenderImpl() {
 
   // Append search box, if enabled
   if (IsSearchEnabled()) {
-    const auto& search = GetSearch();
-    ftxui::InputOption opt{.cursor_position = search->position};
-    content.push_back(ftxui::hbox({
-        ftxui::text("Search:") | ftxui::color(ftxui::Color::White),
-        ftxui::Input(search->text_to_search, " ", &opt)->Render() | ftxui::flex,
-    }));
+    content.push_back(RenderSearch());
   }
 
   return ftxui::vbox(content) | ftxui::flex;
@@ -89,6 +84,20 @@ bool FileMenu::OnEventImpl(const ftxui::Event& event) {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+int FileMenu::GetSizeImpl() const {
+  int size = IsSearchEnabled() ? (int)filtered_entries_->size() : (int)entries_.size();
+  return size;
+}
+
+/* ********************************************************************************************** */
+
+std::string FileMenu::GetActiveEntryAsTextImpl() const {
+  auto active = GetActiveEntryImpl();
+  return active.has_value() ? active->filename().string() : "";
 }
 
 /* ********************************************************************************************** */
@@ -122,6 +131,13 @@ void FileMenu::FilterEntriesBy(const std::string& text) {
 
 /* ********************************************************************************************** */
 
+void FileMenu::SetEntriesImpl(const util::Files& entries) {
+  LOG("Set a new list of entries with size=", entries.size());
+  entries_ = entries;
+}
+
+/* ********************************************************************************************** */
+
 void FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
   // Find entry in internal list
   auto it = std::find(entries_.begin(), entries_.end(), entry);
@@ -139,5 +155,27 @@ void FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
 
   ResetState(index);
 }
+
+/* ********************************************************************************************** */
+
+std::optional<util::File> FileMenu::GetActiveEntryImpl() const {
+  int size = GetSizeImpl();
+
+  // Empty list
+  if (!size) return std::nullopt;
+
+  // Get active entry
+  std::optional<util::File> entry = std::nullopt;
+  int index = GetSelected();
+
+  // Check for boundary and if vector not empty
+  if (index >= size || entries_.empty() ||
+      (filtered_entries_.has_value() && filtered_entries_->empty()))
+    return entry;
+
+  entry = IsSearchEnabled() ? filtered_entries_->at(index) : entries_.at(index);
+  return entry;
+}
+
 }  // namespace internal
 }  // namespace interface

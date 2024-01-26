@@ -94,8 +94,9 @@ Key Equalizer::ResetFilters = Key::Character('r');
 
 Key Files::EnableSearch = Key::Character('/');
 
-/* ------------------------------------------ Playlist ------------------------------------------- */
+/* ------------------------------------------ Playlist ------------------------------------------ */
 
+Key Playlist::EnableSearch = Key::Character('/');
 Key Playlist::Modify = Key::Character('o');
 
 }  // namespace keybinding

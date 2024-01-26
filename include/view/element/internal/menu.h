@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/component_options.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
@@ -42,7 +44,7 @@ class Menu {
   Derived const& actual() const { return *static_cast<Derived const*>(this); }
 
   /* ******************************************************************************************** */
-  //! Menu styling
+  //! Menu styling and callback definition
  protected:
   //! Custom style for menu entry TODO: better organize this
   struct MenuEntryOption {
@@ -53,18 +55,28 @@ class Menu {
   };
 
   //! Decorator for custom style to apply on menu entry
-  inline MenuEntryOption Colored(ftxui::Color c) {
+  inline MenuEntryOption Colored(const ftxui::Color& c, bool is_bold = false) {
+    using ftxui::bold;
     using ftxui::color;
     using ftxui::Decorator;
     using ftxui::inverted;
+    using ftxui::nothing;
 
     return MenuEntryOption{
-        .normal = Decorator(color(c)),
-        .focused = Decorator(color(c)) | inverted,
-        .selected = Decorator(color(c)) | inverted,
-        .selected_focused = Decorator(color(c)) | inverted,
+        .normal = Decorator(color(c)) | (is_bold ? bold : nothing),
+        .focused = Decorator(color(c)) | (is_bold ? bold : nothing) | inverted,
+        .selected = Decorator(color(c)) | (is_bold ? bold : nothing) | inverted,
+        .selected_focused = Decorator(color(c)) | (is_bold ? bold : nothing) | inverted,
     };
   }
+
+  /**
+   * @brief Callback triggered by action executed on current active menu item
+   * @param active Current menu item active
+   * @return true if click action was executed, false otherwise
+   */
+  template <typename T>
+  using Callback = std::function<bool(const std::optional<T>& active)>;
 
   /* ******************************************************************************************** */
   //! Constructor/Destructor
@@ -199,7 +211,7 @@ class Menu {
     *focused = clamp(*focused, 0, size - 1);
 
     // Check if must enable text animation
-    UpdateActiveEntry();
+    UpdateActiveEntry(size);
     return true;
   }
 
@@ -230,7 +242,7 @@ class Menu {
         event_handled = true;
 
         // Check if must enable text animation
-        UpdateActiveEntry();
+        UpdateActiveEntry(size);
       }
     }
 
@@ -319,9 +331,7 @@ class Menu {
    */
   template <typename T>
   void SetEntries(const T& entries) {
-    LOG("Set a new list of entries");
     actual().SetEntriesImpl(entries);
-
     ResetState();
     Clamp();
   }
@@ -332,7 +342,6 @@ class Menu {
    */
   template <typename T>
   void Emplace(const T& entry) {
-    LOG("Emplace a new entry to list");
     actual().EmplaceImpl(entry);
     Clamp();
   }
@@ -350,7 +359,6 @@ class Menu {
 
     selected_ = clamp(selected_, 0, size - 1);
     focused_ = clamp(focused_, 0, size - 1);
-    // ResetSearch();
   }
 
   /* ******************************************************************************************** */
@@ -420,6 +428,18 @@ class Menu {
   //! Check if search mode enabled
   bool IsSearchEnabled() const { return search_params_.has_value(); }
 
+  //! Render UI element for search
+  ftxui::Element RenderSearch() const {
+    if (!IsSearchEnabled()) return ftxui::text("");
+
+    ftxui::InputOption opt{.cursor_position = search_params_->position};
+
+    return ftxui::hbox({
+        ftxui::text("Search:") | ftxui::color(ftxui::Color::White),
+        ftxui::Input(search_params_->text_to_search, " ", &opt)->Render() | ftxui::flex,
+    });
+  }
+
  public:
   /**
    * @brief Enable search mode
@@ -458,7 +478,8 @@ class Menu {
     Clamp();
 
     // Update active entry (to enable/disable text animation)
-    UpdateActiveEntry();
+    int size = GetSize();
+    UpdateActiveEntry(size);
   }
 
  private:
@@ -469,10 +490,11 @@ class Menu {
     // Trigger callback (from derived class) to filter entries
     actual().FilterEntriesBy(search_params_->text_to_search);
 
+    // Resize internal structures and check if must run text animation on selected entry
     Clamp();
 
-    // Check if must enable text animation
-    UpdateActiveEntry();
+    int size = GetSize();
+    UpdateActiveEntry(size);
   }
 
   /* ******************************************************************************************** */
@@ -491,12 +513,13 @@ class Menu {
   }
 
   //! Update content from active entry (decides if text_animation should run or not)
-  void UpdateActiveEntry() {
+  void UpdateActiveEntry(int size) {
     // Stop animation thread
     animation_.Stop();
 
-    if (!max_columns_ || !GetSize()) return;
+    if (!max_columns_ || !size) return;
 
+    // Get active entry and count char length
     std::string text = GetActiveEntryAsText();
     int count_chars = (int)text.length() + kMaxIconColumns;
 

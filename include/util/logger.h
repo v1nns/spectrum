@@ -22,6 +22,8 @@ namespace util {
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
+  static constexpr int kHeaderColumns = 30;  //!< Number of columns to write on log initialization
+
  protected:
   /**
    * @brief Construct a new Logger object

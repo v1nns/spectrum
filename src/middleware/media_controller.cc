@@ -318,10 +318,10 @@ void MediaController::ProcessClearAnimation(std::vector<double>& data) {
   using namespace std::chrono_literals;
 
   for (int i = 0; i < 10; i++) {
-    // Each time this loop is executed, it will reduce spectrum bar values to 45% based on its
+    // Each time this loop is executed, it will reduce spectrum bar values to 35% based on its
     // previous values (this value was decided based on feeling :P)
     std::transform(data.begin(), data.end(), data.begin(),
-                   std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
+                   std::bind(std::multiplies<double>(), std::placeholders::_1, 0.35));
 
     // Send result to UI
     auto event = interface::CustomEvent::DrawAudioSpectrum(data);
