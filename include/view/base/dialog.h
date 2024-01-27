@@ -103,12 +103,16 @@ class Dialog {
   /**
    * @brief Callback to notify when dialog is opened
    */
-  virtual void OnOpen() {}
+  virtual void OnOpen() {
+    // Optional implementation by derived class
+  }
 
   /**
    * @brief Callback to notify when dialog is closed
    */
-  virtual void OnClose() {}
+  virtual void OnClose() {
+    // Optional implementation by derived class
+  }
 
   /* ******************************************************************************************** */
   //! Variables

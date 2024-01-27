@@ -1,5 +1,6 @@
 #include "view/block/sidebar_content/playlist_viewer.h"
 
+#include <iomanip>
 #include <optional>
 #include <string>
 
@@ -57,7 +58,7 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
             auto dispatcher = dispatcher_.lock();
             if (!dispatcher) return false;
 
-            LOG("Handle on_click event on playlist menu entry=", active->name);
+            LOG("Handle on_click event on playlist menu entry=", std::quoted(active->name));
             auto event_selection = interface::CustomEvent::NotifyPlaylistSelection(*active);
             dispatcher->SendEvent(event_selection);
 
@@ -79,6 +80,7 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
 
 ftxui::Element PlaylistViewer::Render() {
   ftxui::Elements entries;
+  entries.reserve(2);
 
   entries.push_back(menu_->Render());
 

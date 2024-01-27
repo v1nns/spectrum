@@ -26,4 +26,20 @@ Song Playlist::PopFront() {
   return song;
 }
 
+/* ********************************************************************************************** */
+
+void PrintTo(const Playlist& p, std::ostream* os) {
+  *os << "{playlist:" << std::quoted(p.name);
+
+  *os << " songs:{";
+
+  std::deque<Song>::const_iterator i, j;
+  for (i = p.songs.begin(), j = --p.songs.end(); i != j; ++i) {
+    *os << i->filepath << ",";
+  }
+
+  *os << j->filepath;
+  *os << "} }";
+}
+
 }  // namespace model

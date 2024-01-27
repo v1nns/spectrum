@@ -46,7 +46,7 @@ static bool sort_files(const File& a, const File& b) {
 std::string FileHandler::GetHome() const {
   const char* home_dir;
 
-  if ((home_dir = getenv("HOME")) == NULL) {
+  if ((home_dir = getenv("HOME")) == nullptr) {
     home_dir = getpwuid(getuid())->pw_dir;
   }
 

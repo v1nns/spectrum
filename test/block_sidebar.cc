@@ -18,6 +18,7 @@
 #include "view/base/keybinding.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
+#include "view/block/sidebar_content/playlist_viewer.h"
 
 namespace {
 
@@ -45,7 +46,7 @@ class SidebarTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // use test directory as base dir
+    // Use test directory as base dir
     std::string source_dir{LISTDIR_PATH};
     block = ftxui::Make<interface::Sidebar>(dispatcher, source_dir);
 
@@ -55,18 +56,15 @@ class SidebarTest : public ::BlockTest {
 
     // Replace inner tab item (ListDirectory) with mock
     InjectMock(source_dir);
+
+    // Clear internal cache from menu in PlaylistViewer
+    GetPlaylistViewer()->menu_->SetEntries(model::Playlists{});
   }
 
-  //! Hacky method to add new entry in files tab_item
-  void EmplaceEntryToList(const std::filesystem::path& entry) {
-    auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
-    auto files = reinterpret_cast<interface::ListDirectory*>(
-        sidebar->tab_elem_[interface::Sidebar::View::Files].get());
+  /* ******************************************************************************************** */
+  //! ListDirectory
 
-    files->menu_->Emplace(entry);
-  }
-
-  //! Getter for ListDirectory(necessary as inner variable is an unique_ptr)
+  //! Getter for ListDirectory (necessary as inner variable is an unique_ptr)
   auto GetListDirectory() -> interface::ListDirectory* {
     auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
     return reinterpret_cast<interface::ListDirectory*>(
@@ -81,11 +79,35 @@ class SidebarTest : public ::BlockTest {
   //! Getter for current dir from ListDirectory
   auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->curr_dir_; }
 
+  //! Hacky method to add new entry in files tab_item
+  void EmplaceFile(const std::filesystem::path& entry) {
+    auto files = GetListDirectory();
+    files->menu_->Emplace(entry);
+  }
+
+  /* ******************************************************************************************** */
+  //! PlaylistViewer
+
+  //! Getter for PlaylistViewer (necessary as inner variable is an unique_ptr)
+  auto GetPlaylistViewer() -> interface::PlaylistViewer* {
+    auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+    return reinterpret_cast<interface::PlaylistViewer*>(
+        sidebar->tab_elem_[interface::Sidebar::View::Playlist].get());
+  }
+
+  //! Hacky method to add new entry in playlist tab_item
+  void SetPlaylists(const model::Playlists& entries) {
+    auto viewer = GetPlaylistViewer();
+    viewer->menu_->SetEntries(entries);
+  }
+
+  /* ******************************************************************************************** */
+  //! Change default behavior
+
   //! Another hacky method to inject mock without modifying class constructor
   void InjectMock(const std::string& source_dir) {
     auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
 
-    // TODO: use dependency injection instead of this
     sidebar->tab_elem_[interface::Sidebar::View::Files].reset();
 
     sidebar->tab_elem_[interface::Sidebar::View::Files] = std::make_unique<ListDirectoryMock>(
@@ -95,6 +117,31 @@ class SidebarTest : public ::BlockTest {
         interface::Sidebar::kMaxColumns, source_dir);
   }
 };
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with original ListDirectory class
+ */
+class ListDirectoryCtorTest : public ::SidebarTest {
+ protected:
+  void SetUp() override {
+    // Create mock for event dispatcher
+    dispatcher = std::make_shared<EventDispatcherMock>();
+  }
+};
+
+TEST_F(ListDirectoryCtorTest, CreateWithBadInitialPath) {
+  // Setup expectation
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed))).Times(0);
+
+  // Use bad path as base dir, block will notify an error about not being to access it
+  std::string source_dir{"/path/that/does/not/exist"};
+  block = ftxui::Make<interface::Sidebar>(dispatcher, source_dir);
+
+  // After this error, block should use current path to list files
+  EXPECT_EQ(GetCurrentDir(), std::filesystem::current_path());
+}
 
 /* ********************************************************************************************** */
 
@@ -540,7 +587,7 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 
 TEST_F(SidebarTest, RunTextAnimation) {
   // Hacky method to add new entry
-  EmplaceEntryToList(std::filesystem::path{"this_is_a_really_long_pathname_to_test.mp3"});
+  EmplaceFile(std::filesystem::path{"this_is_a_really_long_pathname_to_test.mp3"});
 
   // Setup expectation for event sending (to refresh UI)
   // p.s.: Times(5) is based on refresh timing from thread animation
@@ -682,7 +729,7 @@ TEST_F(SidebarTest, NavigateAndEraseCharactersOnSearch) {
 TEST_F(SidebarTest, ScrollMenuOnBigList) {
   // Hacky method to add new entries until it fills the screen
   for (int i = 0; i < 5; i++) {
-    EmplaceEntryToList(std::filesystem::path{"some_music_" + std::to_string(i) + ".mp3"});
+    EmplaceFile(std::filesystem::path{"some_music_" + std::to_string(i) + ".mp3"});
   }
 
   // Navigate to the end and check if list moves on the screen according to selected entry
@@ -868,27 +915,363 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
 
 /* ********************************************************************************************** */
 
-/**
- * @brief Tests with original ListDirectory class
- */
-class ListDirectoryCtorTest : public ::SidebarTest {
- protected:
-  void SetUp() override {
-    // Create mock for event dispatcher
-    dispatcher = std::make_shared<EventDispatcherMock>();
-  }
-};
+TEST_F(SidebarTest, EmptyPlaylist) {
+  block->OnEvent(ftxui::Event::F2);
 
-TEST_F(ListDirectoryCtorTest, CreateWithBadInitialPath) {
-  // Setup expectation
-  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed))).Times(0);
+  ftxui::Render(*screen, block->Render());
 
-  // Use bad path as base dir, block will notify an error about not being to access it
-  std::string source_dir{"/path/that/does/not/exist"};
-  block = ftxui::Make<interface::Sidebar>(dispatcher, source_dir);
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  // After this error, block should use current path to list files
-  EXPECT_EQ(GetCurrentDir(), std::filesystem::current_path());
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
 }
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SinglePlaylist) {
+  model::Playlists data{{
+      model::Playlist{
+          .name = "Chill mix",
+          .songs = {model::Song{.filepath = "chilling 1.mp3"},
+                    model::Song{.filepath = "chilling 2.mp3"},
+                    model::Song{.filepath = "chilling 2.mp3"}},
+      },
+  }};
+
+  // Set custom data
+  SetPlaylists(data);
+
+  block->OnEvent(ftxui::Event::F2);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix                         │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NavigateOnPlaylist) {
+  model::Playlists data{{
+      model::Playlist{
+          .name = "Chill mix",
+          .songs =
+              {
+                  model::Song{.filepath = "chilling 1.mp3"},
+                  model::Song{.filepath = "chilling 2.mp3"},
+                  model::Song{.filepath = "chilling 3.mp3"},
+              },
+      },
+      model::Playlist{
+          .name = "Lofi",
+          .songs =
+              {
+                  model::Song{.filepath = "lofi 1.mp3"},
+                  model::Song{.filepath = "lofi 2.mp3"},
+                  model::Song{.filepath = "lofi 2.mp3"},
+              },
+      },
+  }};
+
+  // Set custom data and render initial state
+  SetPlaylists(data);
+
+  block->OnEvent(ftxui::Event::F2);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix                         │
+│  Lofi                              │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Open first playlist and select last song
+  std::string typed{"ljjj"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Clear screen and check for new render state
+  screen->Clear();
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix                         │
+│    chilling 1.mp3                  │
+│    chilling 2.mp3                  │
+│▶   chilling 3.mp3                  │
+│  Lofi                              │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Now close first playlist, open the second one and select second song
+  block->OnEvent(ftxui::Event::Home);
+
+  typed = "hjljj";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Clear screen and check for new render state
+  screen->Clear();
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix                         │
+│  Lofi                              │
+│    lofi 1.mp3                      │
+│▶   lofi 2.mp3                      │
+│    lofi 2.mp3                      │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
+  model::Playlists data{{
+      model::Playlist{
+          .name = "Chill mix",
+          .songs =
+              {
+                  model::Song{.filepath = "chilling 1.mp3"},
+                  model::Song{.filepath = "chilling 2.mp3"},
+                  model::Song{.filepath = "chilling 3.mp3"},
+              },
+      },
+      model::Playlist{
+          .name = "Lofi",
+          .songs =
+              {
+                  model::Song{.filepath = "lofi 1.mp3"},
+                  model::Song{.filepath = "lofi 2.mp3"},
+                  model::Song{.filepath = "lofi 3.mp3"},
+              },
+      },
+  }};
+
+  // Set custom data
+  SetPlaylists(data);
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  // Enable search and look for a lofi song
+  std::string typed{"/lofi 2"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Select song itself
+  block->OnEvent(ftxui::Event::ArrowDown);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Lofi                              │
+│▶   lofi 2.mp3                      │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│Search:lofi 2                       │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Setup expectation for event enabling global mode again
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
+  // Setup expectation for playlist sent by element (should be shuffled based on selected entry)
+  model::Playlist playlist{
+      .name = "Lofi",
+      .songs =
+          {
+              model::Song{.filepath = "lofi 2.mp3"},
+              model::Song{.filepath = "lofi 3.mp3"},
+              model::Song{.filepath = "lofi 1.mp3"},
+          },
+  };
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyPlaylistSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::Playlist>(playlist)))));
+
+  // Execute action on selected entry
+  block->OnEvent(ftxui::Event::Return);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NotifyLastPlaylist) {
+  model::Playlists data{{
+      model::Playlist{
+          .name = "Chill mix",
+          .songs =
+              {
+                  model::Song{.filepath = "chilling 1.mp3"},
+                  model::Song{.filepath = "chilling 2.mp3"},
+                  model::Song{.filepath = "chilling 3.mp3"},
+              },
+      },
+      model::Playlist{
+          .name = "Lofi",
+          .songs =
+              {
+                  model::Song{.filepath = "lofi 1.mp3"},
+                  model::Song{.filepath = "lofi 2.mp3"},
+                  model::Song{.filepath = "lofi 3.mp3"},
+              },
+      },
+      model::Playlist{
+          .name = "Electro",
+          .songs =
+              {
+                  model::Song{.filepath = "electro 1.mp3"},
+                  model::Song{.filepath = "electro 2.mp3"},
+              },
+      },
+  }};
+
+  // Set custom data
+  SetPlaylists(data);
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Select last playlist and play
+  std::string typed{"jj"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Setup expectation for playlist sent by element
+  model::Playlist playlist{
+      .name = "Electro",
+      .songs =
+          {
+              model::Song{.filepath = "electro 1.mp3"},
+              model::Song{.filepath = "electro 2.mp3"},
+          },
+  };
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyPlaylistSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::Playlist>(playlist)))));
+
+  // Execute action on selected entry
+  block->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix                         │
+│  Lofi                              │
+│▶ Electro                           │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+// TODO: test to check that TextAnimation is working on PlaylistMenu
 
 }  // namespace

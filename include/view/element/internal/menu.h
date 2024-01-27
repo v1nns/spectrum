@@ -430,7 +430,10 @@ class Menu {
 
   //! Render UI element for search
   ftxui::Element RenderSearch() const {
-    if (!IsSearchEnabled()) return ftxui::text("");
+    if (!IsSearchEnabled()) {
+      ERROR("Internal error");
+      return ftxui::text("");
+    }
 
     ftxui::InputOption opt{.cursor_position = search_params_->position};
 

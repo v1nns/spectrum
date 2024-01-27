@@ -42,8 +42,9 @@ class PlaylistMenu : public Menu<PlaylistMenu> {
 
   //! A single menu entry (instead of using model::Playlist, wrap it with additional info)
   struct InternalPlaylist {
-    model::Playlist playlist;
-    bool collapsed;
+    int index;                 //!< Unique index for each playlist
+    bool collapsed;            //!< Collapse state
+    model::Playlist playlist;  //!< Song playlist
   };
 
   //! Definition of menu content (list of menu entries)
@@ -102,8 +103,8 @@ class PlaylistMenu : public Menu<PlaylistMenu> {
   //! Emplace a new entry
   void EmplaceImpl(const model::Playlist& entry) {
     LOG("Emplace a new entry to list");
-    // TODO: evaluate this method... Maybe also use it on unit testing
-    entries_.emplace_back(InternalPlaylist{.playlist = entry, .collapsed = false});
+    int index = (int)entries_.size();
+    entries_.emplace_back(InternalPlaylist{.index = index, .collapsed = false, .playlist = entry});
   }
 
   //! Set entry to be highlighted
@@ -124,6 +125,16 @@ class PlaylistMenu : public Menu<PlaylistMenu> {
 
   //! Toggle collapse state for current selected entry (only available for playlist entries)
   bool ToggleActivePlaylist(bool collapse);
+
+  //! Getter for active playlist (regardless if selected is playlist title or song)
+  std::optional<model::Playlist> GetActivePlaylist() const;
+
+  //! Getter for active playlist on the original list using search parameters
+  std::optional<model::Playlist> GetActivePlaylistFromSearch() const;
+
+  //! Util method to shuffle playlist based on given iterator
+  model::Playlist ShufflePlaylist(const model::Playlist& playlist,
+                                  const std::deque<model::Song>::const_iterator& it) const;
 
   /* ******************************************************************************************** */
   //! Variables

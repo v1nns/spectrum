@@ -75,7 +75,7 @@ class Sidebar : public Block {
    */
   enum View {
     Files,     //!< Display file list from directory (default)
-    Playlist,  //!< Display playlist
+    Playlist,  //!< Display playlist viewer
     LAST,
   };
 

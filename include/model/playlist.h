@@ -38,6 +38,9 @@ struct Playlist {
    * @return First song in the deque
    */
   Song PopFront();
+
+  //! Pretty-print for testing
+  friend void PrintTo(const Playlist& p, std::ostream* os);
 };
 
 using Playlists = std::vector<Playlist>;
