@@ -293,21 +293,6 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     auto event_stop = interface::CustomEvent::StopSong();
     dispatcher->SendEvent(event_stop);
 
-    btn_stop_->ToggleState();
-
-    return true;
-  }
-
-  // Clear current song
-  if (event == keybinding::MediaPlayer::ClearSong && IsPlaying()) {
-    LOG("Handle key to clear current song");
-    auto dispatcher = GetDispatcher();
-
-    auto event_clear = interface::CustomEvent::ClearCurrentSong();
-    dispatcher->SendEvent(event_clear);
-
-    btn_play_->ResetState();
-
     return true;
   }
 

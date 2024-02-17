@@ -187,15 +187,6 @@ void MediaController::Stop() {
 
 /* ********************************************************************************************** */
 
-void MediaController::ClearCurrentSong() {
-  auto player = player_ctl_.lock();
-  if (!player) return;
-
-  player->Stop();
-}
-
-/* ********************************************************************************************** */
-
 void MediaController::SetVolume(model::Volume value) {
   auto player = player_ctl_.lock();
   if (!player) return;

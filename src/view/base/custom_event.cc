@@ -26,6 +26,7 @@ struct ContentVisitor {
   void operator()(const model::BarAnimation& a) const { out << a; }
   void operator()(const model::BlockIdentifier& i) const { out << i; }
   void operator()(const model::Playlist& p) const { out << p; }
+  void operator()(const model::PlaylistOperation& p) const { out << p; }
 
   std::ostream& out;
 };
@@ -81,10 +82,6 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::StopSong:
       out << "StopSong";
-      break;
-
-    case CustomEvent::Identifier::ClearCurrentSong:
-      out << "ClearCurrentSong";
       break;
 
     case CustomEvent::Identifier::SetAudioVolume:
@@ -165,6 +162,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::SkipToPreviousSong:
       out << "SkipToPreviousSong";
+      break;
+
+    case CustomEvent::Identifier::ShowPlaylistManager:
+      out << "ShowPlaylistManager";
       break;
 
     case CustomEvent::Identifier::Exit:
@@ -261,15 +262,6 @@ CustomEvent CustomEvent::StopSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::StopSong,
-  };
-}
-
-/* ********************************************************************************************** */
-
-CustomEvent CustomEvent::ClearCurrentSong() {
-  return CustomEvent{
-      .type = Type::FromInterfaceToAudioThread,
-      .id = Identifier::ClearCurrentSong,
   };
 }
 
@@ -459,6 +451,16 @@ CustomEvent CustomEvent::SkipToPreviousSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::SkipToPreviousSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ShowPlaylistManager(const model::PlaylistOperation& operation) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowPlaylistManager,
+      .content = operation,
   };
 }
 

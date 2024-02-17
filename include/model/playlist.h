@@ -18,6 +18,7 @@ namespace model {
  * @brief List of audio files to play
  */
 struct Playlist {
+  int index;               //!< Index identifier
   std::string name;        //!< Playlist name
   std::deque<Song> songs;  //!< List of songs
 

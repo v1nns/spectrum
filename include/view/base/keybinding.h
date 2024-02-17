@@ -138,7 +138,9 @@ struct Files {
 //! Playlist keybindings
 struct Playlist {
   static Key EnableSearch;
+  static Key Create;
   static Key Modify;
+  static Key Delete;
 };
 
 }  // namespace keybinding

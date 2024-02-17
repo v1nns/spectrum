@@ -1,4 +1,3 @@
-
 #include "view/base/terminal.h"
 
 #include <cmath>
@@ -11,6 +10,7 @@
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "model/block_identifier.h"
+#include "model/playlist_operation.h"
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/base/keybinding.h"
@@ -107,7 +107,7 @@ ftxui::Element Terminal::Render() {
 
   // Check if terminal has been resized
   if (auto current_size = ftxui::Terminal::Size(); size_ != current_size) {
-    LOG("Resize terminal size with new value={x:", current_size.dimx, " y:", current_size.dimy, "}");
+    LOG("Resize terminal with new value={x:", current_size.dimx, " y:", current_size.dimy, "}");
     size_ = current_size;
 
     // Recalculate maximum number of bars to show in spectrum graphic
@@ -282,16 +282,6 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Show playlist manager
-  // TODO: create a block for global events
-  // if (event == keybinding::Playlist::Modify) {
-  //   LOG("Handle key to show playlist manager");
-  //   // TODO: remove from here and use a CustomEvent to trigger it
-  //   playlist_dialog_->Open();
-  //
-  //   return true;
-  // }
-
   return false;
 }
 
@@ -389,10 +379,6 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
 
     case CustomEvent::Identifier::StopSong:
       media_ctl->Stop();
-      break;
-
-    case CustomEvent::Identifier::ClearCurrentSong:
-      media_ctl->ClearCurrentSong();
       break;
 
     case CustomEvent::Identifier::SetAudioVolume: {
@@ -505,6 +491,11 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
       // Send value to spectrum visualizer
       auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);
       SendEvent(event_calculate);
+    } break;
+
+    case CustomEvent::Identifier::ShowPlaylistManager: {
+      auto content = event.GetContent<model::PlaylistOperation>();
+      playlist_dialog_->Open(content);
     } break;
 
     case CustomEvent::Identifier::Exit: {

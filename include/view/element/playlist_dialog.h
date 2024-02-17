@@ -6,9 +6,7 @@
 #ifndef INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 #define INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 
-#include <optional>
-
-#include "model/playlist.h"
+#include "model/playlist_operation.h"
 #include "util/file_handler.h"
 #include "view/base/dialog.h"
 #include "view/element/button.h"
@@ -33,6 +31,12 @@ class PlaylistDialog : public Dialog {
    */
   virtual ~PlaylistDialog() = default;
 
+  /**
+   * @brief Set dialog as visible
+   * @param operation Playlist operation (Create/Modify/Delete)
+   */
+  void Open(const model::PlaylistOperation& operation);
+
   /* ******************************************************************************************** */
   //! Custom implementation
  private:
@@ -49,17 +53,6 @@ class PlaylistDialog : public Dialog {
    */
   bool OnEventImpl(const ftxui::Event& event) override;
 
-  /**
-   * @brief Callback to notify when dialog is opened
-   */
-  void OnOpen() override;
-
-  /**
-   * @brief Set playlist to be modified
-   * @param playlist Playlist object
-   */
-  void SetPlaylist(const model::Playlist playlist) { playlist_ = playlist; }
-
   //! Create general buttons
   void CreateButtons();
 
@@ -67,11 +60,13 @@ class PlaylistDialog : public Dialog {
   //! Variables
 
   util::FileHandler file_handler_;  //!< Utility class to manage files (read/write)
-  util::Files entries_;             //!< List containing files from parsed directory
 
-  GenericButton btn_add_;                    //!< Button to add new song to playlist
-  GenericButton btn_remove_;                 //!< Button to remove selected song to playlist
-  std::optional<model::Playlist> playlist_;  //!< Playlist to be modified
+  //!< Operation to execute + playlist to be modified
+  model::PlaylistOperation curr_operation_ = model::PlaylistOperation{
+      .action = model::PlaylistOperation::Operation::None, .playlist = model::Playlist{}};
+
+  GenericButton btn_add_;     //!< Button to add new song to playlist
+  GenericButton btn_remove_;  //!< Button to remove selected song to playlist
 };
 
 }  // namespace interface

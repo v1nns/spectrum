@@ -129,7 +129,7 @@ std::string PlaylistMenu::GetActiveEntryAsTextImpl() const {
 /* ********************************************************************************************** */
 
 bool PlaylistMenu::OnClickImpl() {
-  auto active = IsSearchEnabled() ? GetActivePlaylistFromSearch() : GetActivePlaylist();
+  auto active = IsSearchEnabled() ? GetActivePlaylistFromSearch() : GetActivePlaylistFromNormal();
 
   if (!active.has_value()) return false;
 
@@ -153,9 +153,8 @@ void PlaylistMenu::FilterEntriesBy(const std::string& text) {
 
     // Create temporary playlist
     InternalPlaylist tmp{
-        .index = entry.index,
         .collapsed = true,
-        .playlist = model::Playlist{.name = entry.playlist.name},
+        .playlist = model::Playlist{.index = entry.playlist.index, .name = entry.playlist.name},
     };
 
     // Append only filtered songs
@@ -181,11 +180,16 @@ void PlaylistMenu::SetEntriesImpl(const model::Playlists& entries) {
 
   int count = 0;
   for (const auto& playlist : entries) {
-    entries_.push_back(InternalPlaylist{
-        .index = count++,
+    auto tmp = InternalPlaylist{
         .collapsed = false,
-        .playlist = playlist,
-    });
+        .playlist =
+            model::Playlist{
+                .index = count++,
+                .name = playlist.name,
+                .songs = playlist.songs,
+            },
+    };
+    entries_.push_back(tmp);
   }
 }
 
@@ -263,13 +267,8 @@ std::optional<model::Playlist> PlaylistMenu::GetActiveEntryImpl() const {
     // Otherwise, selected index may be pointing to a song entry
     for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end(); ++it, ++count) {
       if (count == selected) {
-        // Get only playlist + selected song
-        model::Playlist playlist{
-            .name = entry.playlist.name,
-            .songs = std::deque<model::Song>({*it}),
-        };
-
-        return playlist;
+        // Get full playlist
+        return entry.playlist;
       }
     }
   }
@@ -354,7 +353,7 @@ bool PlaylistMenu::ToggleActivePlaylist(bool collapse) {
 
 /* ********************************************************************************************** */
 
-std::optional<model::Playlist> PlaylistMenu::GetActivePlaylist() const {
+std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromNormal() const {
   int count = 0;
   int selected = GetSelected();
 
@@ -396,7 +395,7 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
   for (const auto& entry : *filtered_entries_) {
     // Selected index is the playlist itself, so just return
     if (count == selected) {
-      playlist_index = entry.index;
+      playlist_index = entry.playlist.index;
       break;
     }
 
@@ -409,7 +408,7 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
     for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end(); ++it, ++count) {
       // Selected index is a song from this playlist
       if (count == selected) {
-        playlist_index = entry.index;
+        playlist_index = entry.playlist.index;
         song = it->filepath;
         break;
       }
@@ -421,15 +420,15 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
 
   // With these values, find playlist in the original list of entries
   for (const auto& entry : entries_) {
-    if (playlist_index != -1 && playlist_index == entry.index && song.empty()) {
+    if (playlist_index != -1 && playlist_index == entry.playlist.index && song.empty()) {
       return entry.playlist;
     }
 
-    if (playlist_index > entry.index) continue;
+    if (playlist_index > entry.playlist.index) continue;
 
     // Otherwise, selected index may be pointing to a song entry
     for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end(); ++it) {
-      if (playlist_index != -1 && playlist_index == entry.index && it->filepath == song) {
+      if (playlist_index != -1 && playlist_index == entry.playlist.index && it->filepath == song) {
         return ShufflePlaylist(entry.playlist, it);
       }
     }
@@ -448,8 +447,11 @@ model::Playlist PlaylistMenu::ShufflePlaylist(
   }
 
   // Shuffle playlist based on selected song
-  model::Playlist tmp{.name = playlist.name,
-                      .songs = std::deque<model::Song>(it, playlist.songs.end())};
+  model::Playlist tmp{
+      .index = playlist.index,
+      .name = playlist.name,
+      .songs = std::deque<model::Song>(it, playlist.songs.end()),
+  };
 
   tmp.songs.insert(tmp.songs.end(), playlist.songs.begin(), it);
   return tmp;

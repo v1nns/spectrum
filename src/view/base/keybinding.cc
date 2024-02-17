@@ -62,7 +62,6 @@ Key Sidebar::FocusPlaylist = Key::Special("\x1BOQ");  //! F2
 
 Key MediaPlayer::PlayOrPause = Key::Character('p');
 Key MediaPlayer::Stop = Key::Character('s');
-Key MediaPlayer::ClearSong = Key::Character('c');
 
 Key MediaPlayer::SkipToPrevious = Key::Character('<');
 Key MediaPlayer::SkipToNext = Key::Character('>');
@@ -97,7 +96,9 @@ Key Files::EnableSearch = Key::Character('/');
 /* ------------------------------------------ Playlist ------------------------------------------ */
 
 Key Playlist::EnableSearch = Key::Character('/');
+Key Playlist::Create = Key::Character('c');
 Key Playlist::Modify = Key::Character('o');
+Key Playlist::Delete = Key::Character('d');
 
 }  // namespace keybinding
 

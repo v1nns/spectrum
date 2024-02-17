@@ -73,6 +73,7 @@ target_sources(
           model/block_identifier.cc
           model/bar_animation.cc
           model/playlist.cc
+          model/playlist_operation.cc
           model/song.cc
           # view
           view/base/block.cc

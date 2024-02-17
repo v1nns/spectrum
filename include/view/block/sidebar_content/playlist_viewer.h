@@ -6,7 +6,6 @@
 #ifndef INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_PLAYLIST_MANAGER_H_
 #define INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_PLAYLIST_MANAGER_H_
 
-#include <optional>
 #include <string_view>
 
 #include "util/file_handler.h"
@@ -89,8 +88,6 @@ class PlaylistViewer : public TabItem {
  private:
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
-
-  std::optional<model::Song> curr_playing_ = std::nullopt;  //!< Current song playing
 
   ftxui::Box box_;  //!< Box for whole component
 

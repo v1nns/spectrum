@@ -1103,6 +1103,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
   model::Playlists data{{
       model::Playlist{
+          .index = 0,
           .name = "Chill mix",
           .songs =
               {
@@ -1112,6 +1113,7 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
               },
       },
       model::Playlist{
+          .index = 1,
           .name = "Lofi",
           .songs =
               {
@@ -1169,6 +1171,7 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
 
   // Setup expectation for playlist sent by element (should be shuffled based on selected entry)
   model::Playlist playlist{
+      .index = 1,
       .name = "Lofi",
       .songs =
           {
@@ -1193,6 +1196,7 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
 TEST_F(SidebarTest, NotifyLastPlaylist) {
   model::Playlists data{{
       model::Playlist{
+          .index = 0,
           .name = "Chill mix",
           .songs =
               {
@@ -1202,6 +1206,7 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
               },
       },
       model::Playlist{
+          .index = 1,
           .name = "Lofi",
           .songs =
               {
@@ -1211,6 +1216,7 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
               },
       },
       model::Playlist{
+          .index = 2,
           .name = "Electro",
           .songs =
               {
@@ -1231,6 +1237,7 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
 
   // Setup expectation for playlist sent by element
   model::Playlist playlist{
+      .index = 2,
       .name = "Electro",
       .songs =
           {
@@ -1272,6 +1279,127 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
-// TODO: test to check that TextAnimation is working on PlaylistMenu
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, RunTextAnimationOnPlaylist) {
+  model::Playlists data{
+      {model::Playlist{
+           .index = 0,
+           .name = "Chill mix",
+           .songs =
+               {
+                   model::Song{.filepath = "chilling 1.mp3"},
+                   model::Song{.filepath = "chilling 3.mp3"},
+                   model::Song{.filepath = "chilling with a really long name.mp3"},
+               },
+       },
+       model::Playlist{
+           .index = 1,
+           .name = "Lofi",
+           .songs =
+               {
+                   model::Song{.filepath = "lofi 1.mp3"},
+                   model::Song{.filepath = "lofi 2.mp3"},
+                   model::Song{.filepath = "lofi 3.mp3"},
+               },
+       }}};
+
+  // Set custom data
+  SetPlaylists(data);
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Setup expectation for event sending (to refresh UI)
+  // p.s.: Times(5) is based on refresh timing from thread animation
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::Refresh)))
+      .Times(5);
+
+  // Select last song from the first playlist
+  std::string typed{"ljjj"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Render element
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix                         │
+│    chilling 1.mp3                  │
+│    chilling 3.mp3                  │
+│▶   chilling with a really long name│
+│  Lofi                              │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Wait for a few moments to render again and see that text has changed
+  screen->Clear();
+
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(1.1s);
+
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix                         │
+│    chilling 1.mp3                  │
+│    chilling 3.mp3                  │
+│▶   ing with a really long name.mp3 │
+│  Lofi                              │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Open next playlist and check that animation will stop
+  typed = "jl";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix                         │
+│    chilling 1.mp3                  │
+│    chilling 3.mp3                  │
+│    chilling with a really long name│
+│▶ Lofi                              │
+│    lofi 1.mp3                      │
+│    lofi 2.mp3                      │
+│    lofi 3.mp3                      │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
 
 }  // namespace

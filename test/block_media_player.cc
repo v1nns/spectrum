@@ -467,17 +467,18 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 
   screen->Clear();
 
-  // Setup mock calls to send back a ClearSongInfo event to block
+  // Setup expectation to invoke custom implementation
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::ClearCurrentSong)))
+                                           interface::CustomEvent::Identifier::StopSong)))
       .WillRepeatedly(Invoke([&](const interface::CustomEvent& event) {
+        // Simulate audio player sending a ClearSongInformation after song stopped
         auto clear_song = interface::CustomEvent::ClearSongInfo();
         Process(clear_song);
       }));
 
-  // Process keyboard event to clear song
-  auto event_clear = ftxui::Event::Character('c');
-  block->OnEvent(event_clear);
+  // Process keyboard event to stop song
+  auto event_stop = ftxui::Event::Character('s');
+  block->OnEvent(event_stop);
 
   ftxui::Render(*screen, block->Render());
   rendered = utils::FilterAnsiCommands(screen->ToString());

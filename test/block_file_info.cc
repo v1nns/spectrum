@@ -39,6 +39,7 @@ TEST_F(FileInfoTest, InitialRender) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
+│Filename               <Empty>│
 │Artist                 <Empty>│
 │Title                  <Empty>│
 │Channels               <Empty>│
@@ -46,7 +47,6 @@ TEST_F(FileInfoTest, InitialRender) {
 │Bit rate               <Empty>│
 │Bits per sample        <Empty>│
 │Duration               <Empty>│
-│Filename               <Empty>│
 │                              │
 │                              │
 │                              │
@@ -81,6 +81,7 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
+│Filename              song.mp3│
 │Artist       Baco Exu do Blues│
 │Title                 Lágrimas│
 │Channels                     2│
@@ -88,7 +89,6 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 │Bit rate              256 kbps│
 │Bits per sample        32 bits│
 │Duration               123 sec│
-│Filename              song.mp3│
 │                              │
 │                              │
 │                              │
@@ -127,6 +127,7 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
+│Filename               <Empty>│
 │Artist                 <Empty>│
 │Title                  <Empty>│
 │Channels               <Empty>│
@@ -134,7 +135,6 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 │Bit rate               <Empty>│
 │Bits per sample        <Empty>│
 │Duration               <Empty>│
-│Filename               <Empty>│
 │                              │
 │                              │
 │                              │

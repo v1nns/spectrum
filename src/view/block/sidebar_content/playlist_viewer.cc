@@ -103,6 +103,26 @@ ftxui::Element PlaylistViewer::Render() {
 bool PlaylistViewer::OnEvent(const ftxui::Event& event) {
   if (menu_->OnEvent(event)) return true;
 
+  if (event == keybinding::Playlist::Create || event == keybinding::Playlist::Modify ||
+      event == keybinding::Playlist::Delete) {
+    auto dispatcher = dispatcher_.lock();
+    if (!dispatcher) return false;
+
+    model::PlaylistOperation operation{
+        .action =
+            event == keybinding::Playlist::Create   ? model::PlaylistOperation::Operation::Create
+            : event == keybinding::Playlist::Modify ? model::PlaylistOperation::Operation::Modify
+                                                    : model::PlaylistOperation::Operation::Delete,
+        .playlist = menu_->GetActiveEntry(),
+    };
+
+    LOG("Handle key to open playlist dialog, operation=", operation);
+    auto event_dialog = interface::CustomEvent::ShowPlaylistManager(operation);
+    dispatcher->SendEvent(event_dialog);
+
+    return true;
+  }
+
   return false;
 }
 
@@ -125,13 +145,12 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
     LOG("Received new playlist song information from player");
 
     // Set current song
-    curr_playing_ = event.GetContent<model::Song>();
-    menu_->SetEntryHighlighted(*curr_playing_);
+    auto current_song = event.GetContent<model::Song>();
+    menu_->SetEntryHighlighted(current_song);
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
-    curr_playing_.reset();
     menu_->ResetHighlight();
   }
 
@@ -149,10 +168,16 @@ void PlaylistViewer::CreateButtons() {
 
         LOG("Handle callback for Create button");
 
-        // TODO: call new dialog to create and manage playlist entries
-
         // Set this block as active (focused)
         on_focus_();
+
+        model::PlaylistOperation operation{
+            .action = model::PlaylistOperation::Operation::Create,
+            .playlist = menu_->GetActiveEntry(),
+        };
+
+        auto event = interface::CustomEvent::ShowPlaylistManager(operation);
+        disp->SendEvent(event);
 
         return true;
       },
@@ -166,10 +191,16 @@ void PlaylistViewer::CreateButtons() {
 
         LOG("Handle callback for Modify button");
 
-        // TODO: call new dialog to manage playlist entries
-
         // Set this block as active (focused)
         on_focus_();
+
+        model::PlaylistOperation operation{
+            .action = model::PlaylistOperation::Operation::Modify,
+            .playlist = menu_->GetActiveEntry(),
+        };
+
+        auto event = interface::CustomEvent::ShowPlaylistManager(operation);
+        disp->SendEvent(event);
 
         return true;
       },
@@ -183,10 +214,16 @@ void PlaylistViewer::CreateButtons() {
 
         LOG("Handle callback for Delete button");
 
-        // TODO: call new dialog to delete playlist
-
         // Set this block as active (focused)
         on_focus_();
+
+        model::PlaylistOperation operation{
+            .action = model::PlaylistOperation::Operation::Delete,
+            .playlist = menu_->GetActiveEntry(),
+        };
+
+        auto event = interface::CustomEvent::ShowPlaylistManager(operation);
+        disp->SendEvent(event);
 
         return true;
       },

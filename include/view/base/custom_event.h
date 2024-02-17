@@ -14,6 +14,7 @@
 #include "model/bar_animation.h"
 #include "model/block_identifier.h"
 #include "model/playlist.h"
+#include "model/playlist_operation.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -44,13 +45,12 @@ struct CustomEvent {
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
     StopSong = 60002,
-    ClearCurrentSong = 60003,
-    SetAudioVolume = 60004,
-    ResizeAnalysis = 60005,
-    SeekForwardPosition = 60006,
-    SeekBackwardPosition = 60007,
-    ApplyAudioFilters = 60008,
-    NotifyPlaylistSelection = 60009,
+    SetAudioVolume = 60003,
+    ResizeAnalysis = 60004,
+    SeekForwardPosition = 60005,
+    SeekBackwardPosition = 60006,
+    ApplyAudioFilters = 60007,
+    NotifyPlaylistSelection = 60008,
 
     // Events from interface to interface
     Refresh = 70000,
@@ -67,7 +67,8 @@ struct CustomEvent {
     UpdateBarWidth = 70011,
     SkipToNextSong = 70012,
     SkipToPreviousSong = 70013,
-    Exit = 70014,
+    ShowPlaylistManager = 70014,
+    Exit = 70015,
   };
 
   //! Overloaded operators
@@ -89,7 +90,6 @@ struct CustomEvent {
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
   static CustomEvent PauseOrResumeSong();
   static CustomEvent StopSong();
-  static CustomEvent ClearCurrentSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
   static CustomEvent ResizeAnalysis(int bars);
   static CustomEvent SeekForwardPosition(int offset);
@@ -112,6 +112,7 @@ struct CustomEvent {
   static CustomEvent UpdateBarWidth();
   static CustomEvent SkipToNextSong();
   static CustomEvent SkipToPreviousSong();
+  static CustomEvent ShowPlaylistManager(const model::PlaylistOperation& operation);
 
   static CustomEvent Exit();
 
@@ -119,7 +120,8 @@ struct CustomEvent {
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
-                   model::BarAnimation, model::BlockIdentifier, model::Playlist>;
+                   model::BarAnimation, model::BlockIdentifier, model::Playlist,
+                   model::PlaylistOperation>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

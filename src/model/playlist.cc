@@ -3,7 +3,7 @@
 namespace model {
 
 bool Playlist::operator==(const Playlist& other) const {
-  return std::tie(name, songs) == std::tie(other.name, other.songs);
+  return std::tie(index, name, songs) == std::tie(other.index, other.name, other.songs);
 }
 
 /* ********************************************************************************************** */
@@ -13,7 +13,8 @@ bool Playlist::operator!=(const Playlist& other) const { return !operator==(othe
 /* ********************************************************************************************** */
 
 std::ostream& operator<<(std::ostream& out, const Playlist& p) {
-  out << "{playlist:" << std::quoted(p.name) << " songs:" << p.songs.size() << "}";
+  out << "{id:" << p.index << " playlist:" << std::quoted(p.name) << " songs:" << p.songs.size()
+      << "}";
   return out;
 }
 
@@ -29,7 +30,7 @@ Song Playlist::PopFront() {
 /* ********************************************************************************************** */
 
 void PrintTo(const Playlist& p, std::ostream* os) {
-  *os << "{playlist:" << std::quoted(p.name);
+  *os << "{id:" << p.index << " playlist:" << std::quoted(p.name);
 
   *os << " songs:{";
 

@@ -80,6 +80,8 @@ bool Song::IsEmpty() const { return filepath.empty() ? true : false; }
 std::string to_string(const Song& arg) {
   bool is_empty = arg.IsEmpty();
 
+  std::string filename = is_empty ? "<Empty>" : arg.filepath.filename();
+
   std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
   std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;
 
@@ -89,10 +91,9 @@ std::string to_string(const Song& arg) {
   std::string bit_depth = is_empty ? "<Empty>" : util::format_with_prefix(arg.bit_depth, "bits");
   std::string duration = is_empty ? "<Empty>" : util::format_with_prefix(arg.duration, "sec");
 
-  std::string filename = is_empty ? "<Empty>" : arg.filepath.filename();
-
   std::ostringstream ss;
 
+  ss << "Filename: " << filename << std::endl;
   ss << "Artist: " << artist << std::endl;
   ss << "Title: " << title << std::endl;
   ss << "Channels: " << channels << std::endl;
@@ -100,7 +101,6 @@ std::string to_string(const Song& arg) {
   ss << "Bit rate: " << bit_rate << std::endl;
   ss << "Bits per sample: " << bit_depth << std::endl;
   ss << "Duration: " << duration << std::endl;
-  ss << "Filename: " << filename << std::endl;
 
   return std::move(ss).str();
 }

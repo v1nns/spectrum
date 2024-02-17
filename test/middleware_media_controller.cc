@@ -140,9 +140,6 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   EXPECT_CALL(*audio_ctl, Stop());
   notifier->Stop();
 
-  EXPECT_CALL(*audio_ctl, Stop());
-  notifier->ClearCurrentSong();
-
   model::Volume volume{0.7};
   EXPECT_CALL(*audio_ctl, SetAudioVolume(Eq(volume)));
   notifier->SetVolume(volume);

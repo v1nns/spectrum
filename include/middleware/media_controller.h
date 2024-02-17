@@ -116,12 +116,6 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void Stop() override;
 
   /**
-   * @brief Clear any information about the current song. After this, player will trigger
-   * ClearSongInformation method.
-   */
-  void ClearCurrentSong() override;
-
-  /**
    * @brief Notify Audio Player to set volume
    */
   void SetVolume(model::Volume value) override;

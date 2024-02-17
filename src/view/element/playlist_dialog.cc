@@ -7,15 +7,31 @@ namespace interface {
 
 PlaylistDialog::PlaylistDialog()
     : Dialog(Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
-             // TODO: change colors
-             Style{.background = ftxui::Color::SteelBlue3, .foreground = ftxui::Color::Grey11}) {
+             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {
   CreateButtons();
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
+  curr_operation_ = operation;
+  Dialog::Open();
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistDialog::RenderImpl() const {
   // TODO: implement
+  switch (curr_operation_.action) {
+    case model::PlaylistOperation::Operation::None:
+      break;
+    case model::PlaylistOperation::Operation::Create:
+      break;
+    case model::PlaylistOperation::Operation::Modify:
+      break;
+    case model::PlaylistOperation::Operation::Delete:
+      break;
+  }
   return ftxui::vbox({
       ftxui::text(" "),
       ftxui::text("Manage Playlist") | ftxui::color(ftxui::Color::Black) | ftxui::center |
@@ -71,14 +87,6 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
   if (btn_remove_->OnMouseEvent(event)) return true;
 
   return false;
-}
-
-/* ********************************************************************************************** */
-
-void PlaylistDialog::OnOpen() {
-  if (std::string home{file_handler_.GetHome()}; !file_handler_.ListFiles(home, entries_)) {
-    // TODO: log error
-  }
 }
 
 /* ********************************************************************************************** */
