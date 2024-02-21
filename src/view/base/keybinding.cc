@@ -36,6 +36,8 @@ Key Navigation::Delete = Key::Special("\x1B[3~");  //! Delete key
 
 Key Navigation::Close = Key::Character('q');
 
+Key Navigation::EnableSearch = Key::Character('/');
+
 /* ------------------------------------------ General ------------------------------------------- */
 
 Key General::ExitApplication = Key::Character('q');
@@ -91,11 +93,10 @@ Key Equalizer::ResetFilters = Key::Character('r');
 
 /* ------------------------------------------- Files -------------------------------------------- */
 
-Key Files::EnableSearch = Key::Character('/');
+// ...
 
 /* ------------------------------------------ Playlist ------------------------------------------ */
 
-Key Playlist::EnableSearch = Key::Character('/');
 Key Playlist::Create = Key::Character('c');
 Key Playlist::Modify = Key::Character('o');
 Key Playlist::Delete = Key::Character('d');

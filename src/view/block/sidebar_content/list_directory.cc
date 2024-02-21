@@ -2,14 +2,12 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <iomanip>
 #include <memory>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
-#include "ftxui/screen/color.hpp"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
@@ -22,10 +20,9 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
                              const std::shared_ptr<util::FileHandler>& file_handler,
                              int max_columns, const std::string& optional_path)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)),
-      file_handler_(file_handler),
       max_columns_(max_columns),
       menu_(menu::CreateFileMenu(
-          dispatcher,
+          dispatcher, file_handler,
 
           // Callback to force a UI refresh
           [this] {
@@ -39,54 +36,26 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
           [this](const std::optional<util::File>& active) {
             if (!active) return false;
 
+            // Send user action to controller, try to play selected entry
+            auto dispatcher = dispatcher_.lock();
+            if (!dispatcher) return false;
+
             LOG("Handle on_click event on menu entry=", *active);
-            std::filesystem::path new_dir;
+            auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
+            dispatcher->SendEvent(event_selection);
 
-            if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
-              // Change to parent folder
-              new_dir = curr_dir_.parent_path();
-            } else if (std::filesystem::is_directory(*active)) {
-              // Change to selected folder
-              new_dir = curr_dir_ / active->filename();
-            } else {
-              // Send user action to controller, try to play selected entry
-              auto dispatcher = dispatcher_.lock();
-              if (!dispatcher) return false;
-
-              auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
-              dispatcher->SendEvent(event_selection);
-
-              return true;
-            }
-
-            if (!new_dir.empty()) {
-              RefreshList(new_dir);
-              return true;
-            }
-
-            return false;
-          })) {
+            return true;
+          },
+          optional_path)) {
   // Set max columns for an entry in menu
   menu_->SetMaxColumns(max_columns);
-
-  // TODO: this is not good, read this below
-  // https://google.github.io/styleguide/cppguide.html#Doing_Work_in_Constructors
-  auto filepath = ComposeDirectoryPath(optional_path);
-
-  if (bool parsed = RefreshList(filepath); !optional_path.empty() && !parsed) {
-    // If we can't list files from current path, then everything is gone
-    RefreshList(std::filesystem::current_path());
-  }
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Element ListDirectory::Render() {
   // Build up the whole content
-  return ftxui::vbox({
-      ftxui::text(GetTitle()) | ftxui::color(ftxui::Color::White) | ftxui::bold,
-      menu_->Render(),
-  });
+  return menu_->Render();
 }
 
 /* ********************************************************************************************** */
@@ -197,73 +166,6 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
 #endif
 
   return false;
-}
-
-/* ********************************************************************************************** */
-
-std::string ListDirectory::GetTitle() {
-  const std::string curr_dir = curr_dir_.string();
-
-  // Everything fine, directory does not exceed maximum column length
-  if (curr_dir.size() <= max_columns_) {
-    return curr_dir;
-  }
-
-  // Oh no, it does exceed, so we must truncate the exceeding text
-  int offset =
-      (int)curr_dir.size() - (max_columns_ - 5);  // Considering window border(2) + ellipsis(3)
-  const std::string& substr = curr_dir.substr(offset);
-  auto index = substr.find('/');
-
-  return index != std::string::npos ? std::string("..." + substr.substr(index)) : substr;
-}
-
-/* ********************************************************************************************** */
-
-std::filesystem::path ListDirectory::ComposeDirectoryPath(const std::string& optional_path) {
-  // By default, use current path from where spectrum was executed
-  std::filesystem::path filepath = std::filesystem::current_path();
-
-  if (optional_path.empty()) return filepath;
-
-  // Remove last slash from given path
-  std::string clean_path = optional_path.back() == '/'
-                               ? optional_path.substr(0, optional_path.size() - 1)
-                               : optional_path;
-
-  // Check if given path is valid
-  try {
-    auto tmp = std::filesystem::canonical(clean_path);
-    filepath = tmp;
-  } catch (...) {
-    ERROR("Invalid path, tried to compose canonical path using ", std::quoted(clean_path));
-  }
-
-  return filepath;
-}
-
-/* ********************************************************************************************** */
-
-bool ListDirectory::RefreshList(const std::filesystem::path& dir_path) {
-  LOG("Refresh list with files from new directory=", std::quoted(dir_path.c_str()));
-  util::Files tmp;
-
-  if (!file_handler_->ListFiles(dir_path, tmp)) {
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
-
-    dispatcher->SetApplicationError(error::kAccessDirFailed);
-
-    return false;
-  }
-
-  LOG("Updating list with new entries, size=", tmp.size());
-
-  // Reset internal values
-  curr_dir_ = dir_path;
-  menu_->SetEntries(tmp);
-
-  return true;
 }
 
 /* ********************************************************************************************** */

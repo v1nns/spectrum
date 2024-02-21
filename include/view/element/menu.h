@@ -23,12 +23,15 @@ namespace menu {
 /**
  * @brief Construct a new FileMenu object
  * @param dispatcher Event dispatcher
+ * @param file_handler Utility handler to manage any file operation
  * @param force_refresh Callback function to update UI
  * @param on_click Callback function for click event on active entry
  */
 FileMenu CreateFileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                        const std::shared_ptr<util::FileHandler>& file_handler,
                         const TextAnimation::Callback& force_refresh,
-                        const internal::FileMenu::Callback& on_click);
+                        const internal::FileMenu::Callback& on_click,
+                        const std::string& optional_path);
 
 /**
  * @brief Construct a new PlaylistMenu object

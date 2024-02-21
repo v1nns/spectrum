@@ -86,27 +86,8 @@ class ListDirectory : public TabItem {
   bool OnCustomEvent(const CustomEvent& event) override;
 
   /* ******************************************************************************************** */
- private:
-  //! Getter for Title (for testing purposes, may be overridden)
-  virtual std::string GetTitle();
-
-  /* ******************************************************************************************** */
   //! File list operations
-
-  /**
-   * @brief Compose directory path to list files from (based on given path)
-   * @param optional_path Path to list files
-   * @return path Directory path
-   */
-  std::filesystem::path ComposeDirectoryPath(const std::string& optional_path);
-
-  /**
-   * @brief Refresh list with all files from the given directory path
-   * @param dir_path Full path to directory
-   * @return true if directory was parsed succesfully, false otherwise
-   */
-  bool RefreshList(const std::filesystem::path& dir_path);
-
+ private:
   /**
    * @brief Select file to play based on the current song playing
    * @param pick_next Pick next or previous file to play
@@ -118,17 +99,14 @@ class ListDirectory : public TabItem {
   //! Local cache for current active information
  protected:
   //! Get current directory
-  const std::filesystem::path& GetCurrentDir() const { return curr_dir_; }
+  const std::filesystem::path& GetCurrentDir() const { return menu_->actual().GetCurrentDir(); }
 
   /* ******************************************************************************************** */
   //! Variables
-
  private:
-  std::filesystem::path curr_dir_;                                    //!< Current directory
   std::optional<std::filesystem::path> curr_playing_ = std::nullopt;  //!< Current song playing
 
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
-  std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 
   FileMenu menu_;  //!< Menu with a list of files
 

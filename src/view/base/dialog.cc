@@ -5,14 +5,14 @@
 
 namespace interface {
 
-Dialog::Dialog(Size size, Style style) : size_{size}, style_{style} {
+Dialog::Dialog(const Size& size, const Style& style) : size_{size}, style_{style} {
   if (size.min_line) size_.min_line += kBorderSize;
   if (size.min_column) size_.min_column += kBorderSize;
 }
 
 /* ********************************************************************************************** */
 
-ftxui::Element Dialog::Render(ftxui::Dimensions curr_size) const {
+ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
   using ftxui::EQUAL;
   using ftxui::HEIGHT;
   using ftxui::WIDTH;

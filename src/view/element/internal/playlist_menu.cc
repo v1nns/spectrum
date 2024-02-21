@@ -72,7 +72,7 @@ bool PlaylistMenu::OnEventImpl(const ftxui::Event& event) {
   }
 
   // Enable search mode
-  if (!IsSearchEnabled() && event == keybinding::Playlist::EnableSearch) {
+  if (!IsSearchEnabled() && event == keybinding::Navigation::EnableSearch) {
     EnableSearch();
     return true;
   }

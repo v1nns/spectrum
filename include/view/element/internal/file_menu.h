@@ -41,11 +41,15 @@ class FileMenu : public Menu<FileMenu> {
   /**
    * @brief Construct a new FileMenu object
    * @param dispatcher Event dispatcher
+   * @param file_handler Utility handler to manage any file operation
    * @param force_refresh Callback function to update UI
    * @param on_click Callback function for click event on active entry
+   * @param optional_path Custom directory path to fill initial list of files
    */
   explicit FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
-                    const TextAnimation::Callback& force_refresh, const Callback& on_click);
+                    const std::shared_ptr<util::FileHandler>& file_handler,
+                    const TextAnimation::Callback& force_refresh, const Callback& on_click,
+                    const std::string& optional_path);
 
   /**
    * @brief Destroy Menu object
@@ -74,6 +78,26 @@ class FileMenu : public Menu<FileMenu> {
   void FilterEntriesBy(const std::string& text);
 
   /* ******************************************************************************************** */
+  //! Derived specialization
+
+  /**
+   * @brief Compose directory path to list files from (based on given path)
+   * @param optional_path Path to list files
+   * @return path Directory path
+   */
+  std::filesystem::path ComposeDirectoryPath(const std::string& optional_path);
+
+  /**
+   * @brief Refresh list with all files from the given directory path
+   * @param dir_path Full path to directory
+   * @return true if directory was parsed succesfully, false otherwise
+   */
+  bool RefreshList(const std::filesystem::path& dir_path);
+
+  //! Getter for Title (current working directory)
+  std::string GetTitle() const;
+
+  /* ******************************************************************************************** */
   //! Setters and getters
 
   //! Save entries internally to render it as a menu
@@ -100,10 +124,15 @@ class FileMenu : public Menu<FileMenu> {
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
 
+ public:
+  //! Get current directory
+  const std::filesystem::path& GetCurrentDir() const { return curr_dir_; }
+
   /* ******************************************************************************************** */
   //! Variables
  private:
-  util::Files entries_;  //!< List containing files from current directory
+  std::filesystem::path curr_dir_;  //!< Current directory
+  util::Files entries_;             //!< List containing files from current directory
 
   //!< List containing only files matching the text from search
   std::optional<util::Files> filtered_entries_ = std::nullopt;
@@ -111,6 +140,8 @@ class FileMenu : public Menu<FileMenu> {
   std::optional<util::File> highlighted_ = std::nullopt;  //!< Entry highlighted by owner
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
+
+  std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 
   //!< Style for each element inside this component
   Style style_ = Style{

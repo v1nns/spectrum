@@ -14,8 +14,6 @@
 #include "general/block.h"
 #include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
-#include "mock/list_directory_mock.h"
-#include "view/base/keybinding.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
 #include "view/block/sidebar_content/playlist_viewer.h"
@@ -54,8 +52,6 @@ class SidebarTest : public ::BlockTest {
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
 
-    // Replace inner tab item (ListDirectory) with mock
-    InjectMock(source_dir);
 
     // Clear internal cache from menu in PlaylistViewer
     GetPlaylistViewer()->menu_->SetEntries(model::Playlists{});
@@ -77,7 +73,7 @@ class SidebarTest : public ::BlockTest {
   }
 
   //! Getter for current dir from ListDirectory
-  auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->curr_dir_; }
+  auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->GetCurrentDir(); }
 
   //! Hacky method to add new entry in files tab_item
   void EmplaceFile(const std::filesystem::path& entry) {
@@ -99,22 +95,6 @@ class SidebarTest : public ::BlockTest {
   void SetPlaylists(const model::Playlists& entries) {
     auto viewer = GetPlaylistViewer();
     viewer->menu_->SetEntries(entries);
-  }
-
-  /* ******************************************************************************************** */
-  //! Change default behavior
-
-  //! Another hacky method to inject mock without modifying class constructor
-  void InjectMock(const std::string& source_dir) {
-    auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
-
-    sidebar->tab_elem_[interface::Sidebar::View::Files].reset();
-
-    sidebar->tab_elem_[interface::Sidebar::View::Files] = std::make_unique<ListDirectoryMock>(
-        sidebar->GetId(), sidebar->GetDispatcher(),
-        std::bind(&interface::Sidebar::AskForFocus, sidebar.get()),
-        interface::keybinding::Sidebar::FocusList, sidebar->file_handler_,
-        interface::Sidebar::kMaxColumns, source_dir);
   }
 };
 
@@ -224,10 +204,10 @@ TEST_F(SidebarTest, NavigateToMockDir) {
 │  event_dispatcher_mock.h           │
 │  html_parser_mock.h                │
 │  interface_notifier_mock.h         │
-│  list_directory_mock.h             │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
 │  url_fetcher_mock.h                │
+│                                    │
 │                                    │
 ╰────────────────────────────────────╯)";
 
@@ -333,10 +313,10 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
 │  event_dispatcher_mock.h           │
 │  html_parser_mock.h                │
 │  interface_notifier_mock.h         │
-│  list_directory_mock.h             │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
 │  url_fetcher_mock.h                │
+│                                    │
 │                                    │
 ╰────────────────────────────────────╯)";
 
@@ -653,6 +633,11 @@ TEST_F(SidebarTest, RunTextAnimation) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, TryToNavigateOnEmptySearch) {
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
   std::string typed{"/notsomethingthatexists"};
   utils::QueueCharacterEvents(*block, typed);
 
@@ -687,6 +672,11 @@ TEST_F(SidebarTest, TryToNavigateOnEmptySearch) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, NavigateAndEraseCharactersOnSearch) {
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
   std::string typed{"/block"};
   utils::QueueCharacterEvents(*block, typed);
 
@@ -947,6 +937,7 @@ TEST_F(SidebarTest, EmptyPlaylist) {
 TEST_F(SidebarTest, SinglePlaylist) {
   model::Playlists data{{
       model::Playlist{
+          .index = 0,
           .name = "Chill mix",
           .songs = {model::Song{.filepath = "chilling 1.mp3"},
                     model::Song{.filepath = "chilling 2.mp3"},
@@ -988,6 +979,7 @@ TEST_F(SidebarTest, SinglePlaylist) {
 TEST_F(SidebarTest, NavigateOnPlaylist) {
   model::Playlists data{{
       model::Playlist{
+          .index = 0,
           .name = "Chill mix",
           .songs =
               {
@@ -997,6 +989,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
               },
       },
       model::Playlist{
+          .index = 1,
           .name = "Lofi",
           .songs =
               {
@@ -1392,6 +1385,77 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylist) {
 │    lofi 1.mp3                      │
 │    lofi 2.mp3                      │
 │    lofi 3.mp3                      │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, ForceClickOnEmptyPlaylistWhileOnSearchMode) {
+  model::Playlists data{{model::Playlist{
+                             .index = 0,
+                             .name = "Chill mix",
+                             .songs =
+                                 {
+                                     model::Song{.filepath = "chilling 1.mp3"},
+                                     model::Song{.filepath = "chilling 2.mp3"},
+                                     model::Song{.filepath = "chilling 3.mp3"},
+                                 },
+                         },
+                         model::Playlist{
+                             .index = 1,
+                             .name = "Lofi",
+                             .songs = {},
+                         }}};
+
+  // Set custom data
+  SetPlaylists(data);
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  // Enter search mode and type some stuff
+  std::string typed{"/lofi"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Setup expectation for event enabling global mode again
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
+  // Must not send a playlist notification as it will be empty (no songs at all)
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::NotifyPlaylistSelection)))
+      .Times(0);
+
+  // Execute action on selected entry
+  block->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix                         │
+│  Lofi                              │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
 │                                    │
 │                                    │
 │                                    │

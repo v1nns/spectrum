@@ -46,6 +46,8 @@ struct Navigation {
   static Key Delete;
 
   static Key Close;
+
+  static Key EnableSearch;
 };
 
 /* ********************************************************************************************** */
@@ -129,15 +131,12 @@ struct Lyric {
 /* ********************************************************************************************** */
 
 //! Files keybindings
-struct Files {
-  static Key EnableSearch;
-};
+struct Files {};
 
 /* ********************************************************************************************** */
 
 //! Playlist keybindings
 struct Playlist {
-  static Key EnableSearch;
   static Key Create;
   static Key Modify;
   static Key Delete;

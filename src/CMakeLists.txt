@@ -161,6 +161,11 @@ if(NOT SPECTRUM_DEBUG)
     INTERFACE PkgConfig::CURL
     PRIVATE
     INTERFACE PkgConfig::LIBXML)
+
+  if(ENABLE_TESTS)
+    message(STATUS "Enabling additional compile definitions for tests...")
+    add_definitions(-DENABLE_TESTS)
+  endif()
 endif()
 
 # **************************************************************************************************

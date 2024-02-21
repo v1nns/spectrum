@@ -37,7 +37,7 @@ class Dialog {
    * @param size Size settings for dialog
    * @param style Dialog style to apply
    */
-  Dialog(Size size, Style style);
+  Dialog(const Size& size, const Style& style);
 
  public:
   /**
@@ -50,7 +50,7 @@ class Dialog {
    * @param curr_size Current terminal size
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render(ftxui::Dimensions curr_size) const;
+  ftxui::Element Render(const ftxui::Dimensions& curr_size) const;
 
   /**
    * @brief Handles an event (from mouse/keyboard)

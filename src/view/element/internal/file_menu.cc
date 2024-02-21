@@ -1,5 +1,7 @@
 #include "view/element/internal/file_menu.h"
 
+#include <iomanip>
+
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
@@ -10,8 +12,17 @@ namespace interface {
 namespace internal {
 
 FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
-                   const TextAnimation::Callback& force_refresh, const Callback& on_click)
-    : Menu(dispatcher, force_refresh), on_click_{on_click} {}
+                   const std::shared_ptr<util::FileHandler>& file_handler,
+                   const TextAnimation::Callback& force_refresh, const Callback& on_click,
+                   const std::string& optional_path)
+    : Menu(dispatcher, force_refresh), file_handler_{file_handler}, on_click_{on_click} {
+  auto filepath = ComposeDirectoryPath(optional_path);
+
+  if (bool parsed = RefreshList(filepath); !optional_path.empty() && !parsed) {
+    // If we can't list files from current path, then everything is gone
+    RefreshList(std::filesystem::current_path());
+  }
+}
 
 /* ********************************************************************************************** */
 
@@ -71,14 +82,18 @@ ftxui::Element FileMenu::RenderImpl() {
     content.push_back(RenderSearch());
   }
 
-  return ftxui::vbox(content) | ftxui::flex;
+  return ftxui::vbox({
+             ftxui::text(GetTitle()) | ftxui::color(ftxui::Color::White) | ftxui::bold,
+             ftxui::vbox(content) | ftxui::flex,
+         }) |
+         ftxui::flex;
 }
 
 /* ********************************************************************************************** */
 
 bool FileMenu::OnEventImpl(const ftxui::Event& event) {
   // Enable search mode
-  if (!IsSearchEnabled() && event == keybinding::Files::EnableSearch) {
+  if (!IsSearchEnabled() && event == keybinding::Navigation::EnableSearch) {
     EnableSearch();
     return true;
   }
@@ -107,6 +122,21 @@ bool FileMenu::OnClickImpl() {
 
   if (!active.has_value()) return false;
 
+  std::filesystem::path new_dir;
+
+  if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
+    // Change to parent folder
+    new_dir = curr_dir_.parent_path();
+  } else if (std::filesystem::is_directory(*active)) {
+    // Change to selected folder
+    new_dir = curr_dir_ / active->filename();
+  }
+
+  if (!new_dir.empty()) {
+    return RefreshList(new_dir);
+  }
+
+  // Otherwise, it is a file, so send it to owner class
   return on_click_(*active);
 }
 
@@ -127,6 +157,81 @@ void FileMenu::FilterEntriesBy(const std::string& text) {
       filtered_entries_->push_back(entry);
     }
   }
+}
+
+/* ********************************************************************************************** */
+
+std::filesystem::path FileMenu::ComposeDirectoryPath(const std::string& optional_path) {
+  // By default, use current path from where spectrum was executed
+  std::filesystem::path filepath = std::filesystem::current_path();
+
+  if (optional_path.empty()) return filepath;
+
+  // Remove last slash from given path
+  std::string clean_path = optional_path.back() == '/'
+                               ? optional_path.substr(0, optional_path.size() - 1)
+                               : optional_path;
+
+  // Check if given path is valid
+  try {
+    auto tmp = std::filesystem::canonical(clean_path);
+    filepath = tmp;
+  } catch (...) {
+    ERROR("Invalid path, tried to compose canonical path using ", std::quoted(clean_path));
+  }
+
+  return filepath;
+}
+
+/* ********************************************************************************************** */
+
+bool FileMenu::RefreshList(const std::filesystem::path& dir_path) {
+  LOG("Refresh list with files from new directory=", std::quoted(dir_path.c_str()));
+  util::Files tmp;
+
+  if (!file_handler_->ListFiles(dir_path, tmp)) {
+    auto dispatcher = GetDispatcher();
+    if (!dispatcher) return false;
+
+    dispatcher->SetApplicationError(error::kAccessDirFailed);
+
+    return false;
+  }
+
+  LOG("Updating list with new entries, size=", tmp.size());
+
+  // Reset internal values
+  curr_dir_ = dir_path;
+  SetEntries(tmp);  // Use this, because of the internal::Menu::Clamp logic
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+std::string FileMenu::GetTitle() const {
+#ifdef ENABLE_TESTS
+  // It means it is running tests, so we always show only the directory name
+  return curr_dir_.filename().string();
+#endif
+
+  const std::string curr_dir = curr_dir_.string();
+  int max_columns = GetMaxColumns();
+
+  // Everything fine, directory does not exceed maximum column length
+  if (curr_dir.size() <= max_columns) {
+    return curr_dir;
+  }
+
+  // Oh no, it does exceed, so we must truncate the exceeding text
+  int offset =
+      (int)curr_dir.size() - (max_columns - 5);  // Considering window border(2) + ellipsis(3)
+  const std::string& substr = curr_dir.substr(offset);
+  auto index = substr.find('/');
+
+  // TODO: implement logic for when the dirname exceeds the max_columns by itself
+
+  return index != std::string::npos ? std::string("..." + substr.substr(index)) : substr;
 }
 
 /* ********************************************************************************************** */

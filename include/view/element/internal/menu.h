@@ -39,6 +39,7 @@ class Menu {
     int position = 0;                 //!< Cursor position for text to search
   };
 
+ public:
   //! Get menu implementation (derived class)
   Derived& actual() { return *static_cast<Derived*>(this); }
   Derived const& actual() const { return *static_cast<Derived const*>(this); }
@@ -250,7 +251,8 @@ class Menu {
     if (event == Keybind::Return) {
       event_handled = OnClick();
 
-      if (event_handled) ResetSearch();
+      // Always reset search mode
+      ResetSearch();
     }
 
     LOG_IF(event_handled, "Handled menu navigation key=", std::quoted(util::EventToString(event)));
@@ -373,6 +375,9 @@ class Menu {
   /* ******************************************************************************************** */
   //! Protected getters for use in derived class
  protected:
+  //! Getter for event dispatcher
+  std::shared_ptr<EventDispatcher> GetDispatcher() const { return dispatcher_.lock(); }
+
   //! Getter for element box
   ftxui::Box& GetBox() { return box_; }
 
