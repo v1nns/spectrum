@@ -8,8 +8,6 @@
 
 #include <gmock/gmock-function-mocker.h>
 
-#include <vector>
-
 #include "audio/base/decoder.h"
 #include "model/song.h"
 #include "model/volume.h"

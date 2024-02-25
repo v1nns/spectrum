@@ -3,8 +3,8 @@
  * \brief  Class for tab view containing audio equalizer control
  */
 
-#ifndef INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
-#define INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
+#ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
+#define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 
 #include <algorithm>
 #include <array>
@@ -17,8 +17,9 @@
 #include "model/audio_filter.h"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "view/base/keybinding.h"
 #include "view/element/button.h"
-#include "view/element/tab_item.h"
+#include "view/element/tab.h"
 
 namespace interface {
 
@@ -26,6 +27,7 @@ namespace interface {
  * @brief Component to control multiple frequency bars, in order to setup audio equalization
  */
 class AudioEqualizer : public TabItem {
+  static constexpr std::string_view kTabName = "equalizer";        //!< Tab title
   static constexpr std::string_view kModifiablePreset = "Custom";  //!< Only preset modifiable
 
  public:
@@ -34,10 +36,11 @@ class AudioEqualizer : public TabItem {
    * @param id Parent block identifier
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
+   * @param keybinding Keybinding to set item as active
    */
   explicit AudioEqualizer(const model::BlockIdentifier& id,
                           const std::shared_ptr<EventDispatcher>& dispatcher,
-                          const FocusCallback& on_focus);
+                          const FocusCallback& on_focus, const keybinding::Key& keybinding);
 
   /**
    * @brief Destroy the AudioEqualizer object
@@ -62,7 +65,7 @@ class AudioEqualizer : public TabItem {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnMouseEvent(const ftxui::Event& event) override;
+  bool OnMouseEvent(ftxui::Event& event) override;
 
   /**
    * @brief Handles a custom event
@@ -76,6 +79,9 @@ class AudioEqualizer : public TabItem {
  private:
   //! Handle mapped keyboard events for navigation
   bool OnNavigationEvent(const ftxui::Event& event);
+
+  //! Create general buttons
+  void CreateButtons();
 
   //! Update UI components state based on internal cache
   void UpdateButtonState();
@@ -95,6 +101,8 @@ class AudioEqualizer : public TabItem {
 
   /* ******************************************************************************************** */
   //! Internal structures
+
+  using Keybinding = keybinding::Navigation;
 
   //! Base class for elements inside this TabView
   struct Element {
@@ -162,8 +170,9 @@ class AudioEqualizer : public TabItem {
 
     //!< List of mapped events to be handled as navigation key
     const std::array<ftxui::Event, 6> navigation_events{
-        ftxui::Event::ArrowUp,        ftxui::Event::Character('k'), ftxui::Event::ArrowDown,
-        ftxui::Event::Character('j'), ftxui::Event::Character(' '), ftxui::Event::Return,
+        Keybinding::ArrowUp, Keybinding::ArrowDown, Keybinding::Up, Keybinding::Down,
+        Keybinding::Space,   Keybinding::Return
+
     };
 
     /**
@@ -201,7 +210,7 @@ class AudioEqualizer : public TabItem {
      */
     bool OnEvent(const ftxui::Event& event) {
       // Navigate on elements
-      if (event == ftxui::Event::ArrowRight || event == ftxui::Event::Character('l')) {
+      if (event == Keybinding::ArrowRight || event == Keybinding::Right) {
         LOG("Handle menu navigation key=", util::EventToString(event));
 
         // Calculate new index based on upper bound
@@ -213,7 +222,7 @@ class AudioEqualizer : public TabItem {
       }
 
       // Navigate on elements
-      if (event == ftxui::Event::ArrowLeft || event == ftxui::Event::Character('h')) {
+      if (event == Keybinding::ArrowLeft || event == Keybinding::Left) {
         LOG("Handle menu navigation key=", util::EventToString(event));
 
         // Calculate new index based on lower bound
@@ -234,7 +243,7 @@ class AudioEqualizer : public TabItem {
         }
 
         // Remove focus state from element
-        if (event == ftxui::Event::Escape) {
+        if (event == Keybinding::Escape) {
           // Invalidate old index for focused
           LOG("Handle menu navigation key=", util::EventToString(event));
           UpdateFocus(focus_index, kInvalidIndex);
@@ -366,13 +375,13 @@ class AudioEqualizer : public TabItem {
       if (!filter->modifiable) return;
 
       // Increment value and update UI
-      if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+      if (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up) {
         double gain = filter->gain + 1;
         filter->SetNormalizedGain(gain);
       }
 
       // Decrement value and update UI
-      if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+      if (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down) {
         double gain = filter->gain - 1;
         filter->SetNormalizedGain(gain);
       }
@@ -471,6 +480,7 @@ class AudioEqualizer : public TabItem {
           bool active = presets[i] == *preset_name;
           bool is_focused =
               (focused && i == (entry_focused - 1)) || (hovered && i == (entry_hovered - 1));
+
           auto state = ftxui::EntryState{
               presets[i],
               active,
@@ -500,7 +510,7 @@ class AudioEqualizer : public TabItem {
      * @param event Received event from screen
      */
     void HandleNavigationKey(const ftxui::Event& event) override {
-      if (event == ftxui::Event::Character(' ') || event == ftxui::Event::Return) {
+      if (event == Keybinding::Space || event == Keybinding::Return) {
         // Open element
         if (!opened) {
           opened = true;
@@ -520,11 +530,11 @@ class AudioEqualizer : public TabItem {
         }
       }
 
-      if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j') && opened) {
+      if (event == Keybinding::ArrowDown || event == Keybinding::Down && opened) {
         entry_focused = entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
       }
 
-      if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k') && opened) {
+      if (event == Keybinding::ArrowUp || event == Keybinding::Up && opened) {
         entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
       }
     }
@@ -643,4 +653,4 @@ class AudioEqualizer : public TabItem {
 };
 
 }  // namespace interface
-#endif  // INCLUDE_VIEW_BLOCK_TAB_ITEM_AUDIO_EQUALIZER_H_
+#endif  // INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_

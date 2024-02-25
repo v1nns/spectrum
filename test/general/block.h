@@ -9,6 +9,7 @@
 #include <gmock/gmock-matchers.h>
 
 #include "mock/event_dispatcher_mock.h"
+#include "util/logger.h"
 
 namespace {
 
@@ -17,6 +18,8 @@ namespace {
  */
 class BlockTest : public ::testing::Test {
  protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
   virtual void SetUp() override = 0;
 
   void TearDown() override {

@@ -6,13 +6,13 @@
 #ifndef INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 #define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
-#include <memory>  // for shared_ptr, unique_ptr
-#include <string>  // for string
+#include <memory>
+#include <utility>
+#include <vector>
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/dom/elements.hpp"              // for Element
-#include "model/song.h"                        // for Song
-#include "view/base/block.h"                   // for Block, BlockEvent (ptr...
+#include "ftxui/dom/elements.hpp"
+#include "model/song.h"
+#include "view/base/block.h"
 
 namespace interface {
 
@@ -20,7 +20,10 @@ namespace interface {
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
 class FileInfo : public Block {
-  static constexpr int kMaxRows = 15;  //!< Maximum rows for the Component
+  static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
+  static constexpr int kMaxRows = 15;     //!< Maximum rows for Component
+
+  static constexpr int kMaxSongLines = 8;  //!< Always remember to check song::to_string
 
  public:
   /**
@@ -55,8 +58,21 @@ class FileInfo : public Block {
   bool OnCustomEvent(const CustomEvent& event) override;
 
   /* ******************************************************************************************* */
+  //! Utils
+
+  /**
+   * @brief Parse audio information into internal cache to render on UI later
+   * @param audio Detailed audio information
+   */
+  void ParseAudioInfo(const model::Song& audio);
+
+  /* ******************************************************************************************* */
+  //! Variables
  private:
-  model::Song audio_info_;  //!< Audio information from current song
+  using Entry = std::pair<std::string, std::string>;  //!< A pair of <Field,Value>
+  std::vector<Entry> audio_info_;                     //!< Parsed audio information to render on UI
+
+  bool is_song_playing_ = false;  //!< Flag to control when a song is playing
 };
 
 }  // namespace interface

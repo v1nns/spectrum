@@ -20,7 +20,8 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Displays information about the currently playing track;
 - Audio spectrum visualizer;
 - Audio equalizer;
-- Fetch song lyrics.
+- Fetch song lyrics;
+- Support for playlists.
 
 ## Installation :floppy_disk:
 
@@ -59,7 +60,8 @@ This software uses the following open source packages:
 - [curl](https://curl.se/)
 - [libxml++](https://libxmlplusplus.github.io/libxmlplusplus/)
 - [FTXUI](https://github.com/ArthurSonzogni/FTXUI)
-- [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on Cava algorithm)</sup>
+- [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on cava implementation)</sup>
+- [json](https://github.com/nlohmann/json)
 
 ## Contributing
 

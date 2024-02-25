@@ -28,8 +28,9 @@ ftxui::Decorator Block::GetTitleDecorator() const {
   using ftxui::Color;
   using ftxui::color;
 
-  ftxui::Decorator style = focused_ ? bgcolor(Color::DodgerBlue1) | color(Color::DarkBlue) | bold
-                                    : bgcolor(Color::GrayDark) | color(Color::GrayLight);
+  ftxui::Decorator style = focused_
+                               ? bgcolor(Color::SteelBlue3) | color(Color::PaleTurquoise1) | bold
+                               : bgcolor(Color::GrayDark) | color(Color::GrayLight);
 
   return style;
 }
@@ -42,7 +43,7 @@ ftxui::Decorator Block::GetBorderDecorator() const {
   using ftxui::color;
   using ftxui::nothing;
 
-  ftxui::Decorator style = focused_ ? color(Color::DodgerBlue1) : nothing;
+  ftxui::Decorator style = focused_ ? color(Color::SteelBlue3) : nothing;
 
   return style;
 }
@@ -50,7 +51,7 @@ ftxui::Decorator Block::GetBorderDecorator() const {
 /* ********************************************************************************************** */
 
 void Block::AskForFocus() const {
-  if(focused_) return;
+  if (focused_) return;
 
   auto dispatcher = GetDispatcher();
 

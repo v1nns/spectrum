@@ -1,9 +1,8 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 
 #include "general/block.h"
-#include "general/utils.h"  // for FilterAnsiCommands
+#include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
-#include "util/logger.h"
 #include "view/block/media_player.h"
 
 namespace {
@@ -17,8 +16,6 @@ using ::testing::StrEq;
  */
 class MediaPlayerTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(96, 12);
@@ -470,17 +467,18 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 
   screen->Clear();
 
-  // Setup mock calls to send back a ClearSongInfo event to block
+  // Setup expectation to invoke custom implementation
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::ClearCurrentSong)))
+                                           interface::CustomEvent::Identifier::StopSong)))
       .WillRepeatedly(Invoke([&](const interface::CustomEvent& event) {
+        // Simulate audio player sending a ClearSongInformation after song stopped
         auto clear_song = interface::CustomEvent::ClearSongInfo();
         Process(clear_song);
       }));
 
-  // Process keyboard event to clear song
-  auto event_clear = ftxui::Event::Character('c');
-  block->OnEvent(event_clear);
+  // Process keyboard event to stop song
+  auto event_stop = ftxui::Event::Character('s');
+  block->OnEvent(event_stop);
 
   ftxui::Render(*screen, block->Render());
   rendered = utils::FilterAnsiCommands(screen->ToString());
@@ -780,8 +778,9 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
   EXPECT_THAT(rendered, StrEq(expected));
 
   // Process keyboard event to skip song
-  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::SkipToPreviousSong)));
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToPreviousSong)));
 
   auto event_stop = ftxui::Event::Character('<');
   block->OnEvent(event_stop);
@@ -820,7 +819,5 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 }
-
-
 
 }  // namespace

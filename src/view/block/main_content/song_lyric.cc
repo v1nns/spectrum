@@ -1,22 +1,25 @@
-#include "view/block/tab_item/song_lyric.h"
+#include "view/block/main_content/song_lyric.h"
 
 #include <algorithm>
-#include <cmath>
-#include <ftxui/dom/elements.hpp>
 #include <optional>
 #include <string>
-#include <thread>
 
 #include "audio/lyric/lyric_finder.h"
+#include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "view/base/keybinding.h"
 
 namespace interface {
 
 SongLyric::SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
-                     const FocusCallback& on_focus)
-    : TabItem(id, dispatcher, on_focus) {}
+                     const FocusCallback& on_focus, const keybinding::Key& keybinding)
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
+
+/* ********************************************************************************************** */
+
+SongLyric::~SongLyric() { async_fetcher_.reset(); }
 
 /* ********************************************************************************************** */
 
@@ -34,8 +37,9 @@ ftxui::Element SongLyric::Render() {
 
   if (IsResultReady()) {
     // It is not that great to have this inside Render(), but it is working fine...
-    // TODO: Must rethink this in the near future.
-    if (auto result = async_fetcher_.get(); result) lyrics_ = *result;
+    // TODO: Must rethink this in the near "future"
+    // Use something like producer/consumer and remove std::future
+    if (auto result = async_fetcher_->get(); result) lyrics_ = *result;
   }
 
   if (lyrics_.empty()) {
@@ -48,27 +52,28 @@ ftxui::Element SongLyric::Render() {
 /* ********************************************************************************************** */
 
 bool SongLyric::OnEvent(const ftxui::Event& event) {
+  using Keybind = keybinding::Navigation;
   if (lyrics_.empty()) return false;
 
   int old_focus = focused_;
 
   // Calculate new index based on upper bound
-  if (event == ftxui::Event::ArrowUp || event == ftxui::Event::Character('k')) {
+  if (event == Keybind::ArrowUp || event == Keybind::Up) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = focused_ - (focused_ > 0 ? 1 : 0);
   }
 
-  if (event == ftxui::Event::ArrowDown || event == ftxui::Event::Character('j')) {
+  if (event == Keybind::ArrowDown || event == Keybind::Down) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = focused_ + (focused_ < (static_cast<int>(lyrics_.size()) - 1) ? 1 : 0);
   }
 
-  if (event == ftxui::Event::Home) {
+  if (event == Keybind::Home) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = 0;
   }
 
-  if (event == ftxui::Event::End) {
+  if (event == Keybind::End) {
     LOG("Handle menu navigation key=", util::EventToString(event));
     focused_ = static_cast<int>(lyrics_.size() - 1);
   }
@@ -83,7 +88,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     audio_info_ = model::Song{};
-    async_fetcher_ = std::future<FetchResult>();
+    async_fetcher_.reset();
     lyrics_.clear();
     focused_ = 0;
   }
@@ -96,7 +101,8 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     if (!audio_info_.filepath.empty()) {
       LOG("Launch async task to fetch song lyrics");
       // As we do not want to hold UI at all, fetch song lyrics asynchronously
-      async_fetcher_ = std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this));
+      async_fetcher_ = std::make_unique<std::future<FetchResult>>(
+          std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this)));
     }
   }
 

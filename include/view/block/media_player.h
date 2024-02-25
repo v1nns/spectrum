@@ -6,13 +6,12 @@
 #ifndef INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 #define INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 
-#include <memory>  // for shared_ptr, unique_ptr
+#include <memory>
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/dom/elements.hpp"              // for Element
-#include "model/song.h"                        // for Song
+#include "ftxui/dom/elements.hpp"
+#include "model/song.h"
 #include "model/volume.h"
-#include "view/base/block.h"  // for Block, BlockEvent (ptr...
+#include "view/base/block.h"
 #include "view/element/button.h"
 
 namespace interface {

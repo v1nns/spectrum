@@ -9,8 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "model/application_error.h"
-
 namespace lyric {
 
 //! SongLyric declaration

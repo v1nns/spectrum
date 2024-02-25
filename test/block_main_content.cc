@@ -1,16 +1,13 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 
 #include <memory>
 
-#include "audio/lyric/search_config.h"
 #include "general/block.h"
-#include "general/utils.h"  // for FilterAnsiCommands
+#include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/lyric_finder_mock.h"
-#include "util/logger.h"
-#include "view/block/tab_item/song_lyric.h"
-#include "view/block/tab_item/spectrum_visualizer.h"
-#include "view/block/tab_viewer.h"
+#include "view/block/main_content.h"
+#include "view/block/main_content/song_lyric.h"
 
 namespace {
 
@@ -23,12 +20,10 @@ using ::testing::StrEq;
 using ::testing::VariantWith;
 
 /**
- * @brief Tests with TabViewer class
+ * @brief Tests with MainContent class
  */
-class TabViewerTest : public ::BlockTest {
+class MainContentTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(95, 15);
@@ -36,8 +31,8 @@ class TabViewerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create TabViewer block
-    block = ftxui::Make<interface::TabViewer>(dispatcher);
+    // Create MainContent block
+    block = ftxui::Make<interface::MainContent>(dispatcher);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
@@ -45,11 +40,11 @@ class TabViewerTest : public ::BlockTest {
 
     // As we dot want to use dependency injection for Tabview::SongLyrics, we will override
     // LyricFinder manually...  First of all, get tab viewer
-    auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
+    auto block_main_tab = static_cast<interface::MainContent*>(block.get());
 
     // Then get song lyric tab item
     auto song_lyric = static_cast<interface::SongLyric*>(
-        tab_viewer->views_[interface::TabViewer::View::Lyric].item.get());
+        block_main_tab->tab_elem_[interface::MainContent::View::Lyric].get());
 
     // And finally, override lyric finder to use a mock
     song_lyric->finder_ = std::make_unique<LyricFinderMock>();
@@ -58,11 +53,11 @@ class TabViewerTest : public ::BlockTest {
   //! Getter for LyricFinder (necessary as inner variable is an unique_ptr)
   auto GetFinder() -> LyricFinderMock* {
     // Get tab viewer
-    auto tab_viewer = static_cast<interface::TabViewer*>(block.get());
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
 
     // Get song lyric tab item
     auto song_lyric = static_cast<interface::SongLyric*>(
-        tab_viewer->views_[interface::TabViewer::View::Lyric].item.get());
+        main_tab->tab_elem_[interface::MainContent::View::Lyric].get());
 
     // Return lyric finder mock
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
@@ -73,7 +68,7 @@ class TabViewerTest : public ::BlockTest {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, InitialRender) {
+TEST_F(MainContentTest, InitialRender) {
   auto event_bars =
       interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(kNumberBars, 0.001));
   Process(event_bars);
@@ -83,7 +78,7 @@ TEST_F(TabViewerTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -104,7 +99,7 @@ TEST_F(TabViewerTest, InitialRender) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AnimationHorizontalMirror) {
+TEST_F(MainContentTest, AnimationHorizontalMirror) {
   std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
                              0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06};
 
@@ -116,7 +111,7 @@ TEST_F(TabViewerTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                           ▇▇▇ ▇▇▇                                           │
 │                                       ▆▆▆ ███ ███ ▆▆▆                                       │
 │                                   ▅▅▅ ███ ███ ███ ███ ▅▅▅                                   │
@@ -137,7 +132,7 @@ TEST_F(TabViewerTest, AnimationHorizontalMirror) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AnimationVerticalMirror) {
+TEST_F(MainContentTest, AnimationVerticalMirror) {
   std::vector<double> values{0.1, 0.2, 0.3,  0.4, 0.5,  0.4, 0.3,  0.2, 0.1,  0.2, 0.3,
                              0.4, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95,
 
@@ -163,7 +158,7 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
 
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                               ▁▁▁ ▄▄▄ ▆▆▆   │
 │                                                                   ▂▂▂ ▄▄▄ ▇▇▇ ███ ███ ███   │
 │                                                       ▃▃▃ ▅▅▅ ███ ███ ███ ███ ███ ███ ███   │
@@ -184,7 +179,7 @@ TEST_F(TabViewerTest, AnimationVerticalMirror) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AnimationMono) {
+TEST_F(MainContentTest, AnimationMono) {
   std::vector<double> values{0.1, 0.2,  0.3, 0.4,  0.5, 0.6,  0.5, 0.4, 0.3, 0.2, 0.1,
                              0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6, 0.7, 0.8, 0.9,
 
@@ -217,7 +212,7 @@ TEST_F(TabViewerTest, AnimationMono) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                       ▆▆▆   │
 │                                                                                   ▄▄▄ ███   │
@@ -238,7 +233,7 @@ TEST_F(TabViewerTest, AnimationMono) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
+TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
                              0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06};
 
@@ -250,7 +245,7 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                           ▇▇▇ ▇▇▇                                           │
 │                                       ▆▆▆ ███ ███ ▆▆▆                                       │
 │                                   ▅▅▅ ███ ███ ███ ███ ▅▅▅                                   │
@@ -290,7 +285,7 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                          ▅▅▅▅ ▅▅▅▅                                          │
@@ -333,7 +328,7 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                            ▇▇ ▇▇                                            │
 │                                         ▆▆ ██ ██ ▆▆                                         │
 │                                      ▄▄ ██ ██ ██ ██ ▄▄                                      │
@@ -354,8 +349,8 @@ TEST_F(TabViewerTest, IncreaseAndDecreaseBarWidth) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, VisualizerOnFullscreen) {
-  auto tab_viewer = std::static_pointer_cast<interface::TabViewer>(block);
+TEST_F(MainContentTest, VisualizerOnFullscreen) {
+  auto tab_viewer = std::static_pointer_cast<interface::MainContent>(block);
 
   // Send audio data to show on visualizer
   std::vector<double> values{0.99, 0.90, 0.81, 0.72, 0.61, 0.52, 0.41, 0.33, 0.24, 0.15, 0.06,
@@ -403,7 +398,7 @@ TEST_F(TabViewerTest, VisualizerOnFullscreen) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, RenderEqualizer) {
+TEST_F(MainContentTest, RenderEqualizer) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   ftxui::Render(*screen, block->Render());
@@ -411,7 +406,7 @@ TEST_F(TabViewerTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -432,7 +427,7 @@ TEST_F(TabViewerTest, RenderEqualizer) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
+TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -480,7 +475,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -501,7 +496,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndApply) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
+TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -514,7 +509,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -551,7 +546,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -572,7 +567,7 @@ TEST_F(TabViewerTest, ModifyEqualizerAndReset) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
+TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -585,7 +580,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Custom     │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -623,7 +618,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Electronic │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -644,7 +639,7 @@ TEST_F(TabViewerTest, SelectOtherPresetAndApply) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
+TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -668,7 +663,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Pop        │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -703,7 +698,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Pop        │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -724,7 +719,7 @@ TEST_F(TabViewerTest, AttemptToModifyFixedPreset) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
+TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -748,7 +743,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Rock       │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -782,7 +777,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Rock       │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -803,7 +798,7 @@ TEST_F(TabViewerTest, AttemptToResetFixedPreset) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
+TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -839,7 +834,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │                                                                                             │
@@ -879,7 +874,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Electronic │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -915,7 +910,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │╭─────────────╮                                                                              │
 ││↓ Custom     │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
 │├─────────────┤                                                                              │
@@ -936,7 +931,7 @@ TEST_F(TabViewerTest, ModifyEqualizerChangePresetAndSwitchback) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyrics) {
+TEST_F(MainContentTest, FetchSongLyrics) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -945,7 +940,7 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1003,7 +998,7 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1031,7 +1026,7 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1052,7 +1047,7 @@ TEST_F(TabViewerTest, FetchSongLyrics) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsFailed) {
+TEST_F(MainContentTest, FetchSongLyricsFailed) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1090,7 +1085,7 @@ TEST_F(TabViewerTest, FetchSongLyricsFailed) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1118,7 +1113,7 @@ TEST_F(TabViewerTest, FetchSongLyricsFailed) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1139,7 +1134,7 @@ TEST_F(TabViewerTest, FetchSongLyricsFailed) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
+TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1180,7 +1175,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1208,7 +1203,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1229,7 +1224,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithoutMetadata) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
+TEST_F(MainContentTest, FetchSongLyricsWithDifferentFilenames) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1277,7 +1272,7 @@ TEST_F(TabViewerTest, FetchSongLyricsWithDifferentFilenames) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
+TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1312,7 +1307,7 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1342,7 +1337,7 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1363,7 +1358,7 @@ TEST_F(TabViewerTest, FetchSongLyricsAndClear) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
+TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
 
@@ -1443,7 +1438,7 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -1475,7 +1470,7 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                 Feels like I'm dreaming                                     │
 │                                 Like I'm walking                                            │
 │                                 Walking by your side                                        │
@@ -1503,7 +1498,7 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                 If you want me                                              │
 │                                 If you need me                                              │
@@ -1531,7 +1526,7 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -1552,7 +1547,7 @@ TEST_F(TabViewerTest, FetchScrollableSongLyrics) {
 
 /* ********************************************************************************************** */
 
-TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
+TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
   auto finder = GetFinder();
 
   std::string expected_artist{"The Virgins"};
@@ -1596,7 +1591,7 @@ TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1618,21 +1613,19 @@ TEST_F(TabViewerTest, FetchSongLyricsOnBackground) {
 /* ********************************************************************************************** */
 
 /**
- * @brief Tests with TabViewer mock class (just to test focus)
+ * @brief Tests with MainContent mock class (just to test focus)
  */
-class MockTabViewerTest : public ::BlockTest {
-  //! Create mock class from TabViewer
-  class TabViewerMock final : public interface::TabViewer {
+class MockMainContentTest : public ::BlockTest {
+  //! Create mock class from MainContent
+  class MainContentMock final : public interface::MainContent {
    public:
-    using TabViewer::TabViewer;
+    using MainContent::MainContent;
 
     MOCK_METHOD(void, OnFocus, (), (override));
     MOCK_METHOD(void, OnLostFocus, (), (override));
   };
 
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(95, 15);
@@ -1640,25 +1633,25 @@ class MockTabViewerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create TabViewer block
-    block = ftxui::Make<TabViewerMock>(dispatcher);
+    // Create MainContent block
+    block = ftxui::Make<MainContentMock>(dispatcher);
   }
 
   //! Getter for mock
-  auto GetMock() -> TabViewerMock* {
+  auto GetMock() -> MainContentMock* {
     // Return tab viewer mock
-    return static_cast<TabViewerMock*>(block.get());
+    return static_cast<MainContentMock*>(block.get());
   }
 };
 
-TEST_F(MockTabViewerTest, CheckFocus) {
-  auto tabviewer_mock = GetMock();
+TEST_F(MockMainContentTest, CheckFocus) {
+  auto main_content_mock = GetMock();
 
-  EXPECT_CALL(*tabviewer_mock, OnFocus());
-  tabviewer_mock->SetFocused(true);
+  EXPECT_CALL(*main_content_mock, OnFocus());
+  main_content_mock->SetFocused(true);
 
-  EXPECT_CALL(*tabviewer_mock, OnLostFocus());
-  tabviewer_mock->SetFocused(false);
+  EXPECT_CALL(*main_content_mock, OnLostFocus());
+  main_content_mock->SetFocused(false);
 
   // Expect block to send an event asking for focus on block
   EXPECT_CALL(
@@ -1666,14 +1659,14 @@ TEST_F(MockTabViewerTest, CheckFocus) {
       SendEvent(
           AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
                 Field(&interface::CustomEvent::content,
-                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::TabViewer)))))
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::MainContent)))))
       .WillOnce(Invoke([&](const interface::CustomEvent&) {
         // Simulate terminal behavior
-        tabviewer_mock->SetFocused(true);
+        main_content_mock->SetFocused(true);
       }));
 
   // Set focus on tab item 1
-  EXPECT_CALL(*tabviewer_mock, OnFocus());
+  EXPECT_CALL(*main_content_mock, OnFocus());
   block->OnEvent(ftxui::Event::Character('1'));
 
   auto event_bars = interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(22, 0.001));
@@ -1684,7 +1677,7 @@ TEST_F(MockTabViewerTest, CheckFocus) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ──────────────────────────────────────────[F1:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
