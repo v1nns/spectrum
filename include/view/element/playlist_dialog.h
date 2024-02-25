@@ -9,7 +9,9 @@
 #include "model/playlist_operation.h"
 #include "util/file_handler.h"
 #include "view/base/dialog.h"
+#include "view/base/event_dispatcher.h"
 #include "view/element/button.h"
+#include "view/element/menu.h"
 
 namespace interface {
 
@@ -23,8 +25,9 @@ class PlaylistDialog : public Dialog {
  public:
   /**
    * @brief Construct a new PlaylistDialog object
+   * @param dispatcher Event dispatcher
    */
-  PlaylistDialog();
+  PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy PlaylistDialog object
@@ -44,7 +47,7 @@ class PlaylistDialog : public Dialog {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element RenderImpl() const override;
+  ftxui::Element RenderImpl(const ftxui::Dimensions& curr_size) const override;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -59,11 +62,19 @@ class PlaylistDialog : public Dialog {
   /* ******************************************************************************************** */
   //! Variables
 
-  util::FileHandler file_handler_;  //!< Utility class to manage files (read/write)
+  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+
+  //!< Utility class to manage files (read/write)
+  std::shared_ptr<util::FileHandler> file_handler_ = std::make_shared<util::FileHandler>();
 
   //!< Operation to execute + playlist to be modified
   model::PlaylistOperation curr_operation_ = model::PlaylistOperation{
       .action = model::PlaylistOperation::Operation::None, .playlist = model::Playlist{}};
+
+  FileMenu menu_files_;  //!< Menu containing all files from a given directory
+
+  // TODO: use it
+  // FileMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_add_;     //!< Button to add new song to playlist
   GenericButton btn_remove_;  //!< Button to remove selected song to playlist

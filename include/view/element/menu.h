@@ -31,7 +31,7 @@ FileMenu CreateFileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                         const std::shared_ptr<util::FileHandler>& file_handler,
                         const TextAnimation::Callback& force_refresh,
                         const internal::FileMenu::Callback& on_click,
-                        const std::string& optional_path);
+                        const std::string& optional_path = "");
 
 /**
  * @brief Construct a new PlaylistMenu object

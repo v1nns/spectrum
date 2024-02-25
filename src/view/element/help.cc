@@ -10,7 +10,7 @@ Help::Help()
 
 /* ********************************************************************************************** */
 
-ftxui::Element Help::RenderImpl() const {
+ftxui::Element Help::RenderImpl(const ftxui::Dimensions& curr_size) const {
   auto content = active_ == View::General ? BuildGeneralInfo() : BuildTabInfo();
 
   return content;

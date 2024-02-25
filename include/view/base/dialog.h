@@ -88,7 +88,7 @@ class Dialog {
    * @brief Renders the component (implement by derived)
    * @return Element Built element based on internal state
    */
-  virtual ftxui::Element RenderImpl() const = 0;
+  virtual ftxui::Element RenderImpl(const ftxui::Dimensions& curr_size) const = 0;
 
   /**
    * @brief Handles an event (from mouse/keyboard)

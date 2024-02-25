@@ -60,6 +60,9 @@ class Decoder {
    */
   virtual void ClearCache() = 0;
 
+  // TODO: create API to check if file is an audio stream to use it when PlaylistDialog attempts to
+  // add song
+
   /* ******************************************************************************************** */
   //! Public API for Equalizer TODO: split into a new header along with FFmpeg class
 

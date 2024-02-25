@@ -35,7 +35,7 @@ class Help : public Dialog {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element RenderImpl() const override;
+  ftxui::Element RenderImpl(const ftxui::Dimensions& curr_size) const override;
 
   /**
    * @brief Handles an event (from mouse/keyboard)

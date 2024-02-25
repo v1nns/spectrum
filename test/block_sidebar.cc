@@ -1466,4 +1466,8 @@ TEST_F(SidebarTest, ForceClickOnEmptyPlaylistWhileOnSearchMode) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+// TODO: implement tests:
+// 2. use keybindings to open PlaylistDialog
+// 3. other tests with PlaylistDialog
+
 }  // namespace

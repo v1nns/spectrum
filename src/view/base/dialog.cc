@@ -37,7 +37,7 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
                    ftxui::bgcolor(style_.background) | ftxui::color(style_.foreground) |
                    ftxui::clear_under | ftxui::center;
 
-  return RenderImpl() | border_decorator | decorator;
+  return RenderImpl(curr_size) | border_decorator | decorator;
 }
 
 /* ********************************************************************************************** */

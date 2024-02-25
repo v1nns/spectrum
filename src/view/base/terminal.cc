@@ -66,6 +66,11 @@ void Terminal::Init(const std::string& initial_path) {
   Add(file_info);
   Add(tab_viewer);
   Add(media_player);
+
+  // Create dialogs
+  error_dialog_ = std::make_unique<ErrorDialog>();
+  helper_ = std::make_unique<Help>();
+  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher);
 }
 
 /* ********************************************************************************************** */

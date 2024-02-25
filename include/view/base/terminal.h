@@ -222,13 +222,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
   error::Code last_error_ = error::kSuccess;  //!< Last application error
 
-  //!< Dialog box to show customized error messages
-  std::unique_ptr<ErrorDialog> error_dialog_ = std::make_unique<ErrorDialog>();
-
-  //!< Dialog box to manage playlists
-  std::unique_ptr<PlaylistDialog> playlist_dialog_ = std::make_unique<PlaylistDialog>();
-
-  std::unique_ptr<Help> helper_ = std::make_unique<Help>();  //!< Dialog box to show help menu
+  std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages
+  std::unique_ptr<Help> helper_;               //!< Dialog box to show help menu
+  std::unique_ptr<PlaylistDialog> playlist_dialog_;  //!< Dialog box to manage playlists
 
   //! Custom event receiver
   ftxui::Receiver<CustomEvent> receiver_ = ftxui::MakeReceiver<CustomEvent>();

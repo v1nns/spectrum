@@ -15,7 +15,7 @@ void ErrorDialog::SetErrorMessage(const std::string_view& message) {
 
 /* ********************************************************************************************** */
 
-ftxui::Element ErrorDialog::RenderImpl() const {
+ftxui::Element ErrorDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
   return ftxui::vbox({
       ftxui::text(" ERROR") | ftxui::bold,
       ftxui::text(""),
