@@ -14,7 +14,11 @@ std::string PlaylistOperation::GetActionName(const PlaylistOperation& playlist) 
       return "Modify";
     case Operation::Delete:
       return "Delete";
+    default:
+      break;
   }
+
+  return "Unknown";
 }
 
 //! PlaylistOperation pretty print
