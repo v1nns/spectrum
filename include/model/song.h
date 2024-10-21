@@ -7,10 +7,9 @@
 #define INCLUDE_MODEL_SONG_H_
 
 #include <cstdint>
-#include <cstdio>
-#include <fstream>
+#include <filesystem>
+#include <optional>
 #include <ostream>
-#include <sstream>
 #include <string>
 
 namespace model {
@@ -19,9 +18,11 @@ namespace model {
  * @brief Detailed audio metadata information from song
  */
 struct Song {
-  std::string filepath;  //!< Full path to file
-  std::string artist;    //!< Song artist name
-  std::string title;     //!< Song title name
+  std::filesystem::path filepath;  //!< Full path to file
+  std::string artist;              //!< Song artist name
+  std::string title;               //!< Song title name
+
+  std::optional<std::string> playlist;  //!< Playlist name
 
   uint16_t num_channels;  //!< Number of channels (1=Mono 2=Stereo)
   uint32_t sample_rate;   //!< Number of samples (of signal amplitude or “sound”) per second
@@ -54,6 +55,9 @@ struct Song {
   friend std::ostream& operator<<(std::ostream& out, const Song& s);
   bool operator==(const Song& other) const;
   bool operator!=(const Song& other) const;
+
+  //! Check if song is empty
+  bool IsEmpty() const;
 };
 
 /**

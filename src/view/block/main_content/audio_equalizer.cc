@@ -1,12 +1,15 @@
-#include "view/block/tab_item/audio_equalizer.h"
+#include "view/block/main_content/audio_equalizer.h"
 
 #include <functional>
+
+#include "view/base/keybinding.h"
+
 namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher,
-                               const FocusCallback& on_focus)
-    : TabItem(id, dispatcher, on_focus) {
+                               const FocusCallback& on_focus, const keybinding::Key& keybinding)
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)) {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,
                      std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
@@ -20,6 +23,95 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
   // Set zeroed custom EQ as last EQ applied
   last_applied_.Update(preset_name_, current_preset());
+
+  // Initialize buttons
+  CreateButtons();
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element AudioEqualizer::Render() {
+  ftxui::Elements elements;
+
+  // EQ picker + frequency bars
+  // TODO: constexpr these values
+  elements.reserve(3 + 2 * bars_.size());
+
+  elements.push_back(ftxui::filler());
+  elements.push_back(picker_.Render());
+  elements.push_back(ftxui::filler());
+
+  // Iterate through all frequency bars
+  for (auto& bar : bars_) {
+    elements.push_back(bar.Render());
+    elements.push_back(ftxui::filler());
+  }
+
+  return ftxui::vbox({
+      ftxui::hbox(elements) | ftxui::flex_grow,
+      ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center,
+  });
+}
+
+/* ********************************************************************************************** */
+
+bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
+  // Apply audio filters
+  if (btn_apply_->IsActive() && event == keybinding::Equalizer::ApplyFilters) {
+    LOG("Handle key to apply audio filters");
+    btn_apply_->OnClick();
+    return true;
+  }
+
+  // Reset audio filters
+  if (btn_reset_->IsActive() && event == keybinding::Equalizer::ResetFilters) {
+    LOG("Handle key to reset audio filters");
+    btn_reset_->OnClick();
+    return true;
+  }
+
+  // Pass event to focus controller to handle and pass it along to focused element
+  if (focus_ctl_.OnEvent(event)) {
+    UpdateButtonState();
+    return true;
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
+  if (btn_apply_->OnMouseEvent(event)) return true;
+
+  if (btn_reset_->OnMouseEvent(event)) return true;
+
+  if (focus_ctl_.OnMouseEvent(event)) {
+    // TODO: Send event for setting focus on parent block (AskForFocus)
+    UpdateButtonState();
+    return true;
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::CreateButtons() {
+  auto style = Button::Style{
+      .normal =
+          Button::Style::State{
+              .foreground = ftxui::Color::White,
+              .border = ftxui::Color::GrayDark,
+          },
+
+      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
+      .width = 15,
+  };
 
   btn_apply_ = Button::make_button(
       std::string("Apply"),
@@ -46,7 +138,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
         return true;
       },
-      false);
+      style, false);
 
   btn_reset_ = Button::make_button(
       std::string("Reset"),
@@ -90,78 +182,8 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
         return true;
       },
-      false);
+      style, false);
 }
-
-/* ********************************************************************************************** */
-
-ftxui::Element AudioEqualizer::Render() {
-  ftxui::Elements elements;
-
-  // EQ picker + frequency bars
-  elements.reserve(3 + 2 * bars_.size());
-
-  elements.push_back(ftxui::filler());
-  elements.push_back(picker_.Render());
-  elements.push_back(ftxui::filler());
-
-  // Iterate through all frequency bars
-  for (auto& bar : bars_) {
-    elements.push_back(bar.Render());
-    elements.push_back(ftxui::filler());
-  }
-
-  return ftxui::vbox({
-      ftxui::hbox(elements) | ftxui::flex_grow,
-      ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center,
-  });
-}
-
-/* ********************************************************************************************** */
-
-bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
-  // Apply audio filters
-  if (btn_apply_->IsActive() && event == ftxui::Event::Character('a')) {
-    LOG("Handle key to apply audio filters");
-    btn_apply_->OnClick();
-    return true;
-  }
-
-  // Reset audio filters
-  if (btn_reset_->IsActive() && event == ftxui::Event::Character('r')) {
-    LOG("Handle key to reset audio filters");
-    btn_reset_->OnClick();
-    return true;
-  }
-
-  // Pass event to focus controller to handle and pass it along to focused element
-  if (focus_ctl_.OnEvent(event)) {
-    UpdateButtonState();
-    return true;
-  }
-
-  return false;
-}
-
-/* ********************************************************************************************** */
-
-bool AudioEqualizer::OnMouseEvent(const ftxui::Event& event) {
-  if (btn_apply_->OnMouseEvent(event)) return true;
-
-  if (btn_reset_->OnMouseEvent(event)) return true;
-
-  if (focus_ctl_.OnMouseEvent(event)) {
-    // TODO: Send event for setting focus on parent block (AskForFocus)
-    UpdateButtonState();
-    return true;
-  }
-
-  return false;
-}
-
-/* ********************************************************************************************** */
-
-bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 
 /* ********************************************************************************************** */
 

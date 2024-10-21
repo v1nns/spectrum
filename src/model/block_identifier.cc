@@ -5,14 +5,14 @@ namespace model {
 //! BlockIdentifier pretty print
 std::ostream& operator<<(std::ostream& out, const BlockIdentifier& id) {
   switch (id) {
-    case BlockIdentifier::ListDirectory:
-      out << "ListDirectory";
+    case BlockIdentifier::Sidebar:
+      out << "Sidebar";
       break;
     case BlockIdentifier::FileInfo:
       out << "FileInfo";
       break;
-    case BlockIdentifier::TabViewer:
-      out << "TabViewer";
+    case BlockIdentifier::MainContent:
+      out << "MainContent";
       break;
     case BlockIdentifier::MediaPlayer:
       out << "MediaPlayer";

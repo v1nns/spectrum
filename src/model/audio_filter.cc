@@ -1,7 +1,5 @@
 #include "model/audio_filter.h"
 
-#include <math.h>
-
 #include <algorithm>
 #include <string>
 #include <tuple>

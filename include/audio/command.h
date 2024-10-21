@@ -42,6 +42,7 @@ struct Command {
 
   //! Output command to ostream
   friend std::ostream& operator<<(std::ostream& out, const Command& cmd);
+  friend std::ostream& operator<<(std::ostream& out, const std::vector<Command>& cmds);
 
   //! Possible commands to be handled by audio player
   static Command None();
@@ -66,9 +67,8 @@ struct Command {
   T GetContent() const {
     if (std::holds_alternative<T>(content)) {
       return std::get<T>(content);
-    } else {
-      return T();
     }
+    return T();
   }
 
   //! Variables

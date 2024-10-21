@@ -1,26 +1,26 @@
-#include "view/element/help.h"
+#include "view/element/help_dialog.h"
+
+#include "view/base/keybinding.h"
 
 namespace interface {
 
-ftxui::Element Help::Render() const {
-  using ftxui::EQUAL;
-  using ftxui::HEIGHT;
-  using ftxui::WIDTH;
+HelpDialog::HelpDialog()
+    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {}
 
-  auto decorator = ftxui::size(HEIGHT, EQUAL, kMaxLines) | ftxui::size(WIDTH, EQUAL, kMaxColumns) |
-                   ftxui::borderDouble | ftxui::bgcolor(style_.background) |
-                   ftxui::color(style_.foreground) | ftxui::clear_under | ftxui::center;
+/* ********************************************************************************************** */
 
+ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
   auto content = active_ == View::General ? BuildGeneralInfo() : BuildTabInfo();
 
-  return content | decorator;
+  return content;
 }
 
 /* ********************************************************************************************** */
 
-bool Help::OnEvent(const ftxui::Event& event) {
-  if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
-      event == ftxui::Event::Character('q')) {
+bool HelpDialog::OnEventImpl(const ftxui::Event& event) {
+  using Keybind = keybinding::Navigation;
+  if (event == Keybind::Return) {
     Close();
   }
 
@@ -30,25 +30,25 @@ bool Help::OnEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-void Help::ShowGeneralInfo() {
+bool HelpDialog::OnMouseEventImpl(ftxui::Event event) { return false; }
+
+/* ********************************************************************************************** */
+
+void HelpDialog::ShowGeneralInfo() {
   active_ = View::General;
-  opened_ = true;
+  Open();
 }
 
 /* ********************************************************************************************** */
 
-void Help::ShowTabInfo() {
+void HelpDialog::ShowTabInfo() {
   active_ = View::Tab;
-  opened_ = true;
+  Open();
 }
 
 /* ********************************************************************************************** */
 
-void Help::Close() { opened_ = false; }
-
-/* ********************************************************************************************** */
-
-ftxui::Element Help::title(const std::string& message) const {
+ftxui::Element HelpDialog::title(const std::string& message) const {
   return ftxui::vbox({
       ftxui::text(""),
       ftxui::text(message) | ftxui::color(ftxui::Color::Black) | ftxui::bold | ftxui::xflex_grow,
@@ -58,17 +58,17 @@ ftxui::Element Help::title(const std::string& message) const {
 
 /* ********************************************************************************************** */
 
-ftxui::Element Help::command(const std::string& keybind, const std::string& description) const {
+ftxui::Element HelpDialog::command(const std::string& keybind, const std::string& description) const {
   return ftxui::hbox({
       ftxui::text(keybind) | ftxui::color(ftxui::Color::PaleTurquoise1),
       ftxui::text(!keybind.empty() ? " - " : ""),
-      ftxui::text(description) | ftxui::color(ftxui::Color::Black),
+      ftxui::text(description) | ftxui::color(ftxui::Color::Grey11),
   });
 }
 
 /* ********************************************************************************************** */
 
-ftxui::Element Help::BuildGeneralInfo() const {
+ftxui::Element HelpDialog::BuildGeneralInfo() const {
   constexpr auto lateral_margin = []() { return ftxui::vbox({ftxui::text("   ")}); };
 
   constexpr auto vertical_margin = []() { return ftxui::vbox({ftxui::text("")}); };
@@ -96,6 +96,7 @@ ftxui::Element Help::BuildGeneralInfo() const {
               command("Shift+Tab", "Focus previous block"),
               command("Esc", "Remove focus"),
 
+              // TODO: create a new view for sidebar and register playlist keybindings
               title("files"),
               command("←/↓/↑/→", "Navigate on list"),
               command("h/j/k/l", "Navigate on list"),
@@ -118,7 +119,7 @@ ftxui::Element Help::BuildGeneralInfo() const {
               vertical_margin(),
 
               title("tab view"),
-              command("F2", "Show tab helper"),
+              command("F11", "Show tab helper"),
               command("1", "Focus visualizer"),
               command("2", "Focus equalizer"),
               command("3", "Focus lyric"),
@@ -144,7 +145,7 @@ ftxui::Element Help::BuildGeneralInfo() const {
 
 /* ********************************************************************************************** */
 
-ftxui::Element Help::BuildTabInfo() const {
+ftxui::Element HelpDialog::BuildTabInfo() const {
   constexpr auto margin = []() { return ftxui::text(""); };
 
   constexpr auto vertical_margin = []() {

@@ -7,7 +7,6 @@
 #define INCLUDE_AUDIO_BASE_DECODER_H_
 
 #include <functional>
-#include <vector>
 
 #include "model/application_error.h"
 #include "model/audio_filter.h"
@@ -60,6 +59,9 @@ class Decoder {
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache
    */
   virtual void ClearCache() = 0;
+
+  // TODO: create API to check if file is an audio stream to use it when PlaylistDialog attempts to
+  // add song
 
   /* ******************************************************************************************** */
   //! Public API for Equalizer TODO: split into a new header along with FFmpeg class

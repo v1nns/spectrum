@@ -1,4 +1,4 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 
 #include <iostream>
 #include <sstream>

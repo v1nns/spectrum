@@ -1,11 +1,9 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
-#include <gtest/gtest-message.h>    // for Message
-#include <gtest/gtest-test-part.h>  // for TestPartResult
+#include <gtest/gtest-message.h>
+#include <gtest/gtest-test-part.h>
 
-#include <chrono>
 #include <memory>
-#include <thread>
 #include <vector>
 
 #include "audio/base/notifier.h"
@@ -15,6 +13,8 @@
 #include "mock/audio_control_mock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "model/application_error.h"
+#include "model/playlist.h"
+#include "model/song.h"
 #include "util/logger.h"
 #include "view/base/notifier.h"
 
@@ -123,6 +123,7 @@ TEST_F(MediaControllerTestThread, CreateDummyController) {
 /* ********************************************************************************************** */
 
 TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
+  using ::testing::TypedEq;
   auto notifier = GetPlayerNotifier();
   auto audio_ctl = GetAudioControl();
   auto analyzer = GetAnalyzer();
@@ -130,7 +131,7 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   InSequence seq;
 
   std::filesystem::path music{"/stairway/to/heaven.flac"};
-  EXPECT_CALL(*audio_ctl, Play(Eq(music)));
+  EXPECT_CALL(*audio_ctl, Play(TypedEq<const std::filesystem::path&>(music)));
   notifier->NotifyFileSelection(music);
 
   EXPECT_CALL(*audio_ctl, PauseOrResume());
@@ -138,9 +139,6 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
 
   EXPECT_CALL(*audio_ctl, Stop());
   notifier->Stop();
-
-  EXPECT_CALL(*audio_ctl, Stop());
-  notifier->ClearCurrentSong();
 
   model::Volume volume{0.7};
   EXPECT_CALL(*audio_ctl, SetAudioVolume(Eq(volume)));
@@ -160,6 +158,13 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
   EXPECT_CALL(*audio_ctl, ApplyAudioFilters(preset));
   notifier->ApplyAudioFilters(preset);
+
+  model::Playlist playlist = model::Playlist{
+      .name = "Summer Eletrohits Vol. 1",
+      .songs = {model::Song{.artist = "Kasino", .title = "Can't get over"}},
+  };
+  EXPECT_CALL(*audio_ctl, Play(TypedEq<const model::Playlist&>(playlist)));
+  notifier->NotifyPlaylistSelection(playlist);
 }
 
 /* ********************************************************************************************** */
@@ -311,10 +316,10 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
       InSequence seq;
 
       // As we can get a lot of DrawAudioSpectrum events, calculate result and create expectations
-      // Each loop will reduce its previous value by 45%
+      // Each loop will reduce its previous value by 35%
       for (int i = 0; i < 10; i++) {
         std::transform(result.begin(), result.end(), result.begin(),
-                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.45));
+                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.35));
 
         EXPECT_CALL(
             *dispatcher,

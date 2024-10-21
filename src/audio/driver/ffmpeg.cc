@@ -99,16 +99,6 @@ error::Code FFmpeg::ConfigureDecoder() {
 #else
   if (decoder_->channel_layout == 0) {
     decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-    // switch (decoder_->channels) {
-    //   case 1:
-    //     decoder_->channel_layout = AV_CH_LAYOUT_MONO;
-    //     break;
-    //   case 2:
-    //     decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-    //     break;
-    //   default:
-    //     return error::kUnknownError;
-    // }
   }
 #endif
 

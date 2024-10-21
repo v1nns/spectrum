@@ -6,7 +6,6 @@
 #ifndef INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
@@ -117,12 +116,6 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void Stop() override;
 
   /**
-   * @brief Clear any information about the current song. After this, player will trigger
-   * ClearSongInformation method.
-   */
-  void ClearCurrentSong() override;
-
-  /**
    * @brief Notify Audio Player to set volume
    */
   void SetVolume(model::Volume value) override;
@@ -150,6 +143,12 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    * @param frequencies Vector of audio filters
    */
   void ApplyAudioFilters(const model::EqualizerPreset& frequencies) override;
+
+  /**
+   * @brief Notify Audio Player about playlist selected by user on Terminal User Interface (TUI)
+   * @param playlist Song queue
+   */
+  void NotifyPlaylistSelection(const model::Playlist& playlist) override;
 
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI

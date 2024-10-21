@@ -1,12 +1,8 @@
 #include "model/song.h"
 
-#include <math.h>
-
-#include <cmath>
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include <string_view>
 
 #include "util/formatter.h"
 
@@ -21,8 +17,9 @@ bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other)
 }
 
 bool Song::operator==(const Song& other) const {
-  return std::tie(filepath, artist, title, num_channels, sample_rate, bit_rate, bit_depth, duration,
-                  curr_info) == std::tie(other.filepath, other.artist, other.title,
+  return std::tie(filepath, artist, title, playlist, num_channels, sample_rate, bit_rate, bit_depth,
+                  duration,
+                  curr_info) == std::tie(other.filepath, other.artist, other.title, other.playlist,
                                          other.num_channels, other.sample_rate, other.bit_rate,
                                          other.bit_depth, other.duration, other.curr_info);
 }
@@ -67,7 +64,8 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
   std::string artist = s.artist.empty() ? "<unknown>" : s.artist;
   std::string title = s.title.empty() ? "<unknown>" : s.title;
 
-  out << "{artist:" << artist << " title:" << title << " duration:" << s.duration
+  out << "{artist:" << artist << " title:" << title
+      << " playlist:" << (s.playlist ? *s.playlist : "") << " duration:" << s.duration
       << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
       << " bit_depth:" << s.bit_depth << "}";
   return out;
@@ -75,8 +73,14 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
 
 /* ********************************************************************************************** */
 
+bool Song::IsEmpty() const { return filepath.empty() ? true : false; }
+
+/* ********************************************************************************************** */
+
 std::string to_string(const Song& arg) {
-  bool is_empty = arg.filepath.empty() ? true : false;
+  bool is_empty = arg.IsEmpty();
+
+  std::string filename = is_empty ? "<Empty>" : arg.filepath.filename();
 
   std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
   std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;
@@ -89,6 +93,7 @@ std::string to_string(const Song& arg) {
 
   std::ostringstream ss;
 
+  ss << "Filename: " << filename << std::endl;
   ss << "Artist: " << artist << std::endl;
   ss << "Title: " << title << std::endl;
   ss << "Channels: " << channels << std::endl;

@@ -1,9 +1,8 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 
 #include "general/block.h"
-#include "general/utils.h"  // for FilterAnsiCommands
+#include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
-#include "util/logger.h"
 #include "view/block/file_info.h"
 
 namespace {
@@ -15,8 +14,6 @@ using ::testing::StrEq;
  */
 class FileInfoTest : public ::BlockTest {
  protected:
-  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
-
   void SetUp() override {
     // Create a custom screen with fixed size
     screen = std::make_unique<ftxui::Screen>(32, 15);
@@ -42,6 +39,7 @@ TEST_F(FileInfoTest, InitialRender) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
+│Filename               <Empty>│
 │Artist                 <Empty>│
 │Title                  <Empty>│
 │Channels               <Empty>│
@@ -49,7 +47,6 @@ TEST_F(FileInfoTest, InitialRender) {
 │Bit rate               <Empty>│
 │Bits per sample        <Empty>│
 │Duration               <Empty>│
-│                              │
 │                              │
 │                              │
 │                              │
@@ -84,6 +81,7 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
+│Filename              song.mp3│
 │Artist       Baco Exu do Blues│
 │Title                 Lágrimas│
 │Channels                     2│
@@ -91,7 +89,6 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 │Bit rate              256 kbps│
 │Bits per sample        32 bits│
 │Duration               123 sec│
-│                              │
 │                              │
 │                              │
 │                              │
@@ -130,6 +127,7 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
+│Filename               <Empty>│
 │Artist                 <Empty>│
 │Title                  <Empty>│
 │Channels               <Empty>│
@@ -137,7 +135,6 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 │Bit rate               <Empty>│
 │Bits per sample        <Empty>│
 │Duration               <Empty>│
-│                              │
 │                              │
 │                              │
 │                              │

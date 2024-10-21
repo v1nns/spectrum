@@ -6,10 +6,7 @@
 #ifndef INCLUDE_UTIL_LOGGER_H_
 #define INCLUDE_UTIL_LOGGER_H_
 
-#include <chrono>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -25,6 +22,8 @@ namespace util {
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
+  static constexpr int kHeaderColumns = 30;  //!< Number of columns to write on log initialization
+
  protected:
   /**
    * @brief Construct a new Logger object
@@ -103,6 +102,7 @@ class Logger {
 
   /* ******************************************************************************************** */
   //! Variables
+
   std::mutex mutex_;            //!< Control access for internal resources
   std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
 };
@@ -126,6 +126,10 @@ std::string get_timestamp();
 
 //! Macro to log messages (this was the only way found to append "filename:line" in the output)
 #define LOG(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
+
+//! Macro to log messages based on condition
+#define LOG_IF(condition, ...) \
+  if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
 
 //! Macro to log error messages
 #define ERROR(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)

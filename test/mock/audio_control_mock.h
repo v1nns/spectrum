@@ -14,7 +14,8 @@ namespace {
 
 class AudioControlMock final : public audio::AudioControl {
  public:
-  MOCK_METHOD(void, Play, (const std::string&), (override));
+  MOCK_METHOD(void, Play, (const std::filesystem::path&), (override));
+  MOCK_METHOD(void, Play, (const model::Playlist&), (override));
   MOCK_METHOD(void, PauseOrResume, (), (override));
   MOCK_METHOD(void, Stop, (), (override));
   MOCK_METHOD(void, SetAudioVolume, (const model::Volume&), (override));
