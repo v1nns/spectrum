@@ -3,8 +3,8 @@
  * \brief  Class for rendering a customized menu list
  */
 
-#ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_MENU_H_
-#define INCLUDE_VIEW_ELEMENT_INTERNAL_MENU_H_
+#ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_BASE_MENU_H_
+#define INCLUDE_VIEW_ELEMENT_INTERNAL_BASE_MENU_H_
 
 #include <iomanip>
 #include <string>
@@ -28,7 +28,7 @@ namespace internal {
  * @brief Interface for customized menu list (using CRTP pattern for static polymorphism)
  */
 template <typename Derived>
-class Menu {
+class BaseMenu {
   static constexpr int kMaxIconColumns = 2;  //!< Maximum columns for Icon
 
   //! Parameters for search mode
@@ -87,15 +87,15 @@ class Menu {
    * @param dispatcher Event dispatcher
    * @param force_refresh Callback function to force UI update
    */
-  explicit Menu(const std::shared_ptr<EventDispatcher>& dispatcher,
-                const TextAnimation::Callback& force_refresh)
+  explicit BaseMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                    const TextAnimation::Callback& force_refresh)
       : dispatcher_{dispatcher}, animation_{TextAnimation{.cb_update = force_refresh}} {}
 
  public:
   /**
    * @brief Destroy Menu object
    */
-  virtual ~Menu() = default;
+  virtual ~BaseMenu() = default;
 
   /* ******************************************************************************************** */
   //! Public API for Menu (must be implemented by derived class)
@@ -557,4 +557,4 @@ class Menu {
 
 }  // namespace internal
 }  // namespace interface
-#endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_MENU_H_
+#endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_BASE_MENU_H_

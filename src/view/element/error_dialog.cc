@@ -1,5 +1,7 @@
 #include "view/element/error_dialog.h"
 
+#include "view/base/keybinding.h"
+
 namespace interface {
 
 ErrorDialog::ErrorDialog()
@@ -25,6 +27,17 @@ ftxui::Element ErrorDialog::RenderImpl(const ftxui::Dimensions& curr_size) const
 
 /* ********************************************************************************************** */
 
-bool ErrorDialog::OnEventImpl(const ftxui::Event& event) { return true; }
+bool ErrorDialog::OnEventImpl(const ftxui::Event& event) {
+  using Keybind = keybinding::Navigation;
+  if (event == Keybind::Return) {
+    Close();
+  }
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool ErrorDialog::OnMouseEventImpl(ftxui::Event event) { return false; }
 
 }  // namespace interface

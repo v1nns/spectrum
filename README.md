@@ -48,7 +48,21 @@ sudo cmake --install build
 
 # OR just execute it
 ./build/src/spectrum
+```
 
+## Development :memo:
+
+To ensure that any new implementation won't impact the existing one, you may execute unit tests to check that. To enable unit testing, you should compile with the following settings:
+
+```bash
+# Generate build system for testing/debugging
+cmake -S . -B build -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -G Ninja
+
+# Execute unit tests
+cmake --build build && ./build/test/test
+
+# For manual testing, you may take a look in the log file
+cmake --build build && ./build/src/spectrum -l /tmp/log.txt
 ```
 
 ## Credits :placard:

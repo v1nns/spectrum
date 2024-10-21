@@ -1,7 +1,6 @@
 #include "view/block/sidebar_content/playlist_viewer.h"
 
 #include <iomanip>
-#include <optional>
 #include <string>
 
 #include "ftxui/dom/elements.hpp"
@@ -13,8 +12,8 @@ namespace interface {
 Button::Style PlaylistViewer::kButtonStyle = Button::Style{
     .normal =
         Button::Style::State{
-            .foreground = ftxui::Color::LightSkyBlue1,
-            .background = ftxui::Color::DeepSkyBlue4Ter,
+            .foreground = ftxui::Color::Grey11,
+            .background = ftxui::Color::SteelBlue1,
         },
     .focused =
         Button::Style::State{
@@ -152,6 +151,8 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     menu_->ResetHighlight();
+
+    // TODO: force to clear highlight always, even when tab_item is not active
   }
 
   return false;
@@ -173,7 +174,7 @@ void PlaylistViewer::CreateButtons() {
 
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Create,
-            .playlist = menu_->GetActiveEntry(),
+            .playlist = model::Playlist{},
         };
 
         auto event = interface::CustomEvent::ShowPlaylistManager(operation);

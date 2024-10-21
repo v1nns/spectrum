@@ -13,7 +13,7 @@ namespace interface {
 /**
  * @brief Customized dialog box to show a helper
  */
-class Help : public Dialog {
+class HelpDialog : public Dialog {
   static constexpr int kMaxColumns = 90;  //!< Maximum columns for Element
   static constexpr int kMaxLines = 30;    //!< Maximum lines for Element
 
@@ -21,12 +21,12 @@ class Help : public Dialog {
   /**
    * @brief Construct a new Help object
    */
-  Help();
+  HelpDialog();
 
   /**
    * @brief Destroy Help object
    */
-  virtual ~Help() = default;
+  virtual ~HelpDialog() = default;
 
   /* ******************************************************************************************** */
   //! Custom implementation
@@ -43,6 +43,13 @@ class Help : public Dialog {
    * @return true if event was handled, otherwise false
    */
   bool OnEventImpl(const ftxui::Event& event) override;
+
+  /**
+   * @brief Handles an event (from mouse)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnMouseEventImpl(ftxui::Event event) override;
 
   /* ******************************************************************************************** */
   //! Public API

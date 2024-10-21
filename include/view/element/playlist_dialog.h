@@ -56,6 +56,13 @@ class PlaylistDialog : public Dialog {
    */
   bool OnEventImpl(const ftxui::Event& event) override;
 
+  /**
+   * @brief Handles an event (from mouse)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnMouseEventImpl(ftxui::Event event) override;
+
   //! Create general buttons
   void CreateButtons();
 
@@ -71,10 +78,8 @@ class PlaylistDialog : public Dialog {
   model::PlaylistOperation curr_operation_ = model::PlaylistOperation{
       .action = model::PlaylistOperation::Operation::None, .playlist = model::Playlist{}};
 
-  FileMenu menu_files_;  //!< Menu containing all files from a given directory
-
-  // TODO: use it
-  // FileMenu menu_playlist_;  //!< Menu containing only files for the current playlist
+  FileMenu menu_files_;     //!< Menu containing all files from a given directory
+  TextMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_add_;     //!< Button to add new song to playlist
   GenericButton btn_remove_;  //!< Button to remove selected song to playlist

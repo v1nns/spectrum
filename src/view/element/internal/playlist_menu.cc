@@ -11,7 +11,7 @@ namespace internal {
 
 PlaylistMenu::PlaylistMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                            const TextAnimation::Callback& force_refresh, const Callback& on_click)
-    : Menu(dispatcher, force_refresh), on_click_{on_click} {}
+    : BaseMenu(dispatcher, force_refresh), on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 

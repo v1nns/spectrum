@@ -28,7 +28,7 @@ Button::Style TabItem::kTabButtonStyle = Button::Style{
         },
     .selected =
         Button::Style::State{
-            .foreground = ftxui::Color::PaleTurquoise1,
+            .foreground = ftxui::Color::LightSteelBlue1,
             .background = ftxui::Color::SteelBlue3,
         },
 

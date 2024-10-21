@@ -97,6 +97,13 @@ class Dialog {
    */
   virtual bool OnEventImpl(const ftxui::Event& event) = 0;
 
+  /**
+   * @brief Handles an event (from mouse)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  virtual bool OnMouseEventImpl(ftxui::Event event) = 0;
+
   /* ******************************************************************************************** */
   //! Implemented by derived class (optional)
 

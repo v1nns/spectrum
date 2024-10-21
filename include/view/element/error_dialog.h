@@ -54,6 +54,13 @@ class ErrorDialog : public Dialog {
   bool OnEventImpl(const ftxui::Event& event) override;
 
   /**
+   * @brief Handles an event (from mouse)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnMouseEventImpl(ftxui::Event event) override;
+
+  /**
    * @brief Callback to notify when dialog is closed
    */
   void OnClose() override { message_.clear(); }

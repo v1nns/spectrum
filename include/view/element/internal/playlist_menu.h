@@ -12,7 +12,7 @@
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "model/playlist.h"
-#include "view/element/internal/menu.h"
+#include "view/element/internal/base_menu.h"
 #include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
@@ -24,8 +24,8 @@ class SidebarTest;
 namespace interface {
 
 namespace internal {
-class PlaylistMenu : public Menu<PlaylistMenu> {
-  friend class Menu;
+class PlaylistMenu : public BaseMenu<PlaylistMenu> {
+  friend class BaseMenu;
 
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
@@ -154,13 +154,13 @@ class PlaylistMenu : public Menu<PlaylistMenu> {
       .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
       .playlist =
           EntryStyles::State{
-              .normal = Colored(ftxui::Color::DeepSkyBlue1, /*bold=*/true),
+              .normal = Colored(ftxui::Color::SteelBlue1, /*bold=*/true),
               .playing = Colored(ftxui::Color::PaleGreen1, /*bold=*/true),
           },
       .song =
           EntryStyles::State{
               .normal = Colored(ftxui::Color::White),
-              .playing = Colored(ftxui::Color::SteelBlue1),
+              .playing = Colored(ftxui::Color::SteelBlue1Bis),
           },
   };
 

@@ -32,11 +32,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
   GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736)
 
-FetchContent_GetProperties(ftxui)
-if(NOT ftxui_POPULATED)
-  FetchContent_Populate(ftxui)
-  add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
+FetchContent_MakeAvailable(ftxui)
 
 # JSON support (nlohmann)
 FetchContent_Declare(
@@ -44,11 +40,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/nlohmann/json
   GIT_TAG v3.11.2)
 
-FetchContent_GetProperties(json)
-if(NOT json_POPULATED)
-  FetchContent_Populate(json)
-  add_subdirectory(${json_SOURCE_DIR} ${json_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
+FetchContent_MakeAvailable(json)
 
 # Enable multithreading
 set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -92,13 +84,14 @@ target_sources(
           view/block/sidebar_content/playlist_viewer.cc
           view/element/button.cc
           view/element/error_dialog.cc
-          view/element/help.cc
-          view/element/menu.cc
+          view/element/help_dialog.cc
           view/element/playlist_dialog.cc
           view/element/tab.cc
           view/element/text_animation.cc
+          view/element/menu.cc
           view/element/internal/file_menu.cc
           view/element/internal/playlist_menu.cc
+          view/element/internal/text_menu.cc
           # logger
           util/arg_parser.cc
           util/file_handler.cc

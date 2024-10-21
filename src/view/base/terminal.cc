@@ -69,7 +69,7 @@ void Terminal::Init(const std::string& initial_path) {
 
   // Create dialogs
   error_dialog_ = std::make_unique<ErrorDialog>();
-  helper_ = std::make_unique<Help>();
+  help_dialog_ = std::make_unique<HelpDialog>();
   playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher);
 }
 
@@ -162,7 +162,7 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
 
   // Or if helper is opened
-  if (helper_->IsVisible()) return helper_->OnEvent(event);
+  if (help_dialog_->IsVisible()) return help_dialog_->OnEvent(event);
 
   // Or if playlist manager is opened
   if (playlist_dialog_->IsVisible()) return playlist_dialog_->OnEvent(event);
@@ -274,7 +274,7 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Show general helper
   if (event == keybinding::General::ShowHelper) {
     LOG("Handle key to show general helper");
-    helper_->ShowGeneralInfo();
+    help_dialog_->ShowGeneralInfo();
 
     return true;
   }
@@ -282,7 +282,7 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Show tab helper
   if (event == keybinding::General::ShowTabHelper) {
     LOG("Handle key to show tab helper");
-    helper_->ShowTabInfo();
+    help_dialog_->ShowTabInfo();
 
     return true;
   }
@@ -484,7 +484,7 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
-      helper_->ShowGeneralInfo();
+      help_dialog_->ShowGeneralInfo();
     } break;
 
     case CustomEvent::Identifier::ToggleFullscreen: {
@@ -595,7 +595,7 @@ void Terminal::UpdateFocus(int old_index, int new_index) {
 ftxui::Element Terminal::GetOverlay() const {
   if (error_dialog_->IsVisible()) return error_dialog_->Render(size_);
 
-  if (helper_->IsVisible()) return helper_->Render(size_);
+  if (help_dialog_->IsVisible()) return help_dialog_->Render(size_);
 
   if (playlist_dialog_->IsVisible()) return playlist_dialog_->Render(size_);
 

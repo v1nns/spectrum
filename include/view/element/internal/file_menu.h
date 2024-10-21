@@ -11,7 +11,7 @@
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "util/file_handler.h"
-#include "view/element/internal/menu.h"
+#include "view/element/internal/base_menu.h"
 #include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
@@ -23,8 +23,8 @@ class SidebarTest;
 namespace interface {
 
 namespace internal {
-class FileMenu : public Menu<FileMenu> {
-  friend class Menu;
+class FileMenu : public BaseMenu<FileMenu> {
+  friend class BaseMenu;
 
   //! Put together all possible styles for an entry in this component
   struct Style {
@@ -87,6 +87,7 @@ class FileMenu : public Menu<FileMenu> {
    */
   std::filesystem::path ComposeDirectoryPath(const std::string& optional_path);
 
+ public:
   /**
    * @brief Refresh list with all files from the given directory path
    * @param dir_path Full path to directory
@@ -94,11 +95,14 @@ class FileMenu : public Menu<FileMenu> {
    */
   bool RefreshList(const std::filesystem::path& dir_path);
 
-  //! Getter for Title (current working directory)
-  std::string GetTitle() const;
+  //! Get current directory
+  const std::filesystem::path& GetCurrentDir() const { return curr_dir_; }
 
   /* ******************************************************************************************** */
   //! Setters and getters
+ private:
+  //! Getter for Title (current working directory)
+  std::string GetTitle() const;
 
   //! Save entries internally to render it as a menu
   void SetEntriesImpl(const util::Files& entries);
@@ -123,10 +127,6 @@ class FileMenu : public Menu<FileMenu> {
 
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
-
- public:
-  //! Get current directory
-  const std::filesystem::path& GetCurrentDir() const { return curr_dir_; }
 
   /* ******************************************************************************************** */
   //! Variables

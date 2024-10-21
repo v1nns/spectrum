@@ -15,7 +15,7 @@ FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::shared_ptr<util::FileHandler>& file_handler,
                    const TextAnimation::Callback& force_refresh, const Callback& on_click,
                    const std::string& optional_path)
-    : Menu(dispatcher, force_refresh), file_handler_{file_handler}, on_click_{on_click} {
+    : BaseMenu(dispatcher, force_refresh), file_handler_{file_handler}, on_click_{on_click} {
   auto filepath = ComposeDirectoryPath(optional_path);
 
   if (bool parsed = RefreshList(filepath); !optional_path.empty() && !parsed) {

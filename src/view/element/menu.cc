@@ -20,5 +20,13 @@ PlaylistMenu CreatePlaylistMenu(const std::shared_ptr<EventDispatcher>& dispatch
   return std::make_unique<internal::PlaylistMenu>(dispatcher, force_refresh, on_click);
 }
 
+/* ********************************************************************************************** */
+
+TextMenu CreateTextMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                        const TextAnimation::Callback& force_refresh,
+                        const internal::TextMenu::Callback& on_click) {
+  return std::make_unique<internal::TextMenu>(dispatcher, force_refresh, on_click);
+}
+
 }  // namespace menu
 }  // namespace interface

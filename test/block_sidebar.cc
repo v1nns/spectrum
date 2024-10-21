@@ -52,7 +52,6 @@ class SidebarTest : public ::BlockTest {
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
 
-
     // Clear internal cache from menu in PlaylistViewer
     GetPlaylistViewer()->menu_->SetEntries(model::Playlists{});
   }

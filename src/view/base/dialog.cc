@@ -43,8 +43,12 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
 /* ********************************************************************************************** */
 
 bool Dialog::OnEvent(const ftxui::Event& event) {
+  if (event.is_mouse()) {
+    return OnMouseEventImpl(event);
+  }
+
   using Keybind = keybinding::Navigation;
-  if (event == Keybind::Return || event == Keybind::Escape || event == Keybind::Close) {
+  if (event == Keybind::Escape || event == Keybind::Close) {
     Close();
   }
 
