@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "util/logger.h"
 #include "view/base/keybinding.h"
 
 namespace interface {

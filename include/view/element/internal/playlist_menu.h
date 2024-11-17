@@ -107,6 +107,18 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
     entries_.emplace_back(InternalPlaylist{.collapsed = false, .playlist = tmp});
   }
 
+  //! Erase an existing entry
+  void EraseImpl(const model::Playlist& entry) {
+    LOG("Attempt to erase an entry with value=", entry);
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [entry](const InternalPlaylist& p) { return p.playlist == entry; });
+
+    if (it != entries_.end()) {
+      LOG("Found matching entry, erasing it, entry=", it->playlist);
+      entries_.erase(it);
+    }
+  }
+
   //! Set entry to be highlighted
   void SetEntryHighlightedImpl(const model::Song& entry);
 

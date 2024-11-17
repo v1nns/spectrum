@@ -93,7 +93,13 @@ error::Code FFmpeg::ConfigureDecoder() {
 
 #if LIBAVUTIL_VERSION_MAJOR > 56
   // Force to use stereo as channel layout
-  if (!codec->ch_layouts) {
+  const AVChannelLayout *ch_layouts;
+  int num_ch_layouts;
+
+  result = avcodec_get_supported_config(decoder_.get(), NULL, AV_CODEC_CONFIG_CHANNEL_LAYOUT, 0,
+                                        (const void **)&ch_layouts, &num_ch_layouts);
+
+  if (result < 0 || num_ch_layouts == 0) {
     av_channel_layout_copy(&decoder_->ch_layout, ch_layout_.get());
   }
 #else

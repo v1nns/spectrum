@@ -6,19 +6,16 @@
 #ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 
-#include <algorithm>
 #include <array>
-#include <iterator>
 #include <string_view>
-#include <type_traits>
 #include <vector>
 
 #include "ftxui/component/component.hpp"
 #include "model/audio_filter.h"
-#include "util/formatter.h"
-#include "util/logger.h"
+#include "view/base/element.h"
 #include "view/base/keybinding.h"
 #include "view/element/button.h"
+#include "view/element/focus_controller.h"
 #include "view/element/tab.h"
 
 namespace interface {
@@ -102,204 +99,6 @@ class AudioEqualizer : public TabItem {
   /* ******************************************************************************************** */
   //! Internal structures
 
-  using Keybinding = keybinding::Navigation;
-
-  //! Base class for elements inside this TabView
-  struct Element {
-    //! Default destructor
-    virtual ~Element() = default;
-
-    ftxui::Box box;        //!< Box to control if mouse cursor is over the element
-    bool hovered = false;  //!< Flag to indicate if element is hovered (by mouse)
-    bool focused = false;  //!< Flag to indicate if element is focused (set by equalizer)
-
-    /**
-     * @brief Handles an event (from mouse)
-     * @param event Received event from screen
-     * @return true if event was handled, otherwise false
-     */
-    bool OnMouseEvent(ftxui::Event event) {
-      if (hovered && (event.mouse().button == ftxui::Mouse::WheelDown ||
-                      event.mouse().button == ftxui::Mouse::WheelUp)) {
-        HandleWheel(event.mouse().button);
-        return true;
-      }
-
-      if (box.Contain(event.mouse().x, event.mouse().y)) {
-        hovered = true;
-
-        if (event.mouse().button == ftxui::Mouse::Left &&
-            event.mouse().motion == ftxui::Mouse::Released) {
-          HandleClick(event);
-          return true;
-        }
-
-        HandleHover(event);
-        return true;
-      } else {
-        hovered = false;
-      }
-
-      return false;
-    }
-
-    //! Implemented by derived class
-    virtual ftxui::Element Render() { return ftxui::text(""); }
-    virtual void HandleNavigationKey(const ftxui::Event& event) {
-      // Optional implementation
-    }
-    virtual void HandleWheel(ftxui::Mouse::Button button) {
-      // Optional implementation
-    }
-    virtual void HandleClick(ftxui::Event& event) {
-      // Optional implementation
-    }
-    virtual void HandleHover(ftxui::Event& event) {
-      // Optional implementation
-    }
-  };
-
-  /* ******************************************************************************************** */
-
-  //! Wrapper to control focus on elements based on external events
-  struct FocusController final {
-    static constexpr int kInvalidIndex = -1;  //!< Invalid index (when no element is focused)
-
-    std::vector<Element*> elements;   //!< List of elements ordered by focus priority
-    int focus_index = kInvalidIndex;  //!< Index to current element focused
-
-    //!< List of mapped events to be handled as navigation key
-    const std::array<ftxui::Event, 6> navigation_events{
-        Keybinding::ArrowUp, Keybinding::ArrowDown, Keybinding::Up, Keybinding::Down,
-        Keybinding::Space,   Keybinding::Return
-
-    };
-
-    /**
-     * @brief Append elements to manage focus (using C++17 variadic template)
-     *        P.S.: Focus priority is based on elements order in internal vector
-     * @tparam ...Args Elements
-     * @param ...args Elements to be appended
-     */
-    template <typename... Args>
-    void Append(Args&... args) {
-      elements.insert(elements.end(), {static_cast<decltype(elements)::value_type>(&args)...});
-    }
-
-    /**
-     * @brief Append array of elements to manage focus (using SFINAE to enable only for iterators)
-     *        P.S.: Focus priority is based on elements order in internal vector
-     * @tparam Iterator Element container iterator
-     * @param begin Initial element
-     * @param end Last element
-     */
-    template <class Iterator,
-              typename = std::is_same<typename std::iterator_traits<Iterator>::iterator_category,
-                                      std::input_iterator_tag>>
-    void Append(Iterator begin, Iterator end) {
-      auto size = std::distance(begin, end);
-      elements.reserve(elements.size() + size);
-
-      for (auto it = begin; it != end; it++) elements.push_back(&*it);
-    }
-
-    /**
-     * @brief Handles an event (from keyboard)
-     * @param event Received event from screen
-     * @return true if event was handled, otherwise false
-     */
-    bool OnEvent(const ftxui::Event& event) {
-      // Navigate on elements
-      if (event == Keybinding::ArrowRight || event == Keybinding::Right) {
-        LOG("Handle menu navigation key=", util::EventToString(event));
-
-        // Calculate new index based on upper bound
-        int new_index =
-            focus_index + (focus_index < (static_cast<int>(elements.size()) - 1) ? 1 : 0);
-        UpdateFocus(focus_index, new_index);
-
-        return true;
-      }
-
-      // Navigate on elements
-      if (event == Keybinding::ArrowLeft || event == Keybinding::Left) {
-        LOG("Handle menu navigation key=", util::EventToString(event));
-
-        // Calculate new index based on lower bound
-        int new_index = focus_index - (focus_index > (kInvalidIndex + 1) ? 1 : 0);
-        UpdateFocus(focus_index, new_index);
-
-        return true;
-      }
-
-      if (IsElementFocused()) {
-        // Pass event to element if mapped as navigation key
-        if (auto found = std::find(navigation_events.begin(), navigation_events.end(), event);
-            found != navigation_events.end()) {
-          LOG("Handle menu navigation key=", util::EventToString(event));
-          elements[focus_index]->HandleNavigationKey(event);
-
-          return true;
-        }
-
-        // Remove focus state from element
-        if (event == Keybinding::Escape) {
-          // Invalidate old index for focused
-          LOG("Handle menu navigation key=", util::EventToString(event));
-          UpdateFocus(focus_index, kInvalidIndex);
-
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-    /**
-     * @brief Handles an event (from mouse)
-     * @param event Received event from screen
-     * @return true if event was handled, otherwise false
-     */
-    bool OnMouseEvent(const ftxui::Event& event) {
-      // Iterate through all elements and pass event, if event is handled, update UI state
-      bool event_handled =
-          std::any_of(elements.begin(), elements.end(), [&event](Element* element) {
-            if (!element) return false;
-            return element->OnMouseEvent(event);
-          });
-
-      return event_handled;
-    }
-
-   private:
-    /**
-     * @brief Update focus state in both old and newly focused elements
-     * @param old_index Element index with focus
-     * @param new_index Element index to be focused
-     */
-    void UpdateFocus(int old_index, int new_index) {
-      // If equal, do nothing
-      if (old_index == new_index) return;
-
-      // Remove focus from old focused frequency bar
-      if (old_index != kInvalidIndex) elements[old_index]->focused = false;
-
-      // Set focus on newly-focused frequency bar
-      if (new_index != kInvalidIndex) elements[new_index]->focused = true;
-
-      // Update internal index
-      focus_index = new_index;
-    }
-
-    /**
-     * @brief Check if contains any element focused
-     * @return True if element focused, otherwise false
-     */
-    bool IsElementFocused() const { return focus_index != kInvalidIndex; }
-  };
-
-  /* ******************************************************************************************** */
-
   struct FrequencyBar final : public Element {
     static constexpr int kMaxGainLength = 8;  //!< Maximum string length in the input box for gain
 
@@ -344,10 +143,8 @@ class AudioEqualizer : public TabItem {
       // Get gain value and choose style
       float gain = filter->GetGainAsPercentage();
       const BarStyle* style;
-      if (focused)
-        style = &style_focused;
-      else
-        style = hovered ? &style_hovered : &style_normal;
+
+      style = IsFocused() ? &style_focused : IsHovered() ? &style_hovered : &style_normal;
 
       return ftxui::vbox({
           // title
@@ -356,7 +153,7 @@ class AudioEqualizer : public TabItem {
           empty_line(),
 
           // frequency gauge
-          gen_slider(gain, *style) | ftxui::reflect(box),
+          gen_slider(gain, *style) | ftxui::reflect(Box()),
 
           // gain input
           empty_line(),
@@ -368,30 +165,34 @@ class AudioEqualizer : public TabItem {
 
    private:
     /**
-     * @brief Handles a navigation key event (arrow keys or hjkl)
+     * @brief Handles an action key event (arrow keys or hjkl)
      * @param event Received event from screen
      */
-    void HandleNavigationKey(const ftxui::Event& event) override {
-      if (!filter->modifiable) return;
+    bool HandleActionKey(const ftxui::Event& event) override {
+      if (!filter->modifiable) return false;
 
       // Increment value and update UI
       if (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up) {
         double gain = filter->gain + 1;
         filter->SetNormalizedGain(gain);
+        return true;
       }
 
       // Decrement value and update UI
       if (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down) {
         double gain = filter->gain - 1;
         filter->SetNormalizedGain(gain);
+        return true;
       }
+
+      return false;
     }
 
     /**
      * @brief Handles a mouse scroll wheel event
      * @param button Received button event from screen
      */
-    void HandleWheel(ftxui::Mouse::Button button) override {
+    void HandleWheel(const ftxui::Mouse::Button& button) override {
       if (!filter->modifiable) return;
 
       double increment = button == ftxui::Mouse::WheelUp ? 1 : -1;
@@ -404,6 +205,8 @@ class AudioEqualizer : public TabItem {
      */
     void HandleClick(ftxui::Event& event) override {
       if (!filter->modifiable) return;
+
+      const auto box = Box();
 
       // Calculate new value for gain based on coordinates from mouse click and bar size
       double value = std::ceil(model::AudioFilter::kMaxGain -
@@ -465,7 +268,7 @@ class AudioEqualizer : public TabItem {
       auto prefix = ftxui::text(opened ? "↓ " : "→ ");
       auto title = ftxui::text(*preset_name);
 
-      if ((focused && entry_focused == 0) || title_hovered) {
+      if ((IsFocused() && entry_focused == 0) || title_hovered) {
         title |= ftxui::inverted;
       }
 
@@ -478,8 +281,8 @@ class AudioEqualizer : public TabItem {
         // Note: +1 or -1 below are used to ignore the title index
         for (int i = 0; i < presets.size(); i++) {
           bool active = presets[i] == *preset_name;
-          bool is_focused =
-              (focused && i == (entry_focused - 1)) || (hovered && i == (entry_hovered - 1));
+          bool is_focused = (IsFocused() && i == (entry_focused - 1)) ||
+                            (IsHovered() && i == (entry_hovered - 1));
 
           auto state = ftxui::EntryState{
               presets[i],
@@ -498,7 +301,7 @@ class AudioEqualizer : public TabItem {
 
       return ftxui::vbox({
                  ftxui::filler(),
-                 content | ftxui::center | ftxui::border | ftxui::reflect(box),
+                 content | ftxui::center | ftxui::border | ftxui::reflect(Box()),
                  ftxui::filler(),
              }) |
              ftxui::color(ftxui::Color::White);
@@ -506,21 +309,21 @@ class AudioEqualizer : public TabItem {
 
    private:
     /**
-     * @brief Handles a navigation key event (arrow keys or hjkl)
+     * @brief Handles an action key event (arrow keys or hjkl)
      * @param event Received event from screen
      */
-    void HandleNavigationKey(const ftxui::Event& event) override {
-      if (event == Keybinding::Space || event == Keybinding::Return) {
+    bool HandleActionKey(const ftxui::Event& event) override {
+      if (event == keybinding::Navigation::Space || event == keybinding::Navigation::Return) {
         // Open element
         if (!opened) {
           opened = true;
-          return;
+          return false;
         }
 
         // Close element
         if (entry_focused == 0) {
           opened = false;
-          return;
+          return false;
         }
 
         // Select a new preset
@@ -530,20 +333,24 @@ class AudioEqualizer : public TabItem {
         }
       }
 
-      if (event == Keybinding::ArrowDown || event == Keybinding::Down && opened) {
+      if (opened &&
+          (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down)) {
         entry_focused = entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
       }
 
-      if (event == Keybinding::ArrowUp || event == Keybinding::Up && opened) {
+      if (opened &&
+          (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up)) {
         entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
       }
+
+      return true;
     }
 
     /**
      * @brief Handles a mouse scroll wheel event
      * @param button Received button event from screen
      */
-    void HandleWheel(ftxui::Mouse::Button button) override {
+    void HandleWheel(const ftxui::Mouse::Button& button) override {
       // Update index based on internal state (if focused or hovered)
       auto update_index = [this, &button](int& index) {
         if (button == ftxui::Mouse::WheelUp)
@@ -554,7 +361,7 @@ class AudioEqualizer : public TabItem {
       };
 
       if (opened) {
-        update_index(focused ? entry_focused : entry_hovered);
+        update_index(IsFocused() ? entry_focused : entry_hovered);
       }
     }
 
@@ -617,10 +424,10 @@ class AudioEqualizer : public TabItem {
      * @param genre_updated New genre
      * @param preset_updated New preset
      */
-    void Update(const model::MusicGenre& genre_updated,
-                const model::EqualizerPreset& preset_updated) {
-      genre = genre_updated;
-      preset = preset_updated;
+    void Update(const model::MusicGenre& updated_genre,
+                const model::EqualizerPreset& updated_preset) {
+      genre = updated_genre;
+      preset = updated_preset;
     }
   };
 

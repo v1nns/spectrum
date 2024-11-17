@@ -16,19 +16,33 @@
 #include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "view/base/element.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
 #include "view/element/text_animation.h"
 #include "view/element/util.h"
 
 namespace interface {
+
+namespace menu {
+
+/**
+ * @brief Theme alternatives for Menu component
+ */
+enum class Style {
+  Default = 3000,
+  Alternative = 3001,
+};
+
+}  // namespace menu
+
 namespace internal {
 
 /**
  * @brief Interface for customized menu list (using CRTP pattern for static polymorphism)
  */
 template <typename Derived>
-class BaseMenu {
+class BaseMenu : public Element {
   static constexpr int kMaxIconColumns = 2;  //!< Maximum columns for Icon
 
   //! Parameters for search mode
@@ -89,7 +103,7 @@ class BaseMenu {
    */
   explicit BaseMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                     const TextAnimation::Callback& force_refresh)
-      : dispatcher_{dispatcher}, animation_{TextAnimation{.cb_update = force_refresh}} {}
+      : Element(), dispatcher_{dispatcher}, animation_{TextAnimation{.cb_update = force_refresh}} {}
 
  public:
   /**
@@ -104,14 +118,14 @@ class BaseMenu {
    * @brief Renders the element
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() { return actual().RenderImpl(); };
+  ftxui::Element Render() override { return actual().RenderImpl(); };
 
   /**
-   * @brief Handles an event from mouse/keyboard
+   * @brief Handles an event from keyboard
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool OnEvent(const ftxui::Event& event) {
+  bool OnEvent(const ftxui::Event& event) override {
     if (IsSearchEnabled() && OnSearchModeEvent(event)) return true;
 
     if (GetSize() && OnMenuNavigation(event)) return true;
@@ -120,47 +134,54 @@ class BaseMenu {
   }
 
   /**
-   * @brief Handles an event from mouse
+   * @brief Handles a click event from mouse
    * @param event Received event from screen
-   * @return true if event was handled, otherwise false
    */
-  bool OnMouseEvent(ftxui::Event& event) {
-    if (event.mouse().button == ftxui::Mouse::WheelDown ||
-        event.mouse().button == ftxui::Mouse::WheelUp)
-      return OnMouseWheel(event);
+  void HandleClick(ftxui::Event& event) override { UpdateFocusedEntry(event); }
 
-    if (event.mouse().button != ftxui::Mouse::Left && event.mouse().button != ftxui::Mouse::None)
-      return false;
+  /**
+   * @brief Handles a double click event from mouse
+   * @param event Received event from screen
+   */
+  void HandleDoubleClick(ftxui::Event& event) override {
+    // TODO: update animated entry based also on mouse focus
+    UpdateFocusedEntry(event);
+  }
 
+  /**
+   * @brief Handles a hover event from mouse
+   * @param event Received event from screen
+   */
+  void HandleHover(ftxui::Event& event) override { UpdateFocusedEntry(event, false); }
+
+  /**
+   * @brief Handles a mouse wheel event
+   * @param button Received button from mouse wheel event
+   */
+  void HandleWheel(const ftxui::Mouse::Button& button) override {
+    bool is_wheel_up = button == ftxui::Mouse::WheelUp;
+    LOG("Handle mouse wheel event=", is_wheel_up ? "Up" : "Down");
+
+    int size = GetSize();
     int* selected = GetSelected();
     int* focused = GetFocused();
 
-    bool entry_focused = false;
+    *selected = *focused;
 
-    for (int i = 0; i < GetSize(); ++i) {
-      if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
-
-      entry_focused = true;
-      *focused = i;
-
-      if (event.mouse().button == ftxui::Mouse::Left &&
-          event.mouse().motion == ftxui::Mouse::Released) {
-        LOG("Handle left click mouse event on entry=", i);
-        *selected = i;
-
-        // Check if this is a double-click event
-        auto now = std::chrono::system_clock::now();
-        if (now - last_click_ <= std::chrono::milliseconds(500)) return OnClick();
-
-        last_click_ = now;
-        return true;
-      }
+    // Update indexes based on wheel event
+    if (is_wheel_up) {
+      (*selected)--;
+      (*focused)--;
+    } else {
+      (*selected)++;
+      (*focused)++;
     }
 
-    // If no entry was focused with mouse, reset index
-    if (!entry_focused) *focused = *selected;
+    *selected = clamp(*selected, 0, size - 1);
+    *focused = clamp(*focused, 0, size - 1);
 
-    return false;
+    // Check if must enable text animation
+    UpdateActiveEntry(size);
   }
 
   /**
@@ -184,36 +205,27 @@ class BaseMenu {
   /* ******************************************************************************************** */
   //! Internal event handling
  private:
-  //! Handle mouse wheel event
-  bool OnMouseWheel(ftxui::Event& event) {
-    if (!box_.Contain(event.mouse().x, event.mouse().y)) {
-      return false;
-    }
-
-    bool is_wheel_up = event.mouse().button == ftxui::Mouse::WheelUp;
-    LOG("Handle mouse wheel event=", is_wheel_up ? std::quoted("Up") : std::quoted("Down"));
-
-    int size = GetSize();
+  //! Focus a menu entry based on a mouse event
+  void UpdateFocusedEntry(ftxui::Event& event, bool click = true) {
     int* selected = GetSelected();
     int* focused = GetFocused();
 
-    *selected = *focused;
+    bool entry_focused = false;
 
-    // Update indexes based on wheel event
-    if (is_wheel_up) {
-      (*selected)--;
-      (*focused)--;
-    } else {
-      (*selected)++;
-      (*focused)++;
+    for (int i = 0; i < GetSize(); ++i) {
+      if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
+
+      LOG("Handle double left click mouse event on entry=", i);
+      entry_focused = true;
+      *focused = i;
+      *selected = i;
+
+      if (click) OnClick();
+      break;
     }
 
-    *selected = clamp(*selected, 0, size - 1);
-    *focused = clamp(*focused, 0, size - 1);
-
-    // Check if must enable text animation
-    UpdateActiveEntry(size);
-    return true;
+    // If no entry was focused with mouse, reset index
+    if (!entry_focused) *focused = *selected;
   }
 
   //! Handle keyboard event mapped to a menu navigation command
@@ -230,8 +242,8 @@ class BaseMenu {
     if (event == Keybind::ArrowUp || event == Keybind::Up)
       *selected = (*selected + size - 1) % size;
     if (event == Keybind::ArrowDown || event == Keybind::Down) *selected = (*selected + 1) % size;
-    if (event == Keybind::PageUp) (*selected) -= box_.y_max - box_.y_min;
-    if (event == Keybind::PageDown) (*selected) += box_.y_max - box_.y_min;
+    if (event == Keybind::PageUp) (*selected) -= Box().y_max - Box().y_min;
+    if (event == Keybind::PageDown) (*selected) += Box().y_max - Box().y_min;
     if (event == Keybind::Home) (*selected) = 0;
     if (event == Keybind::End) (*selected) = size - 1;
 
@@ -255,7 +267,7 @@ class BaseMenu {
       ResetSearch();
     }
 
-    LOG_IF(event_handled, "Handled menu navigation key=", std::quoted(util::EventToString(event)));
+    LOG_IF(event_handled, "Handled menu navigation key=", util::EventToString(event));
     return event_handled;
   }
 
@@ -324,6 +336,7 @@ class BaseMenu {
   /**
    * @brief Set maximum value of columns available to render text
    * @param max_columns Number of columns
+   * NOTE: without setting this, animation will not work as intended
    */
   void SetMaxColumns(int max_columns) { max_columns_ = max_columns; }
 
@@ -345,6 +358,16 @@ class BaseMenu {
   template <typename T>
   void Emplace(const T& entry) {
     actual().EmplaceImpl(entry);
+    Clamp();
+  }
+
+  /**
+   * @brief Erase an existing entry from menu list
+   * @param entry Menu entry
+   */
+  template <typename T>
+  void Erase(const T& entry) {
+    actual().EraseImpl(entry);
     Clamp();
   }
 
@@ -377,9 +400,6 @@ class BaseMenu {
  protected:
   //! Getter for event dispatcher
   std::shared_ptr<EventDispatcher> GetDispatcher() const { return dispatcher_.lock(); }
-
-  //! Getter for element box
-  ftxui::Box& GetBox() { return box_; }
 
   //! Getter for entries box
   std::vector<ftxui::Box>& GetBoxes() { return boxes_; }
@@ -541,13 +561,10 @@ class BaseMenu {
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   int max_columns_ = 0;  //!< Maximum value of columns available to render text
 
-  ftxui::Box box_;                 //!< Box to control if mouse cursor is over the menu
   std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
 
   int selected_ = 0;  //!< Index in list for selected entry
   int focused_ = 0;   //!< Index in list for focused entry
-
-  std::chrono::system_clock::time_point last_click_;  //!< Last timestamp that mouse was clicked
 
   //!< Mode to render only files matching the search pattern
   std::optional<Search> search_params_ = std::nullopt;

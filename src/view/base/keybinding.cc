@@ -101,6 +101,9 @@ Key Playlist::Create = Key::Character('c');
 Key Playlist::Modify = Key::Character('o');
 Key Playlist::Delete = Key::Character('d');
 
+Key Playlist::Rename = Key::Character('r');
+Key Playlist::Save = Key::Character('s');
+
 }  // namespace keybinding
 
 }  // namespace interface

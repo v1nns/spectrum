@@ -1,15 +1,15 @@
-#include "view/element/internal/text_menu.h"
+#include "view/element/internal/song_menu.h"
 
 namespace interface {
 namespace internal {
 
-TextMenu::TextMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+SongMenu::SongMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const TextAnimation::Callback& force_refresh, const Callback& on_click)
     : BaseMenu(dispatcher, force_refresh), on_click_{on_click} {}
 
 /* ********************************************************************************************** */
 
-ftxui::Element TextMenu::RenderImpl() {
+ftxui::Element SongMenu::RenderImpl() {
   using ftxui::EQUAL;
   using ftxui::WIDTH;
 
@@ -22,7 +22,6 @@ ftxui::Element TextMenu::RenderImpl() {
 
   const auto selected = GetSelected();
   const auto focused = GetFocused();
-  auto& box = GetBox();
   auto& boxes = GetBoxes();
 
   // Fill list with entries
@@ -43,8 +42,9 @@ ftxui::Element TextMenu::RenderImpl() {
 
     // In case of entry text too long, animation thread will be running, so we gotta take the
     // text content from there
-    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : entry);
-
+    auto text =
+        ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                        : entry.filepath.filename().string());
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,
                                text | style | ftxui::xflex,
@@ -53,7 +53,7 @@ ftxui::Element TextMenu::RenderImpl() {
   }
 
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(box) | ftxui::frame | ftxui::flex,
+      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::frame | ftxui::flex,
   };
 
   // Append search box, if enabled
@@ -66,7 +66,7 @@ ftxui::Element TextMenu::RenderImpl() {
 
 /* ********************************************************************************************** */
 
-bool TextMenu::OnEventImpl(const ftxui::Event& event) {
+bool SongMenu::OnEventImpl(const ftxui::Event& event) {
   // Enable search mode
   if (!IsSearchEnabled() && event == keybinding::Navigation::EnableSearch) {
     EnableSearch();
@@ -78,21 +78,21 @@ bool TextMenu::OnEventImpl(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-int TextMenu::GetSizeImpl() const {
+int SongMenu::GetSizeImpl() const {
   int size = IsSearchEnabled() ? (int)filtered_entries_->size() : (int)entries_.size();
   return size;
 }
 
 /* ********************************************************************************************** */
 
-std::string TextMenu::GetActiveEntryAsTextImpl() const {
+std::string SongMenu::GetActiveEntryAsTextImpl() const {
   auto active = GetActiveEntryImpl();
-  return active.has_value() ? *active : "";
+  return active.has_value() ? active->filepath.filename().string() : "";
 }
 
 /* ********************************************************************************************** */
 
-bool TextMenu::OnClickImpl() {
+bool SongMenu::OnClickImpl() {
   auto active = GetActiveEntryImpl();
 
   if (!active.has_value()) return false;
@@ -103,7 +103,7 @@ bool TextMenu::OnClickImpl() {
 
 /* ********************************************************************************************** */
 
-void TextMenu::FilterEntriesBy(const std::string& text) {
+void SongMenu::FilterEntriesBy(const std::string& text) {
   // Do not even try to find it in the main list
   if (text.empty()) {
     filtered_entries_ = entries_;
@@ -114,7 +114,7 @@ void TextMenu::FilterEntriesBy(const std::string& text) {
 
   // Filter entries
   for (const auto& entry : entries_) {
-    if (util::contains(entry, text)) {
+    if (util::contains(entry.filepath.filename().string(), text)) {
       filtered_entries_->push_back(entry);
     }
   }
@@ -122,21 +122,21 @@ void TextMenu::FilterEntriesBy(const std::string& text) {
 
 /* ********************************************************************************************** */
 
-void TextMenu::SetEntriesImpl(const std::vector<std::string>& entries) {
+void SongMenu::SetEntriesImpl(const std::vector<model::Song>& entries) {
   LOG("Set a new list of entries with size=", entries.size());
   entries_ = entries;
 }
 
 /* ********************************************************************************************** */
 
-std::optional<std::string> TextMenu::GetActiveEntryImpl() const {
+std::optional<model::Song> SongMenu::GetActiveEntryImpl() const {
   int size = GetSizeImpl();
 
   // Empty list
   if (!size) return std::nullopt;
 
   // Get active entry
-  std::optional<std::string> entry = std::nullopt;
+  std::optional<model::Song> entry = std::nullopt;
   int index = GetSelected();
 
   // Check for boundary and if vector not empty

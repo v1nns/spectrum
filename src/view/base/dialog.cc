@@ -43,17 +43,20 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
 /* ********************************************************************************************** */
 
 bool Dialog::OnEvent(const ftxui::Event& event) {
-  if (event.is_mouse()) {
-    return OnMouseEventImpl(event);
+  if (event.is_mouse() && OnMouseEventImpl(event)) {
+    return true;
   }
 
-  using Keybind = keybinding::Navigation;
-  if (event == Keybind::Escape || event == Keybind::Close) {
+  if (OnEventImpl(event)) {
+    return true;
+  }
+
+  if (event == keybinding::Navigation::Escape || event == keybinding::Navigation::Close) {
     Close();
+    return true;
   }
 
-  // Let derived handle it
-  return OnEventImpl(event);
+  return false;
 }
 
 }  // namespace interface

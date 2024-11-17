@@ -69,16 +69,16 @@ class Dialog {
    * @brief Set dialog as visible
    */
   void Open() {
-    opened_ = true;
     OnOpen();
+    opened_ = true;
   }
 
   /**
    * @brief Set dialog as not visible
    */
   void Close() {
-    OnClose();
     opened_ = false;
+    OnClose();
   }
 
   /* ******************************************************************************************** */

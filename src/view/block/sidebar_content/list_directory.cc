@@ -46,7 +46,7 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
 
             return true;
           },
-          optional_path)) {
+          menu::Style::Default, optional_path)) {
   // Set max columns for an entry in menu
   menu_->SetMaxColumns(max_columns);
 }

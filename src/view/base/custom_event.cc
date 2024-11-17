@@ -168,6 +168,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "ShowPlaylistManager";
       break;
 
+    case CustomEvent::Identifier::SavePlaylistsToFile:
+      out << "SavePlaylistsToFile";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -461,6 +465,16 @@ CustomEvent CustomEvent::ShowPlaylistManager(const model::PlaylistOperation& ope
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::ShowPlaylistManager,
       .content = operation,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SavePlaylistsToFile(const model::Playlist& changed_playlist) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SavePlaylistsToFile,
+      .content = changed_playlist,
   };
 }
 

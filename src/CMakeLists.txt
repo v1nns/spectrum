@@ -71,6 +71,7 @@ target_sources(
           view/base/block.cc
           view/base/custom_event.cc
           view/base/dialog.cc
+          view/base/element.cc
           view/base/keybinding.cc
           view/base/terminal.cc
           view/block/file_info.cc
@@ -83,6 +84,7 @@ target_sources(
           view/block/sidebar_content/list_directory.cc
           view/block/sidebar_content/playlist_viewer.cc
           view/element/button.cc
+          view/element/focus_controller.cc
           view/element/error_dialog.cc
           view/element/help_dialog.cc
           view/element/playlist_dialog.cc
@@ -91,7 +93,7 @@ target_sources(
           view/element/menu.cc
           view/element/internal/file_menu.cc
           view/element/internal/playlist_menu.cc
-          view/element/internal/text_menu.cc
+          view/element/internal/song_menu.cc
           # logger
           util/arg_parser.cc
           util/file_handler.cc

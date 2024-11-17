@@ -56,11 +56,18 @@ class FileHandler {
   bool ListFiles(const std::filesystem::path& dir_path, Files& parsed_files);
 
   /**
-   * @brief Parse playlists JSON
+   * @brief Parse playlists from JSON
    * @param playlists[out] Playlists object filled by data from JSON parsed
    * @return true if JSON was parsed succesfully, false otherwise
    */
   bool ParsePlaylists(model::Playlists& playlists);
+
+  /**
+   * @brief Save playlists to JSON
+   * @param playlists Playlists object already filled
+   * @return true if JSON was saved succesfully, false otherwise
+   */
+  bool SavePlaylists(const model::Playlists& playlists);
 
   /* ******************************************************************************************** */
   //! Private implementation

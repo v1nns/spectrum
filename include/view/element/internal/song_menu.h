@@ -3,13 +3,14 @@
  * \brief  Class for rendering a customized menu containing text entries
  */
 
-#ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_TEXT_MENU_H_
-#define INCLUDE_VIEW_ELEMENT_INTERNAL_TEXT_MENU_H_
+#ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_SONG_MENU_H_
+#define INCLUDE_VIEW_ELEMENT_INTERNAL_SONG_MENU_H_
 
 #include <string>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "model/song.h"
 #include "view/element/internal/base_menu.h"
 #include "view/element/text_animation.h"
 
@@ -22,7 +23,7 @@ class SidebarTest;
 namespace interface {
 
 namespace internal {
-class TextMenu : public BaseMenu<TextMenu> {
+class SongMenu : public BaseMenu<SongMenu> {
   friend class BaseMenu;
 
   //! Put together all possible styles for an entry in this component
@@ -33,21 +34,21 @@ class TextMenu : public BaseMenu<TextMenu> {
 
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
-  using Callback = Callback<std::string>;
+  using Callback = Callback<model::Song>;
 
   /**
-   * @brief Construct a new TextMenu object
+   * @brief Construct a new SongMenu object
    * @param dispatcher Event dispatcher
    * @param force_refresh Callback function to update UI
    * @param on_click Callback function for click event on active entry
    */
-  explicit TextMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+  explicit SongMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                     const TextAnimation::Callback& force_refresh, const Callback& on_click);
 
   /**
    * @brief Destroy Menu object
    */
-  ~TextMenu() override = default;
+  ~SongMenu() override = default;
 
   /* ******************************************************************************************** */
   //! Mandatory API implementation
@@ -74,17 +75,29 @@ class TextMenu : public BaseMenu<TextMenu> {
   //! Setters and getters
 
   //! Save entries internally to render it as a menu
-  void SetEntriesImpl(const std::vector<std::string>& entries);
+  void SetEntriesImpl(const std::vector<model::Song>& entries);
 
   //! Getter for entries
-  std::vector<std::string> GetEntriesImpl() const {
+  std::vector<model::Song> GetEntriesImpl() const {
     return IsSearchEnabled() ? *filtered_entries_ : entries_;
   }
 
   //! Emplace a new entry
-  void EmplaceImpl(const std::string& entry) {
+  void EmplaceImpl(const model::Song& entry) {
     LOG("Emplace a new entry to list");
     entries_.emplace_back(entry);
+  }
+
+  //! Erase an existing entry
+  void EraseImpl(const model::Song& entry) {
+    LOG("Attempt to erase an entry with value=", entry.filepath);
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [entry](const model::Song& s) { return s.filepath == entry.filepath; });
+
+    if (it != entries_.end()) {
+      LOG("Found matching entry, erasing it, entry=", *it);
+      entries_.erase(it);
+    }
   }
 
   //! Set entry to be highlighted
@@ -94,7 +107,7 @@ class TextMenu : public BaseMenu<TextMenu> {
   void ResetHighlightImpl() {}
 
   //! Getter for active entry (focused/selected)
-  std::optional<std::string> GetActiveEntryImpl() const;
+  std::optional<model::Song> GetActiveEntryImpl() const;
 
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
@@ -102,17 +115,17 @@ class TextMenu : public BaseMenu<TextMenu> {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::vector<std::string> entries_;  //!< List containing text entries
+  std::vector<model::Song> entries_;  //!< List containing song entries
 
   //!< List containing only entries matching the text from search
-  std::optional<std::vector<std::string>> filtered_entries_ = std::nullopt;
+  std::optional<std::vector<model::Song>> filtered_entries_ = std::nullopt;
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 
   //!< Style for each element inside this component
   Style style_ = Style{
       .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .entry = Colored(ftxui::Color::White),
+      .entry = Colored(ftxui::Color::Grey11),
   };
 
   /* ******************************************************************************************** */
@@ -125,4 +138,4 @@ class TextMenu : public BaseMenu<TextMenu> {
 
 }  // namespace internal
 }  // namespace interface
-#endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_TEXT_MENU_H_
+#endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_SONG_MENU_H_

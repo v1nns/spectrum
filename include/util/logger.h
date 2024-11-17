@@ -134,4 +134,8 @@ std::string get_timestamp();
 //! Macro to log error messages
 #define ERROR(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
 
+//! Macro to log error messages based on condition
+#define ERROR_IF(condition, ...) \
+  if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+
 #endif  // INCLUDE_UTIL_LOGGER_H_

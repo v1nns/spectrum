@@ -49,7 +49,7 @@ class FileMenu : public BaseMenu<FileMenu> {
   explicit FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                     const std::shared_ptr<util::FileHandler>& file_handler,
                     const TextAnimation::Callback& force_refresh, const Callback& on_click,
-                    const std::string& optional_path);
+                    const menu::Style& style, const std::string& optional_path);
 
   /**
    * @brief Destroy Menu object
@@ -116,6 +116,18 @@ class FileMenu : public BaseMenu<FileMenu> {
     entries_.emplace_back(entry);
   }
 
+  //! Erase an existing entry
+  void EraseImpl(const util::File& entry) {
+    LOG("Attempt to erase an entry with value=", entry);
+    auto it = std::find_if(entries_.begin(), entries_.end(),
+                           [entry](const util::File& f) { return f == entry; });
+
+    if (it != entries_.end()) {
+      LOG("Found matching entry, erasing it, entry=", *it);
+      entries_.erase(it);
+    }
+  }
+
   //! Set entry to be highlighted
   void SetEntryHighlightedImpl(const util::File& entry);
 
@@ -143,13 +155,7 @@ class FileMenu : public BaseMenu<FileMenu> {
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 
-  //!< Style for each element inside this component
-  Style style_ = Style{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .directory = Colored(ftxui::Color::Green),
-      .file = Colored(ftxui::Color::White),
-      .playing = Colored(ftxui::Color::SteelBlue1),
-  };
+  Style style_;  //!< Style for each element inside this component
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

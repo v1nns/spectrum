@@ -68,7 +68,8 @@ struct CustomEvent {
     SkipToNextSong = 70012,
     SkipToPreviousSong = 70013,
     ShowPlaylistManager = 70014,
-    Exit = 70015,
+    SavePlaylistsToFile = 70015,
+    Exit = 70016,
   };
 
   //! Overloaded operators
@@ -113,6 +114,7 @@ struct CustomEvent {
   static CustomEvent SkipToNextSong();
   static CustomEvent SkipToPreviousSong();
   static CustomEvent ShowPlaylistManager(const model::PlaylistOperation& operation);
+  static CustomEvent SavePlaylistsToFile(const model::Playlist& changed_playlist);
 
   static CustomEvent Exit();
 

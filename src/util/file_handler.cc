@@ -104,7 +104,7 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
     // Parse all songs from a single playlist
     for (auto& [_, song] : playlist["songs"].items()) {
-      if (!song.contains("path")) continue;
+      if (!song.contains("path") || !std::filesystem::exists(song["path"])) continue;
 
       // Insert only if filepath is not duplicated
       if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
@@ -120,6 +120,53 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
   LOG("Parsed ", tmp.size(), " playlists");
   playlists = std::move(tmp);
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
+  // Start by parsing c++ model structure into JSON structure
+  std::string file_path{"/tmp/dummy.json"};
+  nlohmann::json json_playlists;
+
+  for (const auto& playlist : playlists) {
+    nlohmann::json json_playlist, json_songs;
+
+    json_playlist["name"] = playlist.name;
+
+    for (const auto& song : playlist.songs) {
+      nlohmann::json json_song;
+      json_song["path"] = song.filepath.string();
+      json_songs.push_back(json_song);
+    }
+
+    json_playlist["songs"] = json_songs;
+    json_playlists.push_back(json_playlist);
+  }
+
+  nlohmann::json json_data;
+  json_data["playlists"] = json_playlists;
+
+  // Open the file in write mode
+  std::ofstream out(file_path);
+
+  if (!out.is_open()) {
+    ERROR("Cannot open file for writing playlists");
+    return false;
+  }
+
+  try {
+    // Pretty print JSON data with indentation of 2 spaces
+    out << std::setw(2) << json_data;
+  } catch (const std::exception& e) {
+    ERROR("Failed to write JSON, error=", e.what());
+    return false;
+  }
+
+  // Close the file
+  out.close();
+
   return true;
 }
 

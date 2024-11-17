@@ -140,6 +140,9 @@ struct Playlist {
   static Key Create;
   static Key Modify;
   static Key Delete;
+
+  static Key Rename;
+  static Key Save;
 };
 
 }  // namespace keybinding

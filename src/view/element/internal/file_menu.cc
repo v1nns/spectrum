@@ -14,8 +14,28 @@ namespace internal {
 FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::shared_ptr<util::FileHandler>& file_handler,
                    const TextAnimation::Callback& force_refresh, const Callback& on_click,
-                   const std::string& optional_path)
+                   const menu::Style& style, const std::string& optional_path)
     : BaseMenu(dispatcher, force_refresh), file_handler_{file_handler}, on_click_{on_click} {
+  switch (style) {
+    case menu::Style::Default:
+      style_ = Style{
+          .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
+          .directory = Colored(ftxui::Color::Green),
+          .file = Colored(ftxui::Color::White),
+          .playing = Colored(ftxui::Color::SteelBlue1),
+      };
+      break;
+
+    case menu::Style::Alternative:
+      style_ = Style{
+          .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
+          .directory = Colored(ftxui::Color::DarkSeaGreen2Bis),
+          .file = Colored(ftxui::Color::Grey11),
+          .playing = Colored(ftxui::Color::SteelBlue1),
+      };
+      break;
+  }
+
   auto filepath = ComposeDirectoryPath(optional_path);
 
   if (bool parsed = RefreshList(filepath); !optional_path.empty() && !parsed) {
@@ -39,7 +59,6 @@ ftxui::Element FileMenu::RenderImpl() {
 
   const auto selected = GetSelected();
   const auto focused = GetFocused();
-  auto& box = GetBox();
   auto& boxes = GetBoxes();
 
   // Fill list with entries
@@ -74,7 +93,7 @@ ftxui::Element FileMenu::RenderImpl() {
   }
 
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(box) | ftxui::frame | ftxui::flex,
+      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::frame | ftxui::flex,
   };
 
   // Append search box, if enabled
@@ -272,6 +291,7 @@ std::optional<util::File> FileMenu::GetActiveEntryImpl() const {
   // Get active entry
   std::optional<util::File> entry = std::nullopt;
   int index = GetSelected();
+
 
   // Check for boundary and if vector not empty
   if (index >= size || entries_.empty() ||

@@ -6,11 +6,15 @@
 #ifndef INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 #define INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 
+#include <ftxui/component/component_base.hpp>
+#include <optional>
+
 #include "model/playlist_operation.h"
 #include "util/file_handler.h"
 #include "view/base/dialog.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/button.h"
+#include "view/element/focus_controller.h"
 #include "view/element/menu.h"
 
 namespace interface {
@@ -63,8 +67,26 @@ class PlaylistDialog : public Dialog {
    */
   bool OnMouseEventImpl(ftxui::Event event) override;
 
-  //! Create general buttons
+  /**
+   * @brief Callback for when dialog is opened
+   */
+  void OnOpen() override;
+
+  /**
+   * @brief Callback for when dialog is closed
+   */
+  void OnClose() override;
+
+ private:
+  /**
+   * @brief Create general buttons
+   */
   void CreateButtons();
+
+  /**
+   * @brief Update UI state based on a few parameters (modified playlist, name, songs, ...)
+   */
+  void UpdateButtonState();
 
   /* ******************************************************************************************** */
   //! Variables
@@ -78,11 +100,20 @@ class PlaylistDialog : public Dialog {
   model::PlaylistOperation curr_operation_ = model::PlaylistOperation{
       .action = model::PlaylistOperation::Operation::None, .playlist = model::Playlist{}};
 
-  FileMenu menu_files_;     //!< Menu containing all files from a given directory
-  TextMenu menu_playlist_;  //!< Menu containing only files for the current playlist
+  std::optional<model::Playlist> modified_playlist_;  //!< Playlist with latest modification
 
-  GenericButton btn_add_;     //!< Button to add new song to playlist
-  GenericButton btn_remove_;  //!< Button to remove selected song to playlist
+  FileMenu menu_files_;  //!< Menu containing all files from a given directory
+
+  std::string input_name_;   //!< Playlist name to display on text/input
+  int cursor_position_ = 0;  //!< Cursor position in text input
+  bool edit_mode_ = false;   //!< Flag to control edit mode, when enabled, text input is displayed
+  ftxui::Component input_playlist_;  //!< Text input component
+
+  SongMenu menu_playlist_;  //!< Menu containing only files for the current playlist
+
+  GenericButton btn_save_;  //!< Button to save (persist) playlist
+
+  FocusController focus_ctl_;  //!< Controller to manage focus in registered elements
 };
 
 }  // namespace interface
