@@ -52,6 +52,14 @@ struct Navigation {
 
 /* ********************************************************************************************** */
 
+//! Dialog keybindings
+struct Dialog {
+  static Key Yes;
+  static Key No;
+};
+
+/* ********************************************************************************************** */
+
 //! General keybindings
 struct General {
   static Key ExitApplication;

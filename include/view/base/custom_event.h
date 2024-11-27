@@ -15,6 +15,7 @@
 #include "model/block_identifier.h"
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
+#include "model/question_data.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -69,7 +70,8 @@ struct CustomEvent {
     SkipToPreviousSong = 70013,
     ShowPlaylistManager = 70014,
     SavePlaylistsToFile = 70015,
-    Exit = 70016,
+    ShowQuestionDialog = 70016,
+    Exit = 70017,
   };
 
   //! Overloaded operators
@@ -115,6 +117,7 @@ struct CustomEvent {
   static CustomEvent SkipToPreviousSong();
   static CustomEvent ShowPlaylistManager(const model::PlaylistOperation& operation);
   static CustomEvent SavePlaylistsToFile(const model::Playlist& changed_playlist);
+  static CustomEvent ShowQuestionDialog(const model::QuestionData& data);
 
   static CustomEvent Exit();
 
@@ -123,7 +126,7 @@ struct CustomEvent {
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
-                   model::PlaylistOperation>;
+                   model::PlaylistOperation, model::QuestionData>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

@@ -38,6 +38,11 @@ Key Navigation::Close = Key::Character('q');
 
 Key Navigation::EnableSearch = Key::Character('/');
 
+/* ------------------------------------------ Dialog -------------------------------------------- */
+
+Key Dialog::Yes = Key::Character('y');
+Key Dialog::No = Key::Character('n');
+
 /* ------------------------------------------ General ------------------------------------------- */
 
 Key General::ExitApplication = Key::Character('q');

@@ -55,6 +55,12 @@ std::string FileHandler::GetHome() const {
 
 /* ********************************************************************************************** */
 
+std::string FileHandler::GetPlaylistsPath() const {
+  return std::string{GetHome() + "/.cache/spectrum/playlists.json"};
+}
+
+/* ********************************************************************************************** */
+
 bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed_files) {
   Files tmp;
 
@@ -83,7 +89,7 @@ bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed
 /* ********************************************************************************************** */
 
 bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
-  std::string file_path{GetHome() + "/.cache/spectrum/playlists.json"};
+  std::string file_path{GetPlaylistsPath()};
 
   if (!std::filesystem::exists(file_path)) return false;
 
@@ -127,7 +133,6 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
 bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
   // Start by parsing c++ model structure into JSON structure
-  std::string file_path{"/tmp/dummy.json"};
   nlohmann::json json_playlists;
 
   for (const auto& playlist : playlists) {
@@ -149,7 +154,7 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
   json_data["playlists"] = json_playlists;
 
   // Open the file in write mode
-  std::ofstream out(file_path);
+  std::ofstream out(GetPlaylistsPath());
 
   if (!out.is_open()) {
     ERROR("Cannot open file for writing playlists");

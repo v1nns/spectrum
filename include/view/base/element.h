@@ -109,7 +109,18 @@ class Element {
    * @brief Set focus state
    * @param enable Flag to enable/disable state
    */
-  void SetFocus(bool enable) { focused_ = enable; }
+  void SetFocus(bool enable) {
+    focused_ = enable;
+    OnFocusChanged();
+  }
+
+  /* ******************************************************************************************** */
+  //! Optional implementation
+
+  /**
+   * @brief Notify when focus state has changed
+   */
+  virtual void OnFocusChanged() {}
 
   /* ******************************************************************************************** */
   //! Variables

@@ -48,6 +48,12 @@ class FileHandler {
   std::string GetHome() const;
 
   /**
+   * @brief Get full path to playlist JSON file
+   * @return String containing filepath
+   */
+  std::string GetPlaylistsPath() const;
+
+  /**
    * @brief List all files from the given directory path
    * @param dir_path Full path to directory
    * @param parsed_files[out] Existing files in the given directory path

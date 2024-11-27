@@ -449,4 +449,49 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
   return std::make_shared<GenericButton>(style, content, on_click, active);
 }
 
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button_solid(const std::string& content,
+                                                  const Callback& on_click, const Style& style,
+                                                  bool active) {
+  class SolidButton : public Button {
+   public:
+    explicit SolidButton(const Style& style, const std::string& content, const Callback& on_click,
+                         bool active)
+        : Button(style, on_click, active), content_{content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      using ftxui::EQUAL;
+      using ftxui::HEIGHT;
+      using ftxui::WIDTH;
+
+      auto content = ftxui::text(content_) | (style_.decorator ? style_.decorator : ftxui::nothing);
+
+      // default decorator
+      ftxui::Decorator style = ftxui::center;
+
+      style = style | ftxui::borderLight;
+      if (style_.height) style = style | ftxui::size(HEIGHT, EQUAL, style_.height);
+      if (style_.width) style = style | ftxui::size(WIDTH, EQUAL, style_.width);
+
+      if (enabled_) {
+        const auto& background = focused_ ? style_.focused.background : style_.normal.background;
+        const auto& foreground = focused_ ? style_.focused.foreground : style_.normal.foreground;
+
+        style = style | ftxui::bgcolor(background) | ftxui::color(foreground);
+      } else {
+        style = style | ftxui::bgcolor(style_.disabled.background) |
+                ftxui::color(style_.disabled.foreground);
+      }
+
+      return ftxui::hbox(content) | style | ftxui::reflect(box_);
+    }
+
+    std::string content_;
+  };
+
+  return std::make_shared<SolidButton>(style, content, on_click, active);
+}
+
 }  // namespace interface

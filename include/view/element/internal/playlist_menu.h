@@ -133,7 +133,7 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 
   //! Create UI element for a single entry (playlist and song have different styles)
   ftxui::Element CreateEntry(int index, const std::string& text, bool is_highlighted,
-                             bool is_playlist);
+                             bool is_playlist, const std::string& suffix = "");
 
   //! Toggle collapse state for current selected entry (only available for playlist entries)
   bool ToggleActivePlaylist(bool collapse);

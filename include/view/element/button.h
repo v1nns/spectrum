@@ -40,6 +40,7 @@ class Button {
     State focused;   //!< Colors for focused state
     State selected;  //!< Colors for selected state
     State pressed;   //!< Colors for pressed state
+    State disabled;  //!< Colors for disabled state
 
     ftxui::Decorator decorator;  //!< Style decorator for content
 
@@ -127,6 +128,18 @@ class Button {
    */
   static std::shared_ptr<Button> make_button(const std::string& content, const Callback& on_click,
                                              const Style& style, bool active = true);
+
+  /**
+   * @brief Create generic button with solid color
+   * @param content Text content to show
+   * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
+   * @param active Button state (if it is clickable or not)
+   * @return std::shared_ptr<Button> New instance to button
+   */
+  static std::shared_ptr<Button> make_button_solid(const std::string& content,
+                                                   const Callback& on_click, const Style& style,
+                                                   bool active = true);
 
   /* ******************************************************************************************** */
   //! Public API for Button

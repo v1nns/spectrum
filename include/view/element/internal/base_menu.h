@@ -48,8 +48,8 @@ class BaseMenu : public Element {
   //! Parameters for search mode
   struct Search {
     std::string text_to_search = "";  //!< Text to search in file entries
-    int selected = 0;                 //!< Entry index in files list for entry selected
-    int focused = 0;                  //!< Entry index in files list for entry focused
+    int selected_index = 0;           //!< Entry index in files list for entry selected
+    int focused_index = 0;            //!< Entry index in files list for entry focused
     int position = 0;                 //!< Cursor position for text to search
   };
 
@@ -181,7 +181,7 @@ class BaseMenu : public Element {
     *focused = clamp(*focused, 0, size - 1);
 
     // Check if must enable text animation
-    UpdateActiveEntry(size);
+    UpdateActiveEntry();
   }
 
   /**
@@ -254,8 +254,10 @@ class BaseMenu : public Element {
         *focused = *selected;
         event_handled = true;
 
+        LOG("Handled menu navigation key=", util::EventToString(event));
+
         // Check if must enable text animation
-        UpdateActiveEntry(size);
+        UpdateActiveEntry();
       }
     }
 
@@ -263,11 +265,12 @@ class BaseMenu : public Element {
     if (event == Keybind::Return) {
       event_handled = OnClick();
 
+      LOG_IF(event_handled, "Handled Return key");
+
       // Always reset search mode
       ResetSearch();
     }
 
-    LOG_IF(event_handled, "Handled menu navigation key=", util::EventToString(event));
     return event_handled;
   }
 
@@ -369,21 +372,22 @@ class BaseMenu : public Element {
   void Erase(const T& entry) {
     actual().EraseImpl(entry);
     Clamp();
+    UpdateActiveEntry();
   }
 
   /**
    * @brief Reset internal UI state
-   * @param new_index Index to force select/focus state
+   * @param index Index to force select/focus state
    */
-  void ResetState(int new_index = 0) {
-    LOG("Reset state with new index=", new_index);
-    selected_ = new_index;
-    focused_ = new_index;
+  void ResetState(int index = 0) {
+    LOG("Reset state with new index=", index);
+    selected_index_ = index;
+    focused_index_ = index;
 
     int size = GetSize();
 
-    selected_ = clamp(selected_, 0, size - 1);
-    focused_ = clamp(focused_, 0, size - 1);
+    selected_index_ = clamp(selected_index_, 0, size - 1);
+    focused_index_ = clamp(focused_index_, 0, size - 1);
   }
 
   /* ******************************************************************************************** */
@@ -405,18 +409,24 @@ class BaseMenu : public Element {
   std::vector<ftxui::Box>& GetBoxes() { return boxes_; }
 
   //! Getter for selected index
-  int* GetSelected() { return search_params_.has_value() ? &search_params_->selected : &selected_; }
+  int* GetSelected() {
+    return search_params_.has_value() ? &search_params_->selected_index : &selected_index_;
+  }
 
   //! Getter for selected index (const)
   int GetSelected() const {
-    return search_params_.has_value() ? search_params_->selected : selected_;
+    return search_params_.has_value() ? search_params_->selected_index : selected_index_;
   }
 
   //! Getter for focused index
-  int* GetFocused() { return search_params_.has_value() ? &search_params_->focused : &focused_; }
+  int* GetFocused() {
+    return search_params_.has_value() ? &search_params_->focused_index : &focused_index_;
+  }
 
   //! Getter for focused index (const)
-  int GetFocused() const { return search_params_.has_value() ? search_params_->focused : focused_; }
+  int GetFocused() const {
+    return search_params_.has_value() ? search_params_->focused_index : focused_index_;
+  }
 
   //! Getter for maximum columns
   int GetMaxColumns() const { return max_columns_; }
@@ -474,7 +484,7 @@ class BaseMenu : public Element {
    */
   void EnableSearch() {
     LOG("Enable search mode");
-    search_params_ = Search{.selected = selected_, .focused = focused_};
+    search_params_ = Search{.selected_index = selected_index_, .focused_index = focused_index_};
     actual().FilterEntriesBy(search_params_->text_to_search);
 
     // Send user action to controller, disable global events
@@ -506,8 +516,7 @@ class BaseMenu : public Element {
     Clamp();
 
     // Update active entry (to enable/disable text animation)
-    int size = GetSize();
-    UpdateActiveEntry(size);
+    UpdateActiveEntry();
   }
 
  private:
@@ -520,32 +529,46 @@ class BaseMenu : public Element {
 
     // Resize internal structures and check if must run text animation on selected entry
     Clamp();
-
-    int size = GetSize();
-    UpdateActiveEntry(size);
+    UpdateActiveEntry();
   }
 
   /* ******************************************************************************************** */
   //! Internal handling
 
+  //! Notify when focus state has changed
+  void OnFocusChanged() override {
+    if (IsFocused()) {
+      // Check if can execute text animation on active entry
+      UpdateActiveEntry();
+    } else if (IsAnimationRunning()) {
+      animation_.Stop();
+    }
+  }
+
+  /* ******************************************************************************************** */
+  //! Protected API to also use by derived classes
+ protected:
   //! Clamp both selected and focused indexes
   void Clamp() {
     int size = GetSize();
     boxes_.resize(size);
 
-    int* selected = IsSearchEnabled() ? &search_params_->selected : &selected_;
-    int* focused = IsSearchEnabled() ? &search_params_->focused : &focused_;
+    int* selected = IsSearchEnabled() ? &search_params_->selected_index : &selected_index_;
+    int* focused = IsSearchEnabled() ? &search_params_->focused_index : &focused_index_;
 
     *selected = clamp(*selected, 0, size - 1);
     *focused = clamp(*focused, 0, size - 1);
   }
 
-  //! Update content from active entry (decides if text_animation should run or not)
-  void UpdateActiveEntry(int size) {
+   //! Update content from active entry (decides if text_animation should run or not)
+  void UpdateActiveEntry() {
     // Stop animation thread
     animation_.Stop();
 
-    if (!max_columns_ || !size) return;
+    // Do not attempt to start animation thread if:
+    //  - max_columns was not set by parent element
+    //  - inner menu list is empty
+    if (!max_columns_ || !GetSize()) return;
 
     // Get active entry and count char length
     std::string text = GetActiveEntryAsText();
@@ -563,8 +586,8 @@ class BaseMenu : public Element {
 
   std::vector<ftxui::Box> boxes_;  //!< Single box for each entry in files list
 
-  int selected_ = 0;  //!< Index in list for selected entry
-  int focused_ = 0;   //!< Index in list for focused entry
+  int selected_index_ = 0;  //!< Index in list for selected entry
+  int focused_index_ = 0;   //!< Index in list for focused entry
 
   //!< Mode to render only files matching the search pattern
   std::optional<Search> search_params_ = std::nullopt;

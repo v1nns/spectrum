@@ -29,10 +29,12 @@ struct PlaylistOperation {
 
   // Util method to get corresponding operation name
   static std::string GetActionName(const PlaylistOperation& playlist);
-};
 
-//! PlaylistOperation pretty print
-std::ostream& operator<<(std::ostream& out, const PlaylistOperation& p);
+  //! Overloaded operators
+  friend std::ostream& operator<<(std::ostream& out, const PlaylistOperation& s);
+  bool operator==(const PlaylistOperation& other) const;
+  bool operator!=(const PlaylistOperation& other) const;
+};
 
 }  // namespace model
 

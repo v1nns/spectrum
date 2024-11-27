@@ -77,15 +77,20 @@ class PlaylistViewer : public TabItem {
 
   /* ******************************************************************************************** */
   //! UI initialization
-
+ private:
   /**
    * @brief Initialize all UI buttons to manage playlists
    */
   void CreateButtons();
 
+  /**
+   * @brief Callback triggered by QuestionDialog on "yes" click
+   */
+  void OnYes();
+
   /* ******************************************************************************************** */
   //! Variables
- private:
+
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 

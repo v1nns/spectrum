@@ -66,6 +66,7 @@ target_sources(
           model/bar_animation.cc
           model/playlist.cc
           model/playlist_operation.cc
+          model/question_data.cc
           model/song.cc
           # view
           view/base/block.cc
@@ -88,6 +89,7 @@ target_sources(
           view/element/error_dialog.cc
           view/element/help_dialog.cc
           view/element/playlist_dialog.cc
+          view/element/question_dialog.cc
           view/element/tab.cc
           view/element/text_animation.cc
           view/element/menu.cc

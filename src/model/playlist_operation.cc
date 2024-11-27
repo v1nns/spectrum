@@ -34,4 +34,12 @@ std::ostream& operator<<(std::ostream& out, const PlaylistOperation& p) {
   return out;
 }
 
+bool PlaylistOperation::operator==(const PlaylistOperation& other) const {
+  return std::tie(action, playlist) == std::tie(other.action, other.playlist);
+}
+
+bool PlaylistOperation::operator!=(const PlaylistOperation& other) const {
+  return !operator==(other);
+}
+
 }  // namespace model

@@ -29,11 +29,13 @@ ftxui::Element ErrorDialog::RenderImpl(const ftxui::Dimensions& curr_size) const
 
 bool ErrorDialog::OnEventImpl(const ftxui::Event& event) {
   using Keybind = keybinding::Navigation;
+
   if (event == Keybind::Return) {
     Close();
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 /* ********************************************************************************************** */

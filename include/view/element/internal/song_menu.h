@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_ELEMENT_INTERNAL_SONG_MENU_H_
 #define INCLUDE_VIEW_ELEMENT_INTERNAL_SONG_MENU_H_
 
+#include <deque>
 #include <string>
 
 #include "ftxui/component/event.hpp"
@@ -75,10 +76,10 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Setters and getters
 
   //! Save entries internally to render it as a menu
-  void SetEntriesImpl(const std::vector<model::Song>& entries);
+  void SetEntriesImpl(const std::deque<model::Song>& entries);
 
   //! Getter for entries
-  std::vector<model::Song> GetEntriesImpl() const {
+  std::deque<model::Song> GetEntriesImpl() const {
     return IsSearchEnabled() ? *filtered_entries_ : entries_;
   }
 
@@ -91,8 +92,9 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Erase an existing entry
   void EraseImpl(const model::Song& entry) {
     LOG("Attempt to erase an entry with value=", entry.filepath);
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [entry](const model::Song& s) { return s.filepath == entry.filepath; });
+    auto it = std::find_if(entries_.begin(), entries_.end(), [entry](const model::Song& s) {
+      return s.index == entry.index && s.filepath == entry.filepath;
+    });
 
     if (it != entries_.end()) {
       LOG("Found matching entry, erasing it, entry=", *it);
@@ -115,10 +117,10 @@ class SongMenu : public BaseMenu<SongMenu> {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::vector<model::Song> entries_;  //!< List containing song entries
+  std::deque<model::Song> entries_;  //!< List containing song entries
 
   //!< List containing only entries matching the text from search
-  std::optional<std::vector<model::Song>> filtered_entries_ = std::nullopt;
+  std::optional<std::deque<model::Song>> filtered_entries_ = std::nullopt;
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 

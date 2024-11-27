@@ -27,7 +27,8 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     bool is_highlighted = highlighted_ ? highlighted_->playlist == entry.playlist.name : false;
 
     // Add playlist
-    menu_entries.push_back(CreateEntry(index++, entry.playlist.name, is_highlighted, true));
+    menu_entries.push_back(CreateEntry(index++, entry.playlist.name, is_highlighted, true,
+                                       " [" + std::to_string(entry.playlist.songs.size()) + "]"));
 
     if (!entry.collapsed) continue;
 
@@ -279,7 +280,7 @@ std::optional<model::Playlist> PlaylistMenu::GetActiveEntryImpl() const {
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, bool is_highlighted,
-                                         bool is_playlist) {
+                                         bool is_playlist, const std::string& suffix) {
   using ftxui::EQUAL;
   using ftxui::WIDTH;
 
@@ -305,7 +306,7 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
   // In case of entry text too long, animation thread will be running, so we gotta take the
   // text content from there
   auto entry_text =
-      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : text);
+      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : text + suffix);
 
   return ftxui::hbox({
              prefix_text | styles_.prefix,
@@ -341,9 +342,9 @@ bool PlaylistMenu::ToggleActivePlaylist(bool collapse) {
 
   // Playlist state was toggled
   if (toggled) {
-    // Resize vector of boxes to new size
-    auto& boxes = GetBoxes();
-    boxes.resize(total_size);
+    // Resize vector of boxes to new size and check if must enable text animation
+    Clamp();
+    UpdateActiveEntry();
 
     return true;
   }

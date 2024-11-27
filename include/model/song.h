@@ -18,6 +18,7 @@ namespace model {
  * @brief Detailed audio metadata information from song
  */
 struct Song {
+  std::optional<int> index;        //!< Internal index
   std::filesystem::path filepath;  //!< Full path to file
   std::string artist;              //!< Song artist name
   std::string title;               //!< Song title name

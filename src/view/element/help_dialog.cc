@@ -20,12 +20,13 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
 
 bool HelpDialog::OnEventImpl(const ftxui::Event& event) {
   using Keybind = keybinding::Navigation;
+
   if (event == Keybind::Return) {
     Close();
+    return true;
   }
 
-  // This is to ensure that no one else will treat any event while helper is opened
-  return true;
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -58,7 +59,8 @@ ftxui::Element HelpDialog::title(const std::string& message) const {
 
 /* ********************************************************************************************** */
 
-ftxui::Element HelpDialog::command(const std::string& keybind, const std::string& description) const {
+ftxui::Element HelpDialog::command(const std::string& keybind,
+                                   const std::string& description) const {
   return ftxui::hbox({
       ftxui::text(keybind) | ftxui::color(ftxui::Color::PaleTurquoise1),
       ftxui::text(!keybind.empty() ? " - " : ""),

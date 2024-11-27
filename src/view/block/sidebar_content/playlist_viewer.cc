@@ -1,9 +1,11 @@
 #include "view/block/sidebar_content/playlist_viewer.h"
 
+#include <functional>
 #include <iomanip>
 #include <string>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/question_data.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 
@@ -50,9 +52,7 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
 
           // Callback triggered on menu item click
           [this](const auto& active) {
-            if (!active) return false;
-
-            if (active->songs.empty()) return false;
+            if (!active || active->songs.empty()) return false;
 
             auto dispatcher = dispatcher_.lock();
             if (!dispatcher) return false;
@@ -78,8 +78,10 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistViewer::Render() {
+  static constexpr int kNumberOfElements = 2;
+
   ftxui::Elements entries;
-  entries.reserve(2);
+  entries.reserve(kNumberOfElements);
 
   entries.push_back(menu_->Render());
 
@@ -102,21 +104,45 @@ ftxui::Element PlaylistViewer::Render() {
 bool PlaylistViewer::OnEvent(const ftxui::Event& event) {
   if (menu_->OnEvent(event)) return true;
 
-  if (event == keybinding::Playlist::Create || event == keybinding::Playlist::Modify ||
-      event == keybinding::Playlist::Delete) {
+  if (event == keybinding::Playlist::Create || event == keybinding::Playlist::Modify) {
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
 
-    model::PlaylistOperation operation{
-        .action =
-            event == keybinding::Playlist::Create   ? model::PlaylistOperation::Operation::Create
-            : event == keybinding::Playlist::Modify ? model::PlaylistOperation::Operation::Modify
-                                                    : model::PlaylistOperation::Operation::Delete,
-        .playlist = menu_->GetActiveEntry(),
-    };
+    // Create a new operation to send it to playlist manager dialog
+    model::PlaylistOperation operation;
+    if (event == keybinding::Playlist::Create) {
+      operation = {
+          .action = model::PlaylistOperation::Operation::Create,
+          .playlist = model::Playlist{},
+      };
+    } else {
+      operation = {
+          .action = model::PlaylistOperation::Operation::Modify,
+          .playlist = menu_->GetActiveEntry(),
+      };
+    }
 
     LOG("Handle key to open playlist dialog, operation=", operation);
     auto event_dialog = interface::CustomEvent::ShowPlaylistManager(operation);
+    dispatcher->SendEvent(event_dialog);
+
+    return true;
+  }
+
+  if (event == keybinding::Playlist::Delete) {
+    auto dispatcher = dispatcher_.lock();
+    const auto& entry = menu_->GetActiveEntry();
+
+    if (!dispatcher || !entry) return false;
+
+    LOG("Handle key to open question dialog to delete entry=", *entry);
+
+    model::QuestionData content{
+        .question = std::string("Do you want to delete \"" + entry->name + "\"?"),
+        .cb_yes = std::bind(&PlaylistViewer::OnYes, this),
+    };
+
+    auto event_dialog = interface::CustomEvent::ShowQuestionDialog(content);
     dispatcher->SendEvent(event_dialog);
 
     return true;
@@ -155,6 +181,7 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
     // TODO: force to clear highlight always, even when tab_item is not active
   }
 
+  // Receive modified playlist from dialog
   if (event == CustomEvent::Identifier::SavePlaylistsToFile) {
     LOG("Save playlists to JSON");
 
@@ -167,6 +194,7 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
     bool found = false;
 
     for (auto& playlist_wrapper : playlists_wrapper) {
+      // If modified playlist is based on an existing one, just replace it
       if (playlist_wrapper.playlist.index == modified_playlist.index) {
         LOG("Changing playlist old=", playlist_wrapper.playlist, " to new=", modified_playlist);
         playlist_wrapper.playlist = modified_playlist;
@@ -176,6 +204,7 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
       playlists.emplace_back(playlist_wrapper.playlist);
     }
 
+    // Otherwise, create a new entry for it
     if (!found) {
       LOG("Could not find a matching playlist, so create a new one");
       modified_playlist.index = playlists.size();
@@ -265,6 +294,29 @@ void PlaylistViewer::CreateButtons() {
         return true;
       },
       kButtonStyle);
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistViewer::OnYes() {
+  // Receive delete operation from question dialog
+  const auto& entry = menu_->GetActiveEntry();
+  if (!entry) return;
+
+  LOG("Deleting playlist=", *entry);
+  menu_->Erase(*entry);
+
+  const auto& playlists_wrapper = menu_->GetEntries();
+
+  model::Playlists playlists;
+  playlists.reserve(playlists_wrapper.size());
+
+  for (const auto& playlist_wrapper : playlists_wrapper) {
+    playlists.emplace_back(playlist_wrapper.playlist);
+  }
+
+  bool result = file_handler_->SavePlaylists(playlists);
+  LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
 }
 
 }  // namespace interface

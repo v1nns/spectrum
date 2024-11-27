@@ -27,6 +27,7 @@ struct ContentVisitor {
   void operator()(const model::BlockIdentifier& i) const { out << i; }
   void operator()(const model::Playlist& p) const { out << p; }
   void operator()(const model::PlaylistOperation& p) const { out << p; }
+  void operator()(const model::QuestionData& q) const { out << q; }
 
   std::ostream& out;
 };
@@ -170,6 +171,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::SavePlaylistsToFile:
       out << "SavePlaylistsToFile";
+      break;
+
+    case CustomEvent::Identifier::ShowQuestionDialog:
+      out << "ShowQuestionDialog";
       break;
 
     case CustomEvent::Identifier::Exit:
@@ -475,6 +480,16 @@ CustomEvent CustomEvent::SavePlaylistsToFile(const model::Playlist& changed_play
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::SavePlaylistsToFile,
       .content = changed_playlist,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ShowQuestionDialog(const model::QuestionData& data) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowQuestionDialog,
+      .content = data,
   };
 }
 

@@ -1,5 +1,6 @@
 #include "view/element/playlist_dialog.h"
 
+#include <algorithm>
 #include <filesystem>
 
 #include "ftxui/component/component.hpp"
@@ -33,7 +34,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
             LOG("Handle on_click event on menu entry=", *active);
 
-            model::Song new_song{.filepath = *active};
+            model::Song new_song{.index = modified_playlist_->songs.size(), .filepath = *active};
 
             modified_playlist_->songs.emplace_back(new_song);
             menu_playlist_->Emplace(new_song);
@@ -64,19 +65,17 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
           [this](const std::optional<model::Song>& active) {
             if (!active) return false;
 
-            // Send user action to controller, try to play selected entry
-            auto dispatcher = dispatcher_.lock();
-            if (!dispatcher) return false;
-
             LOG("Handle on_click event on menu entry=", active->filepath.filename());
 
             if (!modified_playlist_.has_value() || modified_playlist_->IsEmpty()) {
               return false;
             }
 
-            auto it = std::find_if(
-                modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
-                [active](const model::Song& s) { return s.filepath == active->filepath; });
+            auto it =
+                std::find_if(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
+                             [active](const model::Song& s) {
+                               return s.index == active->index && s.filepath == active->filepath;
+                             });
 
             bool found = it != modified_playlist_->songs.end();
 
@@ -113,8 +112,6 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
   // Update internal cache
   curr_operation_ = operation;
 
-  std::vector<model::Song> songs;
-
   switch (curr_operation_.action) {
     case model::PlaylistOperation::Operation::None:
     case model::PlaylistOperation::Operation::Create:
@@ -123,11 +120,9 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
       break;
 
     case model::PlaylistOperation::Operation::Modify:
-      if (const auto& playlist = curr_operation_.playlist; !playlist->IsEmpty()) {
-        songs.reserve(playlist->songs.size());
-
-        for (const auto& song : playlist->songs) {
-          songs.emplace_back(song);
+      if (int i = 0; !curr_operation_.playlist->IsEmpty()) {
+        for (auto& song : curr_operation_.playlist->songs) {
+          song.index = i++;
         }
       }
       break;
@@ -139,7 +134,7 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
   modified_playlist_ = curr_operation_.playlist;
 
   input_name_ = !modified_playlist_->name.empty() ? modified_playlist_->name : "<unnamed>";
-  menu_playlist_->SetEntries(songs);
+  menu_playlist_->SetEntries(modified_playlist_->songs);
 
   Dialog::Open();
 }
@@ -150,8 +145,11 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   int max_columns_per_menu = ((curr_size.dimx * 0.5f) / 2);
   int max_lines_menu = (curr_size.dimy * 0.6f);
 
-  menu_files_->SetMaxColumns(max_columns_per_menu);
-  menu_playlist_->SetMaxColumns(max_columns_per_menu);
+  static constexpr int kPrefixOffset = 2;
+
+  // Value is smaller here because of menu prefix
+  menu_files_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);
+  menu_playlist_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);
 
   std::string title;
 
@@ -164,7 +162,7 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
       title = "Modify Playlist";
       break;
     case model::PlaylistOperation::Operation::Delete:
-      title = "Delete Playlist";  // ???
+      return ftxui::text("Some error occurred...");
       break;
   }
 
@@ -230,9 +228,6 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
   // Menu should handle first
   if (menu_files_->IsFocused()) {
-    // Filter "return" event to not be handled by menu
-    if (event == keybinding::Navigation::Return) return true;
-
     if (menu_files_->OnEvent(event)) return true;
 
     if (event == keybinding::Navigation::Space) {
@@ -328,14 +323,27 @@ void PlaylistDialog::CreateButtons() {
       .normal =
           Button::Style::State{
               .foreground = ftxui::Color::Black,
+              .background = ftxui::Color::SkyBlue3,
               .border = ftxui::Color::GrayDark,
           },
 
-      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
+      .focused =
+          Button::Style::State{
+              .foreground = ftxui::Color::LightSkyBlue1,
+              .background = ftxui::Color::DeepSkyBlue4Ter,
+              .border = ftxui::Color::LightSkyBlue1,
+          },
+
+      .disabled =
+          Button::Style::State{
+              .foreground = ftxui::Color::Grey35,
+              .background = ftxui::Color::SteelBlue,
+          },
+
       .width = 16,
   };
 
-  btn_save_ = Button::make_button(
+  btn_save_ = Button::make_button_solid(
       std::string("Save"),
       [this]() {
         LOG("Handle callback for Playlist save button");

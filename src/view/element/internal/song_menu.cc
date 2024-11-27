@@ -45,6 +45,7 @@ ftxui::Element SongMenu::RenderImpl() {
     auto text =
         ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
                                                         : entry.filepath.filename().string());
+
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,
                                text | style | ftxui::xflex,
@@ -122,7 +123,7 @@ void SongMenu::FilterEntriesBy(const std::string& text) {
 
 /* ********************************************************************************************** */
 
-void SongMenu::SetEntriesImpl(const std::vector<model::Song>& entries) {
+void SongMenu::SetEntriesImpl(const std::deque<model::Song>& entries) {
   LOG("Set a new list of entries with size=", entries.size());
   entries_ = entries;
 }
@@ -139,7 +140,7 @@ std::optional<model::Song> SongMenu::GetActiveEntryImpl() const {
   std::optional<model::Song> entry = std::nullopt;
   int index = GetSelected();
 
-  // Check for boundary and if vector not empty
+  // Check for boundary and if deque not empty
   if (index >= size || entries_.empty() ||
       (filtered_entries_.has_value() && filtered_entries_->empty()))
     return entry;

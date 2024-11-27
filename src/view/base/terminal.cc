@@ -71,6 +71,7 @@ void Terminal::Init(const std::string& initial_path) {
   error_dialog_ = std::make_unique<ErrorDialog>();
   help_dialog_ = std::make_unique<HelpDialog>();
   playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher);
+  question_dialog_ = std::make_unique<QuestionDialog>();
 }
 
 /* ********************************************************************************************** */
@@ -106,8 +107,8 @@ void Terminal::RegisterExitCallback(Callback cb) { cb_exit_ = cb; }
 
 ftxui::Element Terminal::Render() {
   if (children_.empty() || children_.size() != 4) {
-    // TODO: this is an error, should exit...
-    return ftxui::text("Empty container");
+    ERROR("Terminal is empty, it has no child block");
+    Exit();
   }
 
   // Check if terminal has been resized
@@ -166,6 +167,9 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
   // Or if playlist manager is opened
   if (playlist_dialog_->IsVisible()) return playlist_dialog_->OnEvent(event);
+
+  // Or if question dialog is opened
+  if (question_dialog_->IsVisible()) return question_dialog_->OnEvent(event);
 
   // Global commands
   if (global_mode_ && OnGlobalModeEvent(event)) return true;
@@ -327,7 +331,7 @@ bool Terminal::OnFocusEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // To avoid checking the upcoming if statements, first check if event is a character
+  // To avoid checking the upcoming if-statements, first check if event is a character
   if (!event.is_character()) return false;
 
   // Set Sidebar block as focused
@@ -477,7 +481,7 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::SetFocused: {
-      auto content = event.GetContent<model::BlockIdentifier>();
+      const auto& content = event.GetContent<model::BlockIdentifier>();
       int new_index = GetIndexFromBlockIdentifier(content);
 
       UpdateFocus(focused_index_, new_index);
@@ -499,8 +503,14 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::ShowPlaylistManager: {
-      auto content = event.GetContent<model::PlaylistOperation>();
+      const auto& content = event.GetContent<model::PlaylistOperation>();
       playlist_dialog_->Open(content);
+    } break;
+
+    case CustomEvent::Identifier::ShowQuestionDialog: {
+      const auto& content = event.GetContent<model::QuestionData>();
+      question_dialog_->SetMessage(content);
+      question_dialog_->Open();
     } break;
 
     case CustomEvent::Identifier::Exit: {
@@ -598,6 +608,8 @@ ftxui::Element Terminal::GetOverlay() const {
   if (help_dialog_->IsVisible()) return help_dialog_->Render(size_);
 
   if (playlist_dialog_->IsVisible()) return playlist_dialog_->Render(size_);
+
+  if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
 
   return ftxui::text("");
 }

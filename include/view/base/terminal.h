@@ -20,6 +20,7 @@
 #include "view/element/error_dialog.h"
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
+#include "view/element/question_dialog.h"
 
 //! Forward declaration
 namespace audio {
@@ -208,7 +209,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @return true if any dialog is visible, otherwise false
    */
   bool IsDialogVisible() const {
-    return error_dialog_->IsVisible() || help_dialog_->IsVisible() || playlist_dialog_->IsVisible();
+    return error_dialog_->IsVisible() || help_dialog_->IsVisible() ||
+           question_dialog_->IsVisible() || playlist_dialog_->IsVisible();
   }
 
   /**
@@ -223,7 +225,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   error::Code last_error_ = error::kSuccess;  //!< Last application error
 
   std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages
-  std::unique_ptr<HelpDialog> help_dialog_;         //!< Dialog box to show help menu
+  std::unique_ptr<HelpDialog> help_dialog_;    //!< Dialog box to show help menu
+  std::unique_ptr<QuestionDialog> question_dialog_;  //!< Dialog box to question user
   std::unique_ptr<PlaylistDialog> playlist_dialog_;  //!< Dialog box to manage playlists
 
   //! Custom event receiver
