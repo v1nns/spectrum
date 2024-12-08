@@ -15,18 +15,23 @@
 #include "general/utils.h"
 #include "gmock/gmock.h"
 #include "mock/event_dispatcher_mock.h"
+#include "mock/file_handler_mock.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
 #include "view/block/sidebar_content/playlist_viewer.h"
 
 namespace {
 
+using ::testing::_;
 using ::testing::AllOf;
+using ::testing::DoAll;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::Return;
+using ::testing::SetArgReferee;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -45,18 +50,16 @@ class SidebarTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
+    // Create mock for file handler
+    EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(true));
+
     // Use test directory as base dir
     std::string source_dir{LISTDIR_PATH};
-    block = ftxui::Make<interface::Sidebar>(dispatcher, source_dir);
+    block = ftxui::Make<interface::Sidebar>(dispatcher, source_dir, file_handler_mock_);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
-
-    // Clear internal cache from menu in PlaylistViewer
-    // TODO: dependency injection for file_handler, otherwise menu will set this twice before
-    // starting test
-    SetPlaylists(model::Playlists{});
   }
 
   /* ******************************************************************************************** */
@@ -93,11 +96,8 @@ class SidebarTest : public ::BlockTest {
         sidebar->tab_elem_[interface::Sidebar::View::Playlist].get());
   }
 
-  //! Hacky method to add new entry in playlist tab_item
-  void SetPlaylists(const model::Playlists& entries) {
-    auto viewer = GetPlaylistViewer();
-    viewer->menu_->SetEntries(entries);
-  }
+  //!< Mock for file handler
+  std::shared_ptr<FileHandlerMock> file_handler_mock_ = std::make_shared<FileHandlerMock>();
 };
 
 /* ********************************************************************************************** */
@@ -204,12 +204,12 @@ TEST_F(SidebarTest, NavigateToMockDir) {
 │  audio_control_mock.h              │
 │  decoder_mock.h                    │
 │  event_dispatcher_mock.h           │
+│  file_handler_mock.h               │
 │  html_parser_mock.h                │
 │  interface_notifier_mock.h         │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
 │  url_fetcher_mock.h                │
-│                                    │
 │                                    │
 ╰────────────────────────────────────╯)";
 
@@ -313,12 +313,12 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
 │  audio_control_mock.h              │
 │  decoder_mock.h                    │
 │  event_dispatcher_mock.h           │
+│  file_handler_mock.h               │
 │  html_parser_mock.h                │
 │  interface_notifier_mock.h         │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
 │  url_fetcher_mock.h                │
-│                                    │
 │                                    │
 ╰────────────────────────────────────╯)";
 
@@ -908,6 +908,11 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
 /* ********************************************************************************************** */
 
 TEST_F(SidebarTest, EmptyPlaylist) {
+  model::Playlists data{};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
   block->OnEvent(ftxui::Event::F2);
 
   ftxui::Render(*screen, block->Render());
@@ -947,8 +952,8 @@ TEST_F(SidebarTest, SinglePlaylist) {
       },
   }};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1002,8 +1007,8 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
       },
   }};
 
-  // Set custom data and render initial state
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1119,8 +1124,8 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
       },
   }};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1221,8 +1226,8 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
       },
   }};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1299,8 +1304,8 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
                },
        }}};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1422,8 +1427,8 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
                },
        }}};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1539,8 +1544,8 @@ TEST_F(SidebarTest, ForceClickOnEmptyPlaylistWhileOnSearchMode) {
                              .songs = {},
                          }}};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 
@@ -1610,8 +1615,8 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
                              .songs = {},
                          }}};
 
-  // Set custom data
-  SetPlaylists(data);
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
 
   block->OnEvent(ftxui::Event::F2);
 

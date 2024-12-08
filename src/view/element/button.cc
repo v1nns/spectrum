@@ -384,7 +384,11 @@ std::shared_ptr<Button> Button::make_button_minimal(const std::string& content,
       ftxui::Color const* foreground;
       bool invert = false;
 
-      if (focused_) {
+      if (!enabled_) {
+        background = &style_.disabled.background;
+        foreground = &style_.disabled.foreground;
+
+      } else if (focused_) {
         background = pressed_ ? &style_.pressed.background : &style_.focused.background;
         foreground = pressed_ ? &style_.pressed.foreground : &style_.focused.foreground;
 

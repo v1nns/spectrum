@@ -22,7 +22,7 @@ namespace util {
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
-  static constexpr int kHeaderColumns = 30;  //!< Number of columns to write on log initialization
+  static constexpr int kHeaderColumns = 40;  //!< Number of columns to write on log initialization
 
  protected:
   /**
@@ -97,8 +97,9 @@ class Logger {
   /**
    * @brief Write message to output stream buffer
    * @param message String message
+   * @param add_timestamp Control flag to insert a timestamp as preffix
    */
-  void Write(const std::string& message);
+  void Write(const std::string& message, bool add_timestamp = true);
 
   /* ******************************************************************************************** */
   //! Variables

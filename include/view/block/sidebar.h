@@ -31,9 +31,11 @@ class Sidebar : public Block {
    * @brief Construct a new Sidebar object
    * @param dispatcher Block event dispatcher
    * @param optional_path List files from custom path instead of the current one
+   * @param file_handler Interface to file handler
    */
   explicit Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
-                   const std::string& optional_path = "");
+                   const std::string& optional_path = "",
+                   const std::shared_ptr<util::FileHandler> file_handler = nullptr);
 
   /**
    * @brief Destroy the Sidebar object
@@ -91,7 +93,7 @@ class Sidebar : public Block {
   Tab tab_elem_;  //!< Tab containing multiple panels with some content
 
   //!< Utility class to manage files (read/write)
-  std::shared_ptr<util::FileHandler> file_handler_ = std::make_shared<util::FileHandler>();
+  std::shared_ptr<util::FileHandler> file_handler_;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

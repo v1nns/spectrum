@@ -75,6 +75,11 @@ class PlaylistViewer : public TabItem {
    */
   bool OnCustomEvent(const CustomEvent& event) override;
 
+  /**
+   * @brief Receives an indication which this is now focused
+   */
+  void OnFocus() override;
+
   /* ******************************************************************************************** */
   //! UI initialization
  private:

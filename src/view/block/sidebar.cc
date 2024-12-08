@@ -9,9 +9,13 @@
 namespace interface {
 
 Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
-                 const std::string& optional_path)
+                 const std::string& optional_path,
+                 const std::shared_ptr<util::FileHandler> file_handler)
     : Block{dispatcher, model::BlockIdentifier::Sidebar,
             interface::Size{.width = kMaxColumns, .height = 0}} {
+  // Initialize file handler
+  file_handler_ = file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>();
+
   // Create all tabs
   tab_elem_[View::Files] = std::make_unique<ListDirectory>(
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this), keybinding::Sidebar::FocusList,

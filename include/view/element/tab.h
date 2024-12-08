@@ -61,6 +61,8 @@ class TabItem {
   virtual bool OnEvent(const ftxui::Event&);
   virtual bool OnMouseEvent(ftxui::Event&);
   virtual bool OnCustomEvent(const CustomEvent&);
+  virtual void OnFocus();
+  virtual void OnLostFocus();
 
   /* ******************************************************************************************** */
   //! Getters

@@ -27,6 +27,7 @@ bool Element::OnMouseEvent(ftxui::Event& event) {
   if (event.mouse().button == ftxui::Mouse::WheelDown ||
       event.mouse().button == ftxui::Mouse::WheelUp) {
     HandleWheel(event.mouse().button);
+    return true;
   } else if (event.mouse().button == ftxui::Mouse::Left &&
              event.mouse().motion == ftxui::Mouse::Released) {
     // Check if this is a double-click event
@@ -38,11 +39,12 @@ bool Element::OnMouseEvent(ftxui::Event& event) {
       HandleClick(event);
 
     last_click_ = now;
+    return true;
   } else {
     HandleHover(event);
   }
 
-  return true;
+  return false;
 }
 
 /* ********************************************************************************************** */

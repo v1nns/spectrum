@@ -1,22 +1,30 @@
 #include "util/logger.h"
 
+#include <iomanip>
+#include <sstream>
+
 namespace util {
 
 std::string get_timestamp() {
-  // Get the time
-  std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
-  std::time_t tt = std::chrono::system_clock::to_time_t(tp);
-  std::tm gmt{};
-  gmtime_r(&tt, &gmt);
-  std::chrono::duration<double> fractional_seconds =
-      (tp - std::chrono::system_clock::from_time_t(tt)) + std::chrono::seconds(gmt.tm_sec);
+  // Get time
+  std::chrono::system_clock::time_point time_point = std::chrono::system_clock::now();
+  std::time_t now = std::chrono::system_clock::to_time_t(time_point);
 
-  // Format the string
-  std::string buffer("[year-mo-dy hr:mn:sc.xxxxxx] ");
-  sprintf(&buffer.front(), "[%04d-%02d-%02d %02d:%02d:%09.6f] ", gmt.tm_year + 1900, gmt.tm_mon + 1,
-          gmt.tm_mday, gmt.tm_hour, gmt.tm_min, fractional_seconds.count());
+  // Convert into local time
+  std::tm tstruct = *std::localtime(&now);
 
-  return buffer;
+  // Get the fractional part in milliseconds
+  const auto milliseconds = std::chrono::time_point_cast<std::chrono::milliseconds>(time_point)
+                                .time_since_epoch()
+                                .count() %
+                            1000;
+
+  // Format string
+  std::ostringstream ss;
+  ss << std::put_time(&tstruct, "%Y-%m-%d %H:%M:%S") << "." << std::setfill('0') << std::setw(3)
+     << milliseconds;
+
+  return std::move(ss).str();
 }
 
 /* ********************************************************************************************** */
@@ -29,7 +37,7 @@ void Logger::Configure(const std::string& path) {
   std::string header(kHeaderColumns, '-');
 
   ss << header << " Initializing log file " << header << "\n";
-  Write(std::move(ss).str());
+  Write(std::move(ss).str(), false);
 }
 
 /* ********************************************************************************************** */
@@ -38,7 +46,7 @@ void Logger::Configure() { sink_ = std::make_unique<ConsoleSink>(); }
 
 /* ********************************************************************************************** */
 
-void Logger::Write(const std::string& message) {
+void Logger::Write(const std::string& message, bool add_timestamp) {
   // Lock mutex
   std::scoped_lock<std::mutex> lock{mutex_};
 
@@ -46,7 +54,8 @@ void Logger::Write(const std::string& message) {
   sink_->OpenStream();
 
   // Write to output stream
-  *sink_ << get_timestamp() << message;
+  if (add_timestamp) *sink_ << "[" << get_timestamp() << "] ";
+  *sink_ << message;
 }
 
 }  // namespace util

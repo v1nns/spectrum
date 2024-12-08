@@ -27,6 +27,11 @@ Button::Style PlaylistViewer::kButtonStyle = Button::Style{
             .foreground = ftxui::Color::SkyBlue1,
             .background = ftxui::Color::Blue1,
         },
+    .disabled =
+        Button::Style::State{
+            .foreground = ftxui::Color::Grey35,
+            .background = ftxui::Color::SteelBlue,
+        },
 };
 
 /* ********************************************************************************************** */
@@ -66,13 +71,17 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
   // Set max columns for an entry in menu
   menu_->SetMaxColumns(max_columns);
 
+  // Initialize playlist buttons
+  CreateButtons();
+
   // Attempt to parse playlists file
   if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
     menu_->SetEntries(parsed);
-  }
 
-  // Initialize playlist buttons
-  CreateButtons();
+    // Enable them again
+    btn_modify_->Enable();
+    btn_delete_->Enable();
+  }
 }
 
 /* ********************************************************************************************** */
@@ -104,47 +113,21 @@ ftxui::Element PlaylistViewer::Render() {
 bool PlaylistViewer::OnEvent(const ftxui::Event& event) {
   if (menu_->OnEvent(event)) return true;
 
-  if (event == keybinding::Playlist::Create || event == keybinding::Playlist::Modify) {
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
-
-    // Create a new operation to send it to playlist manager dialog
-    model::PlaylistOperation operation;
-    if (event == keybinding::Playlist::Create) {
-      operation = {
-          .action = model::PlaylistOperation::Operation::Create,
-          .playlist = model::Playlist{},
-      };
-    } else {
-      operation = {
-          .action = model::PlaylistOperation::Operation::Modify,
-          .playlist = menu_->GetActiveEntry(),
-      };
-    }
-
-    LOG("Handle key to open playlist dialog, operation=", operation);
-    auto event_dialog = interface::CustomEvent::ShowPlaylistManager(operation);
-    dispatcher->SendEvent(event_dialog);
-
+  if (event == keybinding::Playlist::Create) {
+    LOG("Handle key to invoke playlist dialog for create");
+    btn_create_->OnClick();
     return true;
   }
 
-  if (event == keybinding::Playlist::Delete) {
-    auto dispatcher = dispatcher_.lock();
-    const auto& entry = menu_->GetActiveEntry();
+  if (event == keybinding::Playlist::Modify && btn_modify_->IsActive()) {
+    LOG("Handle key to invoke playlist dialog for modify");
+    btn_modify_->OnClick();
+    return true;
+  }
 
-    if (!dispatcher || !entry) return false;
-
-    LOG("Handle key to open question dialog to delete entry=", *entry);
-
-    model::QuestionData content{
-        .question = std::string("Do you want to delete \"" + entry->name + "\"?"),
-        .cb_yes = std::bind(&PlaylistViewer::OnYes, this),
-    };
-
-    auto event_dialog = interface::CustomEvent::ShowQuestionDialog(content);
-    dispatcher->SendEvent(event_dialog);
-
+  if (event == keybinding::Playlist::Delete && btn_delete_->IsActive()) {
+    LOG("Handle key to invoke question dialog for delete");
+    btn_delete_->OnClick();
     return true;
   }
 
@@ -225,6 +208,23 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
+void PlaylistViewer::OnFocus() {
+  // Attempt to parse playlists file
+  if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
+    menu_->SetEntries(parsed);
+
+    // Enable them again
+    btn_modify_->Enable();
+    btn_delete_->Enable();
+  } else {
+    // Make sure to disable them
+    btn_modify_->Disable();
+    btn_delete_->Disable();
+  }
+}
+
+/* ********************************************************************************************** */
+
 void PlaylistViewer::CreateButtons() {
   btn_create_ = Button::make_button_minimal(
       std::string("create"),
@@ -252,21 +252,23 @@ void PlaylistViewer::CreateButtons() {
   btn_modify_ = Button::make_button_minimal(
       std::string("modify"),
       [this]() {
-        auto disp = dispatcher_.lock();
-        if (!disp) return false;
+        auto dispatcher = dispatcher_.lock();
+        const auto& entry = menu_->GetActiveEntry();
 
-        LOG("Handle callback for Modify button");
+        if (!dispatcher || !entry) return false;
+
+        LOG("Handle callback for Modify button, entry=", *entry);
 
         // Set this block as active (focused)
         on_focus_();
 
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Modify,
-            .playlist = menu_->GetActiveEntry(),
+            .playlist = *entry,
         };
 
         auto event = interface::CustomEvent::ShowPlaylistManager(operation);
-        disp->SendEvent(event);
+        dispatcher->SendEvent(event);
 
         return true;
       },
@@ -275,25 +277,31 @@ void PlaylistViewer::CreateButtons() {
   btn_delete_ = Button::make_button_minimal(
       std::string("delete"),
       [this]() {
-        auto disp = dispatcher_.lock();
-        if (!disp) return false;
+        auto dispatcher = dispatcher_.lock();
+        const auto& entry = menu_->GetActiveEntry();
 
-        LOG("Handle callback for Delete button");
+        if (!dispatcher || !entry) return false;
+
+        LOG("Handle callback for Delete button, entry=", *entry);
 
         // Set this block as active (focused)
         on_focus_();
 
-        model::PlaylistOperation operation{
-            .action = model::PlaylistOperation::Operation::Delete,
-            .playlist = menu_->GetActiveEntry(),
+        model::QuestionData content{
+            .question = std::string("Do you want to delete \"" + entry->name + "\"?"),
+            .cb_yes = std::bind(&PlaylistViewer::OnYes, this),
         };
 
-        auto event = interface::CustomEvent::ShowPlaylistManager(operation);
-        disp->SendEvent(event);
+        auto event_dialog = interface::CustomEvent::ShowQuestionDialog(content);
+        dispatcher->SendEvent(event_dialog);
 
         return true;
       },
       kButtonStyle);
+
+  // Start with them disabled, until we parse some playlist from cache file
+  btn_modify_->Disable();
+  btn_delete_->Disable();
 }
 
 /* ********************************************************************************************** */

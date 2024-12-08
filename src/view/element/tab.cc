@@ -63,11 +63,23 @@ bool TabItem::OnEvent(const ftxui::Event&) { return false; }
 
 /* ********************************************************************************************** */
 
+bool TabItem::OnMouseEvent(ftxui::Event&) { return false; }
+
+/* ********************************************************************************************** */
+
 bool TabItem::OnCustomEvent(const CustomEvent&) { return false; }
 
 /* ********************************************************************************************** */
 
-bool TabItem::OnMouseEvent(ftxui::Event&) { return false; }
+void TabItem::OnFocus() {
+  // do nothing
+}
+
+/* ********************************************************************************************** */
+
+void TabItem::OnLostFocus() {
+  // do nothing
+}
 
 /* ******************************************** Tab ********************************************* */
 
@@ -75,11 +87,13 @@ void Tab::SetActive(const View& item) {
   if (active_ != kEmpty) {
     // Unselect window button from old active item
     active_item()->GetButton()->Unselect();
+    active_item()->OnLostFocus();
   }
 
   // Update active tab identifier and button state
   active_ = item;
   active_item()->GetButton()->Select();
+  active_item()->OnFocus();
 }
 
 }  // namespace interface

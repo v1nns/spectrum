@@ -66,20 +66,14 @@ class FileHandler {
    * @param playlists[out] Playlists object filled by data from JSON parsed
    * @return true if JSON was parsed succesfully, false otherwise
    */
-  bool ParsePlaylists(model::Playlists& playlists);
+  virtual bool ParsePlaylists(model::Playlists& playlists);
 
   /**
    * @brief Save playlists to JSON
    * @param playlists Playlists object already filled
    * @return true if JSON was saved succesfully, false otherwise
    */
-  bool SavePlaylists(const model::Playlists& playlists);
-
-  /* ******************************************************************************************** */
-  //! Private implementation
- private:
-  /* ******************************************************************************************** */
-  //! Variables
+  virtual bool SavePlaylists(const model::Playlists& playlists);
 };
 
 }  // namespace util
