@@ -9,19 +9,23 @@
 
 namespace interface {
 
-PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
+// Static initialization
+std::filesystem::path PlaylistDialog::base_path_;
+
+PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
+                               const std::string& optional_path)
     : Dialog(Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
       dispatcher_(dispatcher),
       menu_files_(menu::CreateFileMenu(
-          dispatcher, file_handler_,
+          dispatcher, std::make_shared<util::FileHandler>(),
 
           // Callback to force a UI refresh
           [this] {
-            auto disp = dispatcher_.lock();
-            if (!disp) return;
+            auto dispatcher = dispatcher_.lock();
+            if (!dispatcher) return;
 
-            disp->SendEvent(interface::CustomEvent::Refresh());
+            dispatcher->SendEvent(interface::CustomEvent::Refresh());
           },
 
           // Callback triggered on menu item click
@@ -38,27 +42,24 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
             modified_playlist_->songs.emplace_back(new_song);
             menu_playlist_->Emplace(new_song);
-            btn_save_->Enable();
+
+            UpdateButtonState();
 
             return true;
           },
-          menu::Style::Alternative)),
+          menu::Style::Alternative, optional_path)),
 
-      input_playlist_(ftxui::Input(&input_name_,
-                                   ftxui::InputOption{
-                                       .multiline = false,
-                                       .cursor_position = &cursor_position_,
-                                   })),
+      input_playlist_(),
 
       menu_playlist_(menu::CreateSongMenu(
           dispatcher,
 
           // Callback to force a UI refresh
           [this] {
-            auto disp = dispatcher_.lock();
-            if (!disp) return;
+            auto dispatcher = dispatcher_.lock();
+            if (!dispatcher) return;
 
-            disp->SendEvent(interface::CustomEvent::Refresh());
+            dispatcher->SendEvent(interface::CustomEvent::Refresh());
           },
 
           // Callback triggered on menu item click
@@ -95,18 +96,18 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
   // Append all inner elements to have focus controlled by wrapper
   focus_ctl_.Append(*menu_files_.get(), *menu_playlist_.get());
-
   focus_ctl_.SetFocus(0);
+
+  // Set default path to list files from
+  base_path_ = menu_files_->actual().GetCurrentDir();
 }
 
 /* ********************************************************************************************** */
 
 void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
-  static std::filesystem::path curr_path = std::filesystem::current_path();
-
   // Check if FileMenu must reset list of files back to default path
-  if (auto& derived = menu_files_->actual(); derived.GetCurrentDir() != curr_path) {
-    derived.RefreshList(curr_path);
+  if (auto& derived = menu_files_->actual(); derived.GetCurrentDir() != base_path_) {
+    derived.RefreshList(base_path_);
   }
 
   // Update internal cache
@@ -126,15 +127,15 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
         }
       }
       break;
-
-    case model::PlaylistOperation::Operation::Delete:
-      break;
   }
 
   modified_playlist_ = curr_operation_.playlist;
 
-  input_name_ = !modified_playlist_->name.empty() ? modified_playlist_->name : "<unnamed>";
+  // Clear playlist info
+  input_playlist_.name = !modified_playlist_->name.empty() ? modified_playlist_->name : "";
   menu_playlist_->SetEntries(modified_playlist_->songs);
+
+  UpdateButtonState();
 
   Dialog::Open();
 }
@@ -142,10 +143,10 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
+  static constexpr int kPrefixOffset = 2;
+
   int max_columns_per_menu = ((curr_size.dimx * 0.5f) / 2);
   int max_lines_menu = (curr_size.dimy * 0.6f);
-
-  static constexpr int kPrefixOffset = 2;
 
   // Value is smaller here because of menu prefix
   menu_files_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);
@@ -161,19 +162,18 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
     case model::PlaylistOperation::Operation::Modify:
       title = "Modify Playlist";
       break;
-    case model::PlaylistOperation::Operation::Delete:
-      return ftxui::text("Some error occurred...");
-      break;
   }
 
   auto size_decorator = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, max_columns_per_menu) |
                         ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, max_lines_menu);
 
   int playlist_width = max_columns_per_menu * 0.7f;
-  auto playlist_input = edit_mode_ ? input_playlist_->Render() : ftxui::text(input_name_);
+  auto playlist_input = input_playlist_.Render(playlist_width);
 
-  auto playlist_decorator =
-      ftxui::size(ftxui::WIDTH, ftxui::EQUAL, std::min(playlist_width, (int)input_name_.length()));
+  constexpr auto focus_decorator = [](bool is_focused) {
+    return is_focused ? ftxui::color(ftxui::Color::LightSkyBlue1)
+                      : ftxui::color(ftxui::Color::Grey11);
+  };
 
   return ftxui::vbox({
              ftxui::text(" "),
@@ -189,9 +189,7 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
                      ftxui::window(
                          ftxui::hbox({ftxui::text(" files ") | ftxui::color(ftxui::Color::Grey11)}),
                          menu_files_->Render()) |
-                         size_decorator |
-                         (menu_files_->IsFocused() ? ftxui::color(ftxui::Color::LightSkyBlue1)
-                                                   : ftxui::color(ftxui::Color::Grey11)),
+                         size_decorator | focus_decorator(menu_files_->IsFocused()),
                      ftxui::filler(),
                  }),
 
@@ -199,14 +197,10 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 
                  ftxui::vbox({
                      ftxui::filler(),
-                     ftxui::window(ftxui::hbox({ftxui::text(" "),
-                                                playlist_input | playlist_decorator |
-                                                    ftxui::color(ftxui::Color::Grey11),
-                                                ftxui::text(" ")}),
-                                   menu_playlist_->Render()) |
-                         size_decorator |
-                         (menu_playlist_->IsFocused() ? ftxui::color(ftxui::Color::LightSkyBlue1)
-                                                      : ftxui::color(ftxui::Color::Grey11)),
+                     ftxui::window(
+                         ftxui::hbox({ftxui::text(" "), playlist_input, ftxui::text(" ")}),
+                         menu_playlist_->Render()) |
+                         size_decorator | focus_decorator(menu_playlist_->IsFocused()),
                      ftxui::filler(),
 
                  }),
@@ -238,18 +232,11 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
   }
 
   if (menu_playlist_->IsFocused()) {
-    if (edit_mode_) {
-      // Exit from edit mode
-      if (event == keybinding::Navigation::Return || event == keybinding::Navigation::Escape) {
-        edit_mode_ = false;
-        modified_playlist_->name = input_name_;
-        UpdateButtonState();
+    if (input_playlist_.IsEditing() && input_playlist_.OnEvent(event)) {
+      modified_playlist_->name = input_playlist_.name;
+      UpdateButtonState();
 
-        return true;
-      }
-
-      // Otherwise, input will handle any event
-      return input_playlist_->OnEvent(event);
+      return true;
     }
 
     // Filter "return" event to not be handled by menu
@@ -259,7 +246,7 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
 
     if (event == keybinding::Playlist::Rename) {
       LOG("Handle key to rename playlist");
-      edit_mode_ = true;
+      input_playlist_.edit_mode = true;
       return true;
     }
 
@@ -308,9 +295,8 @@ void PlaylistDialog::OnClose() {
   menu_files_->actual().RefreshList(std::filesystem::current_path());
 
   modified_playlist_.reset();
+  input_playlist_.Clear();
   btn_save_->Disable();
-  cursor_position_ = 0;
-  edit_mode_ = false;
 
   focus_ctl_.SetFocus(0);
 }
@@ -368,10 +354,12 @@ void PlaylistDialog::CreateButtons() {
 /* ********************************************************************************************** */
 
 void PlaylistDialog::UpdateButtonState() {
-  if (modified_playlist_ == curr_operation_.playlist) {
-    btn_save_->Disable();
-  } else {
+  if (!modified_playlist_->name.empty() && !modified_playlist_->IsEmpty() &&
+      modified_playlist_ != curr_operation_.playlist) {
     btn_save_->Enable();
+  } else {
+    btn_save_->Disable();
   }
 }
+
 }  // namespace interface

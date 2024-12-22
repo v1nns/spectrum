@@ -64,10 +64,12 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
   std::string artist = s.artist.empty() ? "<unknown>" : s.artist;
   std::string title = s.title.empty() ? "<unknown>" : s.title;
 
-  out << "{index:" << (s.index ? std::to_string(*s.index) : "<none>") << " artist:" << artist
-      << " title:" << title << " playlist:" << (s.playlist ? *s.playlist : "<none>")
-      << " duration:" << s.duration << " sample_rate:" << s.sample_rate
-      << " bit_rate:" << s.bit_rate << " bit_depth:" << s.bit_depth << "}";
+  out << "{index:" << (s.index ? std::to_string(*s.index) : "<none>")
+      << " filename:" << (s.filepath.has_filename() ? s.filepath.filename() : "<none>")
+      << " artist:" << artist << " title:" << title
+      << " playlist:" << (s.playlist ? *s.playlist : "<none>") << " duration:" << s.duration
+      << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
+      << " bit_depth:" << s.bit_depth << "}";
   return out;
 }
 

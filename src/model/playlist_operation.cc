@@ -12,8 +12,6 @@ std::string PlaylistOperation::GetActionName(const PlaylistOperation& playlist) 
       return "Create";
     case Operation::Modify:
       return "Modify";
-    case Operation::Delete:
-      return "Delete";
     default:
       break;
   }

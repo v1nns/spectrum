@@ -21,7 +21,6 @@ struct PlaylistOperation {
     None = 300,
     Create = 301,
     Modify = 302,
-    Delete = 303,
   };
 
   Operation action;                         //!< Operation to execute on playlist dialog

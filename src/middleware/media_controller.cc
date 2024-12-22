@@ -364,7 +364,7 @@ std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() con
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) ERROR("Cannot lock event dispatcher");
   // TODO: decide if should throw a exception here... sometimes this error can happen when
-  // application is exitting
+  // application is exiting
 
   return dispatcher;
 }

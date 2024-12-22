@@ -70,7 +70,7 @@ void Terminal::Init(const std::string& initial_path) {
   // Create dialogs
   error_dialog_ = std::make_unique<ErrorDialog>();
   help_dialog_ = std::make_unique<HelpDialog>();
-  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher);
+  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher, initial_path);
   question_dialog_ = std::make_unique<QuestionDialog>();
 }
 

@@ -3,8 +3,8 @@
  * \brief  Interface class for UI testing
  */
 
-#ifndef INCLUDE_TEST_GENERAL_BLOCK_H_
-#define INCLUDE_TEST_GENERAL_BLOCK_H_
+#ifndef INCLUDE_TEST_GENERAL_DIALOG_H_
+#define INCLUDE_TEST_GENERAL_DIALOG_H_
 
 #include <gmock/gmock-matchers.h>
 
@@ -12,13 +12,14 @@
 
 #include "mock/event_dispatcher_mock.h"
 #include "util/logger.h"
+#include "view/base/dialog.h"
 
 namespace {
 
 /**
- * @brief Interface class for tests with block component from UI
+ * @brief Interface class for tests with dialog component from UI
  */
-class BlockTest : public ::testing::Test {
+class DialogTest : public ::testing::Test {
  protected:
   static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
 
@@ -27,19 +28,14 @@ class BlockTest : public ::testing::Test {
   void TearDown() override {
     screen.reset();
     dispatcher.reset();
-    block.reset();
-  }
-
-  void Process(interface::CustomEvent event) {
-    auto component = std::static_pointer_cast<interface::Block>(block);
-    component->OnCustomEvent(event);
+    dialog.reset();
   }
 
  protected:
   std::unique_ptr<ftxui::Screen> screen;
   std::shared_ptr<EventDispatcherMock> dispatcher;
-  ftxui::Component block;
+  std::shared_ptr<interface::Dialog> dialog;
 };
 
 }  // namespace
-#endif  // INCLUDE_TEST_GENERAL_BLOCK_H_
+#endif  // INCLUDE_TEST_GENERAL_DIALOG_H_

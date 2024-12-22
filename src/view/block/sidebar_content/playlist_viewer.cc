@@ -49,10 +49,10 @@ PlaylistViewer::PlaylistViewer(const model::BlockIdentifier& id,
 
           // Callback to force a UI refresh
           [this] {
-            auto disp = dispatcher_.lock();
-            if (!disp) return;
+            auto dispatcher = dispatcher_.lock();
+            if (!dispatcher) return;
 
-            disp->SendEvent(interface::CustomEvent::Refresh());
+            dispatcher->SendEvent(interface::CustomEvent::Refresh());
           },
 
           // Callback triggered on menu item click
@@ -198,7 +198,7 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
     menu_->SetEntries(playlists);
 
     bool result = file_handler_->SavePlaylists(playlists);
-    LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
+    LOG("Operation to save playlists in a JSON file, result=", result ? "ok" : "error");
 
     return true;
   }
@@ -324,7 +324,7 @@ void PlaylistViewer::OnYes() {
   }
 
   bool result = file_handler_->SavePlaylists(playlists);
-  LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
+  LOG("Operation to save playlists in JSON file, result=", result ? "ok" : "error");
 }
 
 }  // namespace interface

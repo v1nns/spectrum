@@ -1,4 +1,3 @@
-
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
@@ -143,10 +142,10 @@ TEST_F(SidebarTest, InitialRender) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -176,10 +175,10 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -241,9 +240,9 @@ TEST_F(SidebarTest, EnterOnSearchMode) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
-│  middleware_media_controller.cc    │
 │Search:                             │
 ╰────────────────────────────────────╯)";
 
@@ -391,10 +390,10 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -430,10 +429,10 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -487,10 +486,10 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -556,10 +555,10 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -586,12 +585,12 @@ TEST_F(SidebarTest, RunTextAnimation) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
@@ -615,12 +614,12 @@ TEST_F(SidebarTest, RunTextAnimation) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
@@ -733,8 +732,8 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
@@ -784,10 +783,10 @@ TEST_F(SidebarTest, PlayNextFileAfterFinished) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  mock                              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -853,13 +852,13 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  audio_lyric_finder.cc             │
 │  audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
@@ -1674,7 +1673,217 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
   utils::QueueCharacterEvents(*block, typed);
 }
 
-// TODO: implement tests:
-// 1. other tests with PlaylistDialog
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SaveNewPlaylistIntoFile) {
+  model::Playlists data{};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  model::Playlist playlist{.index = -1,
+                           .name = "JPop",
+                           .songs = {
+                               model::Song{.filepath = "some of the coolest jpop 1.mp3"},
+                               model::Song{.filepath = "some of the coolest jpop 2.mp3"},
+                               model::Song{.filepath = "some of the coolest jpop 3.mp3"},
+                           }};
+
+  interface::CustomEvent save_playlist = interface::CustomEvent::SavePlaylistsToFile(playlist);
+
+  // Setup expectation for saving playlist
+  playlist.index = 0;  // index will get fixed at this point
+  model::Playlists expected_playlists{playlist};
+
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(expected_playlists)).WillOnce(Return(true));
+
+  // Process custom event directly (in real life, it would be the playlist dialog sending it)
+  GetPlaylistViewer()->OnCustomEvent(save_playlist);
+
+  // Open new playlist
+  block->OnEvent(ftxui::Event::Character('l'));
+
+  // Check for rendered screen
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ JPop [3]                          │
+│    some of the coolest jpop 1.mp3  │
+│    some of the coolest jpop 2.mp3  │
+│    some of the coolest jpop 3.mp3  │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SaveExistentPlaylistIntoFile) {
+  model::Playlists data{{model::Playlist{
+                             .index = 0,
+                             .name = "Chill mix",
+                             .songs =
+                                 {
+                                     model::Song{.filepath = "chilling 1.mp3"},
+                                     model::Song{.filepath = "chilling 2.mp3"},
+                                     model::Song{.filepath = "chilling 3.mp3"},
+                                 },
+                         },
+                         {.index = 1,
+                          .name = "JPop",
+                          .songs =
+                              {
+                                  model::Song{.filepath = "some of the coolest jpop 1.mp3"},
+                                  model::Song{.filepath = "some of the coolest jpop 2.mp3"},
+                                  model::Song{.filepath = "some of the coolest jpop 3.mp3"},
+                              }},
+                         model::Playlist{
+                             .index = 2,
+                             .name = "Lofi",
+                             .songs = {},
+                         }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Get JPop playlist, remove second song and add a new one
+  model::Playlist playlist = data[1];
+  playlist.songs.erase(std::next(playlist.songs.begin()));
+  playlist.songs.emplace_back(model::Song{.filepath = "some of the coolest jpop 55.mp3"});
+
+  interface::CustomEvent save_playlist = interface::CustomEvent::SavePlaylistsToFile(playlist);
+
+  // Setup expectation for saving playlist
+  model::Playlists expected_playlists{data[0], playlist, data[2]};
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(expected_playlists)).WillOnce(Return(true));
+
+  // Process custom event directly (in real life, it would be the playlist dialog sending it)
+  GetPlaylistViewer()->OnCustomEvent(save_playlist);
+
+  // Open all playlists
+  std::string typed{"ljjjjljjjjl"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Check for rendered screen
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix [3]                     │
+│    chilling 1.mp3                  │
+│    chilling 2.mp3                  │
+│    chilling 3.mp3                  │
+│  JPop [3]                          │
+│    some of the coolest jpop 1.mp3  │
+│    some of the coolest jpop 3.mp3  │
+│    some of the coolest jpop 55.mp3 │
+│▶ Lofi [0]                          │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, DeleteExistentPlaylist) {
+  model::Playlists data{{model::Playlist{
+                             .index = 0,
+                             .name = "Chill mix",
+                             .songs =
+                                 {
+                                     model::Song{.filepath = "chilling 1.mp3"},
+                                     model::Song{.filepath = "chilling 2.mp3"},
+                                     model::Song{.filepath = "chilling 3.mp3"},
+                                 },
+                         },
+                         {.index = 1,
+                          .name = "JPop",
+                          .songs =
+                              {
+                                  model::Song{.filepath = "some of the coolest jpop 1.mp3"},
+                                  model::Song{.filepath = "some of the coolest jpop 2.mp3"},
+                                  model::Song{.filepath = "some of the coolest jpop 3.mp3"},
+                              }},
+                         model::Playlist{
+                             .index = 2,
+                             .name = "Lofi",
+                             .songs = {},
+                         }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  model::QuestionData expected_question{
+      .question = std::string("Do you want to delete \"" + data[0].name + "\"?"),
+  };
+
+  // Setup expectation for playlist operation
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ShowQuestionDialog),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::QuestionData>(expected_question)))))
+      .WillOnce(Invoke([&](const interface::CustomEvent& event) {
+        // Check that one of these callbacks (yes) are not null and callable
+        const auto& question_content = event.GetContent<model::QuestionData>();
+        EXPECT_TRUE(question_content.cb_yes);
+        EXPECT_FALSE(question_content.cb_no);
+
+        // Setup expectation for playlists to be saved on file
+        auto playlists_to_save = data;
+        playlists_to_save.erase(playlists_to_save.begin());
+
+        EXPECT_CALL(*file_handler_mock_, SavePlaylists(playlists_to_save)).WillOnce(Return(true));
+        question_content.cb_yes();
+
+        // Check for rendered screen
+        ftxui::Render(*screen, block->Render());
+        std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+        std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ JPop [3]                          │
+│  Lofi [0]                          │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+        EXPECT_THAT(rendered, StrEq(expected));
+      }));
+
+  // Type keybind to show dialog for playlist modification
+  block->OnEvent(ftxui::Event::Character('d'));
+}
 
 }  // namespace

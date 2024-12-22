@@ -31,6 +31,7 @@ target_sources(
           block_main_content.cc
           block_media_player.cc
           block_sidebar.cc
+          dialog_playlist.cc
           driver_fftw.cc
           middleware_media_controller.cc
           util_argparser.cc)

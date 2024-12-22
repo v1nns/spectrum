@@ -8,9 +8,10 @@
 
 #include <ftxui/component/component_base.hpp>
 #include <optional>
+#include <string_view>
 
+#include "ftxui/component/screen_interactive.hpp"
 #include "model/playlist_operation.h"
-#include "util/file_handler.h"
 #include "view/base/dialog.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/button.h"
@@ -30,8 +31,10 @@ class PlaylistDialog : public Dialog {
   /**
    * @brief Construct a new PlaylistDialog object
    * @param dispatcher Event dispatcher
+   * @param optional_path List files from custom path instead of the current one
    */
-  PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
+  PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
+                 const std::string& optional_path = "");
 
   /**
    * @brief Destroy PlaylistDialog object
@@ -93,8 +96,7 @@ class PlaylistDialog : public Dialog {
 
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
 
-  //!< Utility class to manage files (read/write)
-  std::shared_ptr<util::FileHandler> file_handler_ = std::make_shared<util::FileHandler>();
+  static std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
 
   //!< Operation to execute + playlist to be modified
   model::PlaylistOperation curr_operation_ = model::PlaylistOperation{
@@ -104,11 +106,98 @@ class PlaylistDialog : public Dialog {
 
   FileMenu menu_files_;  //!< Menu containing all files from a given directory
 
-  std::string input_name_;   //!< Playlist name to display on text/input
-  int cursor_position_ = 0;  //!< Cursor position in text input
-  bool edit_mode_ = false;   //!< Flag to control edit mode, when enabled, text input is displayed
-  ftxui::Component input_playlist_;  //!< Text input component
+  // TODO:
+  // - encapsulate in a struct
+  // - create <C-Backspace> to delete word
+  // - do not use ftxui::Input (maybe, to avoid the cursor bug)
 
+  // TODO: DOC
+  struct Input {
+    //!< Default text to show when name is empty
+    static constexpr std::string_view kDefaultName = "<unnamed>";
+
+    std::string name;         //!< Playlist name to display on text/input
+    int cursor_position = 0;  //!< Cursor position in text input
+    bool edit_mode = false;   //!< Flag to control edit mode, when enabled, text input is displayed
+
+    ftxui::Element Render(int min) const {
+      // TODO: must show unnamed when is on edit mode and input name is empty
+      if (name.empty() && !edit_mode) {
+        return ftxui::text(std::string(kDefaultName));
+      }
+
+      auto decorator =
+          edit_mode ? ftxui::bgcolor(ftxui::Color::Grey11) : ftxui::color(ftxui::Color::Grey11);
+
+      auto size = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, std::min(min, (int)name.length()));
+
+      return ftxui::text(name) | decorator | size;
+    }
+
+    bool OnEvent(const ftxui::Event& event) {
+      using Keybind = keybinding::Navigation;
+
+      bool event_handled = false;
+
+      // Any alphabetic character
+      if (event.is_character()) {
+        name.insert(cursor_position, event.character());
+        cursor_position++;
+        event_handled = true;
+      }
+
+      // Backspace
+      if (event == Keybind::Backspace && !name.empty()) {
+        if (cursor_position > 0) {
+          name.erase(cursor_position - 1, 1);
+          cursor_position--;
+        }
+
+        event_handled = true;
+      }
+
+      // Delete
+      if (event == Keybind::Delete && !name.empty() && cursor_position < name.size()) {
+        name.erase(cursor_position, 1);
+        if (cursor_position > 0) cursor_position--;
+
+        event_handled = true;
+      }
+
+      // Arrow left
+      if (event == Keybind::ArrowLeft) {
+        if (cursor_position > 0) cursor_position--;
+        event_handled = true;
+      }
+
+      // Arrow right
+      if (event == Keybind::ArrowRight) {
+        if (auto size = (int)name.size(); cursor_position < size) cursor_position++;
+        event_handled = true;
+      }
+
+      // Exit from edit mode
+      if (edit_mode && (event == Keybind::Return || event == Keybind::Escape)) {
+        LOG("Exiting from edit mode");
+        edit_mode = false;
+        event_handled = true;
+      }
+
+      return event_handled;
+    }
+
+    bool IsEditing() const { return edit_mode; }
+    void EnableEdit() { edit_mode = true; }
+    void DisableEdit() { edit_mode = false; }
+
+    void Clear() {
+      name.clear();
+      cursor_position = 0;
+      edit_mode = false;
+    }
+  };
+
+  Input input_playlist_;    // Text input to display playlistn name
   SongMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_save_;  //!< Button to save (persist) playlist

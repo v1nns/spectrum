@@ -98,12 +98,12 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     LOG("Received new song information from player");
     audio_info_ = event.GetContent<model::Song>();
 
-    if (!audio_info_.filepath.empty()) {
-      LOG("Launch async task to fetch song lyrics");
-      // As we do not want to hold UI at all, fetch song lyrics asynchronously
-      async_fetcher_ = std::make_unique<std::future<FetchResult>>(
-          std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this)));
-    }
+    // if (!audio_info_.filepath.empty()) {
+    //   LOG("Launch async task to fetch song lyrics");
+    // TODO: this is not good, must change to another permanent running thread
+    //   async_fetcher_ = std::make_unique<std::future<FetchResult>>(
+    //       std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this)));
+    // }
   }
 
   return false;

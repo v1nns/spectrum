@@ -26,10 +26,10 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
 
           // Callback to force a UI refresh
           [this] {
-            auto disp = dispatcher_.lock();
-            if (!disp) return;
+            auto dispatcher = dispatcher_.lock();
+            if (!dispatcher) return;
 
-            disp->SendEvent(interface::CustomEvent::Refresh());
+            dispatcher->SendEvent(interface::CustomEvent::Refresh());
           },
 
           // Callback triggered on menu item click
