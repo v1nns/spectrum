@@ -55,6 +55,9 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+      - name: Clear cache
+        run: rm -rf ./.cache
+
       - name: Test
         working-directory: ${{github.workspace}}/build
         run: ctest --output-on-failure --test-dir ./test
@@ -83,6 +86,9 @@ jobs:
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Clear cache
+        run: rm -rf ./.cache
 
       - name: Test
         working-directory: ${{github.workspace}}/build
