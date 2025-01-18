@@ -153,8 +153,17 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
   nlohmann::json json_data;
   json_data["playlists"] = json_playlists;
 
+  std::filesystem::path filepath{GetPlaylistsPath()};
+  std::error_code error;
+
+  // Check that parent directory exists
+  if (!CreateDirectory(filepath.parent_path(), error)) {
+    ERROR("Cannot create parent directory for cache file, error=", error);
+    return false;
+  }
+
   // Open the file in write mode
-  std::ofstream out(GetPlaylistsPath());
+  std::ofstream out(filepath.string());
 
   if (!out.is_open()) {
     ERROR("Cannot open file for writing playlists");
@@ -173,6 +182,24 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
   out.close();
 
   return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::CreateDirectory(std::string const& path, std::error_code& error) {
+  error.clear();
+
+  if (std::filesystem::create_directories(path, error)) {
+    return true;
+  }
+
+  // Folder already exists
+  if (std::filesystem::exists(path)) {
+    error.clear();
+    return true;
+  }
+
+  return false;
 }
 
 }  // namespace util

@@ -74,6 +74,17 @@ class FileHandler {
    * @return true if JSON was saved succesfully, false otherwise
    */
   virtual bool SavePlaylists(const model::Playlists& playlists);
+
+  /* ******************************************************************************************** */
+  //! Internal operations
+ private:
+  /**
+   * @brief Create directory recursively (including all missing parent directories)
+   * @param path Directory path
+   * @param error Error code in case of fail
+   * @return true if directory was created succesfully, false otherwise
+   */
+  bool CreateDirectory(std::string const& path, std::error_code& error);
 };
 
 }  // namespace util

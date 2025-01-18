@@ -7,11 +7,13 @@
 #define INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 
 #include <ftxui/component/component_base.hpp>
+#include <functional>
 #include <optional>
 #include <string_view>
 
 #include "ftxui/component/screen_interactive.hpp"
 #include "model/playlist_operation.h"
+#include "util/file_handler.h"
 #include "view/base/dialog.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/button.h"
@@ -31,9 +33,11 @@ class PlaylistDialog : public Dialog {
   /**
    * @brief Construct a new PlaylistDialog object
    * @param dispatcher Event dispatcher
+   * @param contains_audio_cb Callback function to check if given file contains audio stream
    * @param optional_path List files from custom path instead of the current one
    */
   PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
+                 const std::function<bool(const util::File& file)>& contains_audio_cb,
                  const std::string& optional_path = "");
 
   /**
@@ -95,8 +99,7 @@ class PlaylistDialog : public Dialog {
   //! Variables
 
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
-
-  static std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
+  std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
 
   //!< Operation to execute + playlist to be modified
   model::PlaylistOperation curr_operation_ = model::PlaylistOperation{

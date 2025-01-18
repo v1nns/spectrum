@@ -95,6 +95,12 @@ class SidebarTest : public ::BlockTest {
         sidebar->tab_elem_[interface::Sidebar::View::Playlist].get());
   }
 
+  //! Getter for Modify button state
+  bool IsModifyButtonActive() { return GetPlaylistViewer()->btn_modify_->IsActive(); }
+
+  //! Getter for Delete button state
+  bool IsDeleteButtonActive() { return GetPlaylistViewer()->btn_delete_->IsActive(); }
+
   //!< Mock for file handler
   std::shared_ptr<FileHandlerMock> file_handler_mock_ = std::make_shared<FileHandlerMock>();
 };
@@ -1884,6 +1890,143 @@ TEST_F(SidebarTest, DeleteExistentPlaylist) {
 
   // Type keybind to show dialog for playlist modification
   block->OnEvent(ftxui::Event::Character('d'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
+  model::Playlists data{};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Check for rendered screen
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Check for buttons state
+  EXPECT_FALSE(IsModifyButtonActive());
+  EXPECT_FALSE(IsDeleteButtonActive());
+
+  // Save a new playlist
+  model::Playlist playlist{.index = 0,
+                           .name = "Coding session",
+                           .songs = {
+                               model::Song{.filepath = "chilling 1.mp3"},
+                               model::Song{.filepath = "chilling 2.mp3"},
+                           }};
+
+  interface::CustomEvent save_playlist = interface::CustomEvent::SavePlaylistsToFile(playlist);
+
+  // Setup expectation for saving playlist
+  model::Playlists expected_playlists{playlist};
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(expected_playlists)).WillOnce(Return(true));
+
+  // Process custom event directly (in real life, it would be the playlist dialog sending it)
+  GetPlaylistViewer()->OnCustomEvent(save_playlist);
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Coding session [2]                │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Check for buttons state
+  EXPECT_TRUE(IsModifyButtonActive());
+  EXPECT_TRUE(IsDeleteButtonActive());
+
+  model::QuestionData expected_question{
+      .question = std::string("Do you want to delete \"" + playlist.name + "\"?"),
+  };
+
+  // Setup expectation for playlist operation
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ShowQuestionDialog),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::QuestionData>(expected_question)))))
+      .WillOnce(Invoke([&](const interface::CustomEvent& event) {
+        // Check that one of these callbacks (yes) are not null and callable
+        const auto& question_content = event.GetContent<model::QuestionData>();
+        EXPECT_TRUE(question_content.cb_yes);
+        EXPECT_FALSE(question_content.cb_no);
+
+        // Setup expectation for playlists to be saved on file
+        EXPECT_CALL(*file_handler_mock_, SavePlaylists(model::Playlists{})).WillOnce(Return(true));
+        question_content.cb_yes();
+      }));
+
+  // Type keybind to show dialog for playlist modification
+  block->OnEvent(ftxui::Event::Character('d'));
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Check for buttons state
+  EXPECT_FALSE(IsModifyButtonActive());
+  EXPECT_FALSE(IsDeleteButtonActive());
 }
 
 }  // namespace

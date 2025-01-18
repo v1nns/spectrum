@@ -28,6 +28,7 @@ extern "C" {
 #include "model/application_error.h"
 #include "model/song.h"
 #include "model/volume.h"
+#include "util/file_handler.h"
 
 namespace driver {
 
@@ -46,6 +47,16 @@ class FFmpeg final : public Decoder {
    * @brief Destroy the FFmpeg object
    */
   ~FFmpeg() override = default;
+
+  /* ******************************************************************************************** */
+  //! Public API that do not follow the instance lifecycle
+
+  /**
+   * @brief Check if file contains an available audio stream
+   * @param file Full path to file
+   * @return true if file contains an audio stream, false otherwise
+   */
+  static bool ContainsAudioStream(const util::File& file);
 
   /* ******************************************************************************************** */
   //! Internal operations

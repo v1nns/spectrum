@@ -155,7 +155,7 @@ bool FileMenu::OnClickImpl() {
     return RefreshList(new_dir);
   }
 
-  // Otherwise, it is a file, so send it to owner class
+  // Otherwise, it is a file, so execute custom on_click function (implemented by owner class)
   return on_click_(*active);
 }
 
@@ -291,7 +291,6 @@ std::optional<util::File> FileMenu::GetActiveEntryImpl() const {
   // Get active entry
   std::optional<util::File> entry = std::nullopt;
   int index = GetSelected();
-
 
   // Check for boundary and if vector not empty
   if (index >= size || entries_.empty() ||

@@ -36,7 +36,7 @@ void Logger::Configure(const std::string& path) {
   std::ostringstream ss;
   std::string header(kHeaderColumns, '-');
 
-  ss << header << " Initializing log file " << header << "\n";
+  ss << header << " Initializing log " << header << "\n";
   Write(std::move(ss).str(), false);
 }
 

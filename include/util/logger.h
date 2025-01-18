@@ -6,6 +6,9 @@
 #ifndef INCLUDE_UTIL_LOGGER_H_
 #define INCLUDE_UTIL_LOGGER_H_
 
+#include <cxxabi.h>
+
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -22,7 +25,7 @@ namespace util {
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
-  static constexpr int kHeaderColumns = 40;  //!< Number of columns to write on log initialization
+  static constexpr int kHeaderColumns = 41;  //!< Number of columns to write on log initialization
 
  protected:
   /**
@@ -77,7 +80,7 @@ class Logger {
    * @param ...args Arguments to build log message
    */
   template <typename... Args>
-  void Log(const char* filename, int line, Args&&... args) {
+  inline void Log(const char* filename, int line, Args&&... args) {
     // Do nothing if sink is not configured
     if (!sink_) return;
 
@@ -138,5 +141,35 @@ std::string get_timestamp();
 //! Macro to log error messages based on condition
 #define ERROR_IF(condition, ...) \
   if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+
+/* ---------------------------------------------------------------------------------------------- */
+/*                                        TEMPLATE FRIENDLY                                       */
+/* ---------------------------------------------------------------------------------------------- */
+
+//! Return a human-readable string containing the implementation-defined name of the type
+inline std::string demangle(const char* name) {
+  // Some arbitrary value to eliminate the compiler warning
+  int status = -99;
+
+  std::unique_ptr<char, void (*)(void*)> res{abi::__cxa_demangle(name, NULL, NULL, &status),
+                                             std::free};
+
+  std::ostringstream ss;
+  ss << "[" << (status == 0 ? res.get() : name) << "] ";
+
+  return std::move(ss).str();
+}
+
+//! Macro to log messages including the class type in a human-readable format
+#define LOG_T(...) LOG(demangle(typeid(*this).name()), __VA_ARGS__)
+
+//! Macro to log messages based on condition and including the class type in a human-readable format
+#define LOG_T_IF(condition, ...) LOG_IF(condition, demangle(typeid(*this).name()), __VA_ARGS__)
+
+//! Macro to log error messages including the class type in a human-readable format
+#define ERROR_T(...) ERROR(demangle(typeid(*this).name()), __VA_ARGS__)
+
+//! Macro to log errors based on condition and including the class type in a human-readable format
+#define ERROR_T_IF(condition, ...) ERROR_IF(condition, demangle(typeid(*this).name()), __VA_ARGS__)
 
 #endif  // INCLUDE_UTIL_LOGGER_H_

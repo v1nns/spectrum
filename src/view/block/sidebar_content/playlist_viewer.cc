@@ -194,11 +194,16 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
       playlists.emplace_back(modified_playlist);
     }
 
+    bool result = file_handler_->SavePlaylists(playlists);
+    LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
+
     // TODO: think if should create new method to edit existing entry
+    // Update UI state
     menu_->SetEntries(playlists);
 
-    bool result = file_handler_->SavePlaylists(playlists);
-    LOG("Operation to save playlists in a JSON file, result=", result ? "ok" : "error");
+    // Make sure to enable them
+    btn_modify_->Enable();
+    btn_delete_->Enable();
 
     return true;
   }
@@ -324,7 +329,13 @@ void PlaylistViewer::OnYes() {
   }
 
   bool result = file_handler_->SavePlaylists(playlists);
-  LOG("Operation to save playlists in JSON file, result=", result ? "ok" : "error");
+  LOG("Operation to save playlists in JSON file, result=", result ? "success" : "error");
+
+  if (playlists.empty()) {
+    // Make sure to disable them
+    btn_modify_->Disable();
+    btn_delete_->Disable();
+  }
 }
 
 }  // namespace interface

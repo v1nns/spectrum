@@ -9,14 +9,13 @@
 
 namespace interface {
 
-// Static initialization
-std::filesystem::path PlaylistDialog::base_path_;
-
 PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
+                               const std::function<bool(const util::File& file)>& contains_audio_cb,
                                const std::string& optional_path)
     : Dialog(Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
       dispatcher_(dispatcher),
+      base_path_(),
       menu_files_(menu::CreateFileMenu(
           dispatcher, std::make_shared<util::FileHandler>(),
 
@@ -29,7 +28,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
           },
 
           // Callback triggered on menu item click
-          [this](const std::optional<util::File>& active) {
+          [this, contains_audio_cb](const std::optional<util::File>& active) {
             if (!active) return false;
 
             // Send user action to controller, try to play selected entry
@@ -38,12 +37,16 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
             LOG("Handle on_click event on menu entry=", *active);
 
-            model::Song new_song{.index = modified_playlist_->songs.size(), .filepath = *active};
+            if (contains_audio_cb(*active)) {
+              LOG("Adding new song=,", std::quoted(active->filename().string()),
+                  " to modified playlist");
+              model::Song new_song{.index = modified_playlist_->songs.size(), .filepath = *active};
 
-            modified_playlist_->songs.emplace_back(new_song);
-            menu_playlist_->Emplace(new_song);
+              modified_playlist_->songs.emplace_back(new_song);
+              menu_playlist_->Emplace(new_song);
 
-            UpdateButtonState();
+              UpdateButtonState();
+            }
 
             return true;
           },
@@ -239,9 +242,6 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
       return true;
     }
 
-    // Filter "return" event to not be handled by menu
-    if (event == keybinding::Navigation::Return) return true;
-
     if (menu_playlist_->OnEvent(event)) return true;
 
     if (event == keybinding::Playlist::Rename) {
@@ -354,6 +354,7 @@ void PlaylistDialog::CreateButtons() {
 /* ********************************************************************************************** */
 
 void PlaylistDialog::UpdateButtonState() {
+  // Check for a few conditions before enabling the save button
   if (!modified_playlist_->name.empty() && !modified_playlist_->IsEmpty() &&
       modified_playlist_ != curr_operation_.playlist) {
     btn_save_->Enable();

@@ -86,13 +86,13 @@ class SongLyric : public TabItem {
    * @brief Check state from fetch operation that is executed asynchronously
    * @return true if fetch operation is still executing, otherwise false
    */
-  bool IsFetching() { return is_state(*async_fetcher_, std::future_status::timeout); }
+  bool IsFetching() { return async_fetcher_ && is_state(*async_fetcher_, std::future_status::timeout); }
 
   /**
    * @brief Check state from fetch operation that is executed asynchronously
    * @return true if fetch operation finished, otherwise false
    */
-  bool IsResultReady() { return is_state(*async_fetcher_, std::future_status::ready); }
+  bool IsResultReady() { return async_fetcher_ && is_state(*async_fetcher_, std::future_status::ready); }
 
   //! Result from asynchronous fetch operation (if empty, it means that failed)
   using FetchResult = std::optional<lyric::SongLyric>;

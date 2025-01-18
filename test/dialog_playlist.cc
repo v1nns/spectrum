@@ -12,6 +12,7 @@
 #include "mock/event_dispatcher_mock.h"
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
+#include "util/file_handler.h"
 #include "view/element/playlist_dialog.h"
 
 namespace {
@@ -19,6 +20,8 @@ namespace {
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::Invoke;
+using ::testing::MockFunction;
+using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -35,7 +38,8 @@ class PlaylistDialogTest : public ::DialogTest {
     dispatcher = std::make_shared<EventDispatcherMock>();
 
     // Create playlist dialog
-    dialog = std::make_unique<interface::PlaylistDialog>(dispatcher);
+    dialog =
+        std::make_unique<interface::PlaylistDialog>(dispatcher, contains_audio_cb.AsStdFunction());
   }
 
   //! Getter for PlaylistDialog (downcasting)
@@ -51,6 +55,9 @@ class PlaylistDialogTest : public ::DialogTest {
 
   //!< Screen dimension (already considering size restraints from dialog)
   ftxui::Dimensions size = ftxui::Dimensions{.dimx = 130, .dimy = 40};
+
+  //! Mock function to check for audio stream on given file
+  MockFunction<bool(const util::File&)> contains_audio_cb;
 };
 
 /* ********************************************************************************************** */
@@ -79,7 +86,6 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -89,6 +95,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -137,7 +144,6 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -147,6 +153,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -177,6 +184,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
                                            interface::CustomEvent::Identifier::DisableGlobalEvent)))
       .Times(1);
 
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).Times(2).WillRepeatedly(Return(true));
+
   // Navigate, add one file, then search and add another one
   std::string typed{"jjj /LIC"};
   utils::QueueCharacterEvents(*dialog, typed);
@@ -204,7 +214,6 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │▶ .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -219,6 +228,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
+║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
@@ -227,6 +237,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 )";
 
   EXPECT_THAT(rendered, StrEq(expected));
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
 
   // Add one more, change focus to playlist, and remove penultimate entry
   typed = "j lj ";
@@ -251,7 +264,6 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  .clang-format               ││                              │      ║
 ║      │▶ CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -261,6 +273,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -313,7 +326,6 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  .clang-format               ││                              │      ║
 ║      │▶ CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -323,6 +335,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -347,6 +360,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
   };
 
   GetPlaylistDialog()->Open(operation);
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
 
   // Focus playlist menu, add a song and focus playlist menu
   std::string typed{"jjjjj l"};
@@ -380,7 +396,6 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │▶ codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -390,6 +405,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -443,7 +459,6 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │▶ codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -453,6 +468,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -507,7 +523,6 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -522,6 +537,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
+║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
@@ -531,11 +547,20 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
   // Search for last entry, remove it and save playlist
   typed = "/love";
   utils::QueueCharacterEvents(*dialog, typed);
 
-  // TODO: must fix this behavior on playlist menu
+  // Setup expectation for event enabling global mode again
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
   dialog->OnEvent(ftxui::Event::Return);
 
   // Use existent playlist to create expectation
@@ -563,14 +588,13 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║                              Modify Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
-║      │spectrum                      ││  Crazy hit.mp3               │      ║
-║      │▶ ..                          ││▶ Crazy frog.mp3              │      ║
+║      │spectrum                      ││▶ Crazy hit.mp3               │      ║
+║      │▶ ..                          ││  Crazy frog.mp3              │      ║
 ║      │  build                       ││                              │      ║
 ║      │  .cache                      ││                              │      ║
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -580,6 +604,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -612,6 +637,9 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 
   GetPlaylistDialog()->Open(operation);
 
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+
   // Add random file, focus playlist menu and remove new entry
   std::string typed{"jjj ljjj "};
   utils::QueueCharacterEvents(*dialog, typed);
@@ -634,7 +662,6 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │▶ .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -644,6 +671,7 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -712,7 +740,6 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │  .clang-format               ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  codecov.yml                 ││                              │      ║
-║      │  compile_commands.json       ││                              │      ║
 ║      │  .git                        ││                              │      ║
 ║      │  .github                     ││                              │      ║
 ║      │  .gitignore                  ││                              │      ║
@@ -722,6 +749,7 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │  sonar-project.properties    ││                              │      ║
 ║      │  src                         ││                              │      ║
 ║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -753,10 +781,130 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create,
+                                     .playlist = model::Playlist{}};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(false));
+
+  // Attempt to add a new entry
+  std::string typed{"jjj "};
+  utils::QueueCharacterEvents(*dialog, typed);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      │spectrum                      ││                              │      ║
+║      │  ..                          ││                              │      ║
+║      │  build                       ││                              │      ║
+║      │  .cache                      ││                              │      ║
+║      │▶ .clang-format               ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  codecov.yml                 ││                              │      ║
+║      │  .git                        ││                              │      ║
+║      │  .github                     ││                              │      ║
+║      │  .gitignore                  ││                              │      ║
+║      │  include                     ││                              │      ║
+║      │  LICENSE                     ││                              │      ║
+║      │  README.md                   ││                              │      ║
+║      │  sonar-project.properties    ││                              │      ║
+║      │  src                         ││                              │      ║
+║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Setup expectation that event to save playlist in JSON file should not be sent
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(0);
+
+  // Make an attempt to save playlist, but this should not work
+  dialog->OnEvent(ftxui::Event::Character('s'));
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+
+  // Attempt to add a new entry
+  typed = "j ";
+  utils::QueueCharacterEvents(*dialog, typed);
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+
+  rendered = GetRenderedScreen();
+
+  expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      │spectrum                      ││▶ CMakeLists.txt              │      ║
+║      │  ..                          ││                              │      ║
+║      │  build                       ││                              │      ║
+║      │  .cache                      ││                              │      ║
+║      │  .clang-format               ││                              │      ║
+║      │▶ CMakeLists.txt              ││                              │      ║
+║      │  codecov.yml                 ││                              │      ║
+║      │  .git                        ││                              │      ║
+║      │  .github                     ││                              │      ║
+║      │  .gitignore                  ││                              │      ║
+║      │  include                     ││                              │      ║
+║      │  LICENSE                     ││                              │      ║
+║      │  README.md                   ││                              │      ║
+║      │  sonar-project.properties    ││                              │      ║
+║      │  src                         ││                              │      ║
+║      │  test                        ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 /* TODO: tests to create
 
 - Create playlist operation:
   - rename operation with a bigger name;
+  - send non-empty playlist?
+
+- Modify playlist operation:
+  - send empty playlist?
+  - remove only song and try to save playlist
 
 */
 

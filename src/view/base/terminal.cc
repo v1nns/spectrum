@@ -5,6 +5,7 @@
 #include <memory>
 #include <set>
 
+#include "audio/driver/ffmpeg.h"
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/component/screen_interactive.hpp"
@@ -70,7 +71,8 @@ void Terminal::Init(const std::string& initial_path) {
   // Create dialogs
   error_dialog_ = std::make_unique<ErrorDialog>();
   help_dialog_ = std::make_unique<HelpDialog>();
-  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher, initial_path);
+  playlist_dialog_ = std::make_unique<PlaylistDialog>(
+      dispatcher, driver::FFmpeg::ContainsAudioStream, initial_path);
   question_dialog_ = std::make_unique<QuestionDialog>();
 }
 

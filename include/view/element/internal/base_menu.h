@@ -160,7 +160,7 @@ class BaseMenu : public Element {
    */
   void HandleWheel(const ftxui::Mouse::Button& button) override {
     bool is_wheel_up = button == ftxui::Mouse::WheelUp;
-    LOG("Handle mouse wheel event=", is_wheel_up ? "Up" : "Down");
+    LOG_T("Handle mouse wheel event=", is_wheel_up ? "Up" : "Down");
 
     int size = GetSize();
     int* selected = GetSelected();
@@ -215,7 +215,7 @@ class BaseMenu : public Element {
     for (int i = 0; i < GetSize(); ++i) {
       if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
 
-      LOG("Handle double left click mouse event on entry=", i);
+      LOG_T("Handle double left click mouse event on entry=", i);
       entry_focused = true;
       *focused = i;
       *selected = i;
@@ -251,10 +251,9 @@ class BaseMenu : public Element {
       *selected = clamp(*selected, 0, size - 1);
 
       if (*selected != old_selected) {
+        LOG_T("Handled menu navigation key=", util::EventToString(event));
         *focused = *selected;
         event_handled = true;
-
-        LOG("Handled menu navigation key=", util::EventToString(event));
 
         // Check if must enable text animation
         UpdateActiveEntry();
@@ -265,7 +264,7 @@ class BaseMenu : public Element {
     if (event == Keybind::Return) {
       event_handled = OnClick();
 
-      LOG_IF(event_handled, "Handled Return key");
+      LOG_T_IF(event_handled, "Handled Return key");
 
       // Always reset search mode
       ResetSearch();
@@ -319,7 +318,7 @@ class BaseMenu : public Element {
 
     // Quit search mode
     if (event == Keybind::Escape) {
-      LOG("Exit from search mode in menu");
+      LOG_T("Exit from search mode in menu");
       ResetSearch();
 
       event_handled = true;
@@ -380,7 +379,7 @@ class BaseMenu : public Element {
    * @param index Index to force select/focus state
    */
   void ResetState(int index = 0) {
-    LOG("Reset state with new index=", index);
+    LOG_T("Reset state with new index=", index);
     selected_index_ = index;
     focused_index_ = index;
 
@@ -466,7 +465,7 @@ class BaseMenu : public Element {
   //! Render UI element for search
   ftxui::Element RenderSearch() const {
     if (!IsSearchEnabled()) {
-      ERROR("Internal error");
+      ERROR_T("Internal error");
       return ftxui::text("");
     }
 
@@ -483,7 +482,7 @@ class BaseMenu : public Element {
    * @brief Enable search mode
    */
   void EnableSearch() {
-    LOG("Enable search mode");
+    LOG_T("Enable search mode");
     search_params_ = Search{.selected_index = selected_index_, .focused_index = focused_index_};
     actual().FilterEntriesBy(search_params_->text_to_search);
 
@@ -500,8 +499,7 @@ class BaseMenu : public Element {
    */
   void ResetSearch() {
     if (!search_params_.has_value()) return;
-
-    LOG("Reset search mode");
+    LOG_T("Reset search mode");
 
     // Send user action to controller, enable global events again
     if (auto dispatcher = dispatcher_.lock(); dispatcher) {
@@ -522,7 +520,7 @@ class BaseMenu : public Element {
  private:
   //! Refresh list to keep only files matching pattern from the text to search
   void RefreshSearchList() {
-    LOG("Refresh list on search mode, text=", std::quoted(search_params_->text_to_search));
+    LOG_T("Refresh list on search mode, text=", std::quoted(search_params_->text_to_search));
 
     // Trigger callback (from derived class) to filter entries
     actual().FilterEntriesBy(search_params_->text_to_search);
@@ -560,7 +558,7 @@ class BaseMenu : public Element {
     *focused = clamp(*focused, 0, size - 1);
   }
 
-   //! Update content from active entry (decides if text_animation should run or not)
+  //! Update content from active entry (decides if text_animation should run or not)
   void UpdateActiveEntry() {
     // Stop animation thread
     animation_.Stop();
