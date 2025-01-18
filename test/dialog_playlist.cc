@@ -37,9 +37,9 @@ class PlaylistDialogTest : public ::DialogTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create playlist dialog
-    dialog =
-        std::make_unique<interface::PlaylistDialog>(dispatcher, contains_audio_cb.AsStdFunction());
+    // Create playlist dialog with test directory as base dir
+    dialog = std::make_unique<interface::PlaylistDialog>(
+        dispatcher, contains_audio_cb.AsStdFunction(), BASEDIR_PATH);
   }
 
   //! Getter for PlaylistDialog (downcasting)

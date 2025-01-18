@@ -53,8 +53,7 @@ class SidebarTest : public ::BlockTest {
     EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(true));
 
     // Use test directory as base dir
-    std::string source_dir{LISTDIR_PATH};
-    block = ftxui::Make<interface::Sidebar>(dispatcher, source_dir, file_handler_mock_);
+    block = ftxui::Make<interface::Sidebar>(dispatcher, LISTDIR_PATH, file_handler_mock_);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
@@ -453,7 +452,7 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
       .Times(1);
 
   // Setup expectation for file selection
-  std::filesystem::path file{std::string(LISTDIR_PATH) + "/audio_player.cc"};
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,
                                     interface::CustomEvent::Identifier::NotifyFileSelection),

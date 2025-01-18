@@ -44,6 +44,8 @@ target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/include
 
 target_compile_options(test PRIVATE -Wall -Werror -Wno-sign-compare)
 
+target_compile_definitions(test PUBLIC BASEDIR_PATH="${CMAKE_SOURCE_DIR}")
+
 # Use a default path for ListDirectory block unit testing
 target_compile_definitions(test PUBLIC LISTDIR_PATH="${CMAKE_SOURCE_DIR}/test")
 
