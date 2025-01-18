@@ -137,7 +137,8 @@ error::Code FFmpeg::ConfigureDecoder() {
   const AVChannelLayout *ch_layouts;
   int num_ch_layouts;
 
-  result = avcodec_get_supported_config(decoder_.get(), NULL, AV_CODEC_CONFIG_CHANNEL_LAYOUT, 0,
+  result = avcodec_get_supported_config(decoder_.get(), NULL,
+                                        AVCodecConfig::AV_CODEC_CONFIG_CHANNEL_LAYOUT, 0,
                                         (const void **)&ch_layouts, &num_ch_layouts);
 
   if (result < 0 || num_ch_layouts == 0) {
