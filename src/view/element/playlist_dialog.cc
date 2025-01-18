@@ -38,8 +38,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
             LOG("Handle on_click event on menu entry=", *active);
 
             if (contains_audio_cb(*active)) {
-              LOG("Adding new song=,", std::quoted(active->filename().string()),
-                  " to modified playlist");
+              LOG("Adding new song=", std::quoted(active->filename().string()),
+                  " to modified playlist=", std::quoted(modified_playlist_->name));
               model::Song new_song{.index = modified_playlist_->songs.size(), .filepath = *active};
 
               modified_playlist_->songs.emplace_back(new_song);

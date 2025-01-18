@@ -39,7 +39,7 @@ class PlaylistDialogTest : public ::DialogTest {
 
     // Create playlist dialog with test directory as base dir
     dialog = std::make_unique<interface::PlaylistDialog>(
-        dispatcher, contains_audio_cb.AsStdFunction(), BASEDIR_PATH);
+        dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH);
   }
 
   //! Getter for PlaylistDialog (downcasting)
@@ -62,6 +62,7 @@ class PlaylistDialogTest : public ::DialogTest {
 
 /* ********************************************************************************************** */
 
+// TODO: update tests to match new directory
 TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Create,
@@ -79,22 +80,22 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
-║      │spectrum                      ││                              │      ║
+║      │test                          ││                              │      ║
 ║      │▶ ..                          ││                              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -137,22 +138,22 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║                              Modify Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ Chill mix ───────────────────╮      ║
-║      │spectrum                      ││▶ chilling 1.mp3              │      ║
+║      │test                          ││▶ chilling 1.mp3              │      ║
 ║      │▶ ..                          ││  chilling 2.mp3              │      ║
-║      │  build                       ││  chilling 3.mp3              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││  chilling 3.mp3              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -188,7 +189,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   EXPECT_CALL(contains_audio_cb, Call).Times(2).WillRepeatedly(Return(true));
 
   // Navigate, add one file, then search and add another one
-  std::string typed{"jjj /LIC"};
+  std::string typed{"jjj /fftw"};
   utils::QueueCharacterEvents(*dialog, typed);
 
   // Setup expectation for event enabling global mode again
@@ -207,22 +208,22 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
-║      │spectrum                      ││▶ .clang-format               │      ║
-║      │  ..                          ││  LICENSE                     │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │▶ .clang-format               ││                              │      ║
+║      │test                          ││▶ block_file_info.cc          │      ║
+║      │  ..                          ││  driver_fftw.cc              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │▶ block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -257,22 +258,22 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
-║      │spectrum                      ││  .clang-format               │      ║
-║      │  ..                          ││▶ CMakeLists.txt              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
-║      │▶ CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │test                          ││  block_file_info.cc          │      ║
+║      │  ..                          ││▶ block_main_content.cc       │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │▶ block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -319,22 +320,22 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ summer hits ─────────────────╮      ║
-║      │spectrum                      ││  .clang-format               │      ║
-║      │  ..                          ││▶ CMakeLists.txt              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
-║      │▶ CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │test                          ││  block_file_info.cc          │      ║
+║      │  ..                          ││▶ block_main_content.cc       │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │▶ block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -389,22 +390,22 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
-║      │spectrum                      ││▶ codecov.yml                 │      ║
+║      │test                          ││▶ block_media_player.cc       │      ║
 ║      │  ..                          ││                              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │▶ block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │▶ codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -435,7 +436,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
         const auto& playlist_content = event.GetContent<model::Playlist>();
         EXPECT_THAT(playlist_content.name, StrEq("only the best"));
         EXPECT_THAT(playlist_content.songs.begin()->filepath.filename().string(),
-                    StrEq("codecov.yml"));
+                    StrEq("block_media_player.cc"));
       }));
 
   dialog->OnEvent(ftxui::Event::Character('s'));
@@ -452,22 +453,22 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ only the best ───────────────╮      ║
-║      │spectrum                      ││▶ codecov.yml                 │      ║
+║      │test                          ││▶ block_media_player.cc       │      ║
 ║      │  ..                          ││                              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │▶ block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │▶ codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -516,22 +517,22 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║                              Modify Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
-║      │spectrum                      ││▶ Crazy hit.mp3               │      ║
+║      │test                          ││▶ Crazy hit.mp3               │      ║
 ║      │▶ ..                          ││  Crazy frog.mp3              │      ║
-║      │  build                       ││  Crazy love.mp3              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││  Crazy love.mp3              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -588,22 +589,22 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║                              Modify Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
-║      │spectrum                      ││▶ Crazy hit.mp3               │      ║
+║      │test                          ││▶ Crazy hit.mp3               │      ║
 ║      │▶ ..                          ││  Crazy frog.mp3              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -655,22 +656,22 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║                              Modify Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
-║      │spectrum                      ││  Crazy hit.mp3               │      ║
+║      │test                          ││  Crazy hit.mp3               │      ║
 ║      │  ..                          ││  Crazy frog.mp3              │      ║
-║      │  build                       ││▶ Crazy love.mp3              │      ║
-║      │  .cache                      ││                              │      ║
-║      │▶ .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││▶ Crazy love.mp3              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │▶ block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -733,22 +734,22 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║                              Modify Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ not so Lofi ─────────────────╮      ║
-║      │spectrum                      ││▶ Love song.mp3               │      ║
+║      │test                          ││▶ Love song.mp3               │      ║
 ║      │▶ ..                          ││  Reggae wubba dubba.mp3      │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -803,22 +804,22 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
-║      │spectrum                      ││                              │      ║
+║      │test                          ││                              │      ║
 ║      │  ..                          ││                              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │▶ .clang-format               ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │▶ block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
 ║      │  CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -862,22 +863,95 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║                              Create Playlist                               ║
 ║                                                                            ║
 ║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
-║      │spectrum                      ││▶ CMakeLists.txt              │      ║
+║      │test                          ││▶ block_main_content.cc       │      ║
 ║      │  ..                          ││                              │      ║
-║      │  build                       ││                              │      ║
-║      │  .cache                      ││                              │      ║
-║      │  .clang-format               ││                              │      ║
-║      │▶ CMakeLists.txt              ││                              │      ║
-║      │  codecov.yml                 ││                              │      ║
-║      │  .git                        ││                              │      ║
-║      │  .github                     ││                              │      ║
-║      │  .gitignore                  ││                              │      ║
-║      │  include                     ││                              │      ║
-║      │  LICENSE                     ││                              │      ║
-║      │  README.md                   ││                              │      ║
-║      │  sonar-project.properties    ││                              │      ║
-║      │  src                         ││                              │      ║
-║      │  test                        ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │▶ block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create,
+                                     .playlist = model::Playlist{}};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+
+  // Add a new entry
+  std::string typed{"jjjjj lronceuponatimetherewasanepicplaylist"};
+  utils::QueueCharacterEvents(*dialog, typed);
+
+  // Apply new name
+  dialog->OnEvent(ftxui::Event::Return);
+
+  // Setup expectation for event to save playlist in JSON file
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .WillOnce(Invoke([](const interface::CustomEvent event) {
+        // Check for playlist content (but we do not want to check for complete song filepath)
+        auto content = event.GetContent<model::Playlist>();
+        EXPECT_THAT(content.name, "onceuponatimetherewasanepicplaylist");
+        EXPECT_THAT(content.songs.size(), Eq(1));
+      }));
+
+  // Save playlist
+  dialog->OnEvent(ftxui::Event::Character('s'));
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ onceuponatimetherewasa ──────╮      ║
+║      │test                          ││▶ block_media_player.cc       │      ║
+║      │  ..                          ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │▶ block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -899,7 +973,6 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 /* TODO: tests to create
 
 - Create playlist operation:
-  - rename operation with a bigger name;
   - send non-empty playlist?
 
 - Modify playlist operation:

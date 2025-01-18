@@ -55,12 +55,9 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-      - name: Clear cache
-        run: rm -rf ${{github.workspace}}/.cache && ls -la
-
       - name: Test
         working-directory: ${{github.workspace}}/build
-        run: rm -rf ${{github.workspace}}/.cache && ctest --output-on-failure --test-dir ./test
+        run: ctest --output-on-failure --test-dir ./test
 
   coverage:
     runs-on: ubuntu-latest
@@ -89,7 +86,7 @@ jobs:
 
       - name: Test
         working-directory: ${{github.workspace}}/build
-        run: rm -rf ${{github.workspace}}/.cache && ctest --output-on-failure --test-dir ./test
+        run: ctest --output-on-failure --test-dir ./test
 
       - name: Upload report to CodeCov
         uses: codecov/codecov-action@v3
