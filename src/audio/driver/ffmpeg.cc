@@ -132,22 +132,11 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kUnknownError;
   }
 
-#if LIBAVUTIL_VERSION_MAJOR > 56
   // Force to use stereo as channel layout
-  const AVChannelLayout *ch_layouts;
-  int num_ch_layouts;
-
-  result = avcodec_get_supported_config(decoder_.get(), NULL,
-                                        AVCodecConfig::AV_CODEC_CONFIG_CHANNEL_LAYOUT, 0,
-                                        (const void **)&ch_layouts, &num_ch_layouts);
-
-  if (result < 0 || num_ch_layouts == 0) {
-    av_channel_layout_copy(&decoder_->ch_layout, ch_layout_.get());
-  }
+#if LIBAVUTIL_VERSION_MAJOR > 56
+  decoder_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
 #else
-  if (decoder_->channel_layout == 0) {
-    decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-  }
+  decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
 #endif
 
   result = avcodec_open2(decoder_.get(), codec, nullptr);
