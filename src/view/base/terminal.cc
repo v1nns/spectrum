@@ -5,7 +5,12 @@
 #include <memory>
 #include <set>
 
+#ifndef SPECTRUM_DEBUG
 #include "audio/driver/ffmpeg.h"
+#else
+#include "debug/dummy_decoder.h"
+#endif
+
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/component/screen_interactive.hpp"
@@ -71,8 +76,13 @@ void Terminal::Init(const std::string& initial_path) {
   // Create dialogs
   error_dialog_ = std::make_unique<ErrorDialog>();
   help_dialog_ = std::make_unique<HelpDialog>();
-  playlist_dialog_ = std::make_unique<PlaylistDialog>(
-      dispatcher, driver::FFmpeg::ContainsAudioStream, initial_path);
+  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher,
+#ifndef SPECTRUM_DEBUG
+                                                      driver::FFmpeg::ContainsAudioStream,
+#else
+                                                      driver::DummyDecoder::ContainsAudioStream,
+#endif
+                                                      initial_path);
   question_dialog_ = std::make_unique<QuestionDialog>();
 }
 

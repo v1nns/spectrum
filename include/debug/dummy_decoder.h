@@ -13,6 +13,7 @@
 #include "model/audio_filter.h"
 #include "model/song.h"
 #include "model/volume.h"
+#include "util/file_handler.h"
 
 namespace driver {
 
@@ -30,6 +31,16 @@ class DummyDecoder : public Decoder {
    * @brief Destroy the Decoder object
    */
   virtual ~DummyDecoder() = default;
+
+  /* ******************************************************************************************** */
+  //! Public API that do not follow the instance lifecycle
+
+  /**
+   * @brief Check if file contains an available audio stream
+   * @param file Full path to file
+   * @return true if file contains an audio stream, false otherwise
+   */
+  static inline bool ContainsAudioStream(const util::File& file) { return true; }
 
   /* ******************************************************************************************** */
   //! Public API for Decoder
