@@ -1,5 +1,6 @@
 #include "util/logger.h"
 
+#include <ctime>
 #include <iomanip>
 #include <sstream>
 
@@ -11,7 +12,8 @@ std::string get_timestamp() {
   std::time_t now = std::chrono::system_clock::to_time_t(time_point);
 
   // Convert into local time
-  std::tm tstruct = *std::localtime(&now);
+  struct tm local_time;
+  localtime_r(&now, &local_time);
 
   // Get the fractional part in milliseconds
   const auto milliseconds = std::chrono::time_point_cast<std::chrono::milliseconds>(time_point)
@@ -21,7 +23,7 @@ std::string get_timestamp() {
 
   // Format string
   std::ostringstream ss;
-  ss << std::put_time(&tstruct, "%Y-%m-%d %H:%M:%S") << "." << std::setfill('0') << std::setw(3)
+  ss << std::put_time(&local_time, "%Y-%m-%d %H:%M:%S") << "." << std::setfill('0') << std::setw(3)
      << milliseconds;
 
   return std::move(ss).str();

@@ -120,7 +120,7 @@ class Element {
   /**
    * @brief Notify when focus state has changed
    */
-  virtual void OnFocusChanged() {}
+  virtual void OnFocusChanged() { /* optional */ }
 
   /* ******************************************************************************************** */
   //! Variables

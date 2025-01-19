@@ -13,6 +13,7 @@
 #include <cmath>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"
 
@@ -150,7 +151,7 @@ inline bool compare(const char& a, const char& b) { return std::tolower(a) == st
  * @param substring Substring to search for
  * @return true if 'substring' exists in 'string', false otherwise
  */
-inline bool contains(const std::string& string, const std::string& substring) {
+inline bool contains(std::string_view string, std::string_view substring) {
   auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), compare);
   return it != string.end();
 }

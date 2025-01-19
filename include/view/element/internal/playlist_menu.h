@@ -21,9 +21,8 @@ class SidebarTest;
 }
 #endif
 
-namespace interface {
+namespace interface::internal {
 
-namespace internal {
 class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   friend class BaseMenu;
 
@@ -105,7 +104,7 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   //! Emplace a new entry
   void EmplaceImpl(const model::Playlist& entry) {
     LOG("Emplace a new entry to list");
-    int index = (int)entries_.size();
+    auto index = (int)entries_.size();
     auto tmp = model::Playlist{.index = index, .name = entry.name, .songs = entry.songs};
     entries_.emplace_back(InternalPlaylist{.collapsed = false, .playlist = tmp});
   }
@@ -114,7 +113,7 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   void EraseImpl(const model::Playlist& entry) {
     LOG("Attempt to erase an entry with value=", entry);
     auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [entry](const InternalPlaylist& p) { return p.playlist == entry; });
+                           [&entry](const InternalPlaylist& p) { return p.playlist == entry; });
 
     if (it != entries_.end()) {
       LOG("Found matching entry, erasing it, entry=", it->playlist);
@@ -187,6 +186,5 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 #endif
 };
 
-}  // namespace internal
-}  // namespace interface
+}  // namespace interface::internal
 #endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_PLAYLIST_MENU_H_

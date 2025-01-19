@@ -24,8 +24,8 @@ struct Playlist {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const Playlist& p);
-  bool operator==(const Playlist& other) const;
-  bool operator!=(const Playlist& other) const;
+  friend bool operator==(const Playlist& lhs, const Playlist& rhs);
+  friend bool operator!=(const Playlist& lhs, const Playlist& rhs);
 
   /**
    * @brief Check if song list is empty

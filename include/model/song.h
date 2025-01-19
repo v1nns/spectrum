@@ -45,8 +45,8 @@ struct Song {
     uint32_t position;  //!< Current position (in seconds) of the audio
 
     //! Overloaded operators
-    bool operator==(const CurrentInformation& other) const;
-    bool operator!=(const CurrentInformation& other) const;
+    friend bool operator==(const CurrentInformation& lhs, const CurrentInformation& rhs);
+    friend bool operator!=(const CurrentInformation& lhs, const CurrentInformation& rhs);
     friend std::ostream& operator<<(std::ostream& out, const CurrentInformation& info);
   };
 
@@ -54,8 +54,8 @@ struct Song {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const Song& s);
-  bool operator==(const Song& other) const;
-  bool operator!=(const Song& other) const;
+  friend bool operator==(const Song& lhs, const Song& rhs);
+  friend bool operator!=(const Song& lhs, const Song& rhs);
 
   //! Check if song is empty
   bool IsEmpty() const;

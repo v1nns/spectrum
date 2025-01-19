@@ -9,9 +9,7 @@
 
 #include "ftxui/component/event.hpp"
 
-namespace interface {
-
-namespace keybinding {
+namespace interface::keybinding {
 
 using Key = ftxui::Event;
 
@@ -153,6 +151,5 @@ struct Playlist {
   static Key Save;
 };
 
-}  // namespace keybinding
-}  // namespace interface
+}  // namespace interface::keybinding
 #endif  // INCLUDE_VIEW_BASE_KEYBINDING_H_

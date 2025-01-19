@@ -20,9 +20,8 @@ class SidebarTest;
 }
 #endif
 
-namespace interface {
+namespace interface::internal {
 
-namespace internal {
 class FileMenu : public BaseMenu<FileMenu> {
   friend class BaseMenu;
 
@@ -120,7 +119,7 @@ class FileMenu : public BaseMenu<FileMenu> {
   void EraseImpl(const util::File& entry) {
     LOG("Attempt to erase an entry with value=", entry);
     auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [entry](const util::File& f) { return f == entry; });
+                           [&entry](const util::File& f) { return f == entry; });
 
     if (it != entries_.end()) {
       LOG("Found matching entry, erasing it, entry=", *it);
@@ -165,6 +164,5 @@ class FileMenu : public BaseMenu<FileMenu> {
 #endif
 };
 
-}  // namespace internal
-}  // namespace interface
+}  // namespace interface::internal
 #endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_FILE_MENU_H_

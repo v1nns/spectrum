@@ -30,7 +30,7 @@ class FileHandler {
   /**
    * @brief Destroy the FileHandler object
    */
-  ~FileHandler() = default;
+  virtual ~FileHandler() = default;
 
   //! Remove these
   FileHandler(const FileHandler& other) = delete;             // copy constructor

@@ -8,23 +8,30 @@
 
 namespace model {
 
-bool Song::CurrentInformation::operator==(const Song::CurrentInformation& other) const {
-  return std::tie(state, position) == std::tie(other.state, position);
+bool operator==(const Song::CurrentInformation& lhs, const Song::CurrentInformation& rhs) {
+  return std::tie(lhs.state, lhs.position) == std::tie(rhs.state, rhs.position);
 }
 
-bool Song::CurrentInformation::operator!=(const Song::CurrentInformation& other) const {
-  return !operator==(other);
+/* ********************************************************************************************** */
+
+bool operator!=(const Song::CurrentInformation& lhs, const Song::CurrentInformation& rhs) {
+  return !(lhs == rhs);
 }
 
-bool Song::operator==(const Song& other) const {
-  return std::tie(filepath, artist, title, playlist, num_channels, sample_rate, bit_rate, bit_depth,
-                  duration,
-                  curr_info) == std::tie(other.filepath, other.artist, other.title, other.playlist,
-                                         other.num_channels, other.sample_rate, other.bit_rate,
-                                         other.bit_depth, other.duration, other.curr_info);
+/* ********************************************************************************************** */
+
+bool operator==(const Song& lhs, const Song& rhs) {
+  return std::tie(lhs.filepath, lhs.artist, lhs.title, lhs.playlist, lhs.num_channels,
+                  lhs.sample_rate, lhs.bit_rate, lhs.bit_depth, lhs.duration, lhs.curr_info) ==
+         std::tie(rhs.filepath, rhs.artist, rhs.title, rhs.playlist, rhs.num_channels,
+                  rhs.sample_rate, rhs.bit_rate, rhs.bit_depth, rhs.duration, rhs.curr_info);
 }
 
-bool Song::operator!=(const Song& other) const { return !operator==(other); }
+/* ********************************************************************************************** */
+
+bool operator!=(const Song& lhs, const Song& rhs) { return !(lhs == rhs); }
+
+/* ********************************************************************************************** */
 
 //! Song::MediaState pretty print
 std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
@@ -53,11 +60,15 @@ std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
   return out;
 }
 
+/* ********************************************************************************************** */
+
 //! Song::CurrentInformation pretty print
 std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
   out << "{state:" << info.state << " position:" << info.position << "}";
   return out;
 }
+
+/* ********************************************************************************************** */
 
 //! Song pretty print
 std::ostream& operator<<(std::ostream& out, const Song& s) {

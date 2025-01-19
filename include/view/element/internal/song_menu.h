@@ -21,9 +21,8 @@ class SidebarTest;
 }
 #endif
 
-namespace interface {
+namespace interface::internal {
 
-namespace internal {
 class SongMenu : public BaseMenu<SongMenu> {
   friend class BaseMenu;
 
@@ -92,7 +91,7 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Erase an existing entry
   void EraseImpl(const model::Song& entry) {
     LOG("Attempt to erase an entry with value=", entry.filepath);
-    auto it = std::find_if(entries_.begin(), entries_.end(), [entry](const model::Song& s) {
+    auto it = std::find_if(entries_.begin(), entries_.end(), [&entry](const model::Song& s) {
       return s.index == entry.index && s.filepath == entry.filepath;
     });
 
@@ -138,6 +137,5 @@ class SongMenu : public BaseMenu<SongMenu> {
 #endif
 };
 
-}  // namespace internal
-}  // namespace interface
+}  // namespace interface::internal
 #endif  // INCLUDE_VIEW_ELEMENT_INTERNAL_SONG_MENU_H_

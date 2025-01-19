@@ -24,8 +24,8 @@ struct QuestionData {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const QuestionData& s);
-  bool operator==(const QuestionData& other) const;
-  bool operator!=(const QuestionData& other) const;
+  friend bool operator==(const QuestionData& lhs, const QuestionData& rhs);
+  friend bool operator!=(const QuestionData& lhs, const QuestionData& rhs);
 };
 
 }  // namespace model

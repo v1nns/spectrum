@@ -369,7 +369,7 @@ class AudioEqualizer : public TabItem {
      * @brief Handles a mouse click event
      * @param event Received event from screen
      */
-    void HandleClick(ftxui::Event& event) final {
+    void HandleClick(ftxui::Event& event) override {
       for (int i = 0; i < boxes.size(); i++) {
         if (boxes[i].Contain(event.mouse().x, event.mouse().y)) {
           if (i == 0) {

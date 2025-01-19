@@ -44,13 +44,15 @@ static bool sort_files(const File& a, const File& b) {
 /* ********************************************************************************************** */
 
 std::string FileHandler::GetHome() const {
-  const char* home_dir;
+#ifdef _WIN32
+  // On Windows, the home directory is typically in the USERPROFILE environment variable
+  const char* home = std::getenv("USERPROFILE");
+#else
+  // On Unix-like systems, the home directory is in the HOME environment variable
+  const char* home = std::getenv("HOME");
+#endif
 
-  if ((home_dir = getenv("HOME")) == nullptr) {
-    home_dir = getpwuid(getuid())->pw_dir;
-  }
-
-  return std::string{home_dir};
+  return home ? std::string{home} : std::string{};
 }
 
 /* ********************************************************************************************** */

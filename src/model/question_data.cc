@@ -13,11 +13,15 @@ std::ostream& operator<<(std::ostream& out, const QuestionData& q) {
   return out;
 }
 
-bool QuestionData::operator==(const QuestionData& other) const {
+/* ********************************************************************************************** */
+
+bool operator==(const QuestionData& lhs, const QuestionData& rhs) {
   // Do not want to check memory's address from callbacks, right?
-  return question == other.question;
+  return lhs.question == rhs.question;
 }
 
-bool QuestionData::operator!=(const QuestionData& other) const { return !operator==(other); }
+/* ********************************************************************************************** */
+
+bool operator!=(const QuestionData& lhs, const QuestionData& rhs) { return !(lhs == rhs); }
 
 }  // namespace model

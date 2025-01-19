@@ -26,7 +26,7 @@ class HelpDialog : public Dialog {
   /**
    * @brief Destroy Help object
    */
-  virtual ~HelpDialog() = default;
+  ~HelpDialog() override = default;
 
   /* ******************************************************************************************** */
   //! Custom implementation

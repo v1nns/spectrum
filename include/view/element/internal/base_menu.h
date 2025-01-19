@@ -109,7 +109,7 @@ class BaseMenu : public Element {
   /**
    * @brief Destroy Menu object
    */
-  virtual ~BaseMenu() = default;
+  ~BaseMenu() override = default;
 
   /* ******************************************************************************************** */
   //! Public API for Menu (must be implemented by derived class)

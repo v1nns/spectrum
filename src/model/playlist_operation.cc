@@ -19,6 +19,8 @@ std::string PlaylistOperation::GetActionName(const PlaylistOperation& playlist) 
   return "Unknown";
 }
 
+/* ********************************************************************************************** */
+
 //! PlaylistOperation pretty print
 std::ostream& operator<<(std::ostream& out, const PlaylistOperation& p) {
   out << "{action: " << PlaylistOperation::GetActionName(p) << ", playlist: ";
@@ -32,12 +34,16 @@ std::ostream& operator<<(std::ostream& out, const PlaylistOperation& p) {
   return out;
 }
 
-bool PlaylistOperation::operator==(const PlaylistOperation& other) const {
-  return std::tie(action, playlist) == std::tie(other.action, other.playlist);
+/* ********************************************************************************************** */
+
+bool operator==(const PlaylistOperation& lhs, const PlaylistOperation& rhs) {
+  return std::tie(lhs.action, lhs.playlist) == std::tie(rhs.action, rhs.playlist);
 }
 
-bool PlaylistOperation::operator!=(const PlaylistOperation& other) const {
-  return !operator==(other);
+/* ********************************************************************************************** */
+
+bool operator!=(const PlaylistOperation& lhs, const PlaylistOperation& rhs) {
+  return !(lhs == rhs);
 }
 
 }  // namespace model

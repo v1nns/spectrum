@@ -43,8 +43,8 @@ struct AudioFilter {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const AudioFilter& a);
-  bool operator==(const AudioFilter& other) const;
-  bool operator!=(const AudioFilter& other) const;
+  friend bool operator==(const AudioFilter& lhs, const AudioFilter& rhs);
+  friend bool operator!=(const AudioFilter& lhs, const AudioFilter& rhs);
 
   /* ******************************************************************************************** */
   //! Utilities

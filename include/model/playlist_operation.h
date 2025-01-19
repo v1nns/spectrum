@@ -31,8 +31,8 @@ struct PlaylistOperation {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const PlaylistOperation& s);
-  bool operator==(const PlaylistOperation& other) const;
-  bool operator!=(const PlaylistOperation& other) const;
+  friend bool operator==(const PlaylistOperation& lhs, const PlaylistOperation& rhs);
+  friend bool operator!=(const PlaylistOperation& lhs, const PlaylistOperation& rhs);
 };
 
 }  // namespace model

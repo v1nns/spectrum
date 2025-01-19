@@ -29,7 +29,7 @@ class ErrorDialog : public Dialog {
   /**
    * @brief Destroy ErrorDialog object
    */
-  virtual ~ErrorDialog() = default;
+  ~ErrorDialog() override = default;
 
   /**
    * @brief Set error message to show on dialog

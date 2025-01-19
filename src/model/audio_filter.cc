@@ -17,11 +17,11 @@ std::ostream& operator<<(std::ostream& out, const AudioFilter& a) {
   return out;
 }
 
-bool AudioFilter::operator==(const AudioFilter& other) const {
-  return std::tie(frequency, Q, gain) == std::tie(other.frequency, other.Q, other.gain);
+bool operator==(const AudioFilter& lhs, const AudioFilter& rhs) {
+  return std::tie(lhs.frequency, lhs.Q, lhs.gain) == std::tie(rhs.frequency, rhs.Q, rhs.gain);
 }
 
-bool AudioFilter::operator!=(const AudioFilter& other) const { return !operator==(other); }
+bool operator!=(const AudioFilter& lhs, const AudioFilter& rhs) { return !(lhs == rhs); }
 
 /* ********************************************************************************************** */
 

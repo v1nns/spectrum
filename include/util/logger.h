@@ -151,8 +151,8 @@ inline std::string demangle(const char* name) {
   // Some arbitrary value to eliminate the compiler warning
   int status = -99;
 
-  std::unique_ptr<char, void (*)(void*)> res{abi::__cxa_demangle(name, NULL, NULL, &status),
-                                             std::free};
+  std::unique_ptr<char, void (*)(void*)> res{abi::__cxa_demangle(name, nullptr, nullptr, &status),
+                                             [](void* a) { return std::free(a); }};
 
   std::ostringstream ss;
   ss << "[" << (status == 0 ? res.get() : name) << "] ";
