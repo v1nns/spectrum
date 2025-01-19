@@ -64,12 +64,17 @@ bool PlaylistMenu::OnEventImpl(const ftxui::Event& event) {
 
   // Collapse menu to hide songs from playlist
   if (event == Keybind::ArrowLeft || event == Keybind::Left) {
-    return ToggleActivePlaylist(/*collapse=*/false);
+    return ToggleActivePlaylist(CollapseState::ForceClose);
   }
 
   // Collapse menu to show songs from playlist
   if (event == Keybind::ArrowRight || event == Keybind::Right) {
-    return ToggleActivePlaylist(/*collapse=*/true);
+    return ToggleActivePlaylist(CollapseState::ForceOpen);
+  }
+
+  // Toggle collapse state from menu
+  if (event == Keybind::Space) {
+    return ToggleActivePlaylist(CollapseState::Toggle);
   }
 
   // Enable search mode
@@ -318,18 +323,17 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
 
 /* ********************************************************************************************** */
 
-bool PlaylistMenu::ToggleActivePlaylist(bool collapse) {
+bool PlaylistMenu::ToggleActivePlaylist(const CollapseState& state) {
   if (IsSearchEnabled()) return false;
 
   int selected = *GetSelected();
   int count = 0, total_size = 0;
-  bool toggled = false;
+
+  InternalPlaylist* internal_playlist = nullptr;
 
   for (auto& entry : entries_) {
     if (count == selected) {
-      LOG(collapse ? "Show" : "Hide", " collapsed playlist ", std::quoted(entry.playlist.name));
-      entry.collapsed = collapse;
-      toggled = true;
+      internal_playlist = &entry;
     }
 
     // Already checked playlist index, so increment both counters
@@ -338,18 +342,26 @@ bool PlaylistMenu::ToggleActivePlaylist(bool collapse) {
 
     // As we do not care about song entries, just increment count
     if (entry.collapsed) count += entry.playlist.songs.size();
+
+    // Do not attempt to find the selected playlist anymore
+    if (count > selected) break;
   }
 
-  // Playlist state was toggled
-  if (toggled) {
+  if (!internal_playlist) return false;
+
+  if (state == CollapseState::Toggle ||
+      (state == CollapseState::ForceOpen && !internal_playlist->collapsed) ||
+      (state == CollapseState::ForceClose && internal_playlist->collapsed)) {
+    internal_playlist->collapsed = !internal_playlist->collapsed;
+    LOG(internal_playlist->collapsed ? "Show" : "Hide",
+        " collapsed playlist=", std::quoted(internal_playlist->playlist.name));
+
     // Resize vector of boxes to new size and check if must enable text animation
     Clamp();
     UpdateActiveEntry();
-
-    return true;
   }
 
-  return false;
+  return true;
 }
 
 /* ********************************************************************************************** */

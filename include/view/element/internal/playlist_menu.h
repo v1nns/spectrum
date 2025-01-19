@@ -49,6 +49,9 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   //! Definition of menu content (list of menu entries)
   using InternalPlaylists = std::vector<InternalPlaylist>;
 
+  //! Possible states for playlist entry collapse
+  enum class CollapseState { Toggle, ForceOpen, ForceClose };
+
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
   using Callback = Callback<model::Playlist>;
@@ -136,7 +139,7 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
                              bool is_playlist, const std::string& suffix = "");
 
   //! Toggle collapse state for current selected entry (only available for playlist entries)
-  bool ToggleActivePlaylist(bool collapse);
+  bool ToggleActivePlaylist(const CollapseState& state);
 
   //! Getter for active playlist from default list (shuffle if selected is a song)
   std::optional<model::Playlist> GetActivePlaylistFromNormal() const;

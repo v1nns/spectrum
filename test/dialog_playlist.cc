@@ -62,7 +62,6 @@ class PlaylistDialogTest : public ::DialogTest {
 
 /* ********************************************************************************************** */
 
-// TODO: update tests to match new directory
 TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Create,
@@ -970,15 +969,208 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 
 /* ********************************************************************************************** */
 
-/* TODO: tests to create
+TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Reggae roots",
+                                         .songs =
+                                             {
+                                                 model::Song{.filepath = "Love song.m4a"},
+                                                 model::Song{.filepath = "Reggae wubba dubba.mp3"},
+                                             },
+                                     }};
 
-- Create playlist operation:
-  - send non-empty playlist?
+  GetPlaylistDialog()->Open(operation);
 
-- Modify playlist operation:
-  - send empty playlist?
-  - remove only song and try to save playlist
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
 
-*/
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      │test                          ││                              │      ║
+║      │▶ ..                          ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 1,
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Modify Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      │test                          ││                              │      ║
+║      │▶ ..                          ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Setup expectation for event disabling global mode
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::DisableGlobalEvent)))
+      .Times(1);
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+
+  // Focus an entry
+  std::string typed{"/util"};
+  utils::QueueCharacterEvents(*dialog, typed);
+
+  // Setup expectation for event enabling global mode again
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::EnableGlobalEvent)))
+      .Times(1);
+
+  // Add new entry
+  dialog->OnEvent(ftxui::Event::Return);
+
+  // Without a playlist name, dialog will not send event to save playlist in JSON file
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(0);
+
+  // Save playlist
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Chill piano",
+                                         .songs =
+                                             {
+                                                 model::Song{.filepath = "Crazy piano solo.mp3"},
+                                             },
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Focus playlist menu and remove last song
+  std::string typed{"l "};
+  utils::QueueCharacterEvents(*dialog, typed);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Modify Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ Chill piano ─────────────────╮      ║
+║      │test                          ││                              │      ║
+║      │▶ ..                          ││                              │      ║
+║      │  audio_lyric_finder.cc       ││                              │      ║
+║      │  audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Without a song, dialog will not send event to save playlist in JSON file
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(0);
+
+  // Save playlist
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
 
 }  // namespace

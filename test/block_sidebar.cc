@@ -2028,4 +2028,133 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
   EXPECT_FALSE(IsDeleteButtonActive());
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, CheckForToggleSupport) {
+  model::Playlists data{{model::Playlist{.index = 0,
+                                         .name = "Chill mix",
+                                         .songs = {
+                                             model::Song{.filepath = "chilling 1.mp3"},
+                                             model::Song{.filepath = "chilling 2.mp3"},
+                                             model::Song{.filepath = "chilling 3.mp3"},
+                                         }}}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Open all playlists
+  std::string typed{"ll"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Check for rendered screen
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix [3]                     │
+│    chilling 1.mp3                  │
+│    chilling 2.mp3                  │
+│    chilling 3.mp3                  │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  typed = "hh";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix [3]                     │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Toggle playlist
+  block->OnEvent(ftxui::Event::Character(' '));
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix [3]                     │
+│    chilling 1.mp3                  │
+│    chilling 2.mp3                  │
+│    chilling 3.mp3                  │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Nothing should happen on song entry
+  typed = "jlh";
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│  Chill mix [3]                     │
+│▶   chilling 1.mp3                  │
+│    chilling 2.mp3                  │
+│    chilling 3.mp3                  │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│    create     modify     delete    │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace
