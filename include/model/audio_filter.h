@@ -7,12 +7,9 @@
 #define INCLUDE_MODEL_AUDIO_FILTER_H_
 
 #include <array>
-#include <cstdio>
-#include <fstream>
 #include <functional>
 #include <map>
 #include <ostream>
-#include <sstream>
 #include <string>
 
 namespace model {
@@ -46,8 +43,8 @@ struct AudioFilter {
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const AudioFilter& a);
-  bool operator==(const AudioFilter& other) const;
-  bool operator!=(const AudioFilter& other) const;
+  friend bool operator==(const AudioFilter& lhs, const AudioFilter& rhs);
+  friend bool operator!=(const AudioFilter& lhs, const AudioFilter& rhs);
 
   /* ******************************************************************************************** */
   //! Utilities

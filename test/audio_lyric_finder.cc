@@ -1,13 +1,12 @@
 #include <gmock/gmock-actions.h>
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
-#include <gtest/gtest-message.h>    // for Message
-#include <gtest/gtest-test-part.h>  // for TestPartResult
+#include <gtest/gtest-message.h>
+#include <gtest/gtest-test-part.h>
 
 #include <memory>
 
 #include "audio/lyric/lyric_finder.h"
-#include "general/sync_testing.h"
 #include "mock/html_parser_mock.h"
 #include "mock/url_fetcher_mock.h"
 #include "model/application_error.h"

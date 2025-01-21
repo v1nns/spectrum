@@ -1,48 +1,45 @@
 #include "view/element/error_dialog.h"
 
+#include "view/base/keybinding.h"
+
 namespace interface {
 
-ftxui::Element ErrorDialog::Render() const {
-  using ftxui::EQUAL;
-  using ftxui::HEIGHT;
-  using ftxui::WIDTH;
-
-  auto decorator = ftxui::size(HEIGHT, EQUAL, kMaxLines) | ftxui::size(WIDTH, EQUAL, kMaxColumns) |
-                   ftxui::borderDouble | ftxui::bgcolor(style_.background) |
-                   ftxui::color(style_.foreground) | ftxui::clear_under | ftxui::center;
-
-  return ftxui::vbox({
-             ftxui::text(" ERROR") | ftxui::bold,
-             ftxui::text(""),
-             ftxui::paragraph(message_) | ftxui::center | ftxui::bold,
-         }) |
-         decorator;
-}
-
-/* ********************************************************************************************** */
-
-bool ErrorDialog::OnEvent(const ftxui::Event& event) {
-  if (event == ftxui::Event::Return || event == ftxui::Event::Escape ||
-      event == ftxui::Event::Character('q')) {
-    Clear();
-  }
-
-  // This is to ensure that no one else will treat any event while on error mode
-  return true;
-}
+ErrorDialog::ErrorDialog()
+    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+             Style{.background = ftxui::Color::DarkRedBis, .foreground = ftxui::Color::Grey93}) {}
 
 /* ********************************************************************************************** */
 
 void ErrorDialog::SetErrorMessage(const std::string_view& message) {
   message_ = message;
-  opened_ = true;
+  Open();
 }
 
 /* ********************************************************************************************** */
 
-void ErrorDialog::Clear() {
-  opened_ = false;
-  message_.clear();
+ftxui::Element ErrorDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
+  return ftxui::vbox({
+      ftxui::text(" ERROR") | ftxui::bold,
+      ftxui::text(""),
+      ftxui::paragraph(message_) | ftxui::center | ftxui::bold,
+  });
 }
+
+/* ********************************************************************************************** */
+
+bool ErrorDialog::OnEventImpl(const ftxui::Event& event) {
+  using Keybind = keybinding::Navigation;
+
+  if (event == Keybind::Return) {
+    Close();
+    return true;
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+bool ErrorDialog::OnMouseEventImpl(ftxui::Event event) { return false; }
 
 }  // namespace interface

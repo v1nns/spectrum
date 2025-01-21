@@ -1,7 +1,7 @@
-#include <gmock/gmock-matchers.h>  // for StrEq, EXPECT_THAT
+#include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
-#include <gtest/gtest-message.h>    // for Message
-#include <gtest/gtest-test-part.h>  // for TestPartResult
+#include <gtest/gtest-message.h>
+#include <gtest/gtest-test-part.h>
 
 #include <chrono>
 #include <memory>
@@ -765,7 +765,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
     EXPECT_CALL(*decoder, ClearCache());
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Finished}))
-        .Times(0);  // This must not be called at all TODO: check other tests for this expectation
+        .Times(0);  // This must not be called at all
     EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
       /* ************************************************************************************** */
       // ATTENTION: this is the workaround found to iterate in a new audio loop to play (using the

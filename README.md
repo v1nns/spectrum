@@ -20,7 +20,8 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Displays information about the currently playing track;
 - Audio spectrum visualizer;
 - Audio equalizer;
-- Fetch song lyrics.
+- Fetch song lyrics;
+- Support for playlists.
 
 ## Installation :floppy_disk:
 
@@ -47,7 +48,21 @@ sudo cmake --install build
 
 # OR just execute it
 ./build/src/spectrum
+```
 
+## Development :memo:
+
+To ensure that any new implementation won't impact the existing one, you may execute unit tests to check that. To enable unit testing, you should compile with the following settings:
+
+```bash
+# Generate build system for testing/debugging
+cmake -S . -B build -DENABLE_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -G Ninja
+
+# Execute unit tests
+cmake --build build && ./build/test/test
+
+# For manual testing, you may take a look in the log file
+cmake --build build && ./build/src/spectrum -l /tmp/log.txt
 ```
 
 ## Credits :placard:
@@ -59,7 +74,8 @@ This software uses the following open source packages:
 - [curl](https://curl.se/)
 - [libxml++](https://libxmlplusplus.github.io/libxmlplusplus/)
 - [FTXUI](https://github.com/ArthurSonzogni/FTXUI)
-- [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on Cava algorithm)</sup>
+- [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on cava implementation)</sup>
+- [json](https://github.com/nlohmann/json)
 
 ## Contributing
 

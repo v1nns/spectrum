@@ -6,16 +6,13 @@
 #ifndef INCLUDE_UTIL_ARG_PARSER_H_
 #define INCLUDE_UTIL_ARG_PARSER_H_
 
-#include <algorithm>
 #include <array>
 #include <functional>
-#include <iomanip>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -39,7 +36,7 @@ struct Argument {
   bool is_empty = false;                         //!< Argument expects a value to be parsed
 
   //! Overloaded operator
-  bool operator<(const Argument& rhs) const { return name < rhs.name; }
+  friend bool operator<(const Argument& lhs, const Argument& rhs) { return lhs.name < rhs.name; }
 };
 
 //! List of mapped arguments to handle
@@ -66,8 +63,12 @@ struct ParsedArguments {
   Arguments parsed;  //!< Map of parsed arguments with value
 
   //! Overloaded operators
-  bool operator==(const ParsedArguments& other) const { return parsed == other.parsed; };
-  bool operator!=(const ParsedArguments& other) const { return !operator==(other); };
+  friend bool operator==(const ParsedArguments& lhs, const ParsedArguments& rhs) {
+    return lhs.parsed == rhs.parsed;
+  };
+  friend bool operator!=(const ParsedArguments& lhs, const ParsedArguments& rhs) {
+    return !(lhs == rhs);
+  };
   std::optional<Value>& operator[](const std::string& key) { return parsed[key]; }
 };
 

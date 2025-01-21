@@ -7,9 +7,9 @@
 #define INCLUDE_AUDIO_BASE_NOTIFIER_H_
 
 #include <filesystem>
-#include <vector>
 
 #include "model/audio_filter.h"
+#include "model/playlist.h"
 #include "model/volume.h"
 
 namespace audio {
@@ -37,11 +37,6 @@ class Notifier {
    * @param file Full path to file (may be a song or not)
    */
   virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
-
-  /**
-   * @brief Notify Audio Player to stop playing the current song
-   */
-  virtual void ClearCurrentSong() = 0;
 
   /**
    * @brief Notify Audio Player to pause/resume the current song
@@ -82,7 +77,13 @@ class Notifier {
    * @param frequencies Vector of audio filters
    */
   virtual void ApplyAudioFilters(const model::EqualizerPreset& filters) = 0;
+
+  /**
+   * @brief Notify Audio Player about playlist selected by user
+   * @param playlist Song queue
+   */
+  virtual void NotifyPlaylistSelection(const model::Playlist& playlist) = 0;
 };
 
-}  // namespace interface
+}  // namespace audio
 #endif  // INCLUDE_AUDIO_BASE_NOTIFIER_H_

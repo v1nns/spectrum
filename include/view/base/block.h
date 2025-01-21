@@ -6,9 +6,7 @@
 #ifndef INCLUDE_VIEW_BASE_BLOCK_H_
 #define INCLUDE_VIEW_BASE_BLOCK_H_
 
-#include <memory>   // for shared_ptr, enable_sha...
-#include <string>   // for string, operator==
-#include <utility>  // for move
+#include <memory>
 
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
@@ -51,6 +49,7 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   model::BlockIdentifier GetId() const { return id_; }
 
   //! Block size
+  // TODO: create a header with all size-related constants
   Size GetSize() const { return size_; }
 
   //! Set focus state

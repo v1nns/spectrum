@@ -2,22 +2,21 @@
  * \file
  * \brief Main function
  */
-#include <cstdlib>  // for EXIT_SUCCESS
-#include <exception>
+#include <cstdlib>
 #include <string>
 
-#include "audio/player.h"                          // for Player
-#include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
-#include "middleware/media_controller.h"           // for MediaController
-#include "util/arg_parser.h"                       // for ArgumentParser
-#include "util/logger.h"                           // For Logger
-#include "view/base/terminal.h"                    // for Terminal
+#include "audio/player.h"
+#include "ftxui/component/screen_interactive.hpp"
+#include "middleware/media_controller.h"
+#include "util/arg_parser.h"
+#include "util/logger.h"
+#include "view/base/terminal.h"
 
 /**
  * @brief A structure containing all available options to configure using command-line arguments
  */
 struct Settings {
-  std::string initial_dir = "";  //!< Initial directory to list in files block
+  std::string initial_dir = "";  //!< Initial directory to list in "files" block
   bool verbose_logging = false;  //!< Enable verbose log messages
 };
 
@@ -113,11 +112,23 @@ int main(int argc, char** argv) {
   // Create a full-size screen and register callbacks
   ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
 
-  terminal->RegisterEventSenderCallback([&screen](const ftxui::Event& e) { screen.PostEvent(e); });
-  terminal->RegisterExitCallback([&screen]() { screen.ExitLoopClosure()(); });
+  // Register callbacks
+  terminal->RegisterEventSenderCallback([&screen](const ftxui::Event& e) {
+    // Workaround: always set cursor as hidden
+    // P.S.: sometimes when ftxui::Input is rendered, a blinking cursor appears at bottom-right
+    static ftxui::Screen::Cursor cursor{.shape = ftxui::Screen::Cursor::Shape::Hidden};
+    screen.SetCursor(cursor);
 
-  // Set hidden cursor, start GUI loop and clear screen after exit
-  screen.SetCursor(ftxui::Screen::Cursor{.shape = ftxui::Screen::Cursor::Shape::Hidden});
+    screen.PostEvent(e);
+  });
+
+  terminal->RegisterExitCallback([&screen, &player, &middleware]() {
+    player->Exit();
+    middleware->Exit();
+    screen.ExitLoopClosure()();
+  });
+
+  // Start GUI loop and clear screen after exit
   screen.Loop(terminal);
   screen.ResetPosition(true);
 

@@ -9,10 +9,9 @@
 #include <memory>
 #include <string>
 #include <tuple>
-#include <utility>
 
-#include "ftxui/component/event.hpp"  // for Event
-#include "ftxui/dom/elements.hpp"     // for Element
+#include "ftxui/component/event.hpp"
+#include "ftxui/dom/elements.hpp"
 
 namespace interface {
 
@@ -30,16 +29,20 @@ class Button {
    * @brief Style for each part of the button, most of them are optional to use it (check button
    * implementation for more info)
    */
-  struct ButtonStyle {
+  struct Style {
     struct State {
-      ftxui::Color foreground;  //!< Color for content foreground
-      ftxui::Color background;  //!< Color for content background
+      ftxui::Color foreground;  //!< Color for button foreground
+      ftxui::Color background;  //!< Color for button background
       ftxui::Color border;      //!< Color for border
     };
 
     State normal;    //!< Colors for normal state
     State focused;   //!< Colors for focused state
     State selected;  //!< Colors for selected state
+    State pressed;   //!< Colors for pressed state
+    State disabled;  //!< Colors for disabled state
+
+    ftxui::Decorator decorator;  //!< Style decorator for content
 
     int height;             //!< Fixed height for button
     int width;              //!< Fixed width for button
@@ -55,7 +58,7 @@ class Button {
    * @param on_click Callback function for click event
    * @param active Button state (if it is clickable or not)
    */
-  explicit Button(const ButtonStyle& style, Callback on_click, bool active);
+  explicit Button(const Style& style, Callback on_click, bool active);
 
  public:
   /**
@@ -103,17 +106,40 @@ class Button {
    */
   static std::shared_ptr<Button> make_button_for_window(const std::string& content,
                                                         const Callback& on_click,
-                                                        const ButtonStyle& style);
+                                                        const Style& style);
+
+  /**
+   * @brief Create a minimal button
+   * @param content Text content to show
+   * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
+   * @return std::shared_ptr<Button> New instance to Window button
+   */
+  static std::shared_ptr<Button> make_button_minimal(const std::string& content,
+                                                     const Callback& on_click, const Style& style);
 
   /**
    * @brief Create generic button
    * @param content Text content to show
    * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
    * @param active Button state (if it is clickable or not)
    * @return std::shared_ptr<Button> New instance to button
    */
   static std::shared_ptr<Button> make_button(const std::string& content, const Callback& on_click,
-                                             bool active = true);
+                                             const Style& style, bool active = true);
+
+  /**
+   * @brief Create generic button with solid color
+   * @param content Text content to show
+   * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
+   * @param active Button state (if it is clickable or not)
+   * @return std::shared_ptr<Button> New instance to button
+   */
+  static std::shared_ptr<Button> make_button_solid(const std::string& content,
+                                                   const Callback& on_click, const Style& style,
+                                                   bool active = true);
 
   /* ******************************************************************************************** */
   //! Public API for Button
@@ -200,7 +226,7 @@ class Button {
   bool pressed_ = false;   //!< Flag to indicate if button is pressed (mouse hold click)
   bool parent_focused_ = false;  //!< Flag to indicate if owner is focused
 
-  ButtonStyle style_;  //!< Color style for each part of the button
+  Style style_;  //!< Color style for each part of the button
 
   Callback on_click_;  //!< Callback function to trigger when button is clicked
 };

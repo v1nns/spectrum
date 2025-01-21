@@ -8,8 +8,6 @@
 
 #include <string>
 
-#include "model/application_error.h"
-
 namespace driver {
 
 /**

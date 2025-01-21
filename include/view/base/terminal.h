@@ -8,10 +8,8 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
-#include "ftxui/component/captured_mouse.hpp"  // for ftxui
-#include "ftxui/component/component_base.hpp"  // for Component
+#include "ftxui/component/component_base.hpp"
 #include "ftxui/component/receiver.hpp"
 #include "middleware/media_controller.h"
 #include "model/application_error.h"
@@ -20,7 +18,9 @@
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/error_dialog.h"
-#include "view/element/help.h"
+#include "view/element/help_dialog.h"
+#include "view/element/playlist_dialog.h"
+#include "view/element/question_dialog.h"
 
 //! Forward declaration
 namespace audio {
@@ -37,11 +37,14 @@ using Callback = std::function<void()>;
  * @brief Manages the whole screen and contains all block views
  */
 class Terminal : public EventDispatcher, public ftxui::ComponentBase {
+  static constexpr int kMaxBlocks = 4;      //!< Maximum number of blocks (used for focus control)
+  static constexpr int kInvalidIndex = -1;  //!< Default index to remove focus from blocks
+
   //! Unique index for each block rendered by terminal class
   //! WARNING: focus handling will obey this block order
-  static constexpr int kBlockListDirectory = 0;
+  static constexpr int kBlockSidebar = 0;
   static constexpr int kBlockFileInfo = 1;
-  static constexpr int kBlockTabViewer = 2;
+  static constexpr int kBlockMainContent = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
   /**
@@ -201,11 +204,19 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    */
   void UpdateFocus(int old_index, int new_index);
 
-  /* ******************************************************************************************** */
-  //! Default Constants
+  /**
+   * @brief Check for all dialogs if any is opened
+   * @return true if any dialog is visible, otherwise false
+   */
+  bool IsDialogVisible() const {
+    return error_dialog_->IsVisible() || help_dialog_->IsVisible() ||
+           question_dialog_->IsVisible() || playlist_dialog_->IsVisible();
+  }
 
-  static constexpr int kMaxBlocks = 4;      //!< Maximum number of blocks (used for focus control)
-  static constexpr int kInvalidIndex = -1;  //!< Default index to remove focus from blocks
+  /**
+   * @brief Get element to show as overlay (may be a dialog or nothing at all)
+   */
+  ftxui::Element GetOverlay() const;
 
   /* ******************************************************************************************** */
   //! Variables
@@ -213,9 +224,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
   error::Code last_error_ = error::kSuccess;  //!< Last application error
 
-  //!< Dialog box to show customized error messages
-  std::unique_ptr<ErrorDialog> error_dialog_ = std::make_unique<ErrorDialog>();
-  std::unique_ptr<Help> helper_ = std::make_unique<Help>();  //!< Dialog box to show help menu
+  std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages
+  std::unique_ptr<HelpDialog> help_dialog_;    //!< Dialog box to show help menu
+  std::unique_ptr<QuestionDialog> question_dialog_;  //!< Dialog box to question user
+  std::unique_ptr<PlaylistDialog> playlist_dialog_;  //!< Dialog box to manage playlists
 
   //! Custom event receiver
   ftxui::Receiver<CustomEvent> receiver_ = ftxui::MakeReceiver<CustomEvent>();
@@ -227,6 +239,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   ftxui::Dimensions size_ = ftxui::Terminal::Size();  //!< Terminal maximum size
   int focused_index_ = 0;                             //!< Index of focused block
 
+  bool global_mode_ = true;       //!< Control flag to process events in global mode
   bool fullscreen_mode_ = false;  //!< Control flag to show spectrum visualizer in fullscreen
 };
 

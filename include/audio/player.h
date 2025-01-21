@@ -9,9 +9,10 @@
 #include <atomic>
 #include <condition_variable>
 #include <deque>
+#include <filesystem>
 #include <memory>
 #include <mutex>
-#include <string>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -20,6 +21,7 @@
 #include "audio/command.h"
 #include "model/application_error.h"
 #include "model/audio_filter.h"
+#include "model/playlist.h"
 #include "model/song.h"
 #include "model/volume.h"
 #include "util/logger.h"
@@ -45,7 +47,8 @@ class AudioControl {
   AudioControl() = default;
   virtual ~AudioControl() = default;
 
-  virtual void Play(const std::string& filepath) = 0;
+  virtual void Play(const std::filesystem::path& filepath) = 0;
+  virtual void Play(const model::Playlist& playlist) = 0;
   virtual void PauseOrResume() = 0;
   virtual void Stop() = 0;
   virtual void SetAudioVolume(const model::Volume& value) = 0;
@@ -124,6 +127,11 @@ class Player : public AudioControl {
    */
   void AudioHandler();
 
+  /**
+   * @brief After a song finishes, check if got a next one to play from playlist
+   */
+  void CheckForNextSongFromPlaylist();
+
   /* ******************************************************************************************** */
   //! Binds and registrations
  public:
@@ -139,7 +147,13 @@ class Player : public AudioControl {
    * @brief Inform Audio loop to try to decode this file as a song and send it to playback
    * @param filepath Full path to file
    */
-  void Play(const std::string& filepath) override;
+  void Play(const std::filesystem::path& filepath) override;
+
+  /**
+   * @brief Inform Audio loop to play the given playlist
+   * @param playlist Song queue
+   */
+  void Play(const model::Playlist& playlist) override;
 
   /**
    * @brief Inform Audio loop to pause/resume song
@@ -301,17 +315,18 @@ class Player : public AudioControl {
      */
     template <typename... Args>
     bool WaitFor(Args&&... cmds) {
-      LOG("Waiting for commands: {", cmds..., "}");
+      std::vector<Command> expected = {cmds...};
+      LOG("Waiting for commands: ", expected);
+
       std::unique_lock lock(mutex);
-      notifier.wait(lock, [this, cmds...]() mutable {
+      notifier.wait(lock, [this, expected]() mutable {
         // Simply exit, do not wait for any command
         if (state == State::Exit) return true;
 
         // Pop commands from queue
-        std::vector<Command> expected = {cmds...};
         while (!queue.empty()) {
           Command current = queue.front();
-          LOG("Received command:", current);
+          LOG("Received command: ", current);
 
           if (current == Command::Exit()) {
             // In case of exit, update state
@@ -346,7 +361,8 @@ class Player : public AudioControl {
 
   MediaControlSynced media_control_;  // Controls the media (play, pause/resume and stop)
 
-  std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
+  std::unique_ptr<model::Song> curr_song_;        //!< Current song playing
+  std::optional<model::Playlist> curr_playlist_;  //!< Queue of songs (origined from playlist)
 
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 

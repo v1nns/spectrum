@@ -1,5 +1,6 @@
 #include "view/base/custom_event.h"
 
+#include <iomanip>
 #include <iostream>
 
 namespace interface {
@@ -16,7 +17,7 @@ struct ContentVisitor {
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
-  void operator()(const std::filesystem::path& p) const { out << p.c_str(); }
+  void operator()(const std::filesystem::path& p) const { out << std::quoted(p.c_str()); }
   void operator()(const std::vector<double>&) const { out << "{vector data...}"; }
   void operator()(const model::EqualizerPreset&) const {
     // TODO: maybe implement detailed info here
@@ -24,6 +25,9 @@ struct ContentVisitor {
   }
   void operator()(const model::BarAnimation& a) const { out << a; }
   void operator()(const model::BlockIdentifier& i) const { out << i; }
+  void operator()(const model::Playlist& p) const { out << p; }
+  void operator()(const model::PlaylistOperation& p) const { out << p; }
+  void operator()(const model::QuestionData& q) const { out << q; }
 
   std::ostream& out;
 };
@@ -81,10 +85,6 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "StopSong";
       break;
 
-    case CustomEvent::Identifier::ClearCurrentSong:
-      out << "ClearCurrentSong";
-      break;
-
     case CustomEvent::Identifier::SetAudioVolume:
       out << "SetAudioVolume";
       break;
@@ -105,8 +105,20 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "ApplyAudioFilters";
       break;
 
+    case CustomEvent::Identifier::NotifyPlaylistSelection:
+      out << "NotifyPlaylistSelection";
+      break;
+
     case CustomEvent::Identifier::Refresh:
       out << "Refresh";
+      break;
+
+    case CustomEvent::Identifier::EnableGlobalEvent:
+      out << "EnableGlobalEvent";
+      break;
+
+    case CustomEvent::Identifier::DisableGlobalEvent:
+      out << "DisableGlobalEvent";
       break;
 
     case CustomEvent::Identifier::ChangeBarAnimation:
@@ -153,6 +165,18 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "SkipToPreviousSong";
       break;
 
+    case CustomEvent::Identifier::ShowPlaylistManager:
+      out << "ShowPlaylistManager";
+      break;
+
+    case CustomEvent::Identifier::SavePlaylistsToFile:
+      out << "SavePlaylistsToFile";
+      break;
+
+    case CustomEvent::Identifier::ShowQuestionDialog:
+      out << "ShowQuestionDialog";
+      break;
+
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
@@ -175,7 +199,6 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent& e) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::ClearSongInfo() {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
@@ -185,7 +208,6 @@ CustomEvent CustomEvent::ClearSongInfo() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::UpdateVolume(const model::Volume& sound_volume) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
@@ -196,7 +218,6 @@ CustomEvent CustomEvent::UpdateVolume(const model::Volume& sound_volume) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
@@ -207,7 +228,6 @@ CustomEvent CustomEvent::UpdateSongInfo(const model::Song& info) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::UpdateSongState(const model::Song::CurrentInformation& new_state) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
@@ -218,7 +238,6 @@ CustomEvent CustomEvent::UpdateSongState(const model::Song::CurrentInformation& 
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::DrawAudioSpectrum(const std::vector<double>& data) {
   return CustomEvent{
       .type = Type::FromAudioThreadToInterface,
@@ -229,7 +248,6 @@ CustomEvent CustomEvent::DrawAudioSpectrum(const std::vector<double>& data) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path& file_path) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -240,7 +258,6 @@ CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path& file_p
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::PauseOrResumeSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -250,7 +267,6 @@ CustomEvent CustomEvent::PauseOrResumeSong() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::StopSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -260,17 +276,6 @@ CustomEvent CustomEvent::StopSong() {
 
 /* ********************************************************************************************** */
 
-// Static
-CustomEvent CustomEvent::ClearCurrentSong() {
-  return CustomEvent{
-      .type = Type::FromInterfaceToAudioThread,
-      .id = Identifier::ClearCurrentSong,
-  };
-}
-
-/* ********************************************************************************************** */
-
-// Static
 CustomEvent CustomEvent::SetAudioVolume(const model::Volume& sound_volume) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -281,7 +286,6 @@ CustomEvent CustomEvent::SetAudioVolume(const model::Volume& sound_volume) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::ResizeAnalysis(int bars) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -292,7 +296,6 @@ CustomEvent CustomEvent::ResizeAnalysis(int bars) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SeekForwardPosition(int offset) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -303,7 +306,6 @@ CustomEvent CustomEvent::SeekForwardPosition(int offset) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SeekBackwardPosition(int offset) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -314,7 +316,6 @@ CustomEvent CustomEvent::SeekBackwardPosition(int offset) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::ApplyAudioFilters(const model::EqualizerPreset& filters) {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
@@ -325,7 +326,16 @@ CustomEvent CustomEvent::ApplyAudioFilters(const model::EqualizerPreset& filters
 
 /* ********************************************************************************************** */
 
-// Static
+CustomEvent CustomEvent::NotifyPlaylistSelection(const model::Playlist& playlist) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::NotifyPlaylistSelection,
+      .content = playlist,
+  };
+}
+
+/* ********************************************************************************************** */
+
 CustomEvent CustomEvent::Refresh() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -335,7 +345,24 @@ CustomEvent CustomEvent::Refresh() {
 
 /* ********************************************************************************************** */
 
-// Static
+CustomEvent CustomEvent::EnableGlobalEvent() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::EnableGlobalEvent,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::DisableGlobalEvent() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::DisableGlobalEvent,
+  };
+}
+
+/* ********************************************************************************************** */
+
 CustomEvent CustomEvent::ChangeBarAnimation(const model::BarAnimation& animation) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -346,7 +373,6 @@ CustomEvent CustomEvent::ChangeBarAnimation(const model::BarAnimation& animation
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::ShowHelper() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -356,7 +382,6 @@ CustomEvent CustomEvent::ShowHelper() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::CalculateNumberOfBars(int number) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -367,7 +392,6 @@ CustomEvent CustomEvent::CalculateNumberOfBars(int number) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SetPreviousFocused() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -377,7 +401,6 @@ CustomEvent CustomEvent::SetPreviousFocused() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SetNextFocused() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -387,7 +410,6 @@ CustomEvent CustomEvent::SetNextFocused() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SetFocused(const model::BlockIdentifier& id) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -398,7 +420,6 @@ CustomEvent CustomEvent::SetFocused(const model::BlockIdentifier& id) {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::PlaySong() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -408,7 +429,6 @@ CustomEvent CustomEvent::PlaySong() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::ToggleFullscreen() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -418,7 +438,6 @@ CustomEvent CustomEvent::ToggleFullscreen() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::UpdateBarWidth() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -428,7 +447,6 @@ CustomEvent CustomEvent::UpdateBarWidth() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SkipToNextSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -438,7 +456,6 @@ CustomEvent CustomEvent::SkipToNextSong() {
 
 /* ********************************************************************************************** */
 
-// Static
 CustomEvent CustomEvent::SkipToPreviousSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -448,7 +465,36 @@ CustomEvent CustomEvent::SkipToPreviousSong() {
 
 /* ********************************************************************************************** */
 
-// Static
+CustomEvent CustomEvent::ShowPlaylistManager(const model::PlaylistOperation& operation) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowPlaylistManager,
+      .content = operation,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SavePlaylistsToFile(const model::Playlist& changed_playlist) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::SavePlaylistsToFile,
+      .content = changed_playlist,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ShowQuestionDialog(const model::QuestionData& data) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowQuestionDialog,
+      .content = data,
+  };
+}
+
+/* ********************************************************************************************** */
+
 CustomEvent CustomEvent::Exit() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,

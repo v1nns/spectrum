@@ -1,5 +1,7 @@
 #include "util/sink.h"
 
+#include <fstream>
+
 namespace util {
 
 FileSink::FileSink(const std::string& path) : ImplSink<FileSink>(), path_{path} {}

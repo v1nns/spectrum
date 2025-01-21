@@ -13,6 +13,9 @@
 #include "model/audio_filter.h"
 #include "model/bar_animation.h"
 #include "model/block_identifier.h"
+#include "model/playlist.h"
+#include "model/playlist_operation.h"
+#include "model/question_data.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -38,30 +41,37 @@ struct CustomEvent {
     UpdateSongInfo = 50002,
     UpdateSongState = 50003,
     DrawAudioSpectrum = 50004,
+
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
     PauseOrResumeSong = 60001,
     StopSong = 60002,
-    ClearCurrentSong = 60003,
-    SetAudioVolume = 60004,
-    ResizeAnalysis = 60005,
-    SeekForwardPosition = 60006,
-    SeekBackwardPosition = 60007,
-    ApplyAudioFilters = 60008,
+    SetAudioVolume = 60003,
+    ResizeAnalysis = 60004,
+    SeekForwardPosition = 60005,
+    SeekBackwardPosition = 60006,
+    ApplyAudioFilters = 60007,
+    NotifyPlaylistSelection = 60008,
+
     // Events from interface to interface
     Refresh = 70000,
-    ChangeBarAnimation = 70001,
-    ShowHelper = 70002,
-    CalculateNumberOfBars = 70003,
-    SetPreviousFocused = 70004,
-    SetNextFocused = 70005,
-    SetFocused = 70006,
-    PlaySong = 70007,
-    ToggleFullscreen = 70008,
-    UpdateBarWidth = 70009,
-    SkipToNextSong = 70010,
-    SkipToPreviousSong = 70011,
-    Exit = 70012,
+    EnableGlobalEvent = 70001,
+    DisableGlobalEvent = 70002,
+    ChangeBarAnimation = 70003,
+    ShowHelper = 70004,
+    CalculateNumberOfBars = 70005,
+    SetPreviousFocused = 70006,
+    SetNextFocused = 70007,
+    SetFocused = 70008,
+    PlaySong = 70009,
+    ToggleFullscreen = 70010,
+    UpdateBarWidth = 70011,
+    SkipToNextSong = 70012,
+    SkipToPreviousSong = 70013,
+    ShowPlaylistManager = 70014,
+    SavePlaylistsToFile = 70015,
+    ShowQuestionDialog = 70016,
+    Exit = 70017,
   };
 
   //! Overloaded operators
@@ -83,15 +93,17 @@ struct CustomEvent {
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
   static CustomEvent PauseOrResumeSong();
   static CustomEvent StopSong();
-  static CustomEvent ClearCurrentSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
   static CustomEvent ResizeAnalysis(int bars);
   static CustomEvent SeekForwardPosition(int offset);
   static CustomEvent SeekBackwardPosition(int offset);
   static CustomEvent ApplyAudioFilters(const model::EqualizerPreset& filters);
+  static CustomEvent NotifyPlaylistSelection(const model::Playlist& playlist);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
+  static CustomEvent EnableGlobalEvent();
+  static CustomEvent DisableGlobalEvent();
   static CustomEvent ChangeBarAnimation(const model::BarAnimation& animation);
   static CustomEvent ShowHelper();
   static CustomEvent CalculateNumberOfBars(int number);
@@ -103,6 +115,9 @@ struct CustomEvent {
   static CustomEvent UpdateBarWidth();
   static CustomEvent SkipToNextSong();
   static CustomEvent SkipToPreviousSong();
+  static CustomEvent ShowPlaylistManager(const model::PlaylistOperation& operation);
+  static CustomEvent SavePlaylistsToFile(const model::Playlist& changed_playlist);
+  static CustomEvent ShowQuestionDialog(const model::QuestionData& data);
 
   static CustomEvent Exit();
 
@@ -110,7 +125,8 @@ struct CustomEvent {
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
-                   model::BarAnimation, model::BlockIdentifier>;
+                   model::BarAnimation, model::BlockIdentifier, model::Playlist,
+                   model::PlaylistOperation, model::QuestionData>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }
@@ -120,9 +136,9 @@ struct CustomEvent {
   T GetContent() const {
     if (std::holds_alternative<T>(content)) {
       return std::get<T>(content);
-    } else {
-      return T();
     }
+
+    return T();
   }
 
   //! Variables

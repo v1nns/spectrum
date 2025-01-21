@@ -23,6 +23,8 @@ static void log_callback(void *, int level, const char *fmt, va_list vargs) {
   LOG("[LOG_CALLBACK] LEVEL:", level, " MESSAGE:", message);
 }
 
+/* ********************************************************************************************** */
+
 FFmpeg::FFmpeg(bool verbose) {
   LOG("Initialize FFmpeg with verbose logging=", verbose);
 
@@ -38,6 +40,45 @@ FFmpeg::FFmpeg(bool verbose) {
   } else {
     av_log_set_level(AV_LOG_QUIET);
   }
+}
+
+/* ********************************************************************************************** */
+
+bool FFmpeg::ContainsAudioStream(const util::File &file) {
+  LOG("Check for audio stream on file=", std::quoted(file.string()));
+  AVFormatContext *ptr = nullptr;
+
+  // Open input stream from given file
+  int result = avformat_open_input(&ptr, file.c_str(), nullptr, nullptr);
+  if (result < 0) {
+    ERROR("Cannot open file as input stream, error=", result);
+    return false;
+  }
+
+  // Get stream information from parsed input
+  FormatContext input_stream(std::move(ptr));
+  result = avformat_find_stream_info(input_stream.get(), nullptr);
+
+  if (result < 0) {
+    ERROR("Cannot find stream information in the opened input, error=", result);
+    return false;
+  }
+
+#if LIBAVFORMAT_VERSION_MAJOR > 58
+  const AVCodec *codec = nullptr;
+#else
+  AVCodec *codec = nullptr;
+#endif
+
+  // Check for available audio stream
+  if (int stream_index =
+          av_find_best_stream(input_stream.get(), AVMEDIA_TYPE_AUDIO, -1, -1, &codec, 0);
+      stream_index < 0 || !codec) {
+    ERROR("Cannot find audio stream in the specified file");
+    return false;
+  }
+
+  return true;
 }
 
 /* ********************************************************************************************** */
@@ -91,25 +132,11 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kUnknownError;
   }
 
-#if LIBAVUTIL_VERSION_MAJOR > 56
   // Force to use stereo as channel layout
-  if (!codec->ch_layouts) {
-    av_channel_layout_copy(&decoder_->ch_layout, ch_layout_.get());
-  }
+#if LIBAVUTIL_VERSION_MAJOR > 56
+  decoder_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
 #else
-  if (decoder_->channel_layout == 0) {
-    decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-    // switch (decoder_->channels) {
-    //   case 1:
-    //     decoder_->channel_layout = AV_CH_LAYOUT_MONO;
-    //     break;
-    //   case 2:
-    //     decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
-    //     break;
-    //   default:
-    //     return error::kUnknownError;
-    // }
-  }
+  decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
 #endif
 
   result = avcodec_open2(decoder_.get(), codec, nullptr);

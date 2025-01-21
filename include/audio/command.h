@@ -34,14 +34,18 @@ struct Command {
   };
 
   //! Overloaded operators
-  bool operator==(const Command& other) const { return id == other.id; }
-  bool operator!=(const Command& other) const { return !operator==(other); }
-
-  bool operator==(const Identifier& other) const { return id == other; }
-  bool operator!=(const Identifier& other) const { return !operator==(other); }
+  friend bool operator==(const Command& lhs, const Command& rhs) { return lhs.id == rhs.id; }
+  friend bool operator!=(const Command& lhs, const Command& rhs) { return lhs.id != rhs.id; }
+  friend bool operator==(const Command& lhs, const Command::Identifier& rhs) {
+    return lhs.id == rhs;
+  }
+  friend bool operator!=(const Command& lhs, const Command::Identifier& rhs) {
+    return lhs.id != rhs;
+  }
 
   //! Output command to ostream
   friend std::ostream& operator<<(std::ostream& out, const Command& cmd);
+  friend std::ostream& operator<<(std::ostream& out, const std::vector<Command>& cmds);
 
   //! Possible commands to be handled by audio player
   static Command None();
@@ -66,9 +70,8 @@ struct Command {
   T GetContent() const {
     if (std::holds_alternative<T>(content)) {
       return std::get<T>(content);
-    } else {
-      return T();
     }
+    return T();
   }
 
   //! Variables

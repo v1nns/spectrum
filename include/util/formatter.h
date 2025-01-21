@@ -13,9 +13,9 @@
 #include <cmath>
 #include <sstream>
 #include <string>
-#include <tuple>
+#include <string_view>
 
-#include "ftxui/component/event.hpp"  // for Event
+#include "ftxui/component/event.hpp"
 
 namespace util {
 
@@ -90,6 +90,19 @@ inline std::string EventToString(const ftxui::Event& e) {
   if (e == ftxui::Event::TabReverse) return "Shift+Tab";
   if (e == ftxui::Event::Return) return "Return";
   if (e == ftxui::Event::Escape) return "Escape";
+  if (e == ftxui::Event::Delete) return "Delete";
+  if (e == ftxui::Event::F1) return "F1";
+  if (e == ftxui::Event::F2) return "F2";
+  if (e == ftxui::Event::F3) return "F3";
+  if (e == ftxui::Event::F4) return "F4";
+  if (e == ftxui::Event::F5) return "F5";
+  if (e == ftxui::Event::F6) return "F6";
+  if (e == ftxui::Event::F7) return "F7";
+  if (e == ftxui::Event::F8) return "F8";
+  if (e == ftxui::Event::F9) return "F9";
+  if (e == ftxui::Event::F10) return "F10";
+  if (e == ftxui::Event::F11) return "F11";
+  if (e == ftxui::Event::F12) return "F12";
 
   if (e == ftxui::Event::Character(' ')) return "Space";
   if (e.is_character()) return e.character();
@@ -123,6 +136,25 @@ inline std::string rtrim(const std::string& s) {
  * @return Formatted string
  */
 inline std::string trim(const std::string& s) { return rtrim(ltrim(s)); }
+
+/**
+ * @brief Compare a single character in undercase
+ * @param a Character a
+ * @param b Character b
+ * @return true if 'a' is equal to 'b', false otherwise
+ */
+inline bool compare(const char& a, const char& b) { return std::tolower(a) == std::tolower(b); };
+
+/**
+ * @brief Search for a substring in the given string
+ * @param string Raw string
+ * @param substring Substring to search for
+ * @return true if 'substring' exists in 'string', false otherwise
+ */
+inline bool contains(std::string_view string, std::string_view substring) {
+  auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), compare);
+  return it != string.end();
+}
 
 }  // namespace util
 #endif  // INCLUDE_UTIL_PREFIX_FORMATTER_H_

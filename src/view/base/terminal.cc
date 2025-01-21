@@ -1,26 +1,29 @@
-
 #include "view/base/terminal.h"
 
-#include <stdlib.h>  // for exit, EXIT_FAILURE
-
 #include <cmath>
-#include <functional>  // for function
+#include <functional>
 #include <memory>
 #include <set>
-#include <utility>  // for move
 
-#include "ftxui/component/component.hpp"           // for CatchEvent, Make
-#include "ftxui/component/event.hpp"               // for Event
-#include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
+#ifndef SPECTRUM_DEBUG
+#include "audio/driver/ffmpeg.h"
+#else
+#include "debug/dummy_decoder.h"
+#endif
+
+#include "ftxui/component/component.hpp"
+#include "ftxui/component/event.hpp"
+#include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
-#include "model/bar_animation.h"
 #include "model/block_identifier.h"
+#include "model/playlist_operation.h"
 #include "util/logger.h"
 #include "view/base/block.h"
+#include "view/base/keybinding.h"
 #include "view/block/file_info.h"
-#include "view/block/list_directory.h"
+#include "view/block/main_content.h"
 #include "view/block/media_player.h"
-#include "view/block/tab_viewer.h"
+#include "view/block/sidebar.h"
 
 namespace interface {
 
@@ -55,20 +58,32 @@ void Terminal::Init(const std::string& initial_path) {
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
   // Create blocks
-  auto list_dir = std::make_shared<ListDirectory>(dispatcher, initial_path);
+  auto sidebar = std::make_shared<Sidebar>(dispatcher, initial_path);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
-  auto tab_viewer = std::make_shared<TabViewer>(dispatcher);
+  auto tab_viewer = std::make_shared<MainContent>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
 
-  // As default, make ListDirectory focused to receive input commands
-  list_dir->SetFocused(true);
+  // As default, make Sidebar focused to receive input commands
+  sidebar->SetFocused(true);
 
   // Make every block as a child of this terminal
   // WARNING: be careful with the order you add (must be synced with unique indexes in header)
-  Add(list_dir);
+  Add(sidebar);
   Add(file_info);
   Add(tab_viewer);
   Add(media_player);
+
+  // Create dialogs
+  error_dialog_ = std::make_unique<ErrorDialog>();
+  help_dialog_ = std::make_unique<HelpDialog>();
+  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher,
+#ifndef SPECTRUM_DEBUG
+                                                      driver::FFmpeg::ContainsAudioStream,
+#else
+                                                      driver::DummyDecoder::ContainsAudioStream,
+#endif
+                                                      initial_path);
+  question_dialog_ = std::make_unique<QuestionDialog>();
 }
 
 /* ********************************************************************************************** */
@@ -90,8 +105,10 @@ void Terminal::RegisterPlayerNotifier(const std::shared_ptr<audio::Notifier>& no
 
 void Terminal::RegisterEventSenderCallback(EventCallback cb) {
   cb_send_event_ = cb;
-  cb_send_event_(ftxui::Event::Custom);  // force a refresh to handle any pending custom event
-                                         // (update UI with volume information)
+
+  // Force a refresh to handle any pending custom event
+  // (this is necessary, in order to update UI with volume information)
+  cb_send_event_(ftxui::Event::Custom);
 }
 
 /* ********************************************************************************************** */
@@ -102,13 +119,13 @@ void Terminal::RegisterExitCallback(Callback cb) { cb_exit_ = cb; }
 
 ftxui::Element Terminal::Render() {
   if (children_.empty() || children_.size() != 4) {
-    // TODO: this is an error, should exit...
-    return ftxui::text("Empty container");
+    ERROR("Terminal is empty, it has no child block");
+    Exit();
   }
 
   // Check if terminal has been resized
   if (auto current_size = ftxui::Terminal::Size(); size_ != current_size) {
-    LOG("Resize terminal size with new value=(x:", current_size.dimx, "y:", current_size.dimy, ")");
+    LOG("Resize terminal with new value={x:", current_size.dimx, " y:", current_size.dimy, "}");
     size_ = current_size;
 
     // Recalculate maximum number of bars to show in spectrum graphic
@@ -123,28 +140,29 @@ ftxui::Element Terminal::Render() {
 
   if (!fullscreen_mode_) {
     // Render each block
-    ftxui::Element list_dir = children_.at(kBlockListDirectory)->Render();
+    ftxui::Element sidebar = children_.at(kBlockSidebar)->Render();
     ftxui::Element file_info = children_.at(kBlockFileInfo)->Render();
-    ftxui::Element tab_viewer = children_.at(kBlockTabViewer)->Render();
+    ftxui::Element tab_viewer = children_.at(kBlockMainContent)->Render();
     ftxui::Element media_player = children_.at(kBlockMediaPlayer)->Render();
 
     // Glue everything together
     terminal = ftxui::hbox({
-        ftxui::vbox({list_dir, file_info}),
+        ftxui::vbox({sidebar, file_info}),
         ftxui::vbox({tab_viewer, media_player}) | ftxui::xflex_grow,
     });
   } else {
     // Render only spectrum visualizer
-    auto tab_viewer = std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer));
+    auto tab_viewer = std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent));
     terminal = tab_viewer->RenderFullscreen() | ftxui::xflex_grow;
   }
 
-  // Render dialog box as overlay
-  ftxui::Element overlay = error_dialog_->IsVisible() ? error_dialog_->Render()
-                           : helper_->IsVisible()     ? helper_->Render()
-                                                      : ftxui::text("");
+  // Apply decorator to dim terminal
+  ftxui::Decorator dim = IsDialogVisible() ? ftxui::dim : ftxui::nothing;
 
-  return ftxui::dbox({terminal, overlay});
+  // Render element as overlay
+  ftxui::Element overlay = GetOverlay();
+
+  return ftxui::dbox({terminal | dim, overlay});
 }
 
 /* ********************************************************************************************** */
@@ -157,10 +175,16 @@ bool Terminal::OnEvent(ftxui::Event event) {
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
 
   // Or if helper is opened
-  if (helper_->IsVisible()) return helper_->OnEvent(event);
+  if (help_dialog_->IsVisible()) return help_dialog_->OnEvent(event);
+
+  // Or if playlist manager is opened
+  if (playlist_dialog_->IsVisible()) return playlist_dialog_->OnEvent(event);
+
+  // Or if question dialog is opened
+  if (question_dialog_->IsVisible()) return question_dialog_->OnEvent(event);
 
   // Global commands
-  if (OnGlobalModeEvent(event)) return true;
+  if (global_mode_ && OnGlobalModeEvent(event)) return true;
 
   // If fullscreen mode is enabled, only a subset of blocks are able to handle this event
   if (fullscreen_mode_) return OnFullscreenModeEvent(event);
@@ -184,16 +208,16 @@ int Terminal::CalculateNumberBars() {
   // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
   auto block_width = static_cast<float>(
       !fullscreen_mode_
-          ? std::static_pointer_cast<Block>(children_.at(kBlockListDirectory))->GetSize().width
+          ? std::static_pointer_cast<Block>(children_.at(kBlockSidebar))->GetSize().width
           : 0);
 
   auto bar_width = static_cast<float>(
-      std::static_pointer_cast<TabViewer>(children_.at(kBlockTabViewer))->GetBarWidth());
+      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))->GetBarWidth());
 
   // crazy math function = (a - b - c - d) / e;
   // considering these:
   // a = terminal maximum width
-  // b = ListDirectory width
+  // b = Sidebar width
   // c = border width
   // d = audio bar spacing
   // e = bar width + audio bar spacing
@@ -256,7 +280,7 @@ void Terminal::OnCustomEvent() {
 
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
-  if (event == ftxui::Event::Character('q')) {
+  if (event == keybinding::General::ExitApplication) {
     LOG("Handle key to exit");
     Exit();
 
@@ -264,17 +288,17 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   }
 
   // Show general helper
-  if (event == ftxui::Event::F1) {
+  if (event == keybinding::General::ShowHelper) {
     LOG("Handle key to show general helper");
-    helper_->ShowGeneralInfo();
+    help_dialog_->ShowGeneralInfo();
 
     return true;
   }
 
   // Show tab helper
-  if (event == ftxui::Event::F2) {
+  if (event == keybinding::General::ShowTabHelper) {
     LOG("Handle key to show tab helper");
-    helper_->ShowTabInfo();
+    help_dialog_->ShowTabInfo();
 
     return true;
   }
@@ -286,7 +310,7 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
 
 bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
   // In this case, only spectrum visualizer and media player may handle this event
-  std::vector<ftxui::Component>::const_iterator first = children_.begin() + 2;
+  std::vector<ftxui::Component>::const_iterator first = children_.begin() + kBlockMainContent;
   std::vector<ftxui::Component>::const_iterator last = children_.end();
 
   if (bool event_handled = std::any_of(
@@ -301,50 +325,50 @@ bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
 
 bool Terminal::OnFocusEvent(const ftxui::Event& event) {
   // Switch focus
-  if (event == ftxui::Event::Tab) {
+  if (event == keybinding::Navigation::Tab) {
     LOG("Handle key to focus next UI block");
     return HandleEventFromInterfaceToInterface(interface::CustomEvent::SetNextFocused());
   }
 
   // Switch focus reverse
-  if (event == ftxui::Event::TabReverse) {
+  if (event == keybinding::Navigation::TabReverse) {
     LOG("Handle key to focus previous UI block");
     return HandleEventFromInterfaceToInterface(interface::CustomEvent::SetPreviousFocused());
   }
 
   // Remove focus from all blocks
-  if (focused_index_ != kInvalidIndex && event == ftxui::Event::Escape) {
+  if (focused_index_ != kInvalidIndex && event == keybinding::Navigation::Escape) {
     LOG("Handle key to remove focus from all blocks");
     UpdateFocus(focused_index_, kInvalidIndex);
     return true;
   }
 
-  // To avoid checking the upcoming if statements, first check if event is a character
+  // To avoid checking the upcoming if-statements, first check if event is a character
   if (!event.is_character()) return false;
 
-  // Set ListDirectory block as focused (shift+1)
-  if (event == ftxui::Event::Character('!')) {
-    LOG("Handle key to focus ListDirectory block");
-    UpdateFocus(focused_index_, kBlockListDirectory);
+  // Set Sidebar block as focused
+  if (event == keybinding::General::FocusSidebar) {
+    LOG("Handle key to focus Sidebar block");
+    UpdateFocus(focused_index_, kBlockSidebar);
     return true;
   }
 
-  // Set FileInfo block as focused (shift+2)
-  if (event == ftxui::Event::Character('@')) {
+  // Set FileInfo block as focused
+  if (event == keybinding::General::FocusInfo) {
     LOG("Handle key to focus FileInfo block");
     UpdateFocus(focused_index_, kBlockFileInfo);
     return true;
   }
 
-  // Set TabViewer block as focused (shift+3)
-  if (event == ftxui::Event::Character('#')) {
-    LOG("Handle key to focus TabViewer block");
-    UpdateFocus(focused_index_, kBlockTabViewer);
+  // Set MainContent block as focused
+  if (event == keybinding::General::FocusMainContent) {
+    LOG("Handle key to focus MainContent block");
+    UpdateFocus(focused_index_, kBlockMainContent);
     return true;
   }
 
-  // Set MediaPlayer block as focused (shift+4)
-  if (event == ftxui::Event::Character('$')) {
+  // Set MediaPlayer block as focused
+  if (event == keybinding::General::FocusPlayer) {
     LOG("Handle key to focus MediaPlayer block");
     UpdateFocus(focused_index_, kBlockMediaPlayer);
     return true;
@@ -378,10 +402,6 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
       media_ctl->Stop();
       break;
 
-    case CustomEvent::Identifier::ClearCurrentSong:
-      media_ctl->ClearCurrentSong();
-      break;
-
     case CustomEvent::Identifier::SetAudioVolume: {
       auto content = event.GetContent<model::Volume>();
       media_ctl->SetVolume(content);
@@ -411,7 +431,11 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
     case CustomEvent::Identifier::ApplyAudioFilters: {
       auto content = event.GetContent<model::EqualizerPreset>();
       media_ctl->ApplyAudioFilters(content);
+    } break;
 
+    case CustomEvent::Identifier::NotifyPlaylistSelection: {
+      auto content = event.GetContent<model::Playlist>();
+      media_ctl->NotifyPlaylistSelection(content);
     } break;
 
     default:
@@ -437,6 +461,11 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
   // To change bar animation shown in audio_visualizer, terminal is necessary to get real block
   // size and calculate maximum number of bars
   switch (event.GetId()) {
+    case CustomEvent::Identifier::DisableGlobalEvent:
+    case CustomEvent::Identifier::EnableGlobalEvent: {
+      global_mode_ = event.GetId() == CustomEvent::Identifier::EnableGlobalEvent ? true : false;
+    } break;
+
     case CustomEvent::Identifier::ChangeBarAnimation:
     case CustomEvent::Identifier::UpdateBarWidth: {
       // Recalculate maximum number of bars to show in spectrum visualizer
@@ -449,7 +478,7 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 
     case CustomEvent::Identifier::SetPreviousFocused: {
       // Calculate new block index to be focused
-      int new_index = focused_index_ == kBlockListDirectory || focused_index_ == kInvalidIndex
+      int new_index = focused_index_ == kBlockSidebar || focused_index_ == kInvalidIndex
                           ? (kMaxBlocks - 1)
                           : focused_index_ - 1;
 
@@ -464,14 +493,14 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::SetFocused: {
-      auto content = event.GetContent<model::BlockIdentifier>();
+      const auto& content = event.GetContent<model::BlockIdentifier>();
       int new_index = GetIndexFromBlockIdentifier(content);
 
       UpdateFocus(focused_index_, new_index);
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
-      helper_->ShowGeneralInfo();
+      help_dialog_->ShowGeneralInfo();
     } break;
 
     case CustomEvent::Identifier::ToggleFullscreen: {
@@ -483,6 +512,17 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
       // Send value to spectrum visualizer
       auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);
       SendEvent(event_calculate);
+    } break;
+
+    case CustomEvent::Identifier::ShowPlaylistManager: {
+      const auto& content = event.GetContent<model::PlaylistOperation>();
+      playlist_dialog_->Open(content);
+    } break;
+
+    case CustomEvent::Identifier::ShowQuestionDialog: {
+      const auto& content = event.GetContent<model::QuestionData>();
+      question_dialog_->SetMessage(content);
+      question_dialog_->Open();
     } break;
 
     case CustomEvent::Identifier::Exit: {
@@ -529,12 +569,12 @@ void Terminal::SetApplicationError(error::Code id) {
 
 constexpr int Terminal::GetIndexFromBlockIdentifier(const model::BlockIdentifier& id) const {
   switch (id) {
-    case model::BlockIdentifier::ListDirectory:
-      return kBlockListDirectory;
+    case model::BlockIdentifier::Sidebar:
+      return kBlockSidebar;
     case model::BlockIdentifier::FileInfo:
       return kBlockFileInfo;
-    case model::BlockIdentifier::TabViewer:
-      return kBlockTabViewer;
+    case model::BlockIdentifier::MainContent:
+      return kBlockMainContent;
     case model::BlockIdentifier::MediaPlayer:
       return kBlockMediaPlayer;
     default:
@@ -549,8 +589,8 @@ void Terminal::UpdateFocus(int old_index, int new_index) {
   // If equal, do nothing
   if (old_index == new_index) return;
 
-  auto old_block = model::BlockIdentifier::None;
-  auto new_block = model::BlockIdentifier::None;
+  model::BlockIdentifier old_block = model::BlockIdentifier::None;
+  model::BlockIdentifier new_block = model::BlockIdentifier::None;
 
   // Remove focus from old block
   if (old_index != kInvalidIndex) {
@@ -570,6 +610,20 @@ void Terminal::UpdateFocus(int old_index, int new_index) {
   focused_index_ = new_index;
 
   LOG("Changed block focus from ", old_block, " to ", new_block);
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element Terminal::GetOverlay() const {
+  if (error_dialog_->IsVisible()) return error_dialog_->Render(size_);
+
+  if (help_dialog_->IsVisible()) return help_dialog_->Render(size_);
+
+  if (playlist_dialog_->IsVisible()) return playlist_dialog_->Render(size_);
+
+  if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
+
+  return ftxui::text("");
 }
 
 }  // namespace interface

@@ -6,10 +6,10 @@
 #ifndef INCLUDE_UTIL_LOGGER_H_
 #define INCLUDE_UTIL_LOGGER_H_
 
-#include <chrono>
+#include <cxxabi.h>
+
+#include <cstdlib>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -25,6 +25,8 @@ namespace util {
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
+  static constexpr int kHeaderColumns = 41;  //!< Number of columns to write on log initialization
+
  protected:
   /**
    * @brief Construct a new Logger object
@@ -78,7 +80,7 @@ class Logger {
    * @param ...args Arguments to build log message
    */
   template <typename... Args>
-  void Log(const char* filename, int line, Args&&... args) {
+  inline void Log(const char* filename, int line, Args&&... args) {
     // Do nothing if sink is not configured
     if (!sink_) return;
 
@@ -98,11 +100,13 @@ class Logger {
   /**
    * @brief Write message to output stream buffer
    * @param message String message
+   * @param add_timestamp Control flag to insert a timestamp as preffix
    */
-  void Write(const std::string& message);
+  void Write(const std::string& message, bool add_timestamp = true);
 
   /* ******************************************************************************************** */
   //! Variables
+
   std::mutex mutex_;            //!< Control access for internal resources
   std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
 };
@@ -127,7 +131,45 @@ std::string get_timestamp();
 //! Macro to log messages (this was the only way found to append "filename:line" in the output)
 #define LOG(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
 
+//! Macro to log messages based on condition
+#define LOG_IF(condition, ...) \
+  if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
+
 //! Macro to log error messages
 #define ERROR(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+
+//! Macro to log error messages based on condition
+#define ERROR_IF(condition, ...) \
+  if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+
+/* ---------------------------------------------------------------------------------------------- */
+/*                                        TEMPLATE FRIENDLY                                       */
+/* ---------------------------------------------------------------------------------------------- */
+
+//! Return a human-readable string containing the implementation-defined name of the type
+inline std::string demangle(const char* name) {
+  // Some arbitrary value to eliminate the compiler warning
+  int status = -99;
+
+  std::unique_ptr<char, void (*)(void*)> res{abi::__cxa_demangle(name, nullptr, nullptr, &status),
+                                             [](void* a) { return std::free(a); }};
+
+  std::ostringstream ss;
+  ss << "[" << (status == 0 ? res.get() : name) << "] ";
+
+  return std::move(ss).str();
+}
+
+//! Macro to log messages including the class type in a human-readable format
+#define LOG_T(...) LOG(demangle(typeid(*this).name()), __VA_ARGS__)
+
+//! Macro to log messages based on condition and including the class type in a human-readable format
+#define LOG_T_IF(condition, ...) LOG_IF(condition, demangle(typeid(*this).name()), __VA_ARGS__)
+
+//! Macro to log error messages including the class type in a human-readable format
+#define ERROR_T(...) ERROR(demangle(typeid(*this).name()), __VA_ARGS__)
+
+//! Macro to log errors based on condition and including the class type in a human-readable format
+#define ERROR_T_IF(condition, ...) ERROR_IF(condition, demangle(typeid(*this).name()), __VA_ARGS__)
 
 #endif  // INCLUDE_UTIL_LOGGER_H_
