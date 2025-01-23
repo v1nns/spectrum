@@ -25,6 +25,31 @@ With an intuitive user interface and lightning-fast performance, this music play
 
 ## Installation :floppy_disk:
 
+### AUR (using yay)
+
+If you're using Arch Linux or any derivative, you can install spectrum using yay, a popular AUR helper:
+
+   ```bash
+   # Install the latest version
+   yay -S spectrum-git
+   ```
+
+### Flatpak
+
+To install Spectrum using Flatpak:
+
+1. Add the Flathub repository (if not already added):
+   ```bash
+   flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+   ```
+
+2. Install spectrum:
+   ```bash
+   flatpak install flathub io.github.v1nns.spectrum
+   ```
+
+## Development :memo:
+
 To build spectrum, you need to have a C++ compiler installed on your system.
 
 ```bash
@@ -49,8 +74,6 @@ sudo cmake --install build
 # OR just execute it
 ./build/src/spectrum
 ```
-
-## Development :memo:
 
 To ensure that any new implementation won't impact the existing one, you may execute unit tests to check that. To enable unit testing, you should compile with the following settings:
 

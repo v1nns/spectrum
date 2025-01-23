@@ -26,21 +26,33 @@ if(NOT SPECTRUM_DEBUG)
   endif()
 endif()
 
-# GUI Library (FTXUI)
-FetchContent_Declare(
-  ftxui
-  GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-  GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736)
+if(NOT DISABLE_POPULATE)
+  # GUI Library (FTXUI)
+  FetchContent_Declare(
+    ftxui
+    GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
+    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736)
 
-FetchContent_MakeAvailable(ftxui)
+  FetchContent_MakeAvailable(ftxui)
 
-# JSON support (nlohmann)
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json
-  GIT_TAG v3.11.2)
+  # JSON support (nlohmann)
+  FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json
+    GIT_TAG v3.11.2)
 
-FetchContent_MakeAvailable(nlohmann_json)
+  FetchContent_MakeAvailable(nlohmann_json)
+else()
+  # For example, flatpak does not share network on build stage, so it is not
+  # possible to use the FetchContent API
+  set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/app/")
+
+  # GUI Library (FTXUI)
+  find_package(FTXUI REQUIRED)
+
+  # JSON support (nlohmann)
+  find_package(nlohmann_json REQUIRED)
+endif()
 
 # Enable multithreading
 set(THREADS_PREFER_PTHREAD_FLAG ON)
