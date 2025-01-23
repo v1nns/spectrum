@@ -38,7 +38,7 @@ If you're using Arch Linux or any derivative, you can install spectrum using yay
 
 To install Spectrum using Flatpak:
 
-1. Add the Flathub repository (if not already added):
+1. Add the Flathub[^1] repository (if not already added):
    ```bash
    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
    ```
@@ -48,7 +48,7 @@ To install Spectrum using Flatpak:
    flatpak install flathub io.github.v1nns.spectrum
    ```
 
-Note: Ensure Flatpak is installed on your system if it isn't already.
+[^1]: Ensure Flatpak is installed on your system.
 
 ## Development :memo:
 
