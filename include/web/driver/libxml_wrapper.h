@@ -3,8 +3,8 @@
  * \brief  Class to wrap libxml++ funcionalities
  */
 
-#ifndef INCLUDE_AUDIO_LYRIC_LIBXML_WRAPPER_H_
-#define INCLUDE_AUDIO_LYRIC_LIBXML_WRAPPER_H_
+#ifndef INCLUDE_WEB_DRIVER_LIBXML_WRAPPER_H_
+#define INCLUDE_WEB_DRIVER_LIBXML_WRAPPER_H_
 
 #include <libxml++/libxml++.h>
 #include <libxml/HTMLparser.h>
@@ -13,14 +13,15 @@
 #include <memory>
 #include <string>
 
-#include "audio/lyric/base/html_parser.h"
+#include "model/song.h"
+#include "web/base/html_parser.h"
 
 namespace driver {
 
 /**
  * @brief Class to manage libxml++ resources and perform content parsing
  */
-class LIBXMLWrapper : public driver::HtmlParser {
+class LIBXMLWrapper : public web::HtmlParser {
  public:
   /**
    * @brief Parse buffer data based on the given XPath
@@ -28,7 +29,7 @@ class LIBXMLWrapper : public driver::HtmlParser {
    * @param xpath XPath to find
    * @return Song lyrics parsed from buffer data
    */
-  lyric::SongLyric Parse(const std::string &data, const std::string &xpath) override;
+  model::SongLyric Parse(const std::string &data, const std::string &xpath) override;
 
  private:
   /**
@@ -36,11 +37,11 @@ class LIBXMLWrapper : public driver::HtmlParser {
    * @param node XML node
    * @param lyric Song lyrics (out)
    */
-  void ScrapContent(const xmlpp::Node *node, lyric::SongLyric &lyric);
+  void ScrapContent(const xmlpp::Node *node, model::SongLyric &lyric);
 
   //! Smart pointer to manage libxml resources
   using XmlDocGuard = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>;
 };
 
 }  // namespace driver
-#endif  // INCLUDE_AUDIO_LYRIC_LIBXML_WRAPPER_H_
+#endif  // INCLUDE_WEB_DRIVER_LIBXML_WRAPPER_H_

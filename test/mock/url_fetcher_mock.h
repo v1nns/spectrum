@@ -8,11 +8,11 @@
 
 #include <gmock/gmock-function-mocker.h>
 
-#include "audio/lyric/base/url_fetcher.h"
+#include "web/base/url_fetcher.h"
 
 namespace {
 
-class UrlFetcherMock final : public driver::UrlFetcher {
+class UrlFetcherMock final : public web::UrlFetcher {
  public:
   MOCK_METHOD(error::Code, Fetch, (const std::string&, std::string&), (override));
 };

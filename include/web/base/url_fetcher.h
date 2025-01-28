@@ -3,14 +3,14 @@
  * \brief Interface class for URL fetching support
  */
 
-#ifndef INCLUDE_AUDIO_LYRIC_BASE_URL_FETCHER_H_
-#define INCLUDE_AUDIO_LYRIC_BASE_URL_FETCHER_H_
+#ifndef INCLUDE_WEB_BASE_URL_FETCHER_H_
+#define INCLUDE_WEB_BASE_URL_FETCHER_H_
 
 #include <string>
 
 #include "model/application_error.h"
 
-namespace driver {
+namespace web {
 
 /**
  * @brief Common interface to fetch content from URL
@@ -39,5 +39,5 @@ class UrlFetcher {
   virtual error::Code Fetch(const std::string &URL, std::string &output) = 0;
 };
 
-}  // namespace driver
-#endif  // INCLUDE_AUDIO_LYRIC_BASE_URL_FETCHER_H_
+}  // namespace web
+#endif  // INCLUDE_WEB_BASE_URL_FETCHER_H_

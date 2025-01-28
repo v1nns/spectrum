@@ -10,6 +10,7 @@
 #include "mock/html_parser_mock.h"
 #include "mock/url_fetcher_mock.h"
 #include "model/application_error.h"
+#include "model/song.h"
 #include "util/logger.h"
 
 namespace {
@@ -77,7 +78,7 @@ TEST_F(LyricFinderTest, SearchWithEmptyResult) {
   std::string title{"abandoned house"};
 
   auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, Eq(lyric::SongLyric{}));
+  EXPECT_THAT(song_lyrics, Eq(model::SongLyric{}));
 }
 
 /* ********************************************************************************************** */
@@ -86,7 +87,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingGoogle) {
   auto fetcher = GetFetcher();
   auto parser = GetParser();
 
-  const lyric::SongLyric raw{
+  const model::SongLyric raw{
       "A person who thinks all the time\n"
       "Has nothing to think about except thoughts\n"
       "So, he loses touch with reality\n"
@@ -115,7 +116,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingGoogle) {
   std::string artist{"INZO"};
   std::string title{"Overthinker"};
 
-  const lyric::SongLyric expected{
+  const model::SongLyric expected{
       "A person who thinks all the time\n"
       "Has nothing to think about except thoughts\n"
       "So, he loses touch with reality\n"
@@ -147,7 +148,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
   auto fetcher = GetFetcher();
   auto parser = GetParser();
 
-  const lyric::SongLyric raw{
+  const model::SongLyric raw{
       "\r\n",
       "Pardon me, excusez-moi (I'm sorry)",
       "Yeah, I coulda made a better choice",
@@ -197,7 +198,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
   std::string artist{"Tyler, the Creator"};
   std::string title{"SORRY NOT SORRY"};
 
-  const lyric::SongLyric expected{
+  const model::SongLyric expected{
       "Pardon me, excusez-moi (I'm sorry)\n"
       "Yeah, I coulda made a better choice\n"
       "I mean, what the fuck?\n"
@@ -251,7 +252,7 @@ TEST_F(LyricFinderTest, ErrorOnFetch) {
   std::string artist{"Funkin' Sound Team"};
   std::string title{"M.I.L.F"};
 
-  const lyric::SongLyric expected{};
+  const model::SongLyric expected{};
 
   auto song_lyrics = finder->Search(artist, title);
   EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
@@ -265,12 +266,12 @@ TEST_F(LyricFinderTest, ErrorOnParse) {
 
   // Setup expectations
   EXPECT_CALL(*fetcher, Fetch(_, _)).Times(2).WillRepeatedly(Return(error::kSuccess));
-  EXPECT_CALL(*parser, Parse(_, _)).Times(2).WillRepeatedly(Return(lyric::SongLyric{}));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(2).WillRepeatedly(Return(model::SongLyric{}));
 
   std::string artist{"Kaiser Chiefs"};
   std::string title{"Ruby"};
 
-  const lyric::SongLyric expected{};
+  const model::SongLyric expected{};
 
   auto song_lyrics = finder->Search(artist, title);
   EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
@@ -303,12 +304,12 @@ TEST_F(LyricFinderTest, ErrorOnFormattingLyrics) {
 
   EXPECT_CALL(*parser, Parse(StrEq(raw), _))
       .Times(2)
-      .WillRepeatedly(Return(lyric::SongLyric{"\r\n", "\n"}));
+      .WillRepeatedly(Return(model::SongLyric{"\r\n", "\n"}));
 
   std::string artist{"Bombay Bicycle Club"};
   std::string title{"Feel"};
 
-  const lyric::SongLyric expected{};
+  const model::SongLyric expected{};
 
   auto song_lyrics = finder->Search(artist, title);
   EXPECT_THAT(song_lyrics, ElementsAreArray(expected));

@@ -29,10 +29,10 @@ std::string Google::FormatSearchUrl(const std::string &artist, const std::string
 
 /* ********************************************************************************************** */
 
-SongLyric Google::FormatLyrics(const SongLyric &raw) const {
+model::SongLyric Google::FormatLyrics(const model::SongLyric &raw) const {
   std::string::size_type pos = 0;
   std::string::size_type prev = 0;
-  SongLyric lyric;
+  model::SongLyric lyric;
 
   if (raw.size() != 1) {
     ERROR("Received more raw data than expected");
@@ -72,8 +72,8 @@ std::string AZLyrics::FormatSearchUrl(const std::string &artist, const std::stri
 
 /* ********************************************************************************************** */
 
-SongLyric AZLyrics::FormatLyrics(const SongLyric &raw) const {
-  SongLyric lyric;
+model::SongLyric AZLyrics::FormatLyrics(const model::SongLyric &raw) const {
+  model::SongLyric lyric;
   std::string paragraph;
 
   for (const auto &line : raw) {

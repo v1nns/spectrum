@@ -168,7 +168,7 @@ SongLyric::FetchResult SongLyric::FetchSongLyrics() {
 
 /* ********************************************************************************************** */
 
-ftxui::Element SongLyric::DrawSongLyrics(const lyric::SongLyric& lyrics) const {
+ftxui::Element SongLyric::DrawSongLyrics(const model::SongLyric& lyrics) const {
   ftxui::Elements lines;
   bool set_focus = true;
   int count = 0;

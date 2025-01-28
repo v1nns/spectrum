@@ -11,7 +11,6 @@
 #include <optional>
 #include <string_view>
 
-#include "audio/lyric/base/html_parser.h"
 #include "audio/lyric/lyric_finder.h"
 #include "model/song.h"
 #include "view/element/tab.h"
@@ -86,16 +85,20 @@ class SongLyric : public TabItem {
    * @brief Check state from fetch operation that is executed asynchronously
    * @return true if fetch operation is still executing, otherwise false
    */
-  bool IsFetching() { return async_fetcher_ && is_state(*async_fetcher_, std::future_status::timeout); }
+  bool IsFetching() {
+    return async_fetcher_ && is_state(*async_fetcher_, std::future_status::timeout);
+  }
 
   /**
    * @brief Check state from fetch operation that is executed asynchronously
    * @return true if fetch operation finished, otherwise false
    */
-  bool IsResultReady() { return async_fetcher_ && is_state(*async_fetcher_, std::future_status::ready); }
+  bool IsResultReady() {
+    return async_fetcher_ && is_state(*async_fetcher_, std::future_status::ready);
+  }
 
   //! Result from asynchronous fetch operation (if empty, it means that failed)
-  using FetchResult = std::optional<lyric::SongLyric>;
+  using FetchResult = std::optional<model::SongLyric>;
 
   /**
    * @brief Use updated song information to fetch song lyrics
@@ -106,13 +109,13 @@ class SongLyric : public TabItem {
    * @brief Renders the song lyrics element
    * @param lyrics Song lyrics (each entry represents a paragraph)
    */
-  ftxui::Element DrawSongLyrics(const lyric::SongLyric& lyrics) const;
+  ftxui::Element DrawSongLyrics(const model::SongLyric& lyrics) const;
 
   /* ******************************************************************************************** */
   //! Variables
 
   model::Song audio_info_;   //!< Audio information from current song
-  lyric::SongLyric lyrics_;  //!< Song lyrics from current song
+  model::SongLyric lyrics_;  //!< Song lyrics from current song
   int focused_ = 0;          //!< Index for paragraph focused from song lyric
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder

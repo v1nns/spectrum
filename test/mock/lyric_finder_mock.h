@@ -9,12 +9,13 @@
 #include <gmock/gmock-function-mocker.h>
 
 #include "audio/lyric/lyric_finder.h"
+#include "model/song.h"
 
 namespace {
 
 class LyricFinderMock final : public lyric::LyricFinder {
  public:
-  MOCK_METHOD(lyric::SongLyric, Search, (const std::string&, const std::string&), (override));
+  MOCK_METHOD(model::SongLyric, Search, (const std::string&, const std::string&), (override));
 };
 
 }  // namespace

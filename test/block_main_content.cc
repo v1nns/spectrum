@@ -969,7 +969,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return lyric::SongLyric{
+        return model::SongLyric{
             "Found crazy lyrics\n"
             "about some stuff\n"
             "that I don't even know\n",
@@ -1062,7 +1062,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return lyric::SongLyric{};
+        return model::SongLyric{};
       }));
 
   // Send event to notify that song has started playing
@@ -1149,7 +1149,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return lyric::SongLyric{
+        return model::SongLyric{
             "Funny you asked\n"
             "Yeah, found something\n",
         };
@@ -1239,7 +1239,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithDifferentFilenames) {
     else
       // Setup expectations before start fetching song lyrics
       EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-          .WillRepeatedly(Return(lyric::SongLyric{}));
+          .WillRepeatedly(Return(model::SongLyric{}));
 
     // Send event to notify that song has started playing
     model::Song audio{.filepath = filepath};
@@ -1287,7 +1287,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return lyric::SongLyric{
+        return model::SongLyric{
             "Just imagine the lyrics\n"
             "In this block\n",
         };
@@ -1373,7 +1373,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return lyric::SongLyric{
+        return model::SongLyric{
             "Feels like I'm waiting\n"
             "Like I'm watching\n"
             "Watching you for love\n"
@@ -1559,7 +1559,7 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return lyric::SongLyric{
+        return model::SongLyric{
             "Funny you asked\n"
             "Yeah, found something\n",
         };

@@ -9,9 +9,10 @@
 #include <memory>
 #include <string>
 
-#include "audio/lyric/base/html_parser.h"
-#include "audio/lyric/base/url_fetcher.h"
 #include "audio/lyric/search_config.h"
+#include "model/song.h"
+#include "web/base/html_parser.h"
+#include "web/base/url_fetcher.h"
 
 #ifdef ENABLE_TESTS
 namespace {
@@ -30,8 +31,8 @@ class LyricFinder {
    * @param fetcher Pointer to URL fetcher interface
    * @param parser Pointer to HTML parser interface
    */
-  explicit LyricFinder(std::unique_ptr<driver::UrlFetcher>&& fetcher,
-                       std::unique_ptr<driver::HtmlParser>&& parser);
+  explicit LyricFinder(std::unique_ptr<web::UrlFetcher>&& fetcher,
+                       std::unique_ptr<web::HtmlParser>&& parser);
 
  protected:
   /**
@@ -46,8 +47,8 @@ class LyricFinder {
    * @param parser Pass parser to be used within LyricFinder (optional)
    * @return std::unique_ptr<LyricFinder> LyricFinder instance
    */
-  static std::unique_ptr<LyricFinder> Create(driver::UrlFetcher* fetcher = nullptr,
-                                             driver::HtmlParser* parser = nullptr);
+  static std::unique_ptr<LyricFinder> Create(web::UrlFetcher* fetcher = nullptr,
+                                             web::HtmlParser* parser = nullptr);
 
   /**
    * @brief Destroy the LyricFinder object
@@ -69,14 +70,14 @@ class LyricFinder {
    * @param title Song name
    * @return Song lyrics
    */
-  virtual SongLyric Search(const std::string& artist, const std::string& title);
+  virtual model::SongLyric Search(const std::string& artist, const std::string& title);
 
   /* ******************************************************************************************** */
   //! Variables
  private:
-  Config engines_ = SearchConfig::Create();      //!< Search engine settings
-  std::unique_ptr<driver::UrlFetcher> fetcher_;  //!< URL fetcher
-  std::unique_ptr<driver::HtmlParser> parser_;   //!< HTML parser
+  Config engines_ = SearchConfig::Create();   //!< Search engine settings
+  std::unique_ptr<web::UrlFetcher> fetcher_;  //!< URL fetcher
+  std::unique_ptr<web::HtmlParser> parser_;   //!< HTML parser
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

@@ -7,23 +7,16 @@
 #define INCLUDE_DEBUG_DUMMY_PARSER_H_
 
 #include <string>
-#include <vector>
 
 #include "model/application_error.h"
-
-namespace lyric {
-
-//! SongLyric declaration
-using SongLyric = std::vector<std::string>;
-
-}  // namespace lyric
+#include "model/song.h"
 
 namespace driver {
 
 /**
  * @brief Dummy implementation
  */
-class DummyParser : public HtmlParser {
+class DummyParser : public web::HtmlParser {
  public:
   /**
    * @brief Construct a new DummyParser object
@@ -44,8 +37,8 @@ class DummyParser : public HtmlParser {
    * @param xpath XPath to find
    * @return Song lyrics parsed from buffer data
    */
-  lyric::SongLyric Parse(const std::string &data, const std::string &xpath) override {
-    return lyric::SongLyric{};
+  model::SongLyric Parse(const std::string &data, const std::string &xpath) override {
+    return model::SongLyric{};
   }
 };
 

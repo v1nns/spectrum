@@ -11,8 +11,12 @@
 #include <optional>
 #include <ostream>
 #include <string>
+#include <vector>
 
 namespace model {
+
+//! SongLyric declaration
+using SongLyric = std::vector<std::string>;
 
 /**
  * @brief Detailed audio metadata information from song

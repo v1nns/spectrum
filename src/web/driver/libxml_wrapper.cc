@@ -1,10 +1,10 @@
-#include "audio/lyric/driver/libxml_wrapper.h"
+#include "web/driver/libxml_wrapper.h"
 
 #include "util/logger.h"
 
 namespace driver {
 
-lyric::SongLyric LIBXMLWrapper::Parse(const std::string &data, const std::string &xpath) {
+model::SongLyric LIBXMLWrapper::Parse(const std::string &data, const std::string &xpath) {
   // Parse HTML and create a DOM tree
   XmlDocGuard doc{htmlReadDoc((const xmlChar *)data.c_str(), nullptr, nullptr,
                               HTML_PARSE_RECOVER | HTML_PARSE_NOERROR | HTML_PARSE_NOWARNING),
@@ -15,7 +15,7 @@ lyric::SongLyric LIBXMLWrapper::Parse(const std::string &data, const std::string
   auto root = std::make_unique<xmlpp::Element>(r);
 
   // Create structure to fill with lyrics
-  lyric::SongLyric raw_lyric;
+  model::SongLyric raw_lyric;
 
   try {
     // Find for XPath in parsed data
@@ -33,7 +33,7 @@ lyric::SongLyric LIBXMLWrapper::Parse(const std::string &data, const std::string
 
 /* ********************************************************************************************** */
 
-void LIBXMLWrapper::ScrapContent(const xmlpp::Node *node, lyric::SongLyric &lyric) {
+void LIBXMLWrapper::ScrapContent(const xmlpp::Node *node, model::SongLyric &lyric) {
   // Safely convert node to classes down along its inheritance hierarchy
   const auto node_text = dynamic_cast<const xmlpp::TextNode *>(node);
   const auto node_content = dynamic_cast<const xmlpp::ContentNode *>(node);

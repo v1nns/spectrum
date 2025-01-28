@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-#include "audio/lyric/base/html_parser.h"
+#include "model/song.h"
 
 namespace lyric {
 
@@ -59,7 +59,7 @@ class SearchConfig {
    * @param raw HTML content
    * @return Song lyrics filtered
    */
-  virtual SongLyric FormatLyrics(const SongLyric &raw) const = 0;
+  virtual model::SongLyric FormatLyrics(const model::SongLyric &raw) const = 0;
 
   /**
    * @brief Create a configuration containing all available search engines to use it
@@ -98,7 +98,7 @@ class Google : public SearchConfig {
    * @param raw HTML content
    * @return Song lyrics filtered
    */
-  SongLyric FormatLyrics(const SongLyric &raw) const override;
+  model::SongLyric FormatLyrics(const model::SongLyric &raw) const override;
 
  private:
   // Web scrap lyrics from google based on these DOM components:
@@ -138,7 +138,7 @@ class AZLyrics : public SearchConfig {
    * @param raw HTML content
    * @return Song lyrics filtered
    */
-  SongLyric FormatLyrics(const SongLyric &raw) const override;
+  model::SongLyric FormatLyrics(const model::SongLyric &raw) const override;
 
  private:
   // Web scrap lyrics from azlyrics based on these DOM component:

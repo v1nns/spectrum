@@ -3,8 +3,8 @@
  * \brief  Class to wrap CURL funcionalities
  */
 
-#ifndef INCLUDE_AUDIO_LYRIC_CURL_WRAPPER_H_
-#define INCLUDE_AUDIO_LYRIC_CURL_WRAPPER_H_
+#ifndef INCLUDE_WEB_DRIVER_CURL_WRAPPER_H_
+#define INCLUDE_WEB_DRIVER_CURL_WRAPPER_H_
 
 #include <curl/curl.h>
 
@@ -12,15 +12,15 @@
 #include <string>
 #include <string_view>
 
-#include "audio/lyric/base/url_fetcher.h"
 #include "model/application_error.h"
+#include "web/base/url_fetcher.h"
 
 namespace driver {
 
 /**
  * @brief Class to manage CURL resources and perform content fetching from the given URL
  */
-class CURLWrapper : public driver::UrlFetcher {
+class CURLWrapper : public web::UrlFetcher {
   // The Accept request HTTP header indicates which content types, expressed as MIME types, the
   // client is able to understand
   static constexpr std::string_view kAcceptType =
@@ -59,4 +59,4 @@ class CURLWrapper : public driver::UrlFetcher {
 };
 
 }  // namespace driver
-#endif  // INCLUDE_AUDIO_LYRIC_CURL_WRAPPER_H_
+#endif  // INCLUDE_WEB_DRIVER_CURL_WRAPPER_H_

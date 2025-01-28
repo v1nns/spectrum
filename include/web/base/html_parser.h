@@ -3,20 +3,14 @@
  * \brief Interface class for HTML parsing support
  */
 
-#ifndef INCLUDE_AUDIO_LYRIC_BASE_HTML_PARSER_H_
-#define INCLUDE_AUDIO_LYRIC_BASE_HTML_PARSER_H_
+#ifndef INCLUDE_WEB_BASE_HTML_PARSER_H_
+#define INCLUDE_WEB_BASE_HTML_PARSER_H_
 
 #include <string>
-#include <vector>
 
-namespace lyric {
+#include "model/song.h"
 
-//! SongLyric declaration
-using SongLyric = std::vector<std::string>;
-
-}  // namespace lyric
-
-namespace driver {
+namespace web {
 
 /**
  * @brief Common interface to parse HTML content into a DOM tree
@@ -42,8 +36,8 @@ class HtmlParser {
    * @param xpath XPath to find
    * @return Song lyrics parsed from buffer data
    */
-  virtual lyric::SongLyric Parse(const std::string &data, const std::string &xpath) = 0;
+  virtual model::SongLyric Parse(const std::string &data, const std::string &xpath) = 0;
 };
 
-}  // namespace driver
-#endif  // INCLUDE_AUDIO_LYRIC_BASE_HTML_PARSER_H_
+}  // namespace web
+#endif  // INCLUDE_WEB_BASE_HTML_PARSER_H_

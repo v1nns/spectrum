@@ -139,9 +139,9 @@ if(NOT SPECTRUM_DEBUG)
             audio/driver/alsa.cc
             audio/driver/ffmpeg.cc
             audio/driver/fftw.cc
-            # lyric
-            audio/lyric/driver/curl_wrapper.cc
-            audio/lyric/driver/libxml_wrapper.cc)
+            # web
+            web/driver/curl_wrapper.cc
+            web/driver/libxml_wrapper.cc)
 
   target_include_directories(
     spectrum_lib
