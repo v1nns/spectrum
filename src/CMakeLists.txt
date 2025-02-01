@@ -24,6 +24,12 @@ if(NOT SPECTRUM_DEBUG)
   if(NOT LIBXML_FOUND)
     pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-2.6)
   endif()
+
+  # embedded python
+  pkg_search_module(PYTHON3 REQUIRED IMPORTED_TARGET python3)
+  pkg_search_module(PYTHON3EMBED REQUIRED IMPORTED_TARGET python3-embed)
+
+  # TODO: check for yt-dlp presence
 endif()
 
 if(NOT DISABLE_POPULATE)
@@ -80,6 +86,7 @@ target_sources(
           model/playlist_operation.cc
           model/question_data.cc
           model/song.cc
+          model/stream_info.cc
           # view
           view/base/block.cc
           view/base/custom_event.cc
@@ -141,7 +148,8 @@ if(NOT SPECTRUM_DEBUG)
             audio/driver/fftw.cc
             # web
             web/driver/curl_wrapper.cc
-            web/driver/libxml_wrapper.cc)
+            web/driver/libxml_wrapper.cc
+            web/driver/ytdlp_wrapper.cc)
 
   target_include_directories(
     spectrum_lib
@@ -153,7 +161,9 @@ if(NOT SPECTRUM_DEBUG)
            ${SWRESAMPLE_INCLUDE_DIRS}
            ${FFTW_INCLUDE_DIRS}
            ${CURL_INCLUDE_DIRS}
-           ${LIBXML_INCLUDE_DIRS})
+           ${LIBXML_INCLUDE_DIRS}
+           ${PYTHON3_INCLUDE_DIRS}
+           ${PYTHON3EMBED_INCLUDE_DIRS})
 
   target_link_libraries(
     spectrum_lib
@@ -170,7 +180,10 @@ if(NOT SPECTRUM_DEBUG)
     PRIVATE
     INTERFACE PkgConfig::CURL
     PRIVATE
-    INTERFACE PkgConfig::LIBXML)
+    INTERFACE PkgConfig::LIBXML
+    PRIVATE
+    INTERFACE PkgConfig::PYTHON3
+    INTERFACE PkgConfig::PYTHON3EMBED)
 
   if(ENABLE_TESTS)
     message(STATUS "Enabling additional compile definitions for tests...")

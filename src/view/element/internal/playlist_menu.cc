@@ -37,8 +37,11 @@ ftxui::Element PlaylistMenu::RenderImpl() {
       is_highlighted = highlighted_ ? highlighted_->playlist == entry.playlist.name &&
                                           highlighted_->filepath == song.filepath
                                     : false;
-      menu_entries.push_back(
-          CreateEntry(index++, song.filepath.filename().string(), is_highlighted, false));
+      // TODO: must improve this and also create logic for animation thread
+      std::string text =
+          song.stream_info ? song.stream_info->base_url : song.filepath.filename().string();
+
+      menu_entries.push_back(CreateEntry(index++, text, is_highlighted, false));
     }
   }
 

@@ -12,7 +12,7 @@
 
 namespace {
 
-class PlaybackMock final : public driver::Playback {
+class PlaybackMock final : public audio::Playback {
  public:
   MOCK_METHOD(error::Code, CreatePlaybackStream, (), (override));
   MOCK_METHOD(error::Code, ConfigureParameters, (), (override));

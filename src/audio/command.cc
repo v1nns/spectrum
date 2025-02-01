@@ -37,6 +37,26 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
   return out;
 }
 
+//! Command::Identifiers pretty print
+std::ostream& operator<<(std::ostream& out, const std::vector<Command::Identifier>& cmds) {
+  if (cmds.empty()) {
+    out << "Empty";
+    return out;
+  }
+
+  out << "{";
+
+  std::vector<Command::Identifier>::const_iterator i, j;
+  for (i = cmds.begin(), j = --cmds.end(); i != j; ++i) {
+    out << *i << ",";
+  }
+
+  out << *j;
+  out << "}";
+
+  return out;
+}
+
 //! Command pretty print
 std::ostream& operator<<(std::ostream& out, const Command& cmd) {
   out << cmd.id;
@@ -75,10 +95,10 @@ Command Command::None() {
 /* ********************************************************************************************** */
 
 // Static
-Command Command::Play(const std::string& filepath) {
+Command Command::Play(const model::Song& song) {
   return Command{
       .id = Identifier::Play,
-      .content = filepath,
+      .content = song,
   };
 }
 

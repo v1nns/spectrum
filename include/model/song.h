@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include "model/stream_info.h"
+
 namespace model {
 
 //! SongLyric declaration
@@ -34,6 +36,8 @@ struct Song {
   uint32_t bit_rate;      //!< Bits per second
   uint32_t bit_depth;     //!< Number of bits per sample
   uint32_t duration;      //!< Audio duration (in seconds)
+
+  std::optional<StreamInfo> stream_info;  //!< Detailed streaming information
 
   //! Audio state
   enum class MediaState {

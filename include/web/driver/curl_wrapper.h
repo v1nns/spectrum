@@ -35,11 +35,11 @@ class CURLWrapper : public web::UrlFetcher {
  public:
   /**
    * @brief Fetch content from the given URL
-   * @param URL Endpoint address
+   * @param url Endpoint address
    * @param output Output from fetch (out)
    * @return Error code from operation
    */
-  error::Code Fetch(const std::string &URL, std::string &output) override;
+  error::Code Fetch(const std::string &url, std::string &output) override;
 
  private:
   /**
@@ -55,7 +55,7 @@ class CURLWrapper : public web::UrlFetcher {
   static size_t WriteCallback(const char *buffer, size_t size, size_t nmemb, void *data);
 
   //! Smart pointer to manage CURL resource
-  using SmartCURL = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
+  using CURLGuard = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
 };
 
 }  // namespace driver

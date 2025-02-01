@@ -3,9 +3,12 @@
 #include <iomanip>
 #include <stdexcept>
 
+#include "model/stream_info.h"
+
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
+#include "web/driver/ytdlp_wrapper.h"
 #else
 #include "debug/dummy_decoder.h"
 #include "debug/dummy_playback.h"
@@ -15,36 +18,46 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(bool verbose, driver::Playback* playback,
-                                       driver::Decoder* decoder, bool asynchronous) {
+std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
+                                       audio::Decoder* decoder, web::StreamFetcher* fetcher,
+                                       bool asynchronous) {
   LOG("Create new instance of player");
 
 #ifndef SPECTRUM_DEBUG
   // Create playback object
-  auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
+  auto pb = playback != nullptr ? std::unique_ptr<audio::Playback>(std::move(playback))
                                 : std::make_unique<driver::Alsa>();
 
   // Create decoder object
-  auto dec = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
-                                : std::make_unique<driver::FFmpeg>(verbose);
+  auto dc = decoder != nullptr ? std::unique_ptr<audio::Decoder>(std::move(decoder))
+                               : std::make_unique<driver::FFmpeg>(verbose);
+
+  // Create fetcher object
+  auto ft = fetcher != nullptr ? std::unique_ptr<web::StreamFetcher>(std::move(fetcher))
+                               : std::make_unique<driver::YtDlpWrapper>();
+
 #else
   // Create playback object
   auto pb = std::make_unique<driver::DummyPlayback>();
 
   // Create decoder object
-  auto dec = std::make_unique<driver::DummyDecoder>();
+  auto dc = std::make_unique<driver::DummyDecoder>();
+
+  // TODO: Create fetcher object
+  // auto ft = std::make_unique<driver::DummyFetcher>();
 #endif
 
   // Simply extend the Player class, as we do not want to expose the default constructor,
   // neither do we want to use std::make_shared explicitly calling operator new()
   struct MakeSharedEnabler : public Player {
-    explicit MakeSharedEnabler(std::unique_ptr<driver::Playback>&& playback,
-                               std::unique_ptr<driver::Decoder>&& decoder)
-        : Player(std::move(playback), std::move(decoder)) {}
+    explicit MakeSharedEnabler(std::unique_ptr<audio::Playback>&& playback,
+                               std::unique_ptr<audio::Decoder>&& decoder,
+                               std::unique_ptr<web::StreamFetcher>&& fetcher)
+        : Player(std::move(playback), std::move(decoder), std::move(fetcher)) {}
   };
 
   // Instantiate Player
-  auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dec));
+  auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dc), std::move(ft));
 
   // Initialize internal components
   player->Init(asynchronous);
@@ -54,9 +67,10 @@ std::shared_ptr<Player> Player::Create(bool verbose, driver::Playback* playback,
 
 /* ********************************************************************************************** */
 
-Player::Player(std::unique_ptr<driver::Playback>&& playback,
-               std::unique_ptr<driver::Decoder>&& decoder)
-    : playback_{std::move(playback)}, decoder_{std::move(decoder)} {}
+Player::Player(std::unique_ptr<audio::Playback>&& playback,
+               std::unique_ptr<audio::Decoder>&& decoder,
+               std::unique_ptr<web::StreamFetcher>&& fetcher)
+    : playback_{std::move(playback)}, decoder_{std::move(decoder)}, fetcher_{std::move(fetcher)} {}
 
 /* ********************************************************************************************** */
 
@@ -138,6 +152,8 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
     return false;
   }
 
+  using Cmd = Command::Identifier;
+
   switch (command.GetId()) {
     case Command::Identifier::Play: {
       LOG("Audio handler received command requesting to play a new song");
@@ -165,8 +181,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
       }
 
       // Block thread until receives one of the informed commands
-      bool keep_executing =
-          media_control_.WaitFor(Command::Play(), Command::PauseOrResume(), Command::Stop());
+      bool keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop);
 
       // TODO: NotifySongState for stop
 
@@ -265,20 +280,25 @@ void Player::AudioHandler() {
   LOG("Start audio handler thread");
 
   // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Command::Play())) {
+  while (media_control_.WaitFor(Command::Identifier::Play)) {
     LOG("Audio handler received new song to play");
 
     // Get command from queue and update internal media state
-    auto command_play = media_control_.Pop();
-    media_control_.state = TranslateCommand(command_play);
+    auto command = media_control_.Pop();
+    media_control_.state = TranslateCommand(command);
 
     // Get filepath from command and initialize current song
-    curr_song_ = std::make_unique<model::Song>(model::Song{
-        .filepath = command_play.GetContent<std::string>(),
-    });
+    curr_song_ = std::make_unique<model::Song>(command.GetContent<model::Song>());
 
-    // First, try to parse file (it may be or not a support file extension to decode)
-    error::Code result = decoder_->OpenFile(*curr_song_);
+    error::Code result = error::kSuccess;
+
+    // Get streaming information if song contains a valid URL
+    if (curr_song_->stream_info.has_value()) {
+      result = fetcher_->ExtractInfo(curr_song_->stream_info->base_url, *curr_song_);
+    }
+
+    // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
+    if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
 
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {
@@ -326,7 +346,7 @@ void Player::CheckForNextSongFromPlaylist() {
     model::Song next_song = curr_playlist_->PopFront();
 
     // Add directly to command queue
-    media_control_.Push(Command::Play(next_song.filepath));
+    media_control_.Push(Command::Play(next_song));
   } else {
     // No need to keep this anymore, so reset it
     LOG("Clearing internal cache, playlist does not contain any song");
@@ -345,7 +365,7 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 
 void Player::Play(const std::filesystem::path& filepath) {
   LOG("Add command to queue: Play (with filepath=", std::quoted(filepath.string()), ")");
-  media_control_.Push(Command::Play(filepath));
+  media_control_.Push(Command::Play(model::Song{.filepath = filepath}));
 
   // Reset song queue
   if (curr_playlist_) {

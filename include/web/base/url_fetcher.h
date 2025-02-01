@@ -32,11 +32,11 @@ class UrlFetcher {
 
   /**
    * @brief Fetch content from the given URL
-   * @param URL Endpoint address
+   * @param url Endpoint address
    * @param output Output from fetch (out)
    * @return Error code from operation
    */
-  virtual error::Code Fetch(const std::string &URL, std::string &output) = 0;
+  virtual error::Code Fetch(const std::string &url, std::string &output) = 0;
 };
 
 }  // namespace web

@@ -52,18 +52,19 @@ class DummyDecoder : public Decoder {
   using AudioCallback = std::function<bool(void*, int, int64_t&)>;
 
   /**
-   * @brief Open file as input stream and check for codec compatibility for decoding
+   * @brief Open song as input stream and check for codec compatibility for decoding
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  error::Code OpenFile(model::Song& audio_info) override {
+  error::Code Open(model::Song& audio_info) override {
     audio_info = model::Song{.artist = "Dummy artist",
                              .title = "Dummy title",
                              .num_channels = 2,
                              .sample_rate = 44100,
                              .bit_rate = 320000,
                              .bit_depth = 32,
-                             .duration = 120};
+                             .duration = 120,
+                             .stream_info = model::StreamInfo{}};
 
     return error::kSuccess;
   }

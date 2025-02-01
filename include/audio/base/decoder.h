@@ -13,7 +13,7 @@
 #include "model/song.h"
 #include "model/volume.h"
 
-namespace driver {
+namespace audio {
 
 /**
  * @brief Common interface to read audio file as an input stream, decode it, apply biquad IIR
@@ -41,11 +41,11 @@ class Decoder {
   using AudioCallback = std::function<bool(void*, int, int64_t&)>;
 
   /**
-   * @brief Open file as input stream and check for codec compatibility for decoding
+   * @brief Open song as input stream and check for codec compatibility for decoding
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  virtual error::Code OpenFile(model::Song& audio_info) = 0;
+  virtual error::Code Open(model::Song& audio_info) = 0;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
@@ -86,5 +86,5 @@ class Decoder {
   virtual error::Code UpdateFilters(const model::EqualizerPreset& filters) = 0;
 };
 
-}  // namespace driver
+}  // namespace audio
 #endif  // INCLUDE_AUDIO_BASE_DECODER_H_

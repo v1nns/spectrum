@@ -6,9 +6,9 @@
 
 namespace driver {
 
-error::Code CURLWrapper::Fetch(const std::string &URL, std::string &output) {
+error::Code CURLWrapper::Fetch(const std::string &url, std::string &output) {
   // Initialize cURL
-  SmartCURL curl(curl_easy_init(), &curl_easy_cleanup);
+  CURLGuard curl(curl_easy_init(), &curl_easy_cleanup);
 
   if (!curl) {
     ERROR("Failed to initialize cURL");
@@ -16,7 +16,7 @@ error::Code CURLWrapper::Fetch(const std::string &URL, std::string &output) {
   }
 
   // Configure URL and write callback for response
-  curl_easy_setopt(curl.get(), CURLOPT_URL, URL.c_str());
+  curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
   curl_easy_setopt(curl.get(), CURLOPT_WRITEFUNCTION, CURLWrapper::WriteCallback);
   curl_easy_setopt(curl.get(), CURLOPT_WRITEDATA, &output);
 
@@ -34,12 +34,12 @@ error::Code CURLWrapper::Fetch(const std::string &URL, std::string &output) {
 
   // Set up some configuration to avoid being ignored by any CGI (Common Gateway Interface)
   curl_easy_setopt(curl.get(), CURLOPT_FOLLOWLOCATION, 1L);
-  curl_easy_setopt(curl.get(), CURLOPT_REFERER, URL.c_str());
+  curl_easy_setopt(curl.get(), CURLOPT_REFERER, url.c_str());
 
   // Enable TLSv1.3 version only
   curl_easy_setopt(curl.get(), CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
 
-  LOG("Fetching content from URL=", URL);
+  LOG("Fetching content from URL=", url);
   if (CURLcode result = curl_easy_perform(curl.get()); result != CURLE_OK) {
     ERROR("Failed to execute cURL, error=", std::string(err_buffer.begin(), err_buffer.end()));
     return error::kUnknownError;

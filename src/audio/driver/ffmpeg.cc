@@ -83,11 +83,31 @@ bool FFmpeg::ContainsAudioStream(const util::File &file) {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::OpenInputStream(const std::string &filepath) {
-  LOG("Open input stream from filepath=", std::quoted(filepath));
+error::Code FFmpeg::OpenInputStream(const model::Song &audio_info) {
   AVFormatContext *ptr = nullptr;
+  AVDictionary *options = nullptr;
 
-  int result = avformat_open_input(&ptr, filepath.c_str(), nullptr, nullptr);
+  std::string url;
+
+  if (audio_info.stream_info.has_value()) {
+    LOG("Song contains streaming information, attempt to decode as audio stream");
+
+    std::string http_header;
+    for (const auto &[key, value] : audio_info.stream_info->http_header) {
+      http_header += key + ":" + value + ";";
+    }
+
+    av_dict_set(&options, "headers", http_header.c_str(), 0);
+
+    LOG("Open input stream from url=", std::quoted(audio_info.stream_info->base_url));
+    url = audio_info.stream_info->streaming_url;
+  } else if (!audio_info.filepath.empty()) {
+    LOG("Open input stream from filepath=", std::quoted(audio_info.filepath.string()));
+    url = audio_info.filepath;
+  }
+
+  int result = avformat_open_input(&ptr, url.c_str(), nullptr, &options);
+  if (options) av_dict_free(&options);
   if (result < 0) {
     ERROR("Cannot open input stream, error=", result);
     return error::kFileNotSupported;
@@ -473,14 +493,14 @@ void FFmpeg::FillAudioInformation(model::Song &audio_info) {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::OpenFile(model::Song &audio_info) {
-  LOG("Open file and try to decode as song");
+error::Code FFmpeg::Open(model::Song &audio_info) {
+  LOG("Open file/url and attempt to decode as audio stream");
   auto clean_up_and_return = [&](error::Code error_code) {
     ClearCache();
     return error_code;
   };
 
-  error::Code result = OpenInputStream(audio_info.filepath);
+  error::Code result = OpenInputStream(audio_info);
   if (result != error::kSuccess) return clean_up_and_return(result);
 
   result = ConfigureDecoder();

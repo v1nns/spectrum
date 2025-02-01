@@ -25,6 +25,7 @@
 #include "model/song.h"
 #include "model/volume.h"
 #include "util/logger.h"
+#include "web/base/stream_fetcher.h"
 
 //! Forward declaration
 namespace interface {
@@ -68,9 +69,11 @@ class Player : public AudioControl {
    * @brief Construct a new Player object
    * @param playback Pointer to playback interface
    * @param decoder Pointer to decoder interface
+   * @param fetcher Pointer to fetcher interface
    */
-  explicit Player(std::unique_ptr<driver::Playback>&& playback,
-                  std::unique_ptr<driver::Decoder>&& decoder);
+  explicit Player(std::unique_ptr<audio::Playback>&& playback,
+                  std::unique_ptr<audio::Decoder>&& decoder,
+                  std::unique_ptr<web::StreamFetcher>&& fetcher);
 
  public:
   /**
@@ -78,11 +81,13 @@ class Player : public AudioControl {
    * @param verbose Enable verbose logging messages
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
+   * @param fetcher Pass streaming fetcher to be used within Audio thread (optional)
    * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(bool verbose, driver::Playback* playback = nullptr,
-                                        driver::Decoder* decoder = nullptr,
+  static std::shared_ptr<Player> Create(bool verbose, audio::Playback* playback = nullptr,
+                                        audio::Decoder* decoder = nullptr,
+                                        web::StreamFetcher* fetcher = nullptr,
                                         bool asynchronous = true);
 
   /**
@@ -315,7 +320,7 @@ class Player : public AudioControl {
      */
     template <typename... Args>
     bool WaitFor(Args&&... cmds) {
-      std::vector<Command> expected = {cmds...};
+      std::vector<Command::Identifier> expected = {cmds...};
       LOG("Waiting for commands: ", expected);
 
       std::unique_lock lock(mutex);
@@ -335,7 +340,7 @@ class Player : public AudioControl {
           }
 
           // Check if it matches with some command from list
-          if (std::find(expected.begin(), expected.end(), current) != expected.end()) {
+          if (std::find(expected.begin(), expected.end(), current.id) != expected.end()) {
             // Found expected command, now unblock thread
             return true;
           }
@@ -354,8 +359,9 @@ class Player : public AudioControl {
 
   /* ******************************************************************************************** */
   //! Variables
-  std::unique_ptr<driver::Playback> playback_;  //!< Handle playback stream
-  std::unique_ptr<driver::Decoder> decoder_;    //!< Open file as input stream and parse samples
+  std::unique_ptr<audio::Playback> playback_;    //!< Handle playback stream
+  std::unique_ptr<audio::Decoder> decoder_;      //!< Open file as input stream and parse samples
+  std::unique_ptr<web::StreamFetcher> fetcher_;  //!< Fetch streaming information from URLs
 
   std::thread audio_loop_;  //!< Execute audio-loop function as a thread
 

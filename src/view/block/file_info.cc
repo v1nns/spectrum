@@ -79,7 +79,7 @@ bool FileInfo::OnCustomEvent(const CustomEvent& event) {
 
 void FileInfo::ParseAudioInfo(const model::Song& audio) {
   audio_info_.clear();
-  is_song_playing_ = !audio.IsEmpty();
+  is_song_playing_ = !audio.IsEmpty(); // TODO: evaluate this
 
   // Use istringstream to split string into lines and parse it as <Field, Value>
   std::istringstream input{model::to_string(audio)};

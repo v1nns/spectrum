@@ -35,7 +35,7 @@ namespace driver {
 /**
  * @brief Decode and equalize audio samples using FFmpeg libraries
  */
-class FFmpeg final : public Decoder {
+class FFmpeg final : public audio::Decoder {
  public:
   /**
    * @brief Construct a new FFmpeg object
@@ -61,7 +61,7 @@ class FFmpeg final : public Decoder {
   /* ******************************************************************************************** */
   //! Internal operations
  private:
-  error::Code OpenInputStream(const std::string& filepath);
+  error::Code OpenInputStream(const model::Song& audio_info);
   error::Code ConfigureDecoder();
   error::Code ConfigureFilters();
 
@@ -91,11 +91,11 @@ class FFmpeg final : public Decoder {
   /* ******************************************************************************************** */
  public:
   /**
-   * @brief Open file as input stream and check for codec compatibility for decoding
+   * @brief Open song as input stream and check for codec compatibility for decoding
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  error::Code OpenFile(model::Song& audio_info) override;
+  error::Code Open(model::Song& audio_info) override;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate

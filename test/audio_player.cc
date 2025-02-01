@@ -58,7 +58,8 @@ class PlayerTest : public ::testing::Test {
     EXPECT_CALL(*pb_mock, GetPeriodSize());
 
     // Create Player without thread
-    audio_player = audio::Player::Create(/*verbose=*/true, pb_mock, dc_mock, asynchronous);
+    audio_player = audio::Player::Create(/*verbose=*/true, pb_mock, dc_mock,
+                                         /* TODO: implement*/ nullptr, asynchronous);
 
     // Register interface notifier to Audio Player
     notifier = std::make_shared<InterfaceNotifierMock>();
@@ -111,7 +112,7 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     // Setup all expectations
     InSequence seq;
 
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name)))
         .WillOnce(Return(error::kSuccess));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -122,7 +123,7 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
           callback(0, 0, position);
           return error::kSuccess;
@@ -175,7 +176,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     const std::string expected_name{"The Weeknd - Blinding Lights"};
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name)))
         .WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*notifier, NotifySongInformation(_));
 
@@ -186,7 +187,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           // Starts playing
           int64_t position = 0;
           callback(0, 0, position);
@@ -267,12 +268,11 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     const std::string expected_name{"RÜFÜS - Innerbloom (What So Not Remix)"};
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
-        .WillOnce(Invoke([&] {
-          // Notify step here to give enough time for client to ask for stop
-          syncer.NotifyStep(2);
-          return error::kSuccess;
-        }));
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name))).WillOnce(Invoke([&] {
+      // Notify step here to give enough time for client to ask for stop
+      syncer.NotifyStep(2);
+      return error::kSuccess;
+    }));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
 
@@ -283,7 +283,7 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
     // itself so it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           syncer.WaitForStep(3);
 
           int64_t position = 0;
@@ -341,7 +341,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     const std::string expected_name{"The White Stripes - Blue Orchid"};
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name)))
         .WillOnce(Return(error::kSuccess));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -353,7 +353,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
           callback(0, 0, position);
 
@@ -410,7 +410,7 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
     const std::string expected_name{"Cannons - Round and Round"};
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name)))
         .WillOnce(Return(error::kFileNotSupported));
 
     // None of these should be called in this situation
@@ -459,7 +459,7 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
     const std::string expected_name{"Yung Buda - Sozinho no Tougue"};
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_name)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name)))
         .WillOnce(Return(error::kSuccess));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -536,7 +536,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
     auto decoder = GetDecoder();
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, song)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, song)))
         .WillOnce(Invoke([&](model::Song& audio_info) {
           // To enable seek position feature, must fill duration info to song struct
           audio_info.duration = 15;
@@ -552,7 +552,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
           syncer.NotifyStep(2);
           callback(0, 0, position);
@@ -619,7 +619,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     auto decoder = GetDecoder();
 
     // Setup all expectations
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, song)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, song)))
         .WillOnce(Invoke([&](model::Song& audio_info) {
           // To enable seek position feature, must fill duration info to song struct
           audio_info.duration = 15;
@@ -635,7 +635,7 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
           callback(0, 0, position);
 
@@ -724,7 +724,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
 
     /* ****************************************************************************************** */
     // Setup expectation for first song
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename1)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_filename1)))
         .WillOnce(Return(error::kSuccess));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -736,7 +736,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
     // itself. So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
           callback(0, 0, position);
 
@@ -772,7 +772,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
       // invoke function to call it from the previous loop)
 
       // Setup expectation for second song
-      EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename2)))
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_filename2)))
           .WillOnce(Return(error::kSuccess));
 
       EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -782,7 +782,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
 
       // In this case, this won't even play at all, it will wait for the Exit command from client
       EXPECT_CALL(*decoder, Decode(_, _))
-          .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
 
             syncer.NotifyStep(4);
@@ -850,7 +850,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
 
     /* ****************************************************************************************** */
     // Setup expectation for first song
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename1)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_filename1)))
         .WillOnce(Return(error::kSuccess));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -863,7 +863,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     // itself. So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
           callback(0, 0, position);
 
@@ -905,7 +905,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
       // invoke function to call it from the previous loop)
 
       // Setup expectation for second song
-      EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename2)))
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_filename2)))
           .WillOnce(Return(error::kSuccess));
 
       EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -915,7 +915,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
 
       // In this case, this won't even play at all, it will wait for the Exit command from client
       EXPECT_CALL(*decoder, Decode(_, _))
-          .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+          .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
 
             syncer.NotifyStep(4);
@@ -993,7 +993,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
 
     /* ****************************************************************************************** */
     // Setup expectation for first song
-    EXPECT_CALL(*decoder, OpenFile(Field(&model::Song::filepath, expected_filename)))
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_filename)))
         .WillOnce(Return(error::kSuccess));
 
     EXPECT_CALL(*notifier, NotifySongInformation(_));
@@ -1006,7 +1006,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
     // itself. So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
     EXPECT_CALL(*decoder, Decode(_, _))
-        .WillOnce(Invoke([&](int dummy, driver::Decoder::AudioCallback callback) {
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
           callback(0, 0, position);
 

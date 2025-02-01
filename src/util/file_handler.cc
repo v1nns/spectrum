@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <exception>
 #include <fstream>
+#include <regex>
 #include <set>
 
 #include "nlohmann/json.hpp"
@@ -37,6 +38,12 @@ static bool sort_files(const File& a, const File& b) {
   std::for_each(rhs.begin(), rhs.end(), to_lower);
 
   return lhs < rhs;
+}
+
+//! Basic URL validation pattern
+static bool IsYoutubeValid(const std::string& url) {
+  std::regex valid_url(R"(^(https?://)?(www\.)?(?:youtube\.com|youtu\.be)/.*$)");
+  return std::regex_match(url, valid_url);
 }
 
 }  // namespace internal
@@ -108,16 +115,25 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
     if (!playlist.contains("name") || !playlist.contains("songs")) continue;
 
     model::Playlist entry{.name = playlist["name"], .songs = {}};
+
+    // To avoid including same song multiple times...
     std::set<std::filesystem::path> filepaths;
 
     // Parse all songs from a single playlist
     for (auto& [_, song] : playlist["songs"].items()) {
-      if (!song.contains("path") || !std::filesystem::exists(song["path"])) continue;
+      if (song.contains("path") && std::filesystem::exists(song["path"])) {
+        // Insert only if filepath is not duplicated
+        if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
+          // Song from filepath
+          entry.songs.emplace_back(model::Song{
+              .filepath = song["path"],
+          });
+        }
 
-      // Insert only if filepath is not duplicated
-      if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
+      } else if (song.contains("url") && internal::IsYoutubeValid(song["url"])) {
+        // Song from URL
         entry.songs.emplace_back(model::Song{
-            .filepath = song["path"],
+            .stream_info = model::StreamInfo{.base_url = song["url"]},
         });
       }
     }

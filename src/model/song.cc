@@ -80,20 +80,21 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
       << " artist:" << artist << " title:" << title
       << " playlist:" << (s.playlist ? *s.playlist : "<none>") << " duration:" << s.duration
       << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
-      << " bit_depth:" << s.bit_depth << "}";
+      << " bit_depth:" << s.bit_depth
+      << " streaming_info:" << (s.stream_info ? to_string(*s.stream_info) : "<none>") << "}";
   return out;
 }
 
 /* ********************************************************************************************** */
 
-bool Song::IsEmpty() const { return filepath.empty() ? true : false; }
+bool Song::IsEmpty() const { return filepath.empty() && !stream_info.has_value(); }
 
 /* ********************************************************************************************** */
 
 std::string to_string(const Song& arg) {
   bool is_empty = arg.IsEmpty();
 
-  std::string filename = is_empty ? "<Empty>" : arg.filepath.filename();
+  std::string filename =  arg.filepath.empty() ? "<Empty>" : arg.filepath.filename();
 
   std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
   std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;
