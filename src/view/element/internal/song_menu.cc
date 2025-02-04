@@ -130,6 +130,27 @@ void SongMenu::SetEntriesImpl(const std::deque<model::Song>& entries) {
 
 /* ********************************************************************************************** */
 
+void SongMenu::EmplaceImpl(const model::Song& entry) {
+  LOG("Emplace a new entry to list");
+  entries_.emplace_back(entry);
+}
+
+/* ********************************************************************************************** */
+
+void SongMenu::EraseImpl(const model::Song& entry) {
+  LOG("Attempt to erase an entry with value=", entry.filepath);
+  auto it = std::find_if(entries_.begin(), entries_.end(), [&entry](const model::Song& s) {
+    return s.index == entry.index && s.filepath == entry.filepath;
+  });
+
+  if (it != entries_.end()) {
+    LOG("Found matching entry, erasing it, entry=", *it);
+    entries_.erase(it);
+  }
+}
+
+/* ********************************************************************************************** */
+
 std::optional<model::Song> SongMenu::GetActiveEntryImpl() const {
   int size = GetSizeImpl();
 

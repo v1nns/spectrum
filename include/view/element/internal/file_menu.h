@@ -33,6 +33,9 @@ class FileMenu : public BaseMenu<FileMenu> {
     MenuEntryOption playing;
   };
 
+  //! Define a custom value for maximum number of columns used as icon
+  static constexpr int GetMaxColumnsForIconImpl() { return -1; }
+
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
   using Callback = Callback<util::File>;
@@ -110,22 +113,10 @@ class FileMenu : public BaseMenu<FileMenu> {
   util::Files GetEntriesImpl() const { return IsSearchEnabled() ? *filtered_entries_ : entries_; }
 
   //! Emplace a new entry
-  void EmplaceImpl(const util::File& entry) {
-    LOG("Emplace a new entry to list");
-    entries_.emplace_back(entry);
-  }
+  void EmplaceImpl(const util::File& entry);
 
   //! Erase an existing entry
-  void EraseImpl(const util::File& entry) {
-    LOG("Attempt to erase an entry with value=", entry);
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [&entry](const util::File& f) { return f == entry; });
-
-    if (it != entries_.end()) {
-      LOG("Found matching entry, erasing it, entry=", *it);
-      entries_.erase(it);
-    }
-  }
+  void EraseImpl(const util::File& entry);
 
   //! Set entry to be highlighted
   void SetEntryHighlightedImpl(const util::File& entry);

@@ -293,9 +293,7 @@ void Player::AudioHandler() {
     error::Code result = error::kSuccess;
 
     // Get streaming information if song contains a valid URL
-    if (curr_song_->stream_info.has_value()) {
-      result = fetcher_->ExtractInfo(curr_song_->stream_info->base_url, *curr_song_);
-    }
+    if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
 
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
     if (result == error::kSuccess) result = decoder_->Open(*curr_song_);

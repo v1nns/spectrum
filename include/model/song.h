@@ -67,6 +67,12 @@ struct Song {
 
   //! Check if song is empty
   bool IsEmpty() const;
+
+  //! Get song title
+  std::string GetTitle() const;
+
+  //! Check if songs are equal, based on filepath or streaming URL
+  bool Compare(const Song& other) const;
 };
 
 /**

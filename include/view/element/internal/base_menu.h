@@ -351,6 +351,7 @@ class BaseMenu : public Element {
     actual().SetEntriesImpl(entries);
     ResetState();
     Clamp();
+    UpdateActiveEntry();
   }
 
   /**
@@ -360,6 +361,16 @@ class BaseMenu : public Element {
   template <typename T>
   void Emplace(const T& entry) {
     actual().EmplaceImpl(entry);
+    Clamp();
+  }
+
+  /**
+   * @brief Update an existent entry to menu list, or emplace when does not exist
+   * @param entry Entry for menu to update/emplace
+   */
+  template <typename T>
+  void UpdateOrEmplace(const T& entry) {
+    actual().UpdateOrEmplaceImpl(entry);
     Clamp();
   }
 
@@ -570,7 +581,9 @@ class BaseMenu : public Element {
 
     // Get active entry and count char length
     std::string text = GetActiveEntryAsText();
-    int count_chars = (int)text.length() + kMaxIconColumns;
+    int max_icon_columns = actual().GetMaxColumnsForIconImpl();
+
+    int count_chars = (int)text.length() + (max_icon_columns ? max_icon_columns : kMaxIconColumns);
 
     // Start animation thread
     if (count_chars > max_columns_) animation_.Start(text);

@@ -262,6 +262,26 @@ void FileMenu::SetEntriesImpl(const util::Files& entries) {
 
 /* ********************************************************************************************** */
 
+void FileMenu::EmplaceImpl(const util::File& entry) {
+  LOG("Emplace a new entry to list");
+  entries_.emplace_back(entry);
+}
+
+/* ********************************************************************************************** */
+
+void FileMenu::EraseImpl(const util::File& entry) {
+  LOG("Attempt to erase an entry with value=", entry);
+  auto it = std::find_if(entries_.begin(), entries_.end(),
+                         [&entry](const util::File& f) { return f == entry; });
+
+  if (it != entries_.end()) {
+    LOG("Found matching entry, erasing it, entry=", *it);
+    entries_.erase(it);
+  }
+}
+
+/* ********************************************************************************************** */
+
 void FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
   // Find entry in internal list
   auto it = std::find(entries_.begin(), entries_.end(), entry);

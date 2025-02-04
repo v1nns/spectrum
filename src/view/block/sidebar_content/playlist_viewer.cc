@@ -168,43 +168,19 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::SavePlaylistsToFile) {
     LOG("Save playlists to JSON");
 
-    auto modified_playlist = event.GetContent<model::Playlist>();
-    auto playlists_wrapper = menu_->GetEntries();
-
-    model::Playlists playlists;
-    playlists.reserve(playlists_wrapper.size());
-
-    bool found = false;
-
-    for (auto& playlist_wrapper : playlists_wrapper) {
-      // If modified playlist is based on an existing one, just replace it
-      if (playlist_wrapper.playlist.index == modified_playlist.index) {
-        LOG("Changing playlist old=", playlist_wrapper.playlist, " to new=", modified_playlist);
-        playlist_wrapper.playlist = modified_playlist;
-        found = true;
-      }
-
-      playlists.emplace_back(playlist_wrapper.playlist);
-    }
-
-    // Otherwise, create a new entry for it
-    if (!found) {
-      LOG("Could not find a matching playlist, so create a new one");
-      modified_playlist.index = playlists.size();
-      playlists.emplace_back(modified_playlist);
-    }
-
-    bool result = file_handler_->SavePlaylists(playlists);
-    LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
-
-    // TODO: think if should create new method to edit existing entry
     // Update UI state
-    menu_->SetEntries(playlists);
+    auto modified_playlist = event.GetContent<model::Playlist>();
+    menu_->UpdateOrEmplace(modified_playlist);
 
     // Make sure to enable them
     btn_modify_->Enable();
     btn_delete_->Enable();
 
+    // Get updated list and save to file
+    model::Playlists playlists = menu_->actual().GetEntries();
+    bool result = file_handler_->SavePlaylists(playlists);
+
+    LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
     return true;
   }
 
@@ -318,15 +294,7 @@ void PlaylistViewer::OnYes() {
 
   LOG("Deleting playlist=", *entry);
   menu_->Erase(*entry);
-
-  const auto& playlists_wrapper = menu_->GetEntries();
-
-  model::Playlists playlists;
-  playlists.reserve(playlists_wrapper.size());
-
-  for (const auto& playlist_wrapper : playlists_wrapper) {
-    playlists.emplace_back(playlist_wrapper.playlist);
-  }
+  model::Playlists playlists = menu_->actual().GetEntries();
 
   bool result = file_handler_->SavePlaylists(playlists);
   LOG("Operation to save playlists in JSON file, result=", result ? "success" : "error");

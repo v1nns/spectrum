@@ -67,23 +67,22 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
   /**
    * @brief Construct a new YtDlpWrapper object
    */
-  YtDlpWrapper();
+  YtDlpWrapper() = default;
 
   /**
    * @brief Destroy the YtDlpWrapper object
    */
-  virtual ~YtDlpWrapper();
+  virtual ~YtDlpWrapper() = default;
 
   /* ******************************************************************************************** */
   //! Public API
 
   /**
    * @brief Extract streaming information from the given URL
-   * @param url Endpoint address
-   * @param output Song filled with streaming information from fetch operation (out)
+   * @param song Song with a streaming URL, fetching operation will get the rest of the info (out)
    * @return Error code from operation
    */
-  error::Code ExtractInfo(const std::string &url, model::Song &output) override;
+  error::Code ExtractInfo(model::Song &song) override;
 
   /* ******************************************************************************************** */
   //! Variables
@@ -126,7 +125,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     }
 
    private:
-    PyObject *main_module_;
+    PyObject *main_module_;  //!< Pointer to custom python module
   };
 };
 

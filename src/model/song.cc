@@ -91,10 +91,40 @@ bool Song::IsEmpty() const { return filepath.empty() && !stream_info.has_value()
 
 /* ********************************************************************************************** */
 
+std::string Song::GetTitle() const {
+  std::string text;
+  // Get title from streaming information
+  if (stream_info.has_value()) text = !title.empty() ? title : stream_info->base_url;
+
+  // Get artist and title from metadata information
+  else if (!artist.empty() && !title.empty())
+    text = artist + "-" + title;
+
+  // Get title from metadata information
+  else if (!title.empty())
+    text = title;
+
+  // As last resource, use filepath
+  else
+    text = filepath.filename().string();
+
+  return text;
+}
+
+/* ********************************************************************************************** */
+
+bool Song::Compare(const Song& other) const {
+  return (stream_info.has_value() && other.stream_info.has_value() &&
+          stream_info->base_url == other.stream_info->base_url) ||
+         (filepath == other.filepath);
+}
+
+/* ********************************************************************************************** */
+
 std::string to_string(const Song& arg) {
   bool is_empty = arg.IsEmpty();
 
-  std::string filename =  arg.filepath.empty() ? "<Empty>" : arg.filepath.filename();
+  std::string filename = arg.filepath.empty() ? "<Empty>" : arg.filepath.filename();
 
   std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
   std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;

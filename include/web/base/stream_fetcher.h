@@ -6,8 +6,6 @@
 #ifndef INCLUDE_WEB_BASE_STREAM_FETCHER_H_
 #define INCLUDE_WEB_BASE_STREAM_FETCHER_H_
 
-#include <string>
-
 #include "model/application_error.h"
 #include "model/song.h"
 
@@ -33,12 +31,10 @@ class StreamFetcher {
 
   /**
    * @brief Extract streaming information from the given URL
-   * @param url Endpoint address
-   * @param output Song filled with streaming information from fetch operation (out)
+   * @param song Song with a streaming URL, fetching operation will get the rest of the info (out)
    * @return Error code from operation
    */
-  // TODO: think about removing url and use only song
-  virtual error::Code ExtractInfo(const std::string &url, model::Song &output) = 0;
+  virtual error::Code ExtractInfo(model::Song &song) = 0;
 };
 
 }  // namespace web

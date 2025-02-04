@@ -32,6 +32,9 @@ class SongMenu : public BaseMenu<SongMenu> {
     MenuEntryOption entry;
   };
 
+  //! Define a custom value for maximum number of columns used as icon
+  static constexpr int GetMaxColumnsForIconImpl() { return -1; }
+
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
   using Callback = Callback<model::Song>;
@@ -83,23 +86,10 @@ class SongMenu : public BaseMenu<SongMenu> {
   }
 
   //! Emplace a new entry
-  void EmplaceImpl(const model::Song& entry) {
-    LOG("Emplace a new entry to list");
-    entries_.emplace_back(entry);
-  }
+  void EmplaceImpl(const model::Song& entry);
 
   //! Erase an existing entry
-  void EraseImpl(const model::Song& entry) {
-    LOG("Attempt to erase an entry with value=", entry.filepath);
-    auto it = std::find_if(entries_.begin(), entries_.end(), [&entry](const model::Song& s) {
-      return s.index == entry.index && s.filepath == entry.filepath;
-    });
-
-    if (it != entries_.end()) {
-      LOG("Found matching entry, erasing it, entry=", *it);
-      entries_.erase(it);
-    }
-  }
+  void EraseImpl(const model::Song& entry);
 
   //! Set entry to be highlighted
   void SetEntryHighlightedImpl(const std::string&) {}
