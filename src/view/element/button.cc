@@ -362,54 +362,6 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button_minimal(const std::string& content,
-                                                    const Callback& on_click, const Style& style) {
-  class MinimalButton : public Button {
-   public:
-    explicit MinimalButton(const Style& style, const std::string& content, const Callback& on_click)
-        : Button(style, on_click, true), content_{content} {}
-
-    //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
-      auto left = ftxui::text(" ");
-      auto right = ftxui::text(" ");
-      auto content = ftxui::text(content_);
-
-      constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg) {
-        return ftxui::bgcolor(bg) | ftxui::color(fg);
-      };
-
-      // Based on internal state, determine which style to apply
-      ftxui::Color const* background;
-      ftxui::Color const* foreground;
-      bool invert = false;
-
-      if (!enabled_) {
-        background = &style_.disabled.background;
-        foreground = &style_.disabled.foreground;
-
-      } else if (focused_) {
-        background = pressed_ ? &style_.pressed.background : &style_.focused.background;
-        foreground = pressed_ ? &style_.pressed.foreground : &style_.focused.foreground;
-
-      } else {
-        background = &style_.normal.background;
-        foreground = &style_.normal.foreground;
-      }
-
-      auto style = create_style(*background, *foreground);
-
-      return ftxui::hbox({left, content, right}) | style | ftxui::reflect(box_);
-    }
-
-    std::string content_;
-  };
-
-  return std::make_shared<MinimalButton>(style, content, on_click);
-}
-
-/* ********************************************************************************************** */
-
 std::shared_ptr<Button> Button::make_button(const std::string& content, const Callback& on_click,
                                             const Style& style, bool active) {
   class GenericButton : public Button {
@@ -496,6 +448,54 @@ std::shared_ptr<Button> Button::make_button_solid(const std::string& content,
   };
 
   return std::make_shared<SolidButton>(style, content, on_click, active);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button_custom(const ftxui::Element& content,
+                                                   const Callback& on_click, const Style& style) {
+  class CustomButton : public Button {
+   public:
+    explicit CustomButton(const Style& style, const ftxui::Element& content,
+                          const Callback& on_click)
+        : Button(style, on_click, true), content_{content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element Render() override {
+      auto left = ftxui::text(" ");
+      auto right = ftxui::text(" ");
+
+      constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg) {
+        return ftxui::bgcolor(bg) | ftxui::color(fg);
+      };
+
+      // Based on internal state, determine which style to apply
+      ftxui::Color const* background;
+      ftxui::Color const* foreground;
+      bool invert = false;
+
+      if (!enabled_) {
+        background = &style_.disabled.background;
+        foreground = &style_.disabled.foreground;
+
+      } else if (focused_) {
+        background = pressed_ ? &style_.pressed.background : &style_.focused.background;
+        foreground = pressed_ ? &style_.pressed.foreground : &style_.focused.foreground;
+
+      } else {
+        background = &style_.normal.background;
+        foreground = &style_.normal.foreground;
+      }
+
+      auto style = create_style(*background, *foreground);
+
+      return ftxui::hbox({left, content_, right}) | style | ftxui::reflect(box_);
+    }
+
+    ftxui::Element content_;
+  };
+
+  return std::make_shared<CustomButton>(style, content, on_click);
 }
 
 }  // namespace interface

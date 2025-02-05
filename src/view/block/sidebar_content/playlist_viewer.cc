@@ -207,8 +207,14 @@ void PlaylistViewer::OnFocus() {
 /* ********************************************************************************************** */
 
 void PlaylistViewer::CreateButtons() {
-  btn_create_ = Button::make_button_minimal(
-      std::string("create"),
+  using ftxui::text, ftxui::hbox;
+
+  // Default style to highlight letter used as keybinding
+  ftxui::Decorator highlight =
+      ftxui::color(ftxui::Color::DeepPink4Bis) | ftxui::underlined | ftxui::bold;
+
+  btn_create_ = Button::make_button_custom(
+      hbox({text("c") | highlight, text("reate")}),
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -230,8 +236,8 @@ void PlaylistViewer::CreateButtons() {
       },
       kButtonStyle);
 
-  btn_modify_ = Button::make_button_minimal(
-      std::string("modify"),
+  btn_modify_ = Button::make_button_custom(
+      hbox({text("m"), text("o") | highlight, text("dify")}),
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -255,8 +261,8 @@ void PlaylistViewer::CreateButtons() {
       },
       kButtonStyle);
 
-  btn_delete_ = Button::make_button_minimal(
-      std::string("delete"),
+  btn_delete_ = Button::make_button_custom(
+      hbox({text("d") | highlight, text("elete")}),
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();

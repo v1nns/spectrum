@@ -114,9 +114,12 @@ std::string Song::GetTitle() const {
 /* ********************************************************************************************** */
 
 bool Song::Compare(const Song& other) const {
-  return (stream_info.has_value() && other.stream_info.has_value() &&
-          stream_info->base_url == other.stream_info->base_url) ||
-         (filepath == other.filepath);
+  // Attempt to use streaming information first
+  if (stream_info.has_value() && other.stream_info.has_value())
+    return stream_info->base_url == other.stream_info->base_url;
+
+  // Otherwise, use filepath
+  return !filepath.empty() && !other.filepath.empty() && filepath == other.filepath;
 }
 
 /* ********************************************************************************************** */

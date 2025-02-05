@@ -109,16 +109,6 @@ class Button {
                                                         const Style& style);
 
   /**
-   * @brief Create a minimal button
-   * @param content Text content to show
-   * @param on_click Callback function for click event
-   * @param style Custom style to apply on button
-   * @return std::shared_ptr<Button> New instance to Window button
-   */
-  static std::shared_ptr<Button> make_button_minimal(const std::string& content,
-                                                     const Callback& on_click, const Style& style);
-
-  /**
    * @brief Create generic button
    * @param content Text content to show
    * @param on_click Callback function for click event
@@ -140,6 +130,16 @@ class Button {
   static std::shared_ptr<Button> make_button_solid(const std::string& content,
                                                    const Callback& on_click, const Style& style,
                                                    bool active = true);
+
+  /**
+   * @brief Create custom button
+   * @param content Custom ftxui::Element to display
+   * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
+   * @return std::shared_ptr<Button> New instance to Window button
+   */
+  static std::shared_ptr<Button> make_button_custom(const ftxui::Element& content,
+                                                    const Callback& on_click, const Style& style);
 
   /* ******************************************************************************************** */
   //! Public API for Button

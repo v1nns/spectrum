@@ -27,8 +27,14 @@ QuestionDialog::QuestionDialog()
       .width = 15,
   };
 
-  btn_yes_ = Button::make_button_minimal(
-      std::string("Yes"),
+  using ftxui::text, ftxui::hbox;
+
+  // Default style to highlight letter used as keybinding
+  ftxui::Decorator highlight =
+      ftxui::color(ftxui::Color::DeepPink4Bis) | ftxui::underlined | ftxui::bold;
+
+  btn_yes_ = Button::make_button_custom(
+      hbox({text("Y") | highlight, text("es")}),
       [this]() {
         LOG("Handle \"yes\" button");
         if (content_->cb_yes) content_->cb_yes();
@@ -38,8 +44,8 @@ QuestionDialog::QuestionDialog()
       },
       style);
 
-  btn_no_ = Button::make_button_minimal(
-      std::string("No"),
+  btn_no_ = Button::make_button_custom(
+      hbox({text("N") | highlight, text("o")}),
       [this]() {
         LOG("Handle \"no\" button");
         if (content_->cb_no) content_->cb_no();
