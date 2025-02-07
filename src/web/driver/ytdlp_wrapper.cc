@@ -4,6 +4,7 @@
 #include <regex>
 
 #include "nlohmann/json.hpp"
+#include "util/formatter.h"
 #include "util/logger.h"
 
 namespace driver {
@@ -18,11 +19,11 @@ static void ParseSongTitle(const std::string& input, std::string& artist, std::s
 
   if (first_pos == std::string::npos || second_pos != std::string::npos) {
     // If the delimiter appears more than once or not at all, only fill the title
-    title = input;
+    title = util::trim(input);
   } else {
     // Split the string into artist + title
-    artist = input.substr(0, first_pos);
-    title = input.substr(first_pos + kDelimiter.length());
+    artist = util::trim(input.substr(0, first_pos));
+    title = util::trim(input.substr(first_pos + kDelimiter.length()));
   }
 }
 

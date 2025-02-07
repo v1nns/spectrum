@@ -98,6 +98,9 @@ error::Code FFmpeg::OpenInputStream(const model::Song &audio_info) {
     }
 
     av_dict_set(&options, "headers", http_header.c_str(), 0);
+    av_dict_set(&options, "reconnect", "1", 0);
+    av_dict_set(&options, "reconnect_streamed", "1", 0);
+    av_dict_set(&options, "reconnect_delay_max", "10", 0);
 
     LOG("Open input stream from url=", std::quoted(audio_info.stream_info->base_url));
     url = audio_info.stream_info->streaming_url;

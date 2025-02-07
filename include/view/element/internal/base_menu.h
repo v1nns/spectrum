@@ -215,12 +215,17 @@ class BaseMenu : public Element {
     for (int i = 0; i < GetSize(); ++i) {
       if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
 
-      LOG_T("Handle double left click mouse event on entry=", i);
       entry_focused = true;
       *focused = i;
       *selected = i;
 
-      if (click) OnClick();
+      if (click) {
+        LOG_T("Handle double left click mouse event on entry=", i);
+        OnClick();
+      }
+
+      // Make sure to render the newest focused entry
+      UpdateActiveEntry();
       break;
     }
 

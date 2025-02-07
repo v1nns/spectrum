@@ -42,9 +42,8 @@ ftxui::Element SongMenu::RenderImpl() {
 
     // In case of entry text too long, animation thread will be running, so we gotta take the
     // text content from there
-    auto text =
-        ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                        : entry.filepath.filename().string());
+    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                                : entry.GetTitle());
 
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,
@@ -88,7 +87,7 @@ int SongMenu::GetSizeImpl() const {
 
 std::string SongMenu::GetActiveEntryAsTextImpl() const {
   auto active = GetActiveEntryImpl();
-  return active.has_value() ? active->filepath.filename().string() : "";
+  return active.has_value() ? active->GetTitle() : "";
 }
 
 /* ********************************************************************************************** */
@@ -115,7 +114,7 @@ void SongMenu::FilterEntriesBy(const std::string& text) {
 
   // Filter entries
   for (const auto& entry : entries_) {
-    if (util::contains(entry.filepath.filename().string(), text)) {
+    if (util::contains(entry.GetTitle(), text)) {
       filtered_entries_->push_back(entry);
     }
   }
@@ -138,9 +137,9 @@ void SongMenu::EmplaceImpl(const model::Song& entry) {
 /* ********************************************************************************************** */
 
 void SongMenu::EraseImpl(const model::Song& entry) {
-  LOG("Attempt to erase an entry with value=", entry.filepath);
+  LOG("Attempt to erase an entry with value=", entry.GetTitle());
   auto it = std::find_if(entries_.begin(), entries_.end(), [&entry](const model::Song& s) {
-    return s.index == entry.index && s.filepath == entry.filepath;
+    return s.index == entry.index && s.Compare(entry);
   });
 
   if (it != entries_.end()) {
