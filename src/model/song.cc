@@ -64,7 +64,8 @@ std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
 
 //! Song::CurrentInformation pretty print
 std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
-  out << "{state:" << info.state << " position:" << info.position << "}";
+  out << "{state:\"" << info.state << "\"";
+  out << ", position:" << info.position << "}";
   return out;
 }
 
@@ -75,13 +76,15 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
   std::string artist = s.artist.empty() ? "<unknown>" : s.artist;
   std::string title = s.title.empty() ? "<unknown>" : s.title;
 
-  out << "{index:" << (s.index ? std::to_string(*s.index) : "<none>")
-      << " filename:" << (s.filepath.has_filename() ? s.filepath.filename() : "<none>")
-      << " artist:" << artist << " title:" << title
-      << " playlist:" << (s.playlist ? *s.playlist : "<none>") << " duration:" << s.duration
-      << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
-      << " bit_depth:" << s.bit_depth
-      << " streaming_info:" << (s.stream_info ? to_string(*s.stream_info) : "<none>") << "}";
+  out << "{index:" << (s.index ? *s.index : -1);
+  out << ", filename:"
+      << std::quoted((s.filepath.has_filename() ? s.filepath.filename().c_str() : "<none>"));
+  out << ", artist:" << std::quoted(artist) << " title:" << std::quoted(title);
+  out << ", playlist:" << std::quoted((s.playlist ? *s.playlist : "<none>"));
+  out << ", duration:" << s.duration;
+  out << ", sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate;
+  out << ", bit_depth:" << s.bit_depth;
+  out << ", streaming_info:" << (s.stream_info ? to_string(*s.stream_info) : "{}") << "}";
   return out;
 }
 

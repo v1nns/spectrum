@@ -9,19 +9,19 @@ namespace interface {
  * @brief Based on Visitor pattern, print content from std::variant used inside CustomEvent
  */
 struct ContentVisitor {
-  explicit ContentVisitor(std::ostream& o) : out{o} { out << " content:"; };
+  explicit ContentVisitor(std::ostream& o) : out{o} {};
 
   // All mapped types used in the CustomEvent content
-  void operator()(const std::monostate&) const { out << "empty"; }
+  void operator()(const std::monostate&) const { out << std::quoted("empty"); }
   void operator()(int i) const { out << i; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
   void operator()(const std::filesystem::path& p) const { out << std::quoted(p.c_str()); }
-  void operator()(const std::vector<double>&) const { out << "{vector data...}"; }
+  void operator()(const std::vector<double>&) const { out << std::quoted("{vector data...}"); }
   void operator()(const model::EqualizerPreset&) const {
     // TODO: maybe implement detailed info here
-    out << "{audio filter data...}";
+    out << std::quoted("{audio filter data...}");
   }
   void operator()(const model::BarAnimation& a) const { out << a; }
   void operator()(const model::BlockIdentifier& i) const { out << i; }
@@ -36,15 +36,15 @@ struct ContentVisitor {
 std::ostream& operator<<(std::ostream& out, const CustomEvent::Type& t) {
   switch (t) {
     case CustomEvent::Type::FromInterfaceToAudioThread:
-      out << "{UI->Player}";
+      out << "UI->Player";
       break;
 
     case CustomEvent::Type::FromAudioThreadToInterface:
-      out << "{Player->UI}";
+      out << "Player->UI";
       break;
 
     case CustomEvent::Type::FromInterfaceToInterface:
-      out << "{UI->UI}";
+      out << "UI->UI";
       break;
   }
   return out;
@@ -186,13 +186,11 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
 //! CustomEvent pretty print
 std::ostream& operator<<(std::ostream& out, const CustomEvent& e) {
-  out << "{";
-  out << " type:" << e.type;
-  out << " id:" << e.id;
-
+  out << "{type:\"" << e.type << "\"";
+  out << ", id:\"" << e.id << "\"";
+  out << ", content:";
   std::visit(ContentVisitor{out}, e.content);
-
-  out << " }";
+  out << "}";
 
   return out;
 }

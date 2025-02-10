@@ -40,19 +40,19 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
 //! Command::Identifiers pretty print
 std::ostream& operator<<(std::ostream& out, const std::vector<Command::Identifier>& cmds) {
   if (cmds.empty()) {
-    out << "Empty";
+    out << "[]";
     return out;
   }
 
-  out << "{";
+  out << "[";
 
   std::vector<Command::Identifier>::const_iterator i, j;
   for (i = cmds.begin(), j = --cmds.end(); i != j; ++i) {
-    out << *i << ",";
+    out << "\"" << *i << "\"" << ",";
   }
 
-  out << *j;
-  out << "}";
+  out << "\"" << *j << "\"";
+  out << "]";
 
   return out;
 }
@@ -66,19 +66,19 @@ std::ostream& operator<<(std::ostream& out, const Command& cmd) {
 //! Commands pretty print
 std::ostream& operator<<(std::ostream& out, const std::vector<Command>& cmds) {
   if (cmds.empty()) {
-    out << "Empty";
+    out << "[]";
     return out;
   }
 
-  out << "{";
+  out << "[";
 
   std::vector<Command>::const_iterator i, j;
   for (i = cmds.begin(), j = --cmds.end(); i != j; ++i) {
-    out << i->id << ",";
+    out << "\"" << i->id << "\"" << ",";
   }
 
-  out << j->id;
-  out << "}";
+  out << "\"" << j->id << "\"";
+  out << "]";
 
   return out;
 }

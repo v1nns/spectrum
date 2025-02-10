@@ -1,11 +1,13 @@
 #include "model/playlist_operation.h"
 
+#include <iomanip>
+
 namespace model {
 
-std::string PlaylistOperation::GetActionName(const PlaylistOperation& playlist) {
+static const char* to_chars(const PlaylistOperation::Operation action) {
   using Operation = PlaylistOperation::Operation;
 
-  switch (playlist.action) {
+  switch (action) {
     case Operation::None:
       return "None";
     case Operation::Create:
@@ -13,22 +15,21 @@ std::string PlaylistOperation::GetActionName(const PlaylistOperation& playlist) 
     case Operation::Modify:
       return "Modify";
     default:
-      break;
+      return "Unknown";
   }
-
-  return "Unknown";
 }
 
 /* ********************************************************************************************** */
 
 //! PlaylistOperation pretty print
 std::ostream& operator<<(std::ostream& out, const PlaylistOperation& p) {
-  out << "{action: " << PlaylistOperation::GetActionName(p) << ", playlist: ";
+  out << "{action:" << std::quoted(to_chars(p.action));
+  out << ", playlist:";
 
   if (p.playlist.has_value())
-    operator<<(out, p.playlist.value());
+    operator<<(out, *p.playlist);
   else
-    out << "{empty}";
+    out << "{}";
 
   out << "}";
   return out;

@@ -1,24 +1,28 @@
 #include "model/bar_animation.h"
 
+#include <iomanip>
+
 namespace model {
+
+static const char* to_chars(const BarAnimation& animation) {
+  switch (animation) {
+    case BarAnimation::HorizontalMirror:
+      return "HorizontalMirror";
+    case BarAnimation::VerticalMirror:
+      return "VerticalMirror";
+    case BarAnimation::Mono:
+      return "Mono";
+    case BarAnimation::LAST:
+    default:
+      return "Invalid";
+  }
+}
+
+/* ********************************************************************************************** */
 
 //! BarAnimation pretty print
 std::ostream& operator<<(std::ostream& out, const BarAnimation& animation) {
-  switch (animation) {
-    case BarAnimation::HorizontalMirror:
-      out << "HorizontalMirror";
-      break;
-    case BarAnimation::VerticalMirror:
-      out << "VerticalMirror";
-      break;
-    case BarAnimation::Mono:
-      out << "Mono";
-      break;
-    case BarAnimation::LAST:
-      out << "Invalid";
-      break;
-  }
-
+  out << std::quoted(to_chars(animation));
   return out;
 }
 

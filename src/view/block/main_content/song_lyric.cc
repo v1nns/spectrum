@@ -1,6 +1,7 @@
 #include "view/block/main_content/song_lyric.h"
 
 #include <algorithm>
+#include <iomanip>
 #include <optional>
 #include <string>
 
@@ -59,22 +60,22 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
 
   // Calculate new index based on upper bound
   if (event == Keybind::ArrowUp || event == Keybind::Up) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
+    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
     focused_ = focused_ - (focused_ > 0 ? 1 : 0);
   }
 
   if (event == Keybind::ArrowDown || event == Keybind::Down) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
+    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
     focused_ = focused_ + (focused_ < (static_cast<int>(lyrics_.size()) - 1) ? 1 : 0);
   }
 
   if (event == Keybind::Home) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
+    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
     focused_ = 0;
   }
 
   if (event == Keybind::End) {
-    LOG("Handle menu navigation key=", util::EventToString(event));
+    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
     focused_ = static_cast<int>(lyrics_.size() - 1);
   }
 

@@ -3,8 +3,6 @@
 #include <iomanip>
 #include <stdexcept>
 
-#include "model/stream_info.h"
-
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
@@ -362,7 +360,7 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 /* ********************************************************************************************** */
 
 void Player::Play(const std::filesystem::path& filepath) {
-  LOG("Add command to queue: Play (with filepath=", std::quoted(filepath.string()), ")");
+  LOG("Add command to queue: \"Play\" (filepath=", std::quoted(filepath.string()), ")");
   media_control_.Push(Command::Play(model::Song{.filepath = filepath}));
 
   // Reset song queue
@@ -375,7 +373,7 @@ void Player::Play(const std::filesystem::path& filepath) {
 /* ********************************************************************************************** */
 
 void Player::Play(const model::Playlist& playlist) {
-  LOG("Add command to queue: Play (with ", playlist, ")");
+  LOG("Add command to queue: \"Play\" (playlist=", playlist, ")");
   bool already_playing = curr_playlist_.has_value();
 
   // Update internal song queue
@@ -394,7 +392,8 @@ void Player::Play(const model::Playlist& playlist) {
 
 void Player::PauseOrResume() {
   // TODO: if state = idle, do not add to media_control?
-  LOG("Add command to queue: ", media_control_.state == State::Play ? "Pause" : "Resume");
+  LOG("Add command to queue: ",
+      std::quoted(media_control_.state == State::Play ? "Pause" : "Resume"));
   media_control_.Push(Command::PauseOrResume());
 }
 
@@ -448,14 +447,14 @@ model::Volume Player::GetAudioVolume() const {
 /* ********************************************************************************************** */
 
 void Player::SeekForwardPosition(int value) {
-  LOG("Add command to queue: SeekForward (with value=", value, ")");
+  LOG("Add command to queue: \"SeekForward\" (with value=", value, ")");
   media_control_.Push(Command::SeekForward(value));
 }
 
 /* ********************************************************************************************** */
 
 void Player::SeekBackwardPosition(int value) {
-  LOG("Add command to queue: SeekBackward (with value=", value, ")");
+  LOG("Add command to queue: \"SeekBackward\" (with value=", value, ")");
   media_control_.Push(Command::SeekBackward(value));
 }
 
@@ -492,8 +491,13 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void Player::Exit() {
-  LOG("Add command to queue: Exit");
+  static bool exit = false;
+  if (exit) return;
+
+  LOG("Add command to queue: \"Exit\"");
   media_control_.Push(Command::Exit());
+
+  exit = true;
 }
 
 }  // namespace audio

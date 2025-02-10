@@ -255,6 +255,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
       // Clear queue in case of exit request
       if (cmd == Command::Exit) {
+        if (queue.size() == 1 && queue.front() == cmd) {
+          // Don't do anything else
+          return;
+        }
         std::queue<Command>().swap(queue);
       }
 

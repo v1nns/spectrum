@@ -6,9 +6,10 @@ namespace model {
 
 //! QuestionData pretty print
 std::ostream& operator<<(std::ostream& out, const QuestionData& q) {
-  out << "{question: " << std::quoted(q.question)
-      << ", cb_yes:" << (q.cb_yes ? std::quoted("not empty") : std::quoted("empty"))
-      << ", cb_no:" << (q.cb_no ? std::quoted("not empty") : std::quoted("empty")) << "}";
+  using std::quoted;
+  out << "{question: " << quoted(q.question)
+      << ", cb_yes:" << quoted(q.cb_yes ? "not empty" : "empty")
+      << ", cb_no:" << quoted(q.cb_no ? "not empty" : "empty") << "}";
 
   return out;
 }

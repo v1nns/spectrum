@@ -75,8 +75,7 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
     info.http_header[key] = value;
   }
 
-  LOG("Parsed stream info=", *song.stream_info,
-      " from URL=", std::quoted(song.stream_info->base_url));
+  LOG("Parsed stream info=", *song.stream_info);
   return error::kSuccess;
 }
 

@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include <array>
+#include <iomanip>
 #include <vector>
 
 #include "model/application_error.h"
@@ -75,12 +76,12 @@ error::Code Alsa::CreatePlaybackStream() {
 
   std::string device_name;
   for (auto &device : devices_name) {
-    LOG("Creating playback stream on device: ", device);
+    LOG("Creating playback stream on device: ", std::quoted(device));
     if (snd_pcm_open(&pcm_handle, device.c_str(), SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-      LOG("Cannot open playback stream on device: ", device);
+      ERROR("Cannot open playback stream on device: ", std::quoted(device));
       continue;
     }
-    LOG("Created playback stream on device: ", device);
+    LOG("Created playback stream on device: ", std::quoted(device));
 
     device_name = device;
     break;

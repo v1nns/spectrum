@@ -3,7 +3,7 @@
 namespace model {
 
 std::ostream& operator<<(std::ostream& out, const Playlist& p) {
-  out << "{id:" << p.index << " playlist:" << std::quoted(p.name) << " songs:" << p.songs.size()
+  out << "{id:" << p.index << ", playlist:" << std::quoted(p.name) << ", songs:" << p.songs.size()
       << "}";
   return out;
 }
@@ -30,17 +30,17 @@ Song Playlist::PopFront() {
 /* ********************************************************************************************** */
 
 void PrintTo(const Playlist& p, std::ostream* os) {
-  *os << "{id:" << p.index << " playlist:" << std::quoted(p.name);
+  *os << "{id:" << p.index << ", playlist:" << std::quoted(p.name);
 
-  *os << " songs:{";
+  *os << ", songs:{";
 
   std::deque<Song>::const_iterator i, j;
   for (i = p.songs.begin(), j = --p.songs.end(); i != j; ++i) {
-    *os << i->filepath << ",";
+    *os << std::quoted(i->GetTitle()) << ",";
   }
 
   *os << j->filepath;
-  *os << "} }";
+  *os << "}}";
 }
 
 }  // namespace model

@@ -256,7 +256,7 @@ class BaseMenu : public Element {
       *selected = clamp(*selected, 0, size - 1);
 
       if (*selected != old_selected) {
-        LOG_T("Handled menu navigation key=", util::EventToString(event));
+        LOG_T("Handled menu navigation key=", std::quoted(util::EventToString(event)));
         *focused = *selected;
         event_handled = true;
 
@@ -269,7 +269,7 @@ class BaseMenu : public Element {
     if (event == Keybind::Return) {
       event_handled = OnClick();
 
-      LOG_T_IF(event_handled, "Handled Return key");
+      LOG_T_IF(event_handled, "Handled \"Return\" key");
 
       // Always reset search mode
       ResetSearch();

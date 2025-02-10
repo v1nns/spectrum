@@ -96,8 +96,13 @@ void MediaController::Init(int number_bars, bool asynchronous) {
 /* ********************************************************************************************** */
 
 void MediaController::Exit() {
-  LOG("Add command to queue: Exit");
+  static bool exit = false;
+  if (exit) return;
+
+  LOG("Add command to queue: \"Exit\"");
   sync_data_.Push(Command::Exit);
+
+  exit = true;
 }
 
 /* ********************************************************************************************** */

@@ -73,8 +73,8 @@ struct Volume {
 
   // Output to ostream
   friend std::ostream& operator<<(std::ostream& out, const Volume& v) {
-    out << "{volume:" << (int)v << "% ";
-    out << "muted: " << (v.muted ? "true" : "false") << "}";
+    out << "{volume:\"" << (int)v << "%\"";
+    out << ", muted:" << (v.muted ? "true" : "false") << "}";
     return out;
   }
 

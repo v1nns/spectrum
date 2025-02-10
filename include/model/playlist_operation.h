@@ -26,9 +26,6 @@ struct PlaylistOperation {
   Operation action;                         //!< Operation to execute on playlist dialog
   std::optional<model::Playlist> playlist;  //!< Optional playlist to execute operation
 
-  // Util method to get corresponding operation name
-  static std::string GetActionName(const PlaylistOperation& playlist);
-
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const PlaylistOperation& s);
   friend bool operator==(const PlaylistOperation& lhs, const PlaylistOperation& rhs);

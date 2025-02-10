@@ -287,6 +287,11 @@ class Player : public AudioControl {
 
       // Clear queue in case of exit request
       if (cmd == Command::Identifier::Exit) {
+        if (queue.size() == 1 && queue.front() == cmd) {
+          // Don't do anything else
+          return;
+        }
+
         std::deque<Command>().swap(queue);
         state = State::Exit;
       }
