@@ -29,7 +29,7 @@ ftxui::Decorator Block::GetTitleDecorator() const {
   using ftxui::color;
 
   ftxui::Decorator style = focused_
-                               ? bgcolor(Color::SteelBlue3) | color(Color::PaleTurquoise1) | bold
+                               ? bgcolor(Color::SteelBlue3) | color(Color::LightSteelBlue1) | bold
                                : bgcolor(Color::GrayDark) | color(Color::GrayLight);
 
   return style;

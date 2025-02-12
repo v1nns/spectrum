@@ -24,7 +24,7 @@ QuestionDialog::QuestionDialog()
               .foreground = ftxui::Color::SkyBlue1,
               .background = ftxui::Color::Blue1,
           },
-      .width = 15,
+      .delimiters = Button::Delimiters(" ", " "),
   };
 
   using ftxui::text, ftxui::hbox;
@@ -33,7 +33,7 @@ QuestionDialog::QuestionDialog()
   ftxui::Decorator highlight =
       ftxui::color(ftxui::Color::DeepPink4Bis) | ftxui::underlined | ftxui::bold;
 
-  btn_yes_ = Button::make_button_custom(
+  btn_yes_ = Button::make_button(
       hbox({text("Y") | highlight, text("es")}),
       [this]() {
         LOG("Handle \"yes\" button");
@@ -44,7 +44,7 @@ QuestionDialog::QuestionDialog()
       },
       style);
 
-  btn_no_ = Button::make_button_custom(
+  btn_no_ = Button::make_button(
       hbox({text("N") | highlight, text("o")}),
       [this]() {
         LOG("Handle \"no\" button");

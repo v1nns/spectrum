@@ -32,6 +32,8 @@ Button::Style PlaylistViewer::kButtonStyle = Button::Style{
             .foreground = ftxui::Color::Grey35,
             .background = ftxui::Color::SteelBlue,
         },
+
+    .delimiters = Button::Delimiters(" ", " "),
 };
 
 /* ********************************************************************************************** */
@@ -213,7 +215,7 @@ void PlaylistViewer::CreateButtons() {
   ftxui::Decorator highlight =
       ftxui::color(ftxui::Color::DeepPink4Bis) | ftxui::underlined | ftxui::bold;
 
-  btn_create_ = Button::make_button_custom(
+  btn_create_ = Button::make_button(
       hbox({text("c") | highlight, text("reate")}),
       [this]() {
         auto disp = dispatcher_.lock();
@@ -236,7 +238,7 @@ void PlaylistViewer::CreateButtons() {
       },
       kButtonStyle);
 
-  btn_modify_ = Button::make_button_custom(
+  btn_modify_ = Button::make_button(
       hbox({text("m"), text("o") | highlight, text("dify")}),
       [this]() {
         auto dispatcher = dispatcher_.lock();
@@ -261,7 +263,7 @@ void PlaylistViewer::CreateButtons() {
       },
       kButtonStyle);
 
-  btn_delete_ = Button::make_button_custom(
+  btn_delete_ = Button::make_button(
       hbox({text("d") | highlight, text("elete")}),
       [this]() {
         auto dispatcher = dispatcher_.lock();

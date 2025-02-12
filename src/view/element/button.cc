@@ -336,11 +336,11 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
     //! Override base class method to implement custom rendering
     ftxui::Element RenderImpl() override {
-      auto left = ftxui::text(std::get<0>(style_.delimiters)) | ftxui::bold;
-      auto right = ftxui::text(std::get<1>(style_.delimiters)) | ftxui::bold;
-      auto content = ftxui::text(content_);
+      ftxui::Element left = ftxui::text(std::get<0>(*style_.delimiters)) | ftxui::bold;
+      ftxui::Element right = ftxui::text(std::get<1>(*style_.delimiters)) | ftxui::bold;
+      ftxui::Element content = ftxui::text(content_);
 
-      content |= (parent_focused_ || focused_ ? ftxui::bold : ftxui::nothing);
+      content |= (parent_focused_ || focused_) ? ftxui::bold : ftxui::nothing;
 
       ftxui::Decorator style;
       bool invert = focused_;
@@ -364,27 +364,42 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button(const std::string& content, const Callback& on_click,
+std::shared_ptr<Button> Button::make_button(const ftxui::Element& content, const Callback& on_click,
                                             const Style& style, bool active) {
   class GenericButton : public Button {
    public:
-    explicit GenericButton(const Style& style, const std::string& content, const Callback& on_click,
-                           bool active)
+    explicit GenericButton(const Style& style, const ftxui::Element& content,
+                           const Callback& on_click, bool active)
         : Button(style, on_click, active), content_{content} {}
 
     //! Override base class method to implement custom rendering
     ftxui::Element RenderImpl() override {
+      using ftxui::Decorator, ftxui::Element, ftxui::emptyElement, ftxui::hbox, ftxui::text;
+
       const Style::State& colors = GetStateColors();
+      const bool custom_border = style_.delimiters.has_value();
 
-      auto content = ftxui::text(content_) | (style_.decorator ? style_.decorator : ftxui::nothing);
+      Element left, right;
+      Decorator style;
+      Decorator border;
 
-      ftxui::Decorator style = ftxui::center | Apply(colors, pressed_);
-      ftxui::Decorator border = ftxui::borderLight | ftxui::color(colors.border);
+      if (custom_border) {
+        left = text(std::get<0>(*style_.delimiters));
+        right = text(std::get<1>(*style_.delimiters));
+        style = Apply(colors, pressed_);
+        border = ftxui::nothing;
 
-      return ftxui::hbox(content) | style | border | ftxui::reflect(box_);
+      } else {
+        left = emptyElement();
+        right = emptyElement();
+        style = ftxui::center | Apply(colors, pressed_);
+        border = ftxui::borderLight | ftxui::color(colors.border);
+      }
+
+      return hbox({left, content_, right}) | style | border | ftxui::reflect(box_);
     }
 
-    std::string content_;
+    ftxui::Element content_;
   };
 
   return std::make_shared<GenericButton>(style, content, on_click, active);
@@ -405,8 +420,8 @@ std::shared_ptr<Button> Button::make_button_solid(const std::string& content,
     ftxui::Element RenderImpl() override {
       const Style::State& colors = GetStateColors();
 
-      auto content = ftxui::text(content_) | (style_.decorator ? style_.decorator : ftxui::nothing);
-      auto style = ftxui::borderLight | Apply(colors, pressed_);
+      ftxui::Element content = ftxui::text(content_);
+      ftxui::Decorator style = ftxui::borderLight | Apply(colors, pressed_);
 
       return ftxui::hbox(content) | ftxui::center | style | ftxui::reflect(box_);
     }
@@ -415,33 +430,6 @@ std::shared_ptr<Button> Button::make_button_solid(const std::string& content,
   };
 
   return std::make_shared<SolidButton>(style, content, on_click, active);
-}
-
-/* ********************************************************************************************** */
-
-std::shared_ptr<Button> Button::make_button_custom(const ftxui::Element& content,
-                                                   const Callback& on_click, const Style& style) {
-  class CustomButton : public Button {
-   public:
-    explicit CustomButton(const Style& style, const ftxui::Element& content,
-                          const Callback& on_click)
-        : Button(style, on_click, true), content_{content} {}
-
-    //! Override base class method to implement custom rendering
-    ftxui::Element RenderImpl() override {
-      const Style::State& colors = GetStateColors();
-
-      auto left = ftxui::text(" ");
-      auto right = ftxui::text(" ");
-      auto style = Apply(colors);
-
-      return ftxui::hbox({left, content_, right}) | style | ftxui::reflect(box_);
-    }
-
-    ftxui::Element content_;
-  };
-
-  return std::make_shared<CustomButton>(style, content, on_click);
 }
 
 }  // namespace interface

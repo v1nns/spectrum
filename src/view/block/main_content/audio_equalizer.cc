@@ -125,8 +125,14 @@ void AudioEqualizer::CreateButtons() {
       .width = 15,
   };
 
+  using ftxui::hbox, ftxui::text;
+
+  // Default style to highlight letter used as keybinding
+  ftxui::Decorator highlight =
+      ftxui::color(ftxui::Color::IndianRed) | ftxui::underlined | ftxui::bold;
+
   btn_apply_ = Button::make_button(
-      std::string("Apply"),
+      hbox({text("A") | highlight, text("pply")}),
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -153,7 +159,7 @@ void AudioEqualizer::CreateButtons() {
       style, false);
 
   btn_reset_ = Button::make_button(
-      std::string("Reset"),
+      hbox({text("R") | highlight, text("eset")}),
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;

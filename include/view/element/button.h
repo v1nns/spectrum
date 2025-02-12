@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_ELEMENT_BUTTON_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 
@@ -42,11 +43,10 @@ class Button {
     State pressed;   //!< Colors for pressed state
     State disabled;  //!< Colors for disabled state
 
-    ftxui::Decorator decorator;  //!< Style decorator for content
+    int height;  //!< Fixed height for button
+    int width;   //!< Fixed width for button
 
-    int height;             //!< Fixed height for button
-    int width;              //!< Fixed width for button
-    Delimiters delimiters;  //!< Used by window buttons as a custom border
+    std::optional<Delimiters> delimiters;  //!< Used by window buttons as a custom border
   };
 
  protected:
@@ -159,14 +159,15 @@ class Button {
 
   /**
    * @brief Create generic button
-   * @param content Text content to show
+   * @param content Custom ftxui::Element to display
    * @param on_click Callback function for click event
    * @param style Custom style to apply on button
    * @param active Button state (if it is clickable or not)
    * @return std::shared_ptr<Button> New instance to button
    */
-  static std::shared_ptr<Button> make_button(const std::string& content, const Callback& on_click,
-                                             const Style& style, bool active = true);
+  static std::shared_ptr<Button> make_button(const ftxui::Element& content,
+                                             const Callback& on_click, const Style& style,
+                                             bool active = true);
 
   /**
    * @brief Create generic button with solid color
@@ -179,16 +180,6 @@ class Button {
   static std::shared_ptr<Button> make_button_solid(const std::string& content,
                                                    const Callback& on_click, const Style& style,
                                                    bool active = true);
-
-  /**
-   * @brief Create custom button
-   * @param content Custom ftxui::Element to display
-   * @param on_click Callback function for click event
-   * @param style Custom style to apply on button
-   * @return std::shared_ptr<Button> New instance to Window button
-   */
-  static std::shared_ptr<Button> make_button_custom(const ftxui::Element& content,
-                                                    const Callback& on_click, const Style& style);
 
   /* ******************************************************************************************** */
   //! Public API for Button
