@@ -7,6 +7,22 @@ Button::Button(const Style& style, Callback on_click, bool active)
 
 /* ********************************************************************************************** */
 
+ftxui::Element Button::Render() {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
+
+  ftxui::Decorator style = ftxui::nothing;
+
+  // Apply size constraints
+  if (style_.height) style = style | ftxui::size(HEIGHT, EQUAL, style_.height);
+  if (style_.width) style = style | ftxui::size(WIDTH, EQUAL, style_.width);
+
+  return RenderImpl() | style;
+}
+
+/* ********************************************************************************************** */
+
 bool Button::OnMouseEvent(ftxui::Event event) {
   if (event.mouse().button == ftxui::Mouse::WheelDown ||
       event.mouse().button == ftxui::Mouse::WheelUp) {
@@ -111,7 +127,7 @@ class GraphicButton : public Button {
       : Button(style, on_click, /*active*/ true) {}
 
   //! Override base class method to implement custom rendering
-  ftxui::Element Render() override {
+  ftxui::Element RenderImpl() override {
     ftxui::Canvas content = Draw();
 
     auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
@@ -319,37 +335,23 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
         : Button(style, on_click, true), content_{content} {}
 
     //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
+    ftxui::Element RenderImpl() override {
       auto left = ftxui::text(std::get<0>(style_.delimiters)) | ftxui::bold;
       auto right = ftxui::text(std::get<1>(style_.delimiters)) | ftxui::bold;
-      auto content = ftxui::text(content_);  // TODO: apply bold only when parent block is focused
+      auto content = ftxui::text(content_);
 
-      constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg,
-                                       bool invert) {
-        return ftxui::bgcolor(bg) | ftxui::color(fg) | (invert ? ftxui::inverted : ftxui::nothing);
-      };
+      content |= (parent_focused_ || focused_ ? ftxui::bold : ftxui::nothing);
 
-      // Based on internal state, determine which style to apply
-      ftxui::Color const* background;
-      ftxui::Color const* foreground;
-      bool invert = false;
+      ftxui::Decorator style;
+      bool invert = focused_;
 
       if (focused_) {
-        background = selected_ ? &style_.selected.background : &style_.focused.background;
-        foreground = selected_ ? &style_.selected.foreground : &style_.focused.foreground;
-        invert = !selected_ && !pressed_;
-
+        style = Apply(selected_ ? style_.selected : style_.focused, invert);
       } else if (parent_focused_) {
-        background = selected_ ? &style_.selected.background : &style_.normal.background;
-        foreground = selected_ ? &style_.selected.foreground : &style_.normal.foreground;
-
+        style = Apply(selected_ ? style_.selected : style_.normal, invert);
       } else {
-        // As we don't to highlight selected colors, we just invert the normal
-        background = selected_ ? &style_.normal.foreground : &style_.normal.background;
-        foreground = selected_ ? &style_.normal.background : &style_.normal.foreground;
+        style = selected_ ? ApplyReverse(style_.normal) : Apply(style_.normal);
       }
-
-      auto style = create_style(*background, *foreground, invert);
 
       return ftxui::hbox({left, content, right}) | style | ftxui::reflect(box_);
     }
@@ -371,32 +373,15 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
         : Button(style, on_click, active), content_{content} {}
 
     //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
-      using ftxui::EQUAL;
-      using ftxui::HEIGHT;
-      using ftxui::WIDTH;
+    ftxui::Element RenderImpl() override {
+      const Style::State& colors = GetStateColors();
 
       auto content = ftxui::text(content_) | (style_.decorator ? style_.decorator : ftxui::nothing);
 
-      // default decorator
-      ftxui::Decorator style = ftxui::center;
+      ftxui::Decorator style = ftxui::center | Apply(colors, pressed_);
+      ftxui::Decorator border = ftxui::borderLight | ftxui::color(colors.border);
 
-      style = style | ftxui::borderLight;
-      if (style_.height) style = style | ftxui::size(HEIGHT, EQUAL, style_.height);
-      if (style_.width) style = style | ftxui::size(WIDTH, EQUAL, style_.width);
-
-      if (enabled_) {
-        // TODO: use focused style here
-        const auto& button_color = style_.normal.foreground;
-        style = style | ftxui::color(button_color) | (focused_ ? ftxui::inverted : ftxui::nothing);
-      } else {
-        style = style | ftxui::color(ftxui::Color::GrayDark);
-      }
-
-      // TODO: think about this
-      //   if (pressed_) decorator = decorator | ftxui::bgcolor(ftxui::Color::Aquamarine1);
-
-      return ftxui::hbox(content) | style | ftxui::reflect(box_);
+      return ftxui::hbox(content) | style | border | ftxui::reflect(box_);
     }
 
     std::string content_;
@@ -417,31 +402,13 @@ std::shared_ptr<Button> Button::make_button_solid(const std::string& content,
         : Button(style, on_click, active), content_{content} {}
 
     //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
-      using ftxui::EQUAL;
-      using ftxui::HEIGHT;
-      using ftxui::WIDTH;
+    ftxui::Element RenderImpl() override {
+      const Style::State& colors = GetStateColors();
 
       auto content = ftxui::text(content_) | (style_.decorator ? style_.decorator : ftxui::nothing);
+      auto style = ftxui::borderLight | Apply(colors, pressed_);
 
-      // default decorator
-      ftxui::Decorator style = ftxui::center;
-
-      style = style | ftxui::borderLight;
-      if (style_.height) style = style | ftxui::size(HEIGHT, EQUAL, style_.height);
-      if (style_.width) style = style | ftxui::size(WIDTH, EQUAL, style_.width);
-
-      if (enabled_) {
-        const auto& background = focused_ ? style_.focused.background : style_.normal.background;
-        const auto& foreground = focused_ ? style_.focused.foreground : style_.normal.foreground;
-
-        style = style | ftxui::bgcolor(background) | ftxui::color(foreground);
-      } else {
-        style = style | ftxui::bgcolor(style_.disabled.background) |
-                ftxui::color(style_.disabled.foreground);
-      }
-
-      return ftxui::hbox(content) | style | ftxui::reflect(box_);
+      return ftxui::hbox(content) | ftxui::center | style | ftxui::reflect(box_);
     }
 
     std::string content_;
@@ -461,33 +428,12 @@ std::shared_ptr<Button> Button::make_button_custom(const ftxui::Element& content
         : Button(style, on_click, true), content_{content} {}
 
     //! Override base class method to implement custom rendering
-    ftxui::Element Render() override {
+    ftxui::Element RenderImpl() override {
+      const Style::State& colors = GetStateColors();
+
       auto left = ftxui::text(" ");
       auto right = ftxui::text(" ");
-
-      constexpr auto create_style = [](const ftxui::Color& bg, const ftxui::Color& fg) {
-        return ftxui::bgcolor(bg) | ftxui::color(fg);
-      };
-
-      // Based on internal state, determine which style to apply
-      ftxui::Color const* background;
-      ftxui::Color const* foreground;
-      bool invert = false;
-
-      if (!enabled_) {
-        background = &style_.disabled.background;
-        foreground = &style_.disabled.foreground;
-
-      } else if (focused_) {
-        background = pressed_ ? &style_.pressed.background : &style_.focused.background;
-        foreground = pressed_ ? &style_.pressed.foreground : &style_.focused.foreground;
-
-      } else {
-        background = &style_.normal.background;
-        foreground = &style_.normal.foreground;
-      }
-
-      auto style = create_style(*background, *foreground);
+      auto style = Apply(colors);
 
       return ftxui::hbox({left, content_, right}) | style | ftxui::reflect(box_);
     }

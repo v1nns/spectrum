@@ -179,6 +179,11 @@ void MainContent::CreateButtons() {
               .foreground = ftxui::Color::GrayLight,
               .background = ftxui::Color::GrayDark,
           },
+      .pressed =
+          Button::Style::State{
+              .foreground = ftxui::Color::GrayLight,
+              .background = ftxui::Color::GrayDark,
+          },
       .delimiters = Button::Delimiters{"[", "]"},
   };
 

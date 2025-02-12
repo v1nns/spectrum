@@ -60,6 +60,55 @@ class Button {
    */
   explicit Button(const Style& style, Callback on_click, bool active);
 
+  /**
+   * @brief Create a style with given button state colors (foreground and background)
+   * @param colors Button state colors
+   * @param invert Flag to invert foreground with background color
+   * @return ftxui::Decorator Style decorator
+   */
+  inline ftxui::Decorator Apply(const Style::State& colors, bool invert = false) {
+    return ftxui::bgcolor(colors.background) | ftxui::color(colors.foreground) |
+           (invert ? ftxui::inverted : ftxui::nothing);
+  }
+
+  /**
+   * @brief Create a style and switch colors from the given button state colors
+   * @param colors Button state colors
+   * @return ftxui::Decorator Style decorator
+   */
+  inline ftxui::Decorator ApplyReverse(const Style::State& colors) {
+    return ftxui::bgcolor(colors.foreground) | ftxui::color(colors.background);
+  }
+
+  /**
+   * @brief Determine colors based on current button state
+   * @return ftxui::Decorator Style decorator
+   */
+  inline const Style::State& GetStateColors() const {
+    if (!enabled_) {
+      return style_.disabled;
+    }
+
+    if (focused_) {
+      if (pressed_)
+        return style_.pressed;
+      else
+        return style_.focused;
+    }
+
+    if (selected_) {
+      return style_.selected;
+    }
+
+    return style_.normal;
+  }
+
+  /**
+   * @brief Renders the component (implemented by derived)
+   * @return Element Built element based on internal state
+   */
+  virtual ftxui::Element RenderImpl() = 0;
+
  public:
   /**
    * @brief Destroy Button object
@@ -148,7 +197,7 @@ class Button {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  virtual ftxui::Element Render() = 0;
+  ftxui::Element Render();
 
   /**
    * @brief Handles an event (from mouse/keyboard)

@@ -107,10 +107,21 @@ void AudioEqualizer::CreateButtons() {
       .normal =
           Button::Style::State{
               .foreground = ftxui::Color::White,
+              .border = ftxui::Color::White,
+          },
+      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
+      .pressed =
+          Button::Style::State{
+              .foreground = ftxui::Color::SteelBlue3,
+              .background = ftxui::Color::LightSteelBlue3,
+              .border = ftxui::Color::SteelBlue3,
+          },
+      .disabled =
+          Button::Style::State{
+              .foreground = ftxui::Color::GrayDark,
               .border = ftxui::Color::GrayDark,
           },
 
-      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
       .width = 15,
   };
 

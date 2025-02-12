@@ -320,10 +320,18 @@ void PlaylistDialog::CreateButtons() {
               .border = ftxui::Color::LightSkyBlue1,
           },
 
+      .pressed =
+          Button::Style::State{
+              .foreground = ftxui::Color::SteelBlue3,
+              .background = ftxui::Color::LightSteelBlue3,
+              .border = ftxui::Color::SteelBlue3,
+          },
+
       .disabled =
           Button::Style::State{
               .foreground = ftxui::Color::Grey35,
               .background = ftxui::Color::SteelBlue,
+              .border = ftxui::Color::GrayDark,
           },
 
       .width = 16,
@@ -333,7 +341,8 @@ void PlaylistDialog::CreateButtons() {
       std::string("Save"),
       [this]() {
         LOG("Handle callback for Playlist save button");
-        if (modified_playlist_.has_value()) {
+        if (modified_playlist_.has_value() && !modified_playlist_->name.empty() &&
+            !modified_playlist_->IsEmpty()) {
           auto dispatcher = dispatcher_.lock();
           if (!dispatcher) return false;
 
