@@ -12,6 +12,12 @@ static const char* to_chars(const BarAnimation& animation) {
       return "VerticalMirror";
     case BarAnimation::Mono:
       return "Mono";
+    case BarAnimation::HorizontalMirrorNoSpace:
+      return "HorizontalMirrorNoSpace";
+    case BarAnimation::VerticalMirrorNoSpace:
+      return "VerticalMirrorNoSpace";
+    case BarAnimation::MonoNoSpace:
+      return "MonoNoSpace";
     case BarAnimation::LAST:
     default:
       return "Invalid";

@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BASE_TERMINAL_H_
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "ftxui/component/component_base.hpp"
@@ -125,9 +126,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /**
    * @brief Based on maximum terminal size, calculate how many bars can be shown in spectrum window
+   * @param animation Current animation identifier (optional)
    * @return Number of bars
    */
-  int CalculateNumberBars();
+  int CalculateNumberBars(const std::optional<model::BarAnimation>& animation = std::nullopt);
 
   /* ******************************************************************************************** */
   //! Internal event handling

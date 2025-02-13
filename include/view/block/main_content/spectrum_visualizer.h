@@ -18,8 +18,8 @@ namespace interface {
  */
 class SpectrumVisualizer : public TabItem {
   static constexpr std::string_view kTabName = "visualizer";  //!< Tab title
-  static constexpr int kGaugeDefaultWidth = 3;  //!< Default gauge width (audio bar width)
-  static constexpr int kGaugeMinWidth = 2;      //!< Maximum value for gauge width
+  static constexpr int kGaugeDefaultWidth = 2;  //!< Default gauge width (audio bar width)
+  static constexpr int kGaugeMinWidth = 1;      //!< Maximum value for gauge width
   static constexpr int kGaugeMaxWidth = 4;      //!< Minimum value for gauge width
   static constexpr int kGaugeSpacing = 1;       //!< Spacing between gauges
 
@@ -70,12 +70,13 @@ class SpectrumVisualizer : public TabItem {
   // Private methods
  private:
   //! Utility to create UI gauge
-  void CreateGauge(double value, ftxui::Direction direction, ftxui::Elements& elements) const;
+  void CreateGauge(double value, ftxui::Direction direction, ftxui::Elements& elements,
+                   bool space = true) const;
 
   //! Animations
-  void DrawAnimationHorizontalMirror(ftxui::Element& visualizer);
-  void DrawAnimationVerticalMirror(ftxui::Element& visualizer);
-  void DrawAnimationMono(ftxui::Element& visualizer);
+  void DrawAnimationHorizontalMirror(ftxui::Element& visualizer, bool space = true);
+  void DrawAnimationVerticalMirror(ftxui::Element& visualizer, bool space = true);
+  void DrawAnimationMono(ftxui::Element& visualizer, bool space = true);
 
   /* ******************************************************************************************** */
   //! Variables

@@ -43,6 +43,8 @@ class Button {
     State pressed;   //!< Colors for pressed state
     State disabled;  //!< Colors for disabled state
 
+    State highlight;  //!< Colors for highlighted state (used mainly to highligh a single letter)
+
     int height;  //!< Fixed height for button
     int width;   //!< Fixed width for button
 
@@ -66,7 +68,7 @@ class Button {
    * @param invert Flag to invert foreground with background color
    * @return ftxui::Decorator Style decorator
    */
-  inline ftxui::Decorator Apply(const Style::State& colors, bool invert = false) {
+  inline ftxui::Decorator Apply(const Style::State& colors, bool invert = false) const {
     return ftxui::bgcolor(colors.background) | ftxui::color(colors.foreground) |
            (invert ? ftxui::inverted : ftxui::nothing);
   }
@@ -159,14 +161,15 @@ class Button {
 
   /**
    * @brief Create generic button
-   * @param content Custom ftxui::Element to display
+   * @param content Text content to show
    * @param on_click Callback function for click event
    * @param style Custom style to apply on button
+   * @param letter Letter to highlight in text content (use first occurrence)
    * @param active Button state (if it is clickable or not)
    * @return std::shared_ptr<Button> New instance to button
    */
-  static std::shared_ptr<Button> make_button(const ftxui::Element& content,
-                                             const Callback& on_click, const Style& style,
+  static std::shared_ptr<Button> make_button(const std::string& content, const Callback& on_click,
+                                             const Style& style, const std::string& letter = "",
                                              bool active = true);
 
   /**

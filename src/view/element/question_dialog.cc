@@ -24,17 +24,16 @@ QuestionDialog::QuestionDialog()
               .foreground = ftxui::Color::SkyBlue1,
               .background = ftxui::Color::Blue1,
           },
+      .highlight =
+          Button::Style::State{
+              .foreground = ftxui::Color::DeepPink4Bis,
+          },
+
       .delimiters = Button::Delimiters(" ", " "),
   };
 
-  using ftxui::text, ftxui::hbox;
-
-  // Default style to highlight letter used as keybinding
-  ftxui::Decorator highlight =
-      ftxui::color(ftxui::Color::DeepPink4Bis) | ftxui::underlined | ftxui::bold;
-
   btn_yes_ = Button::make_button(
-      hbox({text("Y") | highlight, text("es")}),
+      "Yes",
       [this]() {
         LOG("Handle \"yes\" button");
         if (content_->cb_yes) content_->cb_yes();
@@ -42,10 +41,10 @@ QuestionDialog::QuestionDialog()
         Close();
         return true;
       },
-      style);
+      style, "Y");
 
   btn_no_ = Button::make_button(
-      hbox({text("N") | highlight, text("o")}),
+      "No",
       [this]() {
         LOG("Handle \"no\" button");
         if (content_->cb_no) content_->cb_no();
@@ -53,7 +52,7 @@ QuestionDialog::QuestionDialog()
         Close();
         return true;
       },
-      style);
+      style, "N");
 }
 
 /* ********************************************************************************************** */

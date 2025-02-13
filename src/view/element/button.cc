@@ -364,13 +364,22 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Button> Button::make_button(const ftxui::Element& content, const Callback& on_click,
-                                            const Style& style, bool active) {
+std::shared_ptr<Button> Button::make_button(const std::string& content, const Callback& on_click,
+                                            const Style& style, const std::string& letter,
+                                            bool active) {
   class GenericButton : public Button {
    public:
-    explicit GenericButton(const Style& style, const ftxui::Element& content,
-                           const Callback& on_click, bool active)
-        : Button(style, on_click, active), content_{content} {}
+    explicit GenericButton(const Style& style, const std::string& content,
+                           const std::string& letter, const Callback& on_click, bool active)
+        : Button(style, on_click, active), content_{content} {
+      // Find letter in text and save index
+      if (!letter.empty()) {
+        if (size_t index = content.find(letter); index != std::string::npos) {
+          letter_ = letter;
+          index_to_highlight_ = index;
+        }
+      }
+    }
 
     //! Override base class method to implement custom rendering
     ftxui::Element RenderImpl() override {
@@ -396,13 +405,31 @@ std::shared_ptr<Button> Button::make_button(const ftxui::Element& content, const
         border = ftxui::borderLight | ftxui::color(colors.border);
       }
 
-      return hbox({left, content_, right}) | style | border | ftxui::reflect(box_);
+      return hbox({left, GetElement(), right}) | style | border | ftxui::reflect(box_);
     }
 
-    ftxui::Element content_;
+    //! Custom logic to highlight a single letter used as keybind
+    ftxui::Element GetElement() const {
+      if (!index_to_highlight_.has_value()) {
+        return ftxui::text(content_);
+      }
+
+      ftxui::Element before(ftxui::text(content_.substr(0, *index_to_highlight_)));
+      ftxui::Element letter(ftxui::text(letter_.has_value() ? *letter_ : ""));
+      ftxui::Element after(ftxui::text(content_.substr(*index_to_highlight_ + 1)));
+
+      ftxui::Decorator color =
+          !pressed_ ? ftxui::color(style_.highlight.foreground) : ftxui::nothing;
+
+      return ftxui::hbox({before, letter | color | ftxui::underlined | ftxui::bold, after});
+    }
+
+    std::string content_;
+    std::optional<std::string> letter_;
+    std::optional<size_t> index_to_highlight_;
   };
 
-  return std::make_shared<GenericButton>(style, content, on_click, active);
+  return std::make_shared<GenericButton>(style, content, letter, on_click, active);
 }
 
 /* ********************************************************************************************** */

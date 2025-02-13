@@ -32,6 +32,11 @@ Button::Style PlaylistViewer::kButtonStyle = Button::Style{
             .foreground = ftxui::Color::Grey35,
             .background = ftxui::Color::SteelBlue,
         },
+    .highlight =
+        Button::Style::State{
+            .foreground = ftxui::Color::DeepPink4Bis,
+            .background = ftxui::Color(),
+        },
 
     .delimiters = Button::Delimiters(" ", " "),
 };
@@ -209,14 +214,8 @@ void PlaylistViewer::OnFocus() {
 /* ********************************************************************************************** */
 
 void PlaylistViewer::CreateButtons() {
-  using ftxui::text, ftxui::hbox;
-
-  // Default style to highlight letter used as keybinding
-  ftxui::Decorator highlight =
-      ftxui::color(ftxui::Color::DeepPink4Bis) | ftxui::underlined | ftxui::bold;
-
   btn_create_ = Button::make_button(
-      hbox({text("c") | highlight, text("reate")}),
+      "create",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -236,10 +235,10 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle);
+      kButtonStyle, "c");
 
   btn_modify_ = Button::make_button(
-      hbox({text("m"), text("o") | highlight, text("dify")}),
+      "modify",
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -261,10 +260,10 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle);
+      kButtonStyle, "o");
 
   btn_delete_ = Button::make_button(
-      hbox({text("d") | highlight, text("elete")}),
+      "delete",
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -286,7 +285,7 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle);
+      kButtonStyle, "d");
 
   // Start with them disabled, until we parse some playlist from cache file
   btn_modify_->Disable();

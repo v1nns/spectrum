@@ -204,7 +204,10 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-int Terminal::CalculateNumberBars() {
+int Terminal::CalculateNumberBars(const std::optional<model::BarAnimation>& animation) {
+  static model::BarAnimation last_animation = model::BarAnimation::LAST;
+  if (animation.has_value()) last_animation = *animation;
+
   // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
   auto block_width = static_cast<float>(
       !fullscreen_mode_
@@ -214,19 +217,23 @@ int Terminal::CalculateNumberBars() {
   auto bar_width = static_cast<float>(
       std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))->GetBarWidth());
 
-  // crazy math function = (a - b - c - d) / e;
+  // crazy math function = (a - b - c - d - e) / f;
   // considering these:
   // a = terminal maximum width
   // b = Sidebar width
   // c = border width
-  // d = audio bar spacing
-  // e = bar width + audio bar spacing
+  // d = bar width
+  // e = audio bar spacing
+  // f = bar width + audio bar spacing
   float border_width = !fullscreen_mode_ ? 2 : -1;
+  float bar_spacing = model::IsAnimationSpaced(last_animation) ? 1 : 0;
   float crazy_math =
-      (static_cast<float>(size_.dimx) - block_width - border_width - 1) / (bar_width + 1);
+      (static_cast<float>(size_.dimx) - block_width - border_width - bar_width - bar_spacing) /
+      (bar_width + bar_spacing);
 
   // Round to nearest odd number
-  crazy_math = static_cast<int>(floor(crazy_math)) % 2 ? crazy_math - 1 : crazy_math;
+  crazy_math = floor(crazy_math);
+  if (static_cast<int>(crazy_math) % 2) crazy_math += (bar_width != 3) ? 1 : -1;
 
   // Return number of audio bars
   return static_cast<int>(crazy_math);
@@ -468,8 +475,12 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 
     case CustomEvent::Identifier::ChangeBarAnimation:
     case CustomEvent::Identifier::UpdateBarWidth: {
+      std::optional<model::BarAnimation> animation;
+      if (event.GetId() == CustomEvent::Identifier::ChangeBarAnimation)
+        animation = event.GetContent<model::BarAnimation>();
+
       // Recalculate maximum number of bars to show in spectrum visualizer
-      int number_bars = CalculateNumberBars();
+      int number_bars = CalculateNumberBars(animation);
 
       // Pass this new value to spectrum visualizer calculate based on the current animation
       auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);

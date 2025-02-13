@@ -31,6 +31,18 @@ ftxui::Element SpectrumVisualizer::Render() {
       DrawAnimationMono(bar_visualizer);
       break;
 
+    case model::BarAnimation::HorizontalMirrorNoSpace:
+      DrawAnimationHorizontalMirror(bar_visualizer, false);
+      break;
+
+    case model::BarAnimation::VerticalMirrorNoSpace:
+      DrawAnimationVerticalMirror(bar_visualizer, false);
+      break;
+
+    case model::BarAnimation::MonoNoSpace:
+      DrawAnimationMono(bar_visualizer, false);
+      break;
+
     case model::BarAnimation::LAST:
       ERROR("Audio visualizer current animation contains invalid value");
       curr_anim_ = model::BarAnimation::HorizontalMirror;
@@ -50,7 +62,7 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
     if (!dispatcher) return false;
 
     spectrum_data_.clear();
-    curr_anim_ = curr_anim_ < model::BarAnimation::Mono
+    curr_anim_ = curr_anim_ < model::BarAnimation::MonoNoSpace
                      ? static_cast<model::BarAnimation>(curr_anim_ + 1)  // get next
                      : model::BarAnimation::HorizontalMirror;            // reset to first one
 
@@ -117,7 +129,9 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 
     // To fill entire screen, multiply value by 2
     if (curr_anim_ == model::BarAnimation::VerticalMirror ||
-        curr_anim_ == model::BarAnimation::Mono) {
+        curr_anim_ == model::BarAnimation::Mono ||
+        curr_anim_ == model::BarAnimation::VerticalMirrorNoSpace ||
+        curr_anim_ == model::BarAnimation::MonoNoSpace) {
       number_bars *= 2;
     }
 
@@ -133,7 +147,7 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
-                                     ftxui::Elements& elements) const {
+                                     ftxui::Elements& elements, bool space) const {
   using ftxui::gaugeDirection;
   constexpr auto color = [](const ftxui::Direction& dir) {
     auto gradient = ftxui::LinearGradient()
@@ -150,38 +164,40 @@ void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
     elements.push_back(gaugeDirection(static_cast<float>(value), direction) | color(direction));
   }
 
-  elements.push_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
+  if (space) elements.push_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
 }
 
 /* ********************************************************************************************** */
 
-void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualizer) {
+void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualizer, bool space) {
   auto size = (int)spectrum_data_.size();
   if (size == 0) return;
 
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * (kGaugeDefaultWidth + kGaugeSpacing);
+  int total_size = size * (kGaugeDefaultWidth + (space ? kGaugeSpacing : 0));
   entries.reserve(total_size);
 
   for (int i = (size / 2) - 1; i >= 0; i--) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries, space);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries, space);
   }
 
-  // Remove last empty space
-  entries.pop_back();
+  if (space) {
+    // Remove last empty space
+    entries.pop_back();
+  }
 
   visualizer = ftxui::hbox(entries) | ftxui::hcenter;
 }
 
 /* ********************************************************************************************** */
 
-void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer) {
+void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer, bool space) {
   auto size = (int)spectrum_data_.size();
   if (size == 0) return;
 
@@ -189,21 +205,23 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
   ftxui::Elements right;
 
   // Preallocate memory
-  int total_size = (size / 2) * (kGaugeDefaultWidth + kGaugeSpacing);
+  int total_size = (size / 2) * (kGaugeDefaultWidth + (space ? kGaugeSpacing : 0));
   left.reserve(total_size);
   right.reserve(total_size);
 
   for (int i = 0; i < size / 2; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, left);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, left, space);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Down, right);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Down, right, space);
   }
 
-  // Remove last empty space
-  left.pop_back();
-  right.pop_back();
+  if (space) {
+    // Remove last empty space
+    left.pop_back();
+    right.pop_back();
+  }
 
   visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
                            ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
@@ -211,7 +229,7 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer)
 
 /* ********************************************************************************************** */
 
-void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
+void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer, bool space) {
   auto size = (int)spectrum_data_.size();
   if (size == 0) return;
 
@@ -237,15 +255,17 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer) {
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * (kGaugeDefaultWidth + kGaugeSpacing);
+  int total_size = size * (kGaugeDefaultWidth + (space ? kGaugeSpacing : 0));
   entries.reserve(total_size);
 
   for (int i = 0; i < size; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries, space);
   }
 
-  // Remove last empty space
-  entries.pop_back();
+  if (space) {
+    // Remove last empty space
+    entries.pop_back();
+  }
 
   visualizer = ftxui::hbox(entries) | ftxui::hcenter;
 }
