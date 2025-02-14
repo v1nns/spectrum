@@ -44,14 +44,15 @@ struct CustomEvent {
 
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
-    PauseOrResumeSong = 60001,
-    StopSong = 60002,
-    SetAudioVolume = 60003,
-    ResizeAnalysis = 60004,
-    SeekForwardPosition = 60005,
-    SeekBackwardPosition = 60006,
-    ApplyAudioFilters = 60007,
-    NotifyPlaylistSelection = 60008,
+    PauseSong = 60001,
+    ResumeSong = 60002,
+    StopSong = 60003,
+    SetAudioVolume = 60004,
+    ResizeAnalysis = 60005,
+    SeekForwardPosition = 60006,
+    SeekBackwardPosition = 60007,
+    ApplyAudioFilters = 60008,
+    NotifyPlaylistSelection = 60009,
 
     // Events from interface to interface
     Refresh = 70000,
@@ -91,7 +92,8 @@ struct CustomEvent {
 
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
-  static CustomEvent PauseOrResumeSong();
+  static CustomEvent PauseSong();
+  static CustomEvent ResumeSong(bool run_animation);
   static CustomEvent StopSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
   static CustomEvent ResizeAnalysis(int bars);
@@ -126,7 +128,7 @@ struct CustomEvent {
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
-                   model::PlaylistOperation, model::QuestionData>;
+                   model::PlaylistOperation, model::QuestionData, bool>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

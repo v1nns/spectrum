@@ -442,7 +442,7 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 
   // Process keyboard event to pause song
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::PauseOrResumeSong)));
+                                           interface::CustomEvent::Identifier::PauseSong)));
   auto event_pause = ftxui::Event::Character('p');
   block->OnEvent(event_pause);
 

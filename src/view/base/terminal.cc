@@ -401,9 +401,14 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
       media_ctl->NotifyFileSelection(content);
     } break;
 
-    case CustomEvent::Identifier::PauseOrResumeSong:
-      media_ctl->PauseOrResume();
+    case CustomEvent::Identifier::PauseSong:
+      media_ctl->Pause();
       break;
+
+    case CustomEvent::Identifier::ResumeSong: {
+      auto run_animation = event.GetContent<bool>();
+      media_ctl->Resume(run_animation);
+    } break;
 
     case CustomEvent::Identifier::StopSong:
       media_ctl->Stop();

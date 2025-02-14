@@ -129,6 +129,12 @@ void MediaController::AnalysisHandler() {
         // P.S.: do not log this because this command is received too often
         input = sync_data_.GetBuffer(in_size);
         analyzer_->Execute(input.data(), static_cast<int>(input.size()), output.data());
+
+        // Do not normalize output vector, just set 1.0 as maximum value
+        std::for_each(output.begin(), output.end(), [](double& value) {
+          if (value > 1.0) value = 1.0;
+        });
+
         previous = output;
 
         auto dispatcher = GetDispatcher();
@@ -140,21 +146,15 @@ void MediaController::AnalysisHandler() {
 
       } break;
 
-      case Command::RunClearAnimationWithRegain:
-      case Command::RunClearAnimationWithoutRegain: {
+      case Command::RunClearAnimation: {
         LOG("Analysis handler received command to run clear animation on audio visualizer");
         ProcessClearAnimation(previous);
-
-        // Enqueue to run regain animation when song is resumed
-        if (command == Command::RunClearAnimationWithRegain)
-          sync_data_.Push(Command::RunRegainAnimation);
 
       } break;
 
       case Command::RunRegainAnimation: {
         LOG("Analysis handler received command to run regain animation on audio visualizer");
-        ProcessRegainAnimation(output);
-
+        ProcessRegainAnimation(previous);
       } break;
 
       default:
@@ -174,11 +174,25 @@ void MediaController::NotifyFileSelection(const std::filesystem::path& filepath)
 
 /* ********************************************************************************************** */
 
-void MediaController::PauseOrResume() {
+void MediaController::Pause() {
   auto player = player_ctl_.lock();
   if (!player) return;
 
   player->PauseOrResume();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::Resume(bool run_animation) {
+  if (run_animation) {
+    // Do not toggle player right away, let thread run its animation first
+    sync_data_.Push(Command::RunRegainAnimation);
+  } else {
+    auto player = player_ctl_.lock();
+    if (!player) return;
+
+    player->PauseOrResume();
+  }
 }
 
 /* ********************************************************************************************** */
@@ -246,7 +260,7 @@ void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
 /* ********************************************************************************************** */
 
 void MediaController::ClearSongInformation(bool playing) {
-  if (playing) sync_data_.Push(Command::RunClearAnimationWithoutRegain);
+  if (playing) sync_data_.Push(Command::RunClearAnimation);
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
@@ -273,11 +287,7 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& state) {
   // Enqueue animation to thread
-  if (state.state == model::Song::MediaState::Pause) {
-    sync_data_.Push(Command::RunClearAnimationWithRegain);
-  } else if (state.state == model::Song::MediaState::Stop) {
-    sync_data_.Push(Command::RunClearAnimationWithoutRegain);
-  }
+  sync_data_.Push(Command::RunClearAnimation);
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
@@ -307,48 +317,23 @@ void MediaController::NotifyError(error::Code code) {
 
 /* ********************************************************************************************** */
 
-void MediaController::ProcessClearAnimation(std::vector<double>& data) {
+void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
   using namespace std::chrono_literals;
 
-  for (int i = 0; i < 10; i++) {
-    // Each time this loop is executed, it will reduce spectrum bar values to 35% based on its
+  std::vector<double> old(data), bars;
+  bars.reserve(data.size());
+
+  for (double i = 1; i <= 80; i++) {
+    // Each time this loop is executed, it will reduce spectrum bar values to 75% based on its
     // previous values (this value was decided based on feeling :P)
-    std::transform(data.begin(), data.end(), data.begin(),
-                   std::bind(std::multiplies<double>(), std::placeholders::_1, 0.35));
-
-    // Send result to UI
-    auto event = interface::CustomEvent::DrawAudioSpectrum(data);
-    dispatcher->SendEvent(event);
-
-    // Sleep a little bit before sending a new update to UI. And in case of receiving a new
-    // command in the meantime, just cancel animation
-    auto timeout = std::chrono::system_clock::now() + 0.04s;
-    if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
-  }
-
-  data = std::vector(data.size(), 0.001);
-
-  auto event = interface::CustomEvent::DrawAudioSpectrum(data);
-  dispatcher->SendEvent(event);
-}
-
-/* ********************************************************************************************** */
-
-void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
-  auto dispatcher = GetDispatcher();
-  if (!dispatcher) return;
-
-  using namespace std::chrono_literals;
-
-  std::vector<double> bars;
-
-  for (int i = 1; i <= 10; i++) {
-    // Each time this loop is executed, it will increase spectrum bar values in a step of 10%
-    // based on its previous values (this value was also decided based on feeling)
-    for (const auto& value : data) bars.push_back((value / 10) * i);
+    for (const auto& value : old) {
+      double decrement = value * 0.75;
+      if (decrement < 0.001) decrement = 0.001;
+      bars.push_back(decrement);
+    }
 
     // Send result to UI
     auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
@@ -356,11 +341,54 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
 
     // Sleep a little bit before sending a new update to UI. And in case of receiving a new
     // command in the meantime, just cancel animation
-    auto timeout = std::chrono::system_clock::now() + 0.01s;
+    auto timeout = std::chrono::system_clock::now() + 0.03s;
+    if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
+
+    old = bars;
+    bars.clear();
+  }
+
+  bars = std::vector(data.size(), 0.001);
+  auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
+  dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
+  static constexpr int kStep = 20;
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  using namespace std::chrono_literals;
+
+  std::vector<double> bars;
+  bars.reserve(data.size());
+
+  for (double i = 1; i <= kStep; i++) {
+    // Each time this loop is executed, it will increase spectrum bar values in a step of 1/20
+    // based on its previous values (this value was also decided based on feeling)
+    for (const auto& value : data) bars.push_back(value * (i / kStep));
+
+    // Send result to UI
+    auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
+    dispatcher->SendEvent(event);
+
+    // Sleep a little bit before sending a new update to UI. And in case of receiving a new
+    // command in the meantime, just cancel animation
+    auto timeout = std::chrono::system_clock::now() + 0.015s;
     if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
 
     bars.clear();
   }
+
+  // Give some time until analyzer gets back on track
+  auto timeout = std::chrono::system_clock::now() + 0.03s;
+  sync_data_.WaitForCommandOrUntil(timeout);
+
+  // This is not good, but it was the way found to send a command from thread
+  auto event = interface::CustomEvent::ResumeSong(/*run_animation=*/false);
+  dispatcher->SendEvent(event);
 }
 
 /* ********************************************************************************************** */

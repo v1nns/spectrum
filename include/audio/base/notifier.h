@@ -39,9 +39,15 @@ class Notifier {
   virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
 
   /**
-   * @brief Notify Audio Player to pause/resume the current song
+   * @brief Notify Audio Player to pause the current song
    */
-  virtual void PauseOrResume() = 0;
+  virtual void Pause() = 0;
+
+  /**
+   * @brief Notify Audio Player to resume the current song
+   * @param run_animation Flag to execute regain animation before resuming song on audio player
+   */
+  virtual void Resume(bool run_animation) = 0;
 
   /**
    * @brief Notify Audio Player to stop the current song

@@ -14,6 +14,7 @@ struct ContentVisitor {
   // All mapped types used in the CustomEvent content
   void operator()(const std::monostate&) const { out << std::quoted("empty"); }
   void operator()(int i) const { out << i; }
+  void operator()(bool b) const { out << (b ? "true" : "false"); }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
@@ -77,8 +78,12 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "NotifyFileSelection";
       break;
 
-    case CustomEvent::Identifier::PauseOrResumeSong:
-      out << "PauseOrResumeSong";
+    case CustomEvent::Identifier::PauseSong:
+      out << "PauseSong";
+      break;
+
+    case CustomEvent::Identifier::ResumeSong:
+      out << "ResumeSong";
       break;
 
     case CustomEvent::Identifier::StopSong:
@@ -256,10 +261,20 @@ CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path& file_p
 
 /* ********************************************************************************************** */
 
-CustomEvent CustomEvent::PauseOrResumeSong() {
+CustomEvent CustomEvent::PauseSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
-      .id = Identifier::PauseOrResumeSong,
+      .id = Identifier::PauseSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ResumeSong(bool run_animation) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::ResumeSong,
+      .content = run_animation,
   };
 }
 

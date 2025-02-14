@@ -133,7 +133,12 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
       } else if (song.contains("url") && internal::IsYoutubeValid(song["url"])) {
         // Song from URL
         entry.songs.emplace_back(model::Song{
-            .stream_info = model::StreamInfo{.base_url = song["url"]},
+            .artist = song.contains("artist") ? song["artist"] : "",
+            .title = song.contains("title") ? song["title"] : "",
+            .stream_info =
+                model::StreamInfo{
+                    .base_url = song["url"],
+                },
         });
       }
     }
@@ -160,7 +165,17 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
 
     for (const auto& song : playlist.songs) {
       nlohmann::json json_song;
-      json_song["path"] = song.filepath.string();
+
+      // Common information
+      if (!song.artist.empty()) json_song["artist"] = song.artist;
+      if (!song.title.empty()) json_song["title"] = song.artist;
+
+      // Exclusive source to play song from
+      if (!song.filepath.empty())
+        json_song["path"] = song.filepath.string();
+      else if (song.stream_info.has_value())
+        json_song["url"] = song.stream_info->base_url;
+
       json_songs.push_back(json_song);
     }
 

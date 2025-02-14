@@ -106,9 +106,15 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void NotifyFileSelection(const std::filesystem::path& file) override;
 
   /**
-   * @brief Notify Audio Player to pause/resume current song
+   * @brief Notify Audio Player to pause current song
    */
-  void PauseOrResume() override;
+  void Pause() override;
+
+   /**
+   * @brief Notify Audio Player to resume the current song
+   * @param run_animation Flag to execute regain animation before resuming song on audio player
+   */
+  void Resume(bool run_animation) override;
 
   /**
    * @brief Notify Audio thread to stop the current song
@@ -193,10 +199,9 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   enum class Command {
     None = 10000,
     Analyze = 10001,
-    RunClearAnimationWithRegain = 10002,
-    RunClearAnimationWithoutRegain = 10003,
-    RunRegainAnimation = 10004,
-    Exit = 10005,
+    RunClearAnimation = 10002,
+    RunRegainAnimation = 10003,
+    Exit = 10004,
   };
 
   /**
@@ -292,9 +297,6 @@ class MediaController : public audio::Notifier, public interface::Notifier {
         // No command in queue
         if (queue.empty()) return false;
 
-        // Do not run regain animation while it has not received any input data from player
-        if (queue.size() == 1 && queue.front() == Command::RunRegainAnimation) return false;
-
         return true;
       });
 
@@ -326,7 +328,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   //! Audio visualizer animation
 
   //! Execute clear animation based on the most recent analyzed data
-  void ProcessClearAnimation(std::vector<double>& data);
+  void ProcessClearAnimation(const std::vector<double>& data);
 
   //! Execute regain animation based on old data from before the clear animation
   void ProcessRegainAnimation(const std::vector<double>& data);

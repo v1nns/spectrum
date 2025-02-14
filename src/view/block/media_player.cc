@@ -26,7 +26,9 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
     AskForFocus();
 
     if (IsPlaying()) {
-      auto event = interface::CustomEvent::PauseOrResumeSong();
+      bool resume = song_.curr_info.state == model::Song::MediaState::Pause;
+      auto event = resume ? interface::CustomEvent::ResumeSong(/*run_animation=*/true)
+                          : interface::CustomEvent::PauseSong();
       disp->SendEvent(event);
       return true;
     }
@@ -275,9 +277,15 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     LOG("Handle key to play/pause song");
     auto dispatcher = GetDispatcher();
 
-    auto event_play = !IsPlaying() ? interface::CustomEvent::PlaySong()
-                                   : interface::CustomEvent::PauseOrResumeSong();
+    interface::CustomEvent event_play;
 
+    if (!IsPlaying()) {
+      event_play = interface::CustomEvent::PlaySong();
+    } else {
+      bool resume = song_.curr_info.state == model::Song::MediaState::Pause;
+      event_play = resume ? interface::CustomEvent::ResumeSong(/*run_animation=*/true)
+                          : interface::CustomEvent::PauseSong();
+    }
     dispatcher->SendEvent(event_play);
 
     if (IsPlaying()) btn_play_->ToggleState();

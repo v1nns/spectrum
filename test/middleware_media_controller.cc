@@ -135,7 +135,13 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   notifier->NotifyFileSelection(music);
 
   EXPECT_CALL(*audio_ctl, PauseOrResume());
-  notifier->PauseOrResume();
+  notifier->Pause();
+
+  EXPECT_CALL(*audio_ctl, PauseOrResume()).Times(0);
+  notifier->Resume(false);
+
+  EXPECT_CALL(*audio_ctl, PauseOrResume());
+  notifier->Resume(true);
 
   EXPECT_CALL(*audio_ctl, Stop());
   notifier->Stop();
