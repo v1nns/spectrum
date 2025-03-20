@@ -119,7 +119,7 @@ class FileMenu : public BaseMenu<FileMenu> {
   void EraseImpl(const util::File& entry);
 
   //! Set entry to be highlighted
-  void SetEntryHighlightedImpl(const util::File& entry);
+  bool SetEntryHighlightedImpl(const util::File& entry);
 
   //! Reset highlighted entry
   void ResetHighlightImpl() { highlighted_.reset(); };

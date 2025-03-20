@@ -458,10 +458,11 @@ class BaseMenu : public Element {
   /**
    * @brief Set entry to be highlighted
    * @param entry Menu entry to get highlight
+   * @return true if set entry as highlighted, false otherwise
    */
   template <typename T>
-  void SetEntryHighlighted(const T& entry) {
-    actual().SetEntryHighlightedImpl(entry);
+  bool SetEntryHighlighted(const T& entry) {
+    return actual().SetEntryHighlightedImpl(entry);
   }
 
   /**

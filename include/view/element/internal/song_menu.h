@@ -92,7 +92,10 @@ class SongMenu : public BaseMenu<SongMenu> {
   void EraseImpl(const model::Song& entry);
 
   //! Set entry to be highlighted
-  void SetEntryHighlightedImpl(const std::string&) {}
+  bool SetEntryHighlightedImpl(const std::string&) {
+    /* not implemented */
+    return false;
+  }
 
   //! Reset highlighted entry
   void ResetHighlightImpl() {}

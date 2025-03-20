@@ -117,9 +117,9 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   void EraseImpl(const model::Playlist& entry);
 
   //! Set song entry to be highlighted
-  //! NOTE: for this class, besides highlighting, the song is also updated (because we may have
-  //! fetched streaming information)
-  void SetEntryHighlightedImpl(const model::Song& entry);
+  // NOTE: for this class, besides highlighting, the song is also updated
+  // (because we may have fetched streaming information)
+  bool SetEntryHighlightedImpl(const model::Song& entry);
 
   //! Reset highlighted entry
   void ResetHighlightImpl() { highlighted_.reset(); };

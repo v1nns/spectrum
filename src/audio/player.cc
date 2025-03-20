@@ -287,7 +287,6 @@ void Player::AudioHandler() {
 
     // Get filepath from command and initialize current song
     curr_song_ = std::make_unique<model::Song>(command.GetContent<model::Song>());
-
     error::Code result = error::kSuccess;
 
     // Get streaming information if song contains a valid URL
@@ -324,8 +323,11 @@ void Player::AudioHandler() {
                                 return HandleCommand(buffer, size, new_position, position);
                               });
 
-    // Reached the end of song, originated from one of these situations:
-    // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
+    // Reached end of song, this may be originated from one of these situations:
+    //  1. naturally;
+    //  2. forced to stop/exit by user;
+    //  3. error from fetching streaming info;
+    //  4. error from decoding;
     ResetMediaControl(result);
   }
 

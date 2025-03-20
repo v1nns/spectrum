@@ -96,8 +96,13 @@ bool Song::IsEmpty() const { return filepath.empty() && !stream_info.has_value()
 
 std::string Song::GetTitle() const {
   std::string text;
+
   // Get title from streaming information
-  if (stream_info.has_value()) text = !title.empty() ? title : stream_info->base_url;
+  if (stream_info.has_value()) {
+    text = !artist.empty() && !title.empty() ? artist + " - " + title
+           : !title.empty()                  ? title
+                                             : stream_info->base_url;
+  }
 
   // Get artist and title from metadata information
   else if (!artist.empty() && !title.empty())

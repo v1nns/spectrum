@@ -157,11 +157,17 @@ bool PlaylistViewer::OnMouseEvent(ftxui::Event& event) {
 
 bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
-    LOG("Received new playlist song information from player");
+    LOG("Received new playlist's song information from player");
 
     // Set current song
     auto current_song = event.GetContent<model::Song>();
-    menu_->SetEntryHighlighted(current_song);
+    bool found = menu_->SetEntryHighlighted(current_song);
+
+    if (found) {
+      // Get updated list and save to file
+      model::Playlists playlists = menu_->actual().GetEntries();
+      bool result = file_handler_->SavePlaylists(playlists);
+    }
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {

@@ -282,13 +282,13 @@ void FileMenu::EraseImpl(const util::File& entry) {
 
 /* ********************************************************************************************** */
 
-void FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
+bool FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
   // Find entry in internal list
   auto it = std::find(entries_.begin(), entries_.end(), entry);
 
   if (it == entries_.end()) {
     LOG("Could not find entry to highlight");
-    return;
+    return false;
   }
 
   highlighted_ = *it;
@@ -298,6 +298,8 @@ void FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
   int index = static_cast<int>(it - entries_.begin());
 
   ResetState(index);
+
+  return true;
 }
 
 /* ********************************************************************************************** */

@@ -273,7 +273,7 @@ void PlaylistMenu::EraseImpl(const model::Playlist& entry) {
 
 /* ********************************************************************************************** */
 
-void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
+bool PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
   int index = 0;
   int count = 0;
   bool found = false;
@@ -314,7 +314,7 @@ void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
 
   if (!found) {
     LOG("Could not find entry to highlight");
-    return;
+    return false;
   }
 
   // Resize boxes vector
@@ -327,6 +327,8 @@ void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
 
   // And check for animation effect
   UpdateActiveEntry();
+
+  return true;
 }
 
 /* ********************************************************************************************** */

@@ -168,7 +168,7 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
 
       // Common information
       if (!song.artist.empty()) json_song["artist"] = song.artist;
-      if (!song.title.empty()) json_song["title"] = song.artist;
+      if (!song.title.empty()) json_song["title"] = song.title;
 
       // Exclusive source to play song from
       if (!song.filepath.empty())
@@ -203,16 +203,13 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
     return false;
   }
 
-  try {
-    // Pretty print JSON data with indentation of 2 spaces
-    out << std::setw(2) << json_data;
-  } catch (const std::exception& e) {
-    ERROR("Failed to write JSON, error=", e.what());
+  // Pretty print JSON data with indentation of 2 spaces
+  out << std::setw(2) << json_data;
+
+  if (out.fail()) {
+    ERROR("Failed to write JSON");
     return false;
   }
-
-  // Close the file
-  out.close();
 
   return true;
 }

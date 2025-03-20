@@ -1,6 +1,7 @@
 #include "view/block/main_content/spectrum_visualizer.h"
 
 #include <algorithm>
+#include <ftxui/dom/elements.hpp>
 
 #include "util/logger.h"
 #include "view/base/keybinding.h"
@@ -16,7 +17,7 @@ SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
 /* ********************************************************************************************** */
 
 ftxui::Element SpectrumVisualizer::Render() {
-  ftxui::Element bar_visualizer = ftxui::text("");
+  ftxui::Element bar_visualizer = ftxui::emptyElement();
 
   switch (curr_anim_) {
     case model::BarAnimation::HorizontalMirror:
@@ -94,10 +95,11 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
 
     auto old_value = gauge_width_;
 
-    if (increase && gauge_width_ < kGaugeMaxWidth)
+    if (increase && gauge_width_ < kGaugeMaxWidth) {
       gauge_width_++;
-    else if (!increase && gauge_width_ > kGaugeMinWidth)
+    } else if (!increase && gauge_width_ > kGaugeMinWidth) {
       gauge_width_--;
+    }
 
     if (old_value != gauge_width_) {
       LOG("Changed audio bar width from ", old_value, " to ", gauge_width_);
@@ -176,7 +178,7 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * (kGaugeDefaultWidth + (space ? kGaugeSpacing : 0));
+  int total_size = size * (gauge_width_ + (space ? kGaugeSpacing : 0));
   entries.reserve(total_size);
 
   for (int i = (size / 2) - 1; i >= 0; i--) {
@@ -205,7 +207,7 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer,
   ftxui::Elements right;
 
   // Preallocate memory
-  int total_size = (size / 2) * (kGaugeDefaultWidth + (space ? kGaugeSpacing : 0));
+  int total_size = (size / 2) * (gauge_width_ + (space ? kGaugeSpacing : 0));
   left.reserve(total_size);
   right.reserve(total_size);
 
@@ -255,7 +257,7 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer, bool spac
   ftxui::Elements entries;
 
   // Preallocate memory
-  int total_size = size * (kGaugeDefaultWidth + (space ? kGaugeSpacing : 0));
+  int total_size = size * (gauge_width_ + (space ? kGaugeSpacing : 0));
   entries.reserve(total_size);
 
   for (int i = 0; i < size; i++) {

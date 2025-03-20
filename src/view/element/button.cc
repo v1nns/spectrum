@@ -421,7 +421,7 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
       ftxui::Decorator color =
           enabled_ && !pressed_ ? ftxui::color(style_.highlight.foreground) : ftxui::nothing;
 
-      return ftxui::hbox({before, letter | color | ftxui::underlined | ftxui::bold, after});
+      return ftxui::hbox({before, letter | ftxui::bold | ftxui::underlined | color, after});
     }
 
     std::string content_;
