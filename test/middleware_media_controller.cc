@@ -137,10 +137,10 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   EXPECT_CALL(*audio_ctl, PauseOrResume());
   notifier->Pause();
 
-  EXPECT_CALL(*audio_ctl, PauseOrResume()).Times(0);
+  EXPECT_CALL(*audio_ctl, PauseOrResume());
   notifier->Resume(false);
 
-  EXPECT_CALL(*audio_ctl, PauseOrResume());
+  EXPECT_CALL(*audio_ctl, PauseOrResume()).Times(0);
   notifier->Resume(true);
 
   EXPECT_CALL(*audio_ctl, Stop());
@@ -296,7 +296,6 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
           .WillOnce(Invoke([&](double* input, int size, double* output) {
             // Just copy input to output
             std::copy(input, input + kNumberBars, output);
-            syncer.NotifyStep(2);
             return error::kSuccess;
           }));
 
@@ -323,9 +322,11 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
       // As we can get a lot of DrawAudioSpectrum events, calculate result and create expectations
       // Each loop will reduce its previous value by 35%
-      for (int i = 0; i < 10; i++) {
-        std::transform(result.begin(), result.end(), result.begin(),
-                       std::bind(std::multiplies<double>(), std::placeholders::_1, 0.35));
+      for (int i = 0; i < 80; i++) {
+        std::transform(result.begin(), result.end(), result.begin(), [](double x) {
+          double value = x * 0.75;
+          return value > 0.001 ? value : 0.001;
+        });
 
         EXPECT_CALL(
             *dispatcher,

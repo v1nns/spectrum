@@ -110,7 +110,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void Pause() override;
 
-   /**
+  /**
    * @brief Notify Audio Player to resume the current song
    * @param run_animation Flag to execute regain animation before resuming song on audio player
    */
@@ -349,6 +349,8 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   std::thread analysis_loop_;  //!< Execute audio-analysis function as a thread
 
   AnalysisDataSynced sync_data_;  //!< Controls the audio data synchronization
+
+  bool finished_;  //!< Flag to control when media controller shouldn't process any new requisitions
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

@@ -213,8 +213,8 @@ TEST_F(SidebarTest, NavigateToMockDir) {
 │  interface_notifier_mock.h         │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
+│  stream_fetcher_mock.h             │
 │  url_fetcher_mock.h                │
-│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -322,8 +322,8 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
 │  interface_notifier_mock.h         │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
+│  stream_fetcher_mock.h             │
 │  url_fetcher_mock.h                │
-│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

@@ -83,6 +83,7 @@ MediaController::~MediaController() {
 
 void MediaController::Init(int number_bars, bool asynchronous) {
   LOG("Initialize media controller with number_bars=", number_bars, " and async=", asynchronous);
+  finished_ = false;
 
   // Initialize internal structures
   analyzer_->Init(number_bars);
@@ -96,13 +97,13 @@ void MediaController::Init(int number_bars, bool asynchronous) {
 /* ********************************************************************************************** */
 
 void MediaController::Exit() {
-  static bool exit = false;
-  if (exit) return;
+  if (finished_) {
+    // Media controller already exited from loop
+    return;
+  }
 
   LOG("Add command to queue: \"Exit\"");
   sync_data_.Push(Command::Exit);
-
-  exit = true;
 }
 
 /* ********************************************************************************************** */
@@ -161,6 +162,9 @@ void MediaController::AnalysisHandler() {
         break;
     }
   }
+
+  LOG("Finish analysis handler thread");
+  finished_ = true;
 }
 
 /* ********************************************************************************************** */
@@ -323,17 +327,15 @@ void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
 
   using namespace std::chrono_literals;
 
-  std::vector<double> old(data), bars;
-  bars.reserve(data.size());
+  std::vector<double> bars(data);
 
-  for (double i = 1; i <= 80; i++) {
+  for (double i = 0; i < 80; i++) {
     // Each time this loop is executed, it will reduce spectrum bar values to 75% based on its
     // previous values (this value was decided based on feeling :P)
-    for (const auto& value : old) {
-      double decrement = value * 0.75;
-      if (decrement < 0.001) decrement = 0.001;
-      bars.push_back(decrement);
-    }
+    std::transform(bars.begin(), bars.end(), bars.begin(), [](double x) {
+      double value = x * 0.75;
+      return value > 0.001 ? value : 0.001;
+    });
 
     // Send result to UI
     auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
@@ -343,9 +345,6 @@ void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
     // command in the meantime, just cancel animation
     auto timeout = std::chrono::system_clock::now() + 0.03s;
     if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
-
-    old = bars;
-    bars.clear();
   }
 
   bars = std::vector(data.size(), 0.001);

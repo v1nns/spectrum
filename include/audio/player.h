@@ -264,7 +264,9 @@ class Player : public AudioControl {
      * @brief Reset media controls
      */
     void Reset() {
-      // Copy queue and clear it
+      std::unique_lock lock(mutex);
+
+      // Sway with empty queue to clear it
       std::deque<Command> dummy;
       dummy.swap(queue);
 
@@ -378,6 +380,8 @@ class Player : public AudioControl {
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
   int period_size_;  //!< Period size from Playback driver
+
+  bool finished_;  //!< Flag to control when player should not process any new requisitions
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

@@ -88,6 +88,7 @@ Player::~Player() {
 
 void Player::Init(bool asynchronous) {
   LOG("Initialize player with async=", asynchronous);
+  finished_ = false;
 
   // Open playback stream using default device
   error::Code result = playback_->CreatePlaybackStream();
@@ -332,6 +333,7 @@ void Player::AudioHandler() {
   }
 
   LOG("Finish audio handler thread");
+  finished_ = true;
 }
 
 /* ********************************************************************************************** */
@@ -493,13 +495,13 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void Player::Exit() {
-  static bool exit = false;
-  if (exit) return;
+  if (finished_) {
+    // Player already exited from audio loop
+    return;
+  }
 
   LOG("Add command to queue: \"Exit\"");
   media_control_.Push(Command::Exit());
-
-  exit = true;
 }
 
 }  // namespace audio

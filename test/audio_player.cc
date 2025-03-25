@@ -12,6 +12,7 @@
 #include "mock/decoder_mock.h"
 #include "mock/interface_notifier_mock.h"
 #include "mock/playback_mock.h"
+#include "mock/stream_fetcher_mock.h"
 #include "model/application_error.h"
 #include "util/logger.h"
 
@@ -49,6 +50,7 @@ class PlayerTest : public ::testing::Test {
     // Create mocks
     PlaybackMock* pb_mock = new PlaybackMock();
     DecoderMock* dc_mock = new DecoderMock();
+    StreamFetcherMock* sf_mock = new StreamFetcherMock();
 
     // Setup init expectations
     InSequence seq;
@@ -58,8 +60,7 @@ class PlayerTest : public ::testing::Test {
     EXPECT_CALL(*pb_mock, GetPeriodSize());
 
     // Create Player without thread
-    audio_player = audio::Player::Create(/*verbose=*/true, pb_mock, dc_mock,
-                                         /* TODO: implement*/ nullptr, asynchronous);
+    audio_player = audio::Player::Create(/*verbose=*/true, pb_mock, dc_mock, sf_mock, asynchronous);
 
     // Register interface notifier to Audio Player
     notifier = std::make_shared<InterfaceNotifierMock>();
@@ -74,6 +75,11 @@ class PlayerTest : public ::testing::Test {
   //! Getter for Decoder (necessary as inner variable is an unique_ptr)
   auto GetDecoder() -> DecoderMock* {
     return reinterpret_cast<DecoderMock*>(audio_player->decoder_.get());
+  }
+
+  //! Getter for StreamFetcher (necessary as inner variable is an unique_ptr)
+  auto GetStreamFetcher() -> StreamFetcherMock* {
+    return reinterpret_cast<StreamFetcherMock*>(audio_player->fetcher_.get());
   }
 
   //! Getter for Public API for Player media control
