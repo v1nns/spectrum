@@ -289,14 +289,16 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 
 /* ********************************************************************************************** */
 
-void MediaController::NotifySongState(const model::Song::CurrentInformation& state) {
-  // Enqueue animation to thread
-  sync_data_.Push(Command::RunClearAnimation);
+void MediaController::NotifySongState(const model::Song::CurrentInformation& curr_info) {
+  if (curr_info.state == model::Song::MediaState::Finished) {
+    // Enqueue animation to thread
+    sync_data_.Push(Command::RunClearAnimation);
+  }
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
-  auto event = interface::CustomEvent::UpdateSongState(state);
+  auto event = interface::CustomEvent::UpdateSongState(curr_info);
 
   // Notify Audio Player block with new state information about the current song
   dispatcher->SendEvent(event);

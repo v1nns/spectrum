@@ -43,9 +43,9 @@ class Notifier {
 
   /**
    * @brief Notify UI with new state information from current song
-   * @param state Updated state information
+   * @param curr_info Updated state information
    */
-  virtual void NotifySongState(const model::Song::CurrentInformation& state) = 0;
+  virtual void NotifySongState(const model::Song::CurrentInformation& curr_info) = 0;
 
   /**
    * @brief Send raw audio samples to UI

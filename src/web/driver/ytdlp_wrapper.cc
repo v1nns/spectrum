@@ -38,7 +38,11 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
                                            song.stream_info->base_url.c_str());
 
   PythonWrapper python;
-  python.Run(program);
+  // TODO: improve error codes
+  if (!python.Run(program)) {
+    ERROR("Could not fetch streaming format from URL=", song.stream_info->base_url);
+    return error::kUnknownError;
+  }
 
   // Get extracted info from URL
   std::string title = python.GetString(kAudioTitle);
@@ -46,26 +50,27 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   std::string raw_streams = python.GetString(kStreamInfo.data());
 
   // Parse into JSON
-  nlohmann::json streams = nlohmann::json::parse(raw_streams);
+  nlohmann::json streams = nlohmann::json::parse(raw_streams, nullptr, /*allow_exceptions=*/false);
 
   if (streams.empty()) {
     ERROR("Song has no valid streaming format");
-    // TODO: improve error
     return error::kUnknownError;
   }
 
-  // Always get first entry (maybe change logic to prioritize m4a)
+  // Always get first entry (TODO: maybe change logic to prioritize m4a)
   nlohmann::json entry = streams.items().begin().value();
 
   ParseSongTitle(title, song.artist, song.title);
-  song.num_channels = entry["audio_channels"];
+
+  song.num_channels =
+      entry.contains("audio_channels") ? entry["audio_channels"].template get<int>() : 2;
   song.duration = duration;
 
   model::StreamInfo& info = *song.stream_info;
 
-  info.codec = entry["acodec"];
+  info.codec = entry.contains("acodec") ? entry["acodec"] : entry["protocol"];
   info.extension = entry["audio_ext"];
-  info.filesize = entry["filesize"];
+  info.filesize = entry.contains("filesize") ? entry["filesize"].template get<int>() : 0;
   info.description = entry["format"];
   info.base_url = song.stream_info->base_url;
   info.streaming_url = entry["url"];

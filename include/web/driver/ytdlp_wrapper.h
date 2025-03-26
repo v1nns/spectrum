@@ -49,19 +49,21 @@ ydl_opts = {
     'logger': DummyLogger(),
 }
 
+result = False
+
 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     info = ydl.extract_info(URL, download=False)
 
     parsed = json.loads(json.dumps(ydl.sanitize_info(info)))
 
-    filtered = list(filter(lambda x: (x['resolution'] == 'audio only') and (
-        x['ext'] == "m4a" or x['ext'] == "webm"), parsed["formats"]))
-
+    filtered = list(filter(lambda x: (x['resolution'] == 'audio only'), parsed["formats"]))
     filtered.sort(key=lambda x: x["quality"], reverse=True)
 
-    title = parsed["title"]
-    duration = parsed["duration"]
-    streams = json.dumps(filtered))";
+    if len(filtered):
+      result = True
+      title = parsed["title"]
+      duration = parsed["duration"]
+      streams = json.dumps(filtered))";
 
  public:
   /**
@@ -98,6 +100,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     PythonWrapper() {
       Py_Initialize();
       main_module_ = PyImport_AddModule("__main__");
+      Py_INCREF(main_module_);
     }
 
     //! Reset module and finalize python
@@ -107,24 +110,37 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     }
 
     //! Execute code snippet and print any errors
-    void Run(const std::string &snippet) {
+    bool Run(const std::string &snippet) {
       PyRun_SimpleString(snippet.c_str());
       PyErr_Print();
+
+      // Use a boolean variable in Python snippet to control if content has been fetched
+      if (PyObject *raw = PyObject_GetAttrString(main_module_, "result"); Py_IsFalse(raw)) {
+        return false;
+      }
+
+      fetched_ = true;
+      return true;
     }
 
     //! Get value as string from given variable
     std::string GetString(const std::string_view &variable) {
+      if (!fetched_) return "";
+
       PyObject *raw = PyObject_GetAttrString(main_module_, variable.data());
       return PyUnicode_AsUTF8(raw);
     }
 
     //! Get value as long from given variable
     uint64_t GetLong(const std::string_view &variable) {
+      if (!fetched_) return 0;
+
       PyObject *raw = PyObject_GetAttrString(main_module_, variable.data());
       return PyLong_AsLong(raw);
     }
 
    private:
+    bool fetched_ = false;   //!< Control flag to check if operation has been executed successfully
     PyObject *main_module_;  //!< Pointer to custom python module
   };
 };
