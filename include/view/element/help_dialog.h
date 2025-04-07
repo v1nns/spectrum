@@ -20,8 +20,9 @@ class HelpDialog : public Dialog {
  public:
   /**
    * @brief Construct a new Help object
+   * @param dispatcher Event dispatcher
    */
-  HelpDialog();
+  HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy Help object

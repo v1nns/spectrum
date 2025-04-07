@@ -5,8 +5,8 @@
 
 namespace interface {
 
-QuestionDialog::QuestionDialog()
-    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
+    : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {
   auto style = Button::Style{
       .normal =

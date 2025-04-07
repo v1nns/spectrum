@@ -24,8 +24,9 @@ class QuestionDialog : public Dialog {
  public:
   /**
    * @brief Construct a new QuestionDialog object
+    * @param dispatcher Event dispatcher
    */
-  QuestionDialog();
+  QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy QuestionDialog object

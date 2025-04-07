@@ -4,8 +4,8 @@
 
 namespace interface {
 
-ErrorDialog::ErrorDialog()
-    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+ErrorDialog::ErrorDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
+    : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
              Style{.background = ftxui::Color::DarkRedBis, .foreground = ftxui::Color::Grey93}) {}
 
 /* ********************************************************************************************** */
@@ -41,5 +41,17 @@ bool ErrorDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool ErrorDialog::OnMouseEventImpl(ftxui::Event event) { return false; }
+
+/* ********************************************************************************************** */
+
+void ErrorDialog::OnClose() {
+  message_.clear();
+
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  auto event_closed = interface::CustomEvent::NotifyDialogClosed();
+  dispatcher->SendEvent(event_closed);
+}
 
 }  // namespace interface

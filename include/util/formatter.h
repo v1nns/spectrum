@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <sstream>
 #include <string>
@@ -154,6 +155,18 @@ inline bool compare(const char& a, const char& b) { return std::tolower(a) == st
 inline bool contains(std::string_view string, std::string_view substring) {
   auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), compare);
   return it != string.end();
+}
+
+/**
+ * @brief Filter string for only ASCII characters
+ * @param s Raw string
+ * @return Formatted string
+ */
+inline std::string filter_ascii(const std::string& s) {
+  std::string filtered{s};
+  filtered.erase(std::remove_if(filtered.begin(), filtered.end(), std::not_fn(isascii)),
+                 filtered.end());
+  return filtered;
 }
 
 }  // namespace util

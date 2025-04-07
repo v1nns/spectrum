@@ -74,8 +74,8 @@ void Terminal::Init(const std::string& initial_path) {
   Add(media_player);
 
   // Create dialogs
-  error_dialog_ = std::make_unique<ErrorDialog>();
-  help_dialog_ = std::make_unique<HelpDialog>();
+  error_dialog_ = std::make_unique<ErrorDialog>(dispatcher);
+  help_dialog_ = std::make_unique<HelpDialog>(dispatcher);
   playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher,
 #ifndef SPECTRUM_DEBUG
                                                       driver::FFmpeg::ContainsAudioStream,
@@ -83,7 +83,7 @@ void Terminal::Init(const std::string& initial_path) {
                                                       driver::DummyDecoder::ContainsAudioStream,
 #endif
                                                       initial_path);
-  question_dialog_ = std::make_unique<QuestionDialog>();
+  question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 }
 
 /* ********************************************************************************************** */
@@ -448,6 +448,10 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
     case CustomEvent::Identifier::NotifyPlaylistSelection: {
       auto content = event.GetContent<model::Playlist>();
       media_ctl->NotifyPlaylistSelection(content);
+    } break;
+
+    case CustomEvent::Identifier::NotifyDialogClosed: {
+      media_ctl->NotifyErrorDialogClosed();
     } break;
 
     default:

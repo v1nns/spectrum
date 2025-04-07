@@ -114,6 +114,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "NotifyPlaylistSelection";
       break;
 
+    case CustomEvent::Identifier::NotifyDialogClosed:
+      out << "NotifyDialogClosed";
+      break;
+
     case CustomEvent::Identifier::Refresh:
       out << "Refresh";
       break;
@@ -344,6 +348,15 @@ CustomEvent CustomEvent::NotifyPlaylistSelection(const model::Playlist& playlist
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::NotifyPlaylistSelection,
       .content = playlist,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::NotifyDialogClosed() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::NotifyDialogClosed,
   };
 }
 

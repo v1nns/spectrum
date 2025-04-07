@@ -57,6 +57,7 @@ class AudioControl {
   virtual void SeekForwardPosition(int value) = 0;
   virtual void SeekBackwardPosition(int value) = 0;
   virtual void ApplyAudioFilters(const model::EqualizerPreset& filters) = 0;
+  virtual void DequeueNextSong() = 0;
   virtual void Exit() = 0;
 };
 
@@ -135,7 +136,7 @@ class Player : public AudioControl {
   /**
    * @brief After a song finishes, check if got a next one to play from playlist
    */
-  void CheckForNextSongFromPlaylist();
+  void DequeueNextSongFromPlaylist();
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -199,6 +200,11 @@ class Player : public AudioControl {
    * @param frequencies Vector of audio filters
    */
   void ApplyAudioFilters(const model::EqualizerPreset& filters) override;
+
+  /**
+   * @brief Inform audio loop to dequeue next song from playlist (when available)
+   */
+  void DequeueNextSong() override;
 
   /**
    * @brief Exit from Audio loop

@@ -98,7 +98,6 @@ class PlaylistDialog : public Dialog {
   /* ******************************************************************************************** */
   //! Variables
 
-  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
 
   //!< Operation to execute + playlist to be modified

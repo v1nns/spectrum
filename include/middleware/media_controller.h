@@ -156,6 +156,11 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void NotifyPlaylistSelection(const model::Playlist& playlist) override;
 
+   /**
+   * @brief Notify Audio Player about error dialog closed by user
+   */
+  void NotifyErrorDialogClosed() override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

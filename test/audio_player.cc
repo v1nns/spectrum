@@ -14,6 +14,8 @@
 #include "mock/playback_mock.h"
 #include "mock/stream_fetcher_mock.h"
 #include "model/application_error.h"
+#include "model/playlist.h"
+#include "model/stream_info.h"
 #include "util/logger.h"
 
 namespace {
@@ -428,10 +430,10 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
 
     // Only these should be called
     EXPECT_CALL(*decoder, ClearCache());
-    EXPECT_CALL(*notifier, ClearSongInformation(false));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
+    EXPECT_CALL(*notifier, ClearSongInformation(false)).Times(0);
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -478,10 +480,10 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
 
     // Only these should be called
     EXPECT_CALL(*decoder, ClearCache());
-    EXPECT_CALL(*notifier, ClearSongInformation(true));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kUnknownError))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).Times(0);
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -1074,6 +1076,453 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
     // Wait for Player to finish updating audio filters before client asks to exit
     syncer.WaitForStep(4);
     player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorOpeningSongFromPlaylistPlayNextAndExit) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Chill mix",
+      .songs =
+          {
+              model::Song{.filepath = "chilling 1.mp3"},
+              model::Song{.filepath = "chilling 2.mp3"},
+              model::Song{.filepath = "chilling 3.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    InSequence seq;
+
+    // Setup all expectations for error on file opening
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kFileNotSupported));
+
+    // Only these should be called on error
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported))).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+    EXPECT_CALL(*notifier, ClearSongInformation(false)).Times(0);
+
+    // Setup expectations for playing next song
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, position);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _));
+
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Play, .position = 0}))
+        .WillOnce(Invoke([&] {
+          // Notify other thread from here, so we can skip song 3 and force to exit
+          syncer.NotifyStep(3);
+          syncer.WaitForStep(4);
+        }));
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}))
+        .Times(0);  // This is not called because of internal media control state which is Exit
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // As first song gets an error, audio player loop should not play next song until we force it to
+    // dequeue (usually this is done after error dialog is closed)
+    syncer.WaitForStep(2);
+    player_ctl->DequeueNextSong();
+
+    // Wait for Player to start playing second song before client asks to exit
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+    syncer.NotifyStep(4);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorDecodingSongFromPlaylistPlayNextAndExit) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Chill mix",
+      .songs =
+          {
+              model::Song{.filepath = "chilling 1.mp3"},
+              model::Song{.filepath = "chilling 2.mp3"},
+              model::Song{.filepath = "chilling 3.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    InSequence seq;
+
+    // Setup all expectations for error on file decoding
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _)).WillOnce(Return(error::kDecodeFileFailed));
+
+    // This should not be called in this situation
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
+
+    // Only these should be called on error
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kDecodeFileFailed))).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).Times(0);
+
+    // Setup expectations for playing next song
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, position);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _));
+
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Play, .position = 0}))
+        .WillOnce(Invoke([&] {
+          // Notify other thread from here, so we can skip song 3 and force to exit
+          syncer.NotifyStep(3);
+          syncer.WaitForStep(4);
+        }));
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}))
+        .Times(0);  // This is not called because of internal media control state which is Exit
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // As first song gets an error, audio player loop should not play next song until we force it to
+    // dequeue (usually this is done after error dialog is closed)
+    syncer.WaitForStep(2);
+    player_ctl->DequeueNextSong();
+
+    // Wait for Player to start playing second song before client asks to exit
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+    syncer.NotifyStep(4);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, PlaySongFilesFromPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Breakcore mix",
+      .songs =
+          {
+              model::Song{.filepath = "breakcore 1.mp3"},
+              model::Song{.filepath = "breakcore 2.mp3"},
+              model::Song{.filepath = "breakcore 3.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    InSequence seq;
+
+    for (int i = 0; i < 3; ++i) {
+      // Setup all expectations for playing all songs in sequence
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[i].filepath)))
+          .WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*notifier, NotifySongInformation(_));
+      EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+      // Only interested in second argument, which is a lambda created internally by audio_player
+      // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+      // real-life situation
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+            callback(0, 0, position);
+            return error::kSuccess;
+          }));
+
+      EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+      EXPECT_CALL(*playback, AudioCallback(_, _));
+
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = model::Song::MediaState::Play, .position = 0}))
+          .WillOnce(Invoke([&, i] {
+            // Exit only after playing the last song
+            if (i == 2) syncer.NotifyStep(2);
+          }));
+
+      // These are called by Player::ResetMediaControl()
+      EXPECT_CALL(*decoder, ClearCache());
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = model::Song::MediaState::Finished}));
+      EXPECT_CALL(*notifier, ClearSongInformation(true));
+    }
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // Wait for Player to play all songs before client asking to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, PlayStreamingSongsFromPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Drum and bass mix",
+      .songs = {model::Song{.stream_info =
+                                model::StreamInfo{.base_url = "https://somecrazysite.com/song"}},
+                model::Song{.stream_info =
+                                model::StreamInfo{.base_url = "https://yotubio.com/drum"}},
+                model::Song{.stream_info =
+                                model::StreamInfo{.base_url = "https://guugleo.com/drop"}}},
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    InSequence seq;
+
+    for (int i = 0; i < 3; ++i) {
+      // Setup all expectations for playing all 3 songs from streaming in sequence
+      EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::stream_info, playlist.songs[i].stream_info)))
+          .WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*notifier, NotifySongInformation(_));
+      EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+      // Only interested in second argument, which is a lambda created internally by audio_player
+      // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+      // real-life situation
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+            callback(0, 0, position);
+            return error::kSuccess;
+          }));
+
+      EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+      EXPECT_CALL(*playback, AudioCallback(_, _));
+
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = model::Song::MediaState::Play, .position = 0}))
+          .WillOnce(Invoke([&, i] {
+            // Exit only after playing the last song
+            if (i == 2) syncer.NotifyStep(2);
+          }));
+
+      // These are called by Player::ResetMediaControl()
+      EXPECT_CALL(*decoder, ClearCache());
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = model::Song::MediaState::Finished}));
+      EXPECT_CALL(*notifier, ClearSongInformation(true));
+    }
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // Wait for Player to play all songs before client asking to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorFetchingSongFromPlaylistPlayNextAndExit) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Metalcore",
+      .songs = {model::Song{.stream_info =
+                                model::StreamInfo{.base_url = "https://killer.song/music"}},
+                model::Song{.stream_info =
+                                model::StreamInfo{.base_url = "https://streaming.site/yeah"}},
+                model::Song{.stream_info = model::StreamInfo{.base_url = "ftp://what.is/this"}}},
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    InSequence seq;
+
+    // Setup all expectations for error on fetching song info
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kUnknownError));
+
+    // This should not be called in this situation
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::stream_info, playlist.songs[0].stream_info)))
+        .Times(0);
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(0);
+    EXPECT_CALL(*playback, Prepare()).Times(0);
+    EXPECT_CALL(*decoder, Decode(_, _)).Times(0);
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(0);
+
+    // Only these should be called on error
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kUnknownError))).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).Times(0);
+
+    // Setup expectations for playing next song
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::stream_info, playlist.songs[1].stream_info)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Only interested in second argument, which is a lambda created internally by audio_player
+    // itself. So it is necessary to manually call it, to keep the behaviour similar to a
+    // real-life situation
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, position);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _));
+
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Play, .position = 0}))
+        .WillOnce(Invoke([&] {
+          // Notify other thread from here, so we can skip song 3 and force to exit
+          syncer.NotifyStep(3);
+          syncer.WaitForStep(4);
+        }));
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}))
+        .Times(0);  // This is not called because of internal media control state which is Exit
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // As first song gets an error, audio player loop should not play next song until we force it to
+    // dequeue (usually this is done after error dialog is closed)
+    syncer.WaitForStep(2);
+    player_ctl->DequeueNextSong();
+
+    // Wait for Player to start playing second song before client asks to exit
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+    syncer.NotifyStep(4);
   };
 
   testing::RunAsyncTest({player, client});

@@ -5,7 +5,9 @@
 
 namespace interface {
 
-Dialog::Dialog(const Size& size, const Style& style) : size_{size}, style_{style} {
+Dialog::Dialog(const std::shared_ptr<EventDispatcher>& dispatcher, const Size& size,
+               const Style& style)
+    : dispatcher_{dispatcher}, size_{size}, style_{style} {
   if (size.min_line) size_.min_line += kBorderSize;
   if (size.min_column) size_.min_column += kBorderSize;
 }
@@ -58,5 +60,9 @@ bool Dialog::OnEvent(const ftxui::Event& event) {
 
   return false;
 }
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<EventDispatcher> Dialog::GetDispatcher() const { return dispatcher_.lock(); }
 
 }  // namespace interface

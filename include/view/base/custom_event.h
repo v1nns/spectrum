@@ -53,6 +53,7 @@ struct CustomEvent {
     SeekBackwardPosition = 60007,
     ApplyAudioFilters = 60008,
     NotifyPlaylistSelection = 60009,
+    NotifyDialogClosed = 60010,
 
     // Events from interface to interface
     Refresh = 70000,
@@ -101,6 +102,7 @@ struct CustomEvent {
   static CustomEvent SeekBackwardPosition(int offset);
   static CustomEvent ApplyAudioFilters(const model::EqualizerPreset& filters);
   static CustomEvent NotifyPlaylistSelection(const model::Playlist& playlist);
+  static CustomEvent NotifyDialogClosed();
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();

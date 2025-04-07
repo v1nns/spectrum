@@ -23,8 +23,9 @@ class ErrorDialog : public Dialog {
  public:
   /**
    * @brief Construct a new ErrorDialog object
+   * @param dispatcher Event dispatcher
    */
-  ErrorDialog();
+  ErrorDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy ErrorDialog object
@@ -63,7 +64,7 @@ class ErrorDialog : public Dialog {
   /**
    * @brief Callback to notify when dialog is closed
    */
-  void OnClose() override { message_.clear(); }
+  void OnClose() override;
 
   /* ******************************************************************************************** */
   //! Variables

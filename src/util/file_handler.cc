@@ -11,6 +11,7 @@
 #include <set>
 
 #include "nlohmann/json.hpp"
+#include "util/formatter.h"
 #include "util/logger.h"
 
 namespace util {
@@ -133,8 +134,8 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
       } else if (song.contains("url") && internal::IsYoutubeValid(song["url"])) {
         // Song from URL
         entry.songs.emplace_back(model::Song{
-            .artist = song.contains("artist") ? song["artist"] : "",
-            .title = song.contains("title") ? song["title"] : "",
+            .artist = song.contains("artist") ? util::filter_ascii(song["artist"]) : "",
+            .title = song.contains("title") ? util::filter_ascii(song["title"]) : "",
             .stream_info =
                 model::StreamInfo{
                     .base_url = song["url"],

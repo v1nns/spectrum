@@ -89,6 +89,11 @@ class Notifier {
    * @param playlist Song queue
    */
   virtual void NotifyPlaylistSelection(const model::Playlist& playlist) = 0;
+
+  /**
+   * @brief Notify Audio Player about error dialog closed by user
+   */
+  virtual void NotifyErrorDialogClosed() = 0;
 };
 
 }  // namespace audio

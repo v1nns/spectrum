@@ -11,6 +11,7 @@ namespace driver {
 //! Split the given input string into artist + title
 static void ParseSongTitle(const std::string& input, std::string& artist, std::string& title) {
   static constexpr std::string_view kDelimiter = "-";
+  std::string filtered = util::filter_ascii(input);
 
   // Find the occurrences of the delimiter in the input string
   size_t first_pos = input.find(kDelimiter);

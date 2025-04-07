@@ -8,6 +8,7 @@
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "view/base/event_dispatcher.h"
 
 namespace interface {
 
@@ -34,10 +35,11 @@ class Dialog {
 
   /**
    * @brief Construct a new Dialog object
+   * @param dispatcher Event dispatcher
    * @param size Size settings for dialog
    * @param style Dialog style to apply
    */
-  Dialog(const Size& size, const Style& style);
+  Dialog(const std::shared_ptr<EventDispatcher>& dispatcher, const Size& size, const Style& style);
 
  public:
   /**
@@ -122,11 +124,18 @@ class Dialog {
   }
 
   /* ******************************************************************************************** */
-  //! Variables
+  //! Used by derived class
+ protected:
+  //! Get event dispatcher
+  std::shared_ptr<EventDispatcher> GetDispatcher() const;
 
-  bool opened_ = false;  //!< Flag to indicate dialog visilibity
-  Size size_;            //!< Dialog size settings
-  Style style_;          //!< Color style
+  /* ******************************************************************************************** */
+  //! Variables
+ private:
+  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  bool opened_ = false;                        //!< Flag to indicate dialog visilibity
+  Size size_;                                  //!< Dialog size settings
+  Style style_;                                //!< Color style
 };
 
 }  // namespace interface

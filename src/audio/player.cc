@@ -118,6 +118,8 @@ void Player::Init(bool asynchronous) {
 void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   LOG("Reset media control with error code=", result);
   bool notify_finished = media_control_.state == State::Play;
+
+  // Clear internal data
   decoder_->ClearCache();
   media_control_.Reset();
   curr_song_.reset();
@@ -128,8 +130,11 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   if (result != error::kSuccess) {
     // In case of error, notify about it
     media_notifier->NotifyError(result);
-  } else if (notify_finished) {
-    // If song finished naturally, notify that has finished successfully
+    return;
+  }
+
+  // If last state was "playing", it means we should notify that song has finished successfully
+  if (notify_finished) {
     media_notifier->NotifySongState(
         model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
   }
@@ -138,7 +143,7 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   media_notifier->ClearSongInformation(!error_parsing);
 
   // Check song queue
-  CheckForNextSongFromPlaylist();
+  DequeueNextSongFromPlaylist();
 }
 
 /* ********************************************************************************************** */
@@ -280,8 +285,6 @@ void Player::AudioHandler() {
 
   // Block this thread until UI informs us a song to play
   while (media_control_.WaitFor(Command::Identifier::Play)) {
-    LOG("Audio handler received new song to play");
-
     // Get command from queue and update internal media state
     auto command = media_control_.Pop();
     media_control_.state = TranslateCommand(command);
@@ -289,6 +292,7 @@ void Player::AudioHandler() {
     // Get filepath from command and initialize current song
     curr_song_ = std::make_unique<model::Song>(command.GetContent<model::Song>());
     error::Code result = error::kSuccess;
+    LOG("Audio handler received new song to play=", *curr_song_);
 
     // Get streaming information if song contains a valid URL
     if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
@@ -338,11 +342,11 @@ void Player::AudioHandler() {
 
 /* ********************************************************************************************** */
 
-void Player::CheckForNextSongFromPlaylist() {
+void Player::DequeueNextSongFromPlaylist() {
   if (!curr_playlist_) return;
 
   if (!curr_playlist_->IsEmpty()) {
-    LOG("Popping next song from internal playlist cache");
+    LOG("Popping next song from internal playlist cache, count=", curr_playlist_->songs.size());
     model::Song next_song = curr_playlist_->PopFront();
 
     // Add directly to command queue
@@ -385,7 +389,7 @@ void Player::Play(const model::Playlist& playlist) {
 
   if (!already_playing) {
     // Enqueue first song
-    CheckForNextSongFromPlaylist();
+    DequeueNextSongFromPlaylist();
   } else {
     // Add directly to command queue
     media_control_.Push(Command::Stop());
@@ -490,6 +494,15 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
     default:
       break;
   }
+}
+
+/* ********************************************************************************************** */
+
+void Player::DequeueNextSong() {
+  LOG("Attempt to dequeue next song from playlist");
+
+  // Check song queue
+  DequeueNextSongFromPlaylist();
 }
 
 /* ********************************************************************************************** */

@@ -12,16 +12,16 @@ namespace interface {
 PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                                const std::function<bool(const util::File& file)>& contains_audio_cb,
                                const std::string& optional_path)
-    : Dialog(Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
+    : Dialog(dispatcher,
+             Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
-      dispatcher_(dispatcher),
       base_path_(),
       menu_files_(menu::CreateFileMenu(
           dispatcher, std::make_shared<util::FileHandler>(),
 
           // Callback to force a UI refresh
           [this] {
-            auto dispatcher = dispatcher_.lock();
+            auto dispatcher = GetDispatcher();
             if (!dispatcher) return;
 
             dispatcher->SendEvent(interface::CustomEvent::Refresh());
@@ -32,7 +32,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
             if (!active) return false;
 
             // Send user action to controller, try to play selected entry
-            auto dispatcher = dispatcher_.lock();
+            auto dispatcher = GetDispatcher();
             if (!dispatcher) return false;
 
             LOG("Handle on_click event on menu entry=", *active);
@@ -59,7 +59,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
           // Callback to force a UI refresh
           [this] {
-            auto dispatcher = dispatcher_.lock();
+            auto dispatcher = GetDispatcher();
             if (!dispatcher) return;
 
             dispatcher->SendEvent(interface::CustomEvent::Refresh());
@@ -343,7 +343,7 @@ void PlaylistDialog::CreateButtons() {
         LOG("Handle callback for Playlist save button");
         if (modified_playlist_.has_value() && !modified_playlist_->name.empty() &&
             !modified_playlist_->IsEmpty()) {
-          auto dispatcher = dispatcher_.lock();
+          auto dispatcher = GetDispatcher();
           if (!dispatcher) return false;
 
           LOG("Sending modified playlist to be saved, playlist=", *modified_playlist_);

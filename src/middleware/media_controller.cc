@@ -263,6 +263,15 @@ void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
 
 /* ********************************************************************************************** */
 
+void MediaController::NotifyErrorDialogClosed() {
+  auto player = player_ctl_.lock();
+  if (!player) return;
+
+  player->DequeueNextSong();
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimation);
 
@@ -290,7 +299,8 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& curr_info) {
-  if (curr_info.state == model::Song::MediaState::Finished) {
+  if (curr_info.state == model::Song::MediaState::Pause ||
+      curr_info.state == model::Song::MediaState::Finished) {
     // Enqueue animation to thread
     sync_data_.Push(Command::RunClearAnimation);
   }

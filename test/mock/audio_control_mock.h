@@ -23,6 +23,7 @@ class AudioControlMock final : public audio::AudioControl {
   MOCK_METHOD(void, SeekForwardPosition, (int value), (override));
   MOCK_METHOD(void, SeekBackwardPosition, (int value), (override));
   MOCK_METHOD(void, ApplyAudioFilters, (const model::EqualizerPreset&), (override));
+  MOCK_METHOD(void, DequeueNextSong, (), (override));
   MOCK_METHOD(void, Exit, (), (override));
 };
 

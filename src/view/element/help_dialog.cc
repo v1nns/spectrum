@@ -4,8 +4,8 @@
 
 namespace interface {
 
-HelpDialog::HelpDialog()
-    : Dialog(Size{.min_column = kMaxColumns, .min_line = kMaxLines},
+HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
+    : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {}
 
 /* ********************************************************************************************** */
