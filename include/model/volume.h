@@ -8,6 +8,7 @@
 
 #include <math.h>
 
+#include <iomanip>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -63,7 +64,7 @@ struct Volume {
   explicit operator int() const { return !muted ? (int)round(percentage * 100) : 0; }
 
   // Convenient conversion to float
-  explicit operator float() const { return !muted ? percentage : 0.F; }
+  explicit operator float() const { return !muted ? percentage : 0.f; }
 
   // For comparisons
   friend bool operator==(const Volume lhs, const Volume rhs) {
@@ -90,7 +91,7 @@ struct Volume {
  */
 inline std::string to_string(const Volume& arg) {
   std::ostringstream ss;
-  ss << (float)arg;
+  ss << std::fixed << std::setprecision(2) << (float)arg;
   return std::move(ss).str();
 }
 

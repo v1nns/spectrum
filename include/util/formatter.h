@@ -12,6 +12,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <string_view>

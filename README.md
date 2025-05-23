@@ -8,35 +8,36 @@
 
 https://github.com/v1nns/spectrum/assets/22479290/5ab537cf-34d6-4627-8d66-4f7128cd6915
 
-Introducing yet another music player for tech enthusiasts that will simplify the way you experience your favorite tunes! Immerse yourself in the sound with the powerful equalizer, allowing you to fine-tune every aspect of the music to your exact specifications, perfectly matching your mood.
+Introducing yet another music player for tech enthusiasts that will simplify the way you experience your favorite tunes! Immerse yourself in the sound with a powerful equalizer, allowing you to fine-tune every aspect of the music to your exact specifications, perfectly matching your mood.
 
 With an intuitive user interface and lightning-fast performance, this music player is the perfect addition to any audiophile's collection. Whether you're a casual listener or a serious music lover, this console-based music player will exceed your expectations.
 
 ## Features :speech_balloon:
 
 - Simple and intuitive terminal user interface;
-- Plays music in any format;
+- Support any song format;
 - Basic playback controls such as play, pause, stop, and skip;
-- Displays information about the currently playing track;
+- Seek time position in the song;
+- Display technical information about the current song;
 - Audio spectrum visualizer;
 - Audio equalizer;
 - Fetch song lyrics;
-- Support for playlists.
+- Support for playlists (locally or from YouTube);
 
 ## Installation :floppy_disk:
 
 ### AUR (using yay)
 
-If you're using Arch Linux or any derivative, you can install spectrum using yay, a popular AUR helper:
+If you're using Arch Linux or any derivative, you can install spectrum through yay (this is a popular AUR helper):
 
    ```bash
    # Install the latest version
    yay -S spectrum-git
    ```
 
-### Flatpak
+### Flatpak (still in progress)
 
-To install Spectrum using Flatpak:
+To install spectrum using Flatpak:
 
 1. Add the Flathub repository (if not already added):
    ```bash
@@ -50,7 +51,7 @@ To install Spectrum using Flatpak:
 
 ## Development :memo:
 
-To build spectrum, you need to have a C++ compiler installed on your system.
+To build spectrum, you need a C++ compiler installed on your system along with another dependencies that are listed below:
 
 ```bash
 # Package dependencies (on Ubuntu)
@@ -75,7 +76,7 @@ sudo cmake --install build
 ./build/src/spectrum
 ```
 
-To ensure that any new implementation won't impact the existing one, you may execute unit tests to check that. To enable unit testing, you should compile with the following settings:
+To ensure that any new implementation won't impact the existing one, you should check that by running all unit tests. To enable unit testing, you may configure using the following settings:
 
 ```bash
 # Generate build system for testing/debugging

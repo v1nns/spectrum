@@ -38,8 +38,7 @@ struct Navigation {
   static Key PageDown;
 
   static Key Backspace;
-  static Key CtrlBackspace;
-  static Key CtrlBackspaceReverse;
+  static Key AltBackspace;
 
   static Key Delete;
 

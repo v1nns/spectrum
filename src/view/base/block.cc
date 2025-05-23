@@ -28,11 +28,8 @@ ftxui::Decorator Block::GetTitleDecorator() const {
   using ftxui::Color;
   using ftxui::color;
 
-  ftxui::Decorator style = focused_
-                               ? bgcolor(Color::SteelBlue3) | color(Color::LightSteelBlue1) | bold
-                               : bgcolor(Color::GrayDark) | color(Color::GrayLight);
-
-  return style;
+  return focused_ ? bgcolor(Color::SteelBlue3) | color(Color::LightSteelBlue1) | bold
+                  : bgcolor(Color::GrayDark) | color(Color::GrayLight);
 }
 
 /* ********************************************************************************************** */
@@ -43,9 +40,7 @@ ftxui::Decorator Block::GetBorderDecorator() const {
   using ftxui::color;
   using ftxui::nothing;
 
-  ftxui::Decorator style = focused_ ? color(Color::SteelBlue3) : nothing;
-
-  return style;
+  return focused_ ? color(Color::SteelBlue3) : nothing;
 }
 
 /* ********************************************************************************************** */

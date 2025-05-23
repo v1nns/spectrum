@@ -266,7 +266,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::CreateFilterVolume() {
-  LOG("Create volume filter");
+  LOG("Create volume filter with value=", volume_);
 
   // Find volume filter
   const AVFilter *volume = avfilter_get_by_name(kFilterVolume);
@@ -621,8 +621,8 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
   if (!filter_graph_) return error::kSuccess;
 
   // Otherwise, it means that some music is playing, so we gotta update the running filtergraph
-  LOG("Found volume filter, update value");
   std::string volume = model::to_string(volume_);
+  LOG("Found volume filter, update value to ", volume);
 
   // Set filter option
   if (std::string response(kResponseSize, ' ');

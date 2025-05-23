@@ -643,7 +643,7 @@ ftxui::Element Terminal::GetOverlay() const {
 
   if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
 
-  return ftxui::text("");
+  return ftxui::emptyElement();
 }
 
 }  // namespace interface

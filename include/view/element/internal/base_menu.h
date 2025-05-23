@@ -301,8 +301,8 @@ class BaseMenu : public Element {
       event_handled = true;
     }
 
-    // Ctrl + Backspace
-    if (event == Keybind::CtrlBackspace || event == Keybind::CtrlBackspaceReverse) {
+    // Alt + Backspace
+    if (event == Keybind::AltBackspace) {
       search_params_->text_to_search.clear();
       search_params_->position = 0;
       event_handled = true;

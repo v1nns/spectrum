@@ -163,10 +163,10 @@ void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
   };
 
   for (int i = 0; i < gauge_width_; i++) {
-    elements.push_back(gaugeDirection(static_cast<float>(value), direction) | color(direction));
+    elements.emplace_back(gaugeDirection(static_cast<float>(value), direction) | color(direction));
   }
 
-  if (space) elements.push_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
+  if (space) elements.emplace_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
 }
 
 /* ********************************************************************************************** */

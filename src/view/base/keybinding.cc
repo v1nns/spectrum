@@ -28,11 +28,12 @@ Key Navigation::End = Key::Special({27, 91, 70});            //! End key
 Key Navigation::PageUp = Key::Special({27, 91, 53, 126});    //! PageUp key
 Key Navigation::PageDown = Key::Special({27, 91, 54, 126});  //! PageDown key
 
-Key Navigation::Backspace = Key::Special({127});              //! Backspace key
+Key Navigation::Backspace = Key::Special({127});         //! Backspace key
+Key Navigation::AltBackspace = Key::Special({27, 127});  //! Alt + Backspace
+
 // TODO: this is not working...
-Key Navigation::CtrlBackspace = Key::Special({8});            //! Ctrl + Backspace
 // Key Navigation::CtrlBackspace = Key::Special("\x1b[127;5u");  //! Ctrl + Backspace
-Key Navigation::CtrlBackspaceReverse = Key::Special("\027");  //! Ctrl + Backspace (alternative)
+// Key Navigation::CtrlBackspaceReverse = Key::Special("\027");  //! Ctrl + Backspace (alternative)
 
 Key Navigation::Delete = Key::Special("\x1B[3~");  //! Delete key
 
