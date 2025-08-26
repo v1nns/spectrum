@@ -4,7 +4,6 @@
 
 #include "nlohmann/json.hpp"
 #include "util/formatter.h"
-#include "util/logger.h"
 
 namespace driver {
 
@@ -29,6 +28,14 @@ static void ParseSongTitle(const std::string& input, std::string& artist, std::s
 
 /* ********************************************************************************************** */
 
+void YtDlpWrapper::Init() { python_.Init(); }
+
+/* ********************************************************************************************** */
+
+void YtDlpWrapper::Finish() { python_.Finish(); }
+
+/* ********************************************************************************************** */
+
 error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   if (!song.stream_info.has_value() || song.stream_info->base_url.empty()) {
     ERROR("Song does not contain any URL to extract information");
@@ -38,17 +45,15 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   std::string program = std::regex_replace(kExtractInfo.data(), std::regex("###"),
                                            song.stream_info->base_url.c_str());
 
-  PythonWrapper python;
-  // TODO: improve error codes
-  if (!python.Run(program)) {
+  if (bool result = python_.Run(program); !result || !python_.GetBool(kStreamFound)) {
     ERROR("Could not fetch streaming format from URL=", song.stream_info->base_url);
     return error::kUnknownError;
   }
 
   // Get extracted info from URL
-  std::string title = python.GetString(kAudioTitle);
-  uint32_t duration = python.GetLong(kAudioDuration);
-  std::string raw_streams = python.GetString(kStreamInfo.data());
+  std::string title = python_.GetString(kAudioTitle);
+  uint32_t duration = python_.GetLong(kAudioDuration);
+  std::string raw_streams = python_.GetString(kStreamInfo.data());
 
   // Parse into JSON
   nlohmann::json streams = nlohmann::json::parse(raw_streams, nullptr, /*allow_exceptions=*/false);

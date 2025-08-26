@@ -282,6 +282,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
 void Player::AudioHandler() {
   LOG("Start audio handler thread");
+  fetcher_->Init();
 
   // Block this thread until UI informs us a song to play
   while (media_control_.WaitFor(Command::Identifier::Play)) {
@@ -337,6 +338,7 @@ void Player::AudioHandler() {
   }
 
   LOG("Finish audio handler thread");
+  fetcher_->Finish();
   finished_ = true;
 }
 

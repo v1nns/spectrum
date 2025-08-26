@@ -30,6 +30,16 @@ class StreamFetcher {
   //! Public API
 
   /**
+   * @brief Initialize internal structures for stream fetcher
+   */
+  virtual void Init() = 0;
+
+  /**
+   * @brief Finish and clean up all internal structures from stream fetcher
+   */
+  virtual void Finish() = 0;
+
+  /**
    * @brief Extract streaming information from the given URL
    * @param song Song with a streaming URL, fetching operation will get the rest of the info (out)
    * @return Error code from operation
