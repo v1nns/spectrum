@@ -12,7 +12,6 @@
 #include <array>
 #include <cctype>
 #include <cmath>
-#include <functional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -159,15 +158,34 @@ inline bool contains(std::string_view string, std::string_view substring) {
 }
 
 /**
- * @brief Filter string for only ASCII characters
+ * @brief Check if given character is an emoji
+ * @param wc Wide character
+ * @return True if character is an emoji, false otherwise
+ */
+inline bool is_emoji(const wchar_t& wc) {
+  // Common emoji Unicode ranges
+  return (wc >= 0x1F600 && wc <= 0x1F64F) ||  // Emoticons
+         (wc >= 0x1F300 && wc <= 0x1F5FF) ||  // Symbols & Pictographs
+         (wc >= 0x1F680 && wc <= 0x1F6FF) ||  // Transport & Map Symbols
+         (wc >= 0x1F1E0 && wc <= 0x1F1FF);    // Flags
+}
+
+/**
+ * @brief Filter string for only ASCII characters and non-emoji
  * @param s Raw string
  * @return Formatted string
  */
 inline std::string filter_ascii(const std::string& s) {
-  std::string filtered{s};
-  filtered.erase(std::remove_if(filtered.begin(), filtered.end(), std::not_fn(isascii)),
-                 filtered.end());
-  return filtered;
+  // Convert std::string to std::wstring for proper Unicode handling
+  std::wstring ws(s.begin(), s.end());
+
+  // Remove emojis using std::remove_if and std::string::erase
+  ws.erase(std::remove_if(ws.begin(), ws.end(),
+                          [](const wchar_t& c) { return !isascii(c) || is_emoji(c); }),
+           ws.end());
+
+  // Convert back to std::string (if needed, consider encoding)
+  return std::string{ws.begin(), ws.end()};
 }
 
 }  // namespace util

@@ -397,7 +397,7 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
   auto timeout = std::chrono::system_clock::now() + 0.03s;
   sync_data_.WaitForCommandOrUntil(timeout);
 
-  // This is not good, but it was the way found to send a command from thread
+  // FIX: This is not good, but it was the way found to send a command from thread
   auto event = interface::CustomEvent::ResumeSong(/*run_animation=*/false);
   dispatcher->SendEvent(event);
 }

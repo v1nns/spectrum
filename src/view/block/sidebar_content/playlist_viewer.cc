@@ -203,6 +203,7 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 void PlaylistViewer::OnFocus() {
+  // TODO: evaluate this parse right here...
   // Attempt to parse playlists file
   if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
     menu_->SetEntries(parsed);

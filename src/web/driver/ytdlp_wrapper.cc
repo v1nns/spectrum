@@ -13,16 +13,16 @@ static void ParseSongTitle(const std::string& input, std::string& artist, std::s
   std::string filtered = util::filter_ascii(input);
 
   // Find the occurrences of the delimiter in the input string
-  size_t first_pos = input.find(kDelimiter);
-  size_t second_pos = input.find(kDelimiter, first_pos + kDelimiter.length());
+  size_t first_pos = filtered.find(kDelimiter);
+  size_t second_pos = filtered.find(kDelimiter, first_pos + kDelimiter.length());
 
   if (first_pos == std::string::npos || second_pos != std::string::npos) {
     // If the delimiter appears more than once or not at all, only fill the title
-    title = util::trim(input);
+    title = util::trim(filtered);
   } else {
     // Split the string into artist + title
-    artist = util::trim(input.substr(0, first_pos));
-    title = util::trim(input.substr(first_pos + kDelimiter.length()));
+    artist = util::trim(filtered.substr(0, first_pos));
+    title = util::trim(filtered.substr(first_pos + kDelimiter.length()));
   }
 }
 
@@ -68,6 +68,16 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
 
   ParseSongTitle(title, song.artist, song.title);
 
+  FillStreamInfo(entry, duration, song);
+
+  LOG("Parsed stream info=", *song.stream_info);
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+void YtDlpWrapper::FillStreamInfo(const nlohmann::json& entry, uint32_t duration,
+                                  model::Song& song) {
   song.num_channels =
       entry.contains("audio_channels") ? entry["audio_channels"].template get<int>() : 2;
   song.duration = duration;
@@ -84,9 +94,6 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   for (const auto& [key, value] : entry["http_headers"].items()) {
     info.http_header[key] = value;
   }
-
-  LOG("Parsed stream info=", *song.stream_info);
-  return error::kSuccess;
 }
 
 }  // namespace driver

@@ -11,6 +11,8 @@
 #include <string>
 
 #include "model/application_error.h"
+#include "model/song.h"
+#include "nlohmann/json_fwd.hpp"
 #include "util/logger.h"
 #include "web/base/stream_fetcher.h"
 
@@ -101,8 +103,16 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
   error::Code ExtractInfo(model::Song &song) override;
 
   /* ******************************************************************************************** */
-  //! Variables
+  //! Internal methods
  private:
+  /**
+   * @brief Fill streaming information inside Song structure with content from parsed JSON
+   * @param entry JSON parsed entry
+   * @param duration Song duration (in seconds)
+   * @param song Song information
+   */
+  void FillStreamInfo(const nlohmann::json &entry, uint32_t duration, model::Song &song);
+
   /**
    * @brief A utility struct for embedding Python interpreter in C++ application.
    * This class provides encapsulation of the Python C API for safer and more convenient
@@ -196,6 +206,9 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     PyObject *main_module_;   //!< Pointer to custom python module
     PyObject *dict_;          //!< Pointer to dictionary containing all variables from python module
   };
+
+  /* ******************************************************************************************** */
+  //! Variables
 
   PythonWrapper python_;  //!< Wrapper to run python code
 };

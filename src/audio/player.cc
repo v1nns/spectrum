@@ -260,6 +260,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
     media_notifier->SendAudioRaw(static_cast<int*>(buffer), size);
   }
 
+  // TODO: check for errors?
   // Write samples to playback
   playback_->AudioCallback(buffer, size);
 

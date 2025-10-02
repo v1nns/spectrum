@@ -372,4 +372,6 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
   testing::RunAsyncTest({analysis, client});
 }
 
+// TODO: test for regain animation
+
 }  // namespace
