@@ -2,14 +2,18 @@
 
 #include <libavutil/error.h>
 
+#include <cstdio>
 #include <iomanip>
 #include <iterator>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "util/logger.h"
 
 namespace driver {
 
-static void log_callback(void *, int level, const char *fmt, va_list vargs) {
+static void log_callback(void*, int level, const char* fmt, va_list vargs) {
   va_list ap_copy;
   va_copy(ap_copy, vargs);
 
@@ -44,9 +48,9 @@ FFmpeg::FFmpeg(bool verbose) {
 
 /* ********************************************************************************************** */
 
-bool FFmpeg::ContainsAudioStream(const util::File &file) {
+bool FFmpeg::ContainsAudioStream(const util::File& file) {
   LOG("Check for audio stream on file=", std::quoted(file.string()));
-  AVFormatContext *ptr = nullptr;
+  AVFormatContext* ptr = nullptr;
 
   // Open input stream from given file
   int result = avformat_open_input(&ptr, file.c_str(), nullptr, nullptr);
@@ -65,9 +69,9 @@ bool FFmpeg::ContainsAudioStream(const util::File &file) {
   }
 
 #if LIBAVFORMAT_VERSION_MAJOR > 58
-  const AVCodec *codec = nullptr;
+  const AVCodec* codec = nullptr;
 #else
-  AVCodec *codec = nullptr;
+  AVCodec* codec = nullptr;
 #endif
 
   // Check for available audio stream
@@ -83,9 +87,9 @@ bool FFmpeg::ContainsAudioStream(const util::File &file) {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::OpenInputStream(const model::Song &audio_info) {
-  AVFormatContext *ptr = nullptr;
-  AVDictionary *options = nullptr;
+error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
+  AVFormatContext* ptr = nullptr;
+  AVDictionary* options = nullptr;
 
   std::string url;
 
@@ -93,7 +97,7 @@ error::Code FFmpeg::OpenInputStream(const model::Song &audio_info) {
     LOG("Song contains streaming information, attempt to decode as audio stream");
 
     std::string http_header;
-    for (const auto &[key, value] : audio_info.stream_info->http_header) {
+    for (const auto& [key, value] : audio_info.stream_info->http_header) {
       http_header += key + ":" + value + ";";
     }
 
@@ -134,9 +138,9 @@ error::Code FFmpeg::ConfigureDecoder() {
   LOG("Configure audio decoder for opened input stream");
 
 #if LIBAVFORMAT_VERSION_MAJOR > 58
-  const AVCodec *codec = nullptr;
+  const AVCodec* codec = nullptr;
 #else
-  AVCodec *codec = nullptr;
+  AVCodec* codec = nullptr;
 #endif
 
   // select the audio stream
@@ -147,7 +151,7 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kFileNotSupported;
   }
 
-  const AVCodecParameters *parameters = input_stream_->streams[stream_index_]->codecpar;
+  const AVCodecParameters* parameters = input_stream_->streams[stream_index_]->codecpar;
   decoder_ = CodecContext{avcodec_alloc_context3(codec)};
 
   int result = avcodec_parameters_to_context(decoder_.get(), parameters);
@@ -194,7 +198,7 @@ error::Code FFmpeg::ConfigureFilters() {
 
   // Create and configure all equalizer filters
   LOG("Create new equalizer filters, size=", audio_filters_.size());
-  for (const auto &[name, filter] : audio_filters_) {
+  for (const auto& [name, filter] : audio_filters_) {
     result = CreateFilterEqualizer(name, filter);
     if (result != error::kSuccess) return result;
   }
@@ -219,7 +223,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
   LOG("Create abuffer filter");
 
   // Find abuffer filter
-  const AVFilter *abuffersrc = avfilter_get_by_name(kFilterAbufferSrc);
+  const AVFilter* abuffersrc = avfilter_get_by_name(kFilterAbufferSrc);
 
   if (!abuffersrc) {
     ERROR("Cannot find the abuffer filter");
@@ -242,8 +246,8 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
   av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
 #else
   // Set filter options through the AVOptions API
-  av_get_channel_layout_string(ch_layout.data(), (int)ch_layout.size(), decoder_->channels,
-                               decoder_->channel_layout);
+  av_get_channel_layout_string(ch_layout.data(), static_cast<int>(ch_layout.size()),
+                               decoder_->channels, decoder_->channel_layout);
 #endif
 
   av_opt_set(buffersrc_ctx_.get(), "channel_layout", ch_layout.data(), AV_OPT_SEARCH_CHILDREN);
@@ -269,7 +273,7 @@ error::Code FFmpeg::CreateFilterVolume() {
   LOG("Create volume filter with value=", volume_);
 
   // Find volume filter
-  const AVFilter *volume = avfilter_get_by_name(kFilterVolume);
+  const AVFilter* volume = avfilter_get_by_name(kFilterVolume);
 
   if (!volume) {
     ERROR("Cannot find the volume filter");
@@ -277,7 +281,7 @@ error::Code FFmpeg::CreateFilterVolume() {
   }
 
   // Create an instance of volume filter
-  AVFilterContext *volume_ctx =
+  AVFilterContext* volume_ctx =
       avfilter_graph_alloc_filter(filter_graph_.get(), volume, kFilterVolume);
 
   if (!volume_ctx) {
@@ -285,8 +289,8 @@ error::Code FFmpeg::CreateFilterVolume() {
     return error::kUnknownError;
   }
 
-  // Set filter option
-  av_opt_set(volume_ctx, "volume", model::to_string(volume_).c_str(), AV_OPT_SEARCH_CHILDREN);
+  // Set filter option using decibel scale for perceptually accurate volume control
+  av_opt_set(volume_ctx, "volume", model::to_string_db(volume_).c_str(), AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
   if (int result = avfilter_init_str(volume_ctx, nullptr); result < 0) {
@@ -303,7 +307,7 @@ error::Code FFmpeg::CreateFilterAformat() {
   LOG("Create aformat filter");
 
   // Find aformat filter
-  const AVFilter *aformat = avfilter_get_by_name(kFilterAformat);
+  const AVFilter* aformat = avfilter_get_by_name(kFilterAformat);
 
   if (!aformat) {
     ERROR("Cannot find the aformat filter");
@@ -311,7 +315,7 @@ error::Code FFmpeg::CreateFilterAformat() {
   }
 
   // Create an instance of aformat filter, it ensures that the output is of the format we want
-  AVFilterContext *aformat_ctx =
+  AVFilterContext* aformat_ctx =
       avfilter_graph_alloc_filter(filter_graph_.get(), aformat, kFilterAformat);
 
   if (!aformat_ctx) {
@@ -325,8 +329,8 @@ error::Code FFmpeg::CreateFilterAformat() {
 #if LIBAVUTIL_VERSION_MAJOR > 56
   av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
 #else
-  av_get_channel_layout_string(ch_layout.data(), (int)ch_layout.size(), decoder_->channels,
-                               decoder_->channel_layout);
+  av_get_channel_layout_string(ch_layout.data(), static_cast<int>(ch_layout.size()),
+                               decoder_->channels, decoder_->channel_layout);
 #endif
 
   // Set filter options through the AVOptions API
@@ -350,7 +354,7 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
   LOG("Create abuffersink filter");
 
   // Find abuffersink filter
-  const AVFilter *abuffersink = avfilter_get_by_name(kFilterAbufferSink);
+  const AVFilter* abuffersink = avfilter_get_by_name(kFilterAbufferSink);
 
   if (!abuffersink) {
     ERROR("Cannot find the abuffersink filter");
@@ -376,10 +380,10 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::CreateFilterEqualizer(const std::string &name,
-                                          const model::AudioFilter &filter) {
+error::Code FFmpeg::CreateFilterEqualizer(const std::string& name,
+                                          const model::AudioFilter& filter) {
   // Find equalizer filter
-  const AVFilter *equalizer = avfilter_get_by_name(kFilterEqualizer);
+  const AVFilter* equalizer = avfilter_get_by_name(kFilterEqualizer);
 
   if (!equalizer) {
     ERROR("Cannot find the equalizer filter");
@@ -387,7 +391,7 @@ error::Code FFmpeg::CreateFilterEqualizer(const std::string &name,
   }
 
   // Create an instance of equalizer filter
-  AVFilterContext *equalizer_ctx =
+  AVFilterContext* equalizer_ctx =
       avfilter_graph_alloc_filter(filter_graph_.get(), equalizer, name.c_str());
 
   if (!equalizer_ctx) {
@@ -419,18 +423,18 @@ error::Code FFmpeg::ConnectFilters() {
   LOG("Connect all filters in a linear chain");
 
   // Find existing instance of filters
-  AVFilterContext *volume_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterVolume);
-  AVFilterContext *aformat_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterAformat);
+  AVFilterContext* volume_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterVolume);
+  AVFilterContext* aformat_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterAformat);
 
   // Filters will be linked considering the ordination in this vector
-  std::vector<AVFilterContext *> filters_to_link;
+  std::vector<AVFilterContext*> filters_to_link;
   filters_to_link.reserve(kDefaultFilterCount + audio_filters_.size());
 
   // Add both abuffer and volume filters
   filters_to_link.insert(filters_to_link.end(), {buffersrc_ctx_.get(), volume_ctx});
 
   // Add equalizer filters
-  for (const auto &[name, filter] : audio_filters_) {
+  for (const auto& [name, filter] : audio_filters_) {
     filters_to_link.push_back(avfilter_graph_get_filter(filter_graph_.get(), name.c_str()));
   }
 
@@ -465,14 +469,14 @@ error::Code FFmpeg::ConnectFilters() {
 
 /* ********************************************************************************************** */
 
-void FFmpeg::FillAudioInformation(model::Song &audio_info) {
+void FFmpeg::FillAudioInformation(model::Song& audio_info) {
   LOG("Fill song structure with audio information");
 
   // use this to get all metadata associated to this audio file
   //   const AVDictionaryEntry *tag = nullptr;
   //   while ((tag = av_dict_get(input_stream_->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
   //     LOG("key=", tag->key," value=", tag->value);
-  const AVDictionaryEntry *tag = nullptr;
+  const AVDictionaryEntry* tag = nullptr;
 
   // Get track name
   tag = av_dict_get(input_stream_->metadata, "title", tag, AV_DICT_IGNORE_SUFFIX);
@@ -482,22 +486,22 @@ void FFmpeg::FillAudioInformation(model::Song &audio_info) {
   tag = av_dict_get(input_stream_->metadata, "artist", tag, AV_DICT_IGNORE_SUFFIX);
   if (tag) audio_info.artist = std::string{tag->value};
 
-  const AVCodecParameters *audio_stream = input_stream_->streams[stream_index_]->codecpar;
+  const AVCodecParameters* audio_stream = input_stream_->streams[stream_index_]->codecpar;
 
 #if LIBAVUTIL_VERSION_MAJOR > 56
-  audio_info.num_channels = (uint16_t)audio_stream->ch_layout.nb_channels;
+  audio_info.num_channels = static_cast<uint16_t>(audio_stream->ch_layout.nb_channels);
 #else
-  audio_info.num_channels = (uint16_t)audio_stream->channels;
+  audio_info.num_channels = static_cast<uint16_t>(audio_stream->channels);
 #endif
-  audio_info.sample_rate = (uint32_t)audio_stream->sample_rate;
-  audio_info.bit_rate = (uint32_t)audio_stream->bit_rate;
-  audio_info.bit_depth = (uint32_t)sample_fmt_info[audio_stream->format].bits;
-  audio_info.duration = (uint32_t)(input_stream_->duration / AV_TIME_BASE);
+  audio_info.sample_rate = static_cast<uint32_t>(audio_stream->sample_rate);
+  audio_info.bit_rate = static_cast<uint32_t>(audio_stream->bit_rate);
+  audio_info.bit_depth = static_cast<uint32_t>(sample_fmt_info[audio_stream->format].bits);
+  audio_info.duration = static_cast<uint32_t>(input_stream_->duration / AV_TIME_BASE);
 }
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::Open(model::Song &audio_info) {
+error::Code FFmpeg::Open(model::Song& audio_info) {
   LOG("Open file/url and attempt to decode as audio stream");
   auto clean_up_and_return = [&](error::Code error_code) {
     ClearCache();
@@ -541,8 +545,8 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
     return error::kUnknownError;
   }
 
-  AVPacket *packet = shared_context_.packet.get();
-  AVFrame *frame = shared_context_.frame_decoded.get();
+  AVPacket* packet = shared_context_.packet.get();
+  AVFrame* frame = shared_context_.frame_decoded.get();
   int64_t song_duration = (input_stream_->duration / AV_TIME_BASE);
 
   // Read audio raw data from input stream
@@ -621,7 +625,7 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
   if (!filter_graph_) return error::kSuccess;
 
   // Otherwise, it means that some music is playing, so we gotta update the running filtergraph
-  std::string volume = model::to_string(volume_);
+  std::string volume = model::to_string_db(volume_);
   LOG("Found volume filter, update value to ", volume);
 
   // Set filter option
@@ -641,13 +645,13 @@ model::Volume FFmpeg::GetVolume() const { return volume_; }
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset &filters) {
+error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset& filters) {
   LOG("Update audio filters in the internal structure");
 
   // Clear internal structure
   audio_filters_.clear();
 
-  for (const auto &filter : filters) {
+  for (const auto& filter : filters) {
     if (filter.frequency == 0 || filter.Q == 0) {
       ERROR("Zeroed filter is not permitted");
       return error::kUnknownError;
@@ -665,14 +669,14 @@ error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset &filters) {
 
 /* ********************************************************************************************** */
 
-void FFmpeg::ProcessFrame(int samples, AudioCallback &callback) {
+void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
   // Get source and sink
-  AVFilterContext *source = buffersrc_ctx_.get();
-  AVFilterContext *sink = buffersink_ctx_.get();
+  AVFilterContext* source = buffersrc_ctx_.get();
+  AVFilterContext* sink = buffersink_ctx_.get();
 
   // Get allocated pointer for frames (decoded and filtered)
-  AVFrame *decoded = shared_context_.frame_decoded.get();
-  AVFrame *filtered = shared_context_.frame_filtered.get();
+  AVFrame* decoded = shared_context_.frame_decoded.get();
+  AVFrame* filtered = shared_context_.frame_filtered.get();
 
   // Push the audio data from decoded frame into the filtergraph
   if (av_buffersrc_add_frame_flags(source, decoded, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
@@ -689,7 +693,7 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback &callback) {
   while ((result = av_buffersink_get_samples(sink, filtered, samples)) >= 0 &&
          shared_context_.KeepDecoding()) {
     // Send filtered audio data to Player
-    shared_context_.keep_playing = callback(static_cast<void *>(filtered->data[0]),
+    shared_context_.keep_playing = callback(static_cast<void*>(filtered->data[0]),
                                             filtered->nb_samples, shared_context_.position);
 
     // Clear frame from filtergraph

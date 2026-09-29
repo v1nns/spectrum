@@ -39,7 +39,7 @@ If you're using Arch Linux or any derivative, you can install spectrum through y
 
 To install spectrum using Flatpak:
 
-1. Add the Flathub repository (if not already added):
+1. Add the Flathub repository:
    ```bash
    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
    ```

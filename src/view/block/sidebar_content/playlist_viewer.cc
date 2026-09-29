@@ -99,7 +99,7 @@ ftxui::Element PlaylistViewer::Render() {
   ftxui::Elements entries;
   entries.reserve(kNumberOfElements);
 
-  entries.push_back(menu_->Render());
+  entries.push_back(menu_->Render() | ftxui::yflex_grow);
 
   // Append all buttons at the bottom of the block
   entries.push_back(ftxui::hbox({
@@ -112,7 +112,7 @@ ftxui::Element PlaylistViewer::Render() {
       ftxui::filler(),
   }));
 
-  return ftxui::vbox(entries) | ftxui::reflect(box_) | ftxui::frame | ftxui::flex;
+  return ftxui::vbox(entries) | ftxui::reflect(box_) | ftxui::flex;
 }
 
 /* ********************************************************************************************** */

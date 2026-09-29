@@ -29,7 +29,13 @@ if(NOT SPECTRUM_DEBUG)
   pkg_search_module(PYTHON3 REQUIRED IMPORTED_TARGET python3)
   pkg_search_module(PYTHON3EMBED REQUIRED IMPORTED_TARGET python3-embed)
 
-  # TODO: check for yt-dlp presence
+  # Check for yt-dlp presence
+  find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
+  if(NOT YTDLP_EXECUTABLE)
+    message(FATAL_ERROR "yt-dlp not found. Please install it!")
+  else()
+    message(STATUS "Found yt-dlp: ${YTDLP_EXECUTABLE}")
+  endif()
 endif()
 
 if(NOT DISABLE_POPULATE)

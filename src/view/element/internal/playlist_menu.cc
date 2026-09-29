@@ -1,5 +1,7 @@
 #include "view/element/internal/playlist_menu.h"
 
+#include <deque>
+
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "model/playlist.h"
@@ -54,11 +56,8 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     }
   }
 
-  menu_entries.push_back(ftxui::filler());
-
-  ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::frame | ftxui::flex,
-  };
+  ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |
+                          ftxui::vscroll_indicator | ftxui::frame | ftxui::yflex_grow};
 
   // Append search box, if enabled
   if (IsSearchEnabled()) {
@@ -66,7 +65,7 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     content.push_back(ftxui::text(""));
   }
 
-  return ftxui::vbox(content) | ftxui::flex;
+  return ftxui::vbox(content) | ftxui::frame | ftxui::flex;
 }
 
 /* ********************************************************************************************** */
@@ -525,7 +524,7 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
   return ftxui::hbox({
              prefix_text | styles_.prefix,
              ftxui::text(!is_playlist ? "  " : "") | style,
-             entry_text | style | ftxui::xflex,
+             entry_text | style | ftxui::xflex_grow,
          }) |
          max_size | focus_management | ftxui::reflect(boxes[index]);
 }
