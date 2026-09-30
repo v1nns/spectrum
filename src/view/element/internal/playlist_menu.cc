@@ -56,6 +56,11 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     }
   }
 
+  // Let user know that search did not match anything
+  if (IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderNoMatches());
+  }
+
   ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |
                           ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex_grow};
 

@@ -2,6 +2,7 @@
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
 
+#include <filesystem>
 #include <memory>
 
 #include "ftxui/dom/node.hpp"
@@ -19,6 +20,7 @@ namespace {
 
 using ::testing::Eq;
 using ::testing::Field;
+using ::testing::HasSubstr;
 using ::testing::Invoke;
 using ::testing::MockFunction;
 using ::testing::Return;
@@ -794,6 +796,46 @@ TEST_F(PlaylistDialogTest, CloseWithEscape) {
   // Otherwise, escape closes dialog
   dialog->OnEvent(ftxui::Event::Escape);
   EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ReloadFilesOnOpen) {
+  // Create temporary directory with a single file
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_reload_on_open";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directory(dir);
+  utils::CreateEmptyFile(dir / "first.mp3");
+
+  // Use it as working directory too (dialog used to read files again only when paths differed)
+  auto old_working_dir = std::filesystem::current_path();
+  std::filesystem::current_path(dir);
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), dir.string());
+
+  const model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{},
+  };
+
+  // Open and close dialog, then add a new file
+  GetPlaylistDialog()->Open(operation);
+  dialog->OnEvent(ftxui::Event::Character('q'));
+
+  utils::CreateEmptyFile(dir / "second.mp3");
+
+  // New file must be listed after opening dialog again
+  GetPlaylistDialog()->Open(operation);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  const std::string rendered = GetRenderedScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("first.mp3"));
+  EXPECT_THAT(rendered, HasSubstr("second.mp3"));
+
+  std::filesystem::current_path(old_working_dir);
+  std::filesystem::remove_all(dir);
 }
 
 /* ********************************************************************************************** */

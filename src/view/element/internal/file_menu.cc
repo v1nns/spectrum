@@ -1,16 +1,49 @@
 #include "view/element/internal/file_menu.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
+#include <filesystem>
 #include <iomanip>
+#include <string>
+#include <string_view>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "util/file_handler.h"
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 
 namespace interface {
 namespace internal {
+
+namespace {
+
+using std::string_view_literals::operator""sv;
+
+//! File extensions (in lowercase) considered as audio/media, so they are not dimmed on the list
+constexpr std::array kMediaExtensions{
+    // Audio
+    ".aac"sv, ".ac3"sv, ".aif"sv, ".aifc"sv, ".aiff"sv, ".alac"sv, ".amr"sv, ".ape"sv, ".au"sv,
+    ".caf"sv, ".dff"sv, ".dsf"sv, ".dts"sv, ".eac3"sv, ".flac"sv, ".m4a"sv, ".m4b"sv, ".mka"sv,
+    ".mp2"sv, ".mp3"sv, ".mpc"sv, ".oga"sv, ".ogg"sv, ".opus"sv, ".ra"sv, ".tta"sv, ".wav"sv,
+    ".weba"sv, ".wma"sv, ".wv"sv,
+    // Video (usually containing an audio stream)
+    ".3gp"sv, ".avi"sv, ".flv"sv, ".m4v"sv, ".mkv"sv, ".mov"sv, ".mp4"sv, ".mpeg"sv, ".mpg"sv,
+    ".ogv"sv, ".ts"sv, ".webm"sv, ".wmv"sv};
+
+//! Check if file extension belongs to a known audio/media format (it does not open the file)
+bool HasMediaExtension(const util::File& file) {
+  std::string extension = file.extension().string();
+  std::transform(extension.begin(), extension.end(), extension.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+  return std::find(kMediaExtensions.begin(), kMediaExtensions.end(), extension) !=
+         kMediaExtensions.end();
+}
+
+}  // namespace
 
 FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::shared_ptr<util::FileHandler>& file_handler,
@@ -36,6 +69,14 @@ FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
       };
       break;
   }
+
+  // Files not looking like audio/media keep the same color, but dimmed
+  style_.unsupported = MenuEntryOption{
+      .normal = style_.file.normal | ftxui::dim,
+      .focused = style_.file.focused | ftxui::dim,
+      .selected = style_.file.selected | ftxui::dim,
+      .selected_focused = style_.file.selected_focused | ftxui::dim,
+  };
 
   auto filepath = ComposeDirectoryPath(optional_path);
 
@@ -70,9 +111,7 @@ ftxui::Element FileMenu::RenderImpl() {
     bool is_selected = (*selected == i);
     bool is_highlighted = highlighted_ && entry == *highlighted_;
 
-    const auto& type = is_highlighted                         ? style_.playing
-                       : std::filesystem::is_directory(entry) ? style_.directory
-                                                              : style_.file;
+    const auto& type = GetEntryStyle(entry, is_highlighted);
 
     auto prefix = ftxui::text(is_selected ? "▶ " : "  ");
 
@@ -93,6 +132,11 @@ ftxui::Element FileMenu::RenderImpl() {
                            max_size | focus_management | ftxui::reflect(boxes[i]));
   }
 
+  // Let user know that search did not match anything
+  if (IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderNoMatches());
+  }
+
   ftxui::Elements content{
       ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
   };
@@ -107,6 +151,23 @@ ftxui::Element FileMenu::RenderImpl() {
              ftxui::vbox(content) | ftxui::flex,
          }) |
          ftxui::flex;
+}
+
+/* ********************************************************************************************** */
+
+const FileMenu::MenuEntryOption& FileMenu::GetEntryStyle(const util::File& entry,
+                                                         bool is_highlighted) const {
+  if (is_highlighted) {
+    return style_.playing;
+  }
+  if (std::filesystem::is_directory(entry)) {
+    return style_.directory;
+  }
+  if (HasMediaExtension(entry)) {
+    return style_.file;
+  }
+
+  return style_.unsupported;
 }
 
 /* ********************************************************************************************** */
@@ -246,6 +307,39 @@ bool FileMenu::RefreshList(const std::filesystem::path& dir_path) {
   // Reset internal values
   curr_dir_ = dir_path;
   SetEntries(tmp);  // Use this, because of the internal::Menu::Clamp logic
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileMenu::Reload() {
+  // Do not change list while user is searching on it
+  if (IsSearchEnabled()) {
+    return false;
+  }
+
+  util::Files tmp;
+
+  if (!file_handler_->ListFiles(curr_dir_, tmp)) {
+    ERROR("Cannot reload files from current directory=", std::quoted(curr_dir_.c_str()));
+    return false;
+  }
+
+  // Nothing changed, so keep everything as it is
+  if (tmp == entries_) {
+    return false;
+  }
+
+  LOG("Reloading list with new entries, size=", tmp.size());
+  auto active = GetActiveEntryImpl();
+
+  SetEntries(tmp);
+
+  // Keep the same entry selected
+  if (active.has_value()) {
+    SelectEntryByFilename(active->filename());
+  }
 
   return true;
 }

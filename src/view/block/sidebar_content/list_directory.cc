@@ -64,6 +64,13 @@ bool ListDirectory::OnEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
+void ListDirectory::OnFocus() {
+  // Files may have changed while this list was not visible/focused
+  menu_->actual().Reload();
+}
+
+/* ********************************************************************************************** */
+
 bool ListDirectory::OnMouseEvent(ftxui::Event& event) {
   if (menu_->OnMouseEvent(event)) return true;
 

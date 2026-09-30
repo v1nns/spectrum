@@ -6,6 +6,8 @@
 #ifndef INCLUDE_TEST_GENERAL_UTILS_H_
 #define INCLUDE_TEST_GENERAL_UTILS_H_
 
+#include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <regex>
 #include <string>
@@ -36,6 +38,14 @@ template <typename T>
 inline void QueueCharacterEvents(T& component, const std::string& typed) {
   std::for_each(typed.begin(), typed.end(),
                 [&component](char const& c) { component.OnEvent(ftxui::Event::Character(c)); });
+}
+
+/* ********************************************************************************************** */
+
+//! Create an empty file on the given path (or truncate it, if already exists)
+inline void CreateEmptyFile(const std::filesystem::path& path) {
+  std::ofstream file{path};
+  file.close();
 }
 
 /* ********************************************************************************************** */

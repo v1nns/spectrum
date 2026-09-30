@@ -1,6 +1,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
+#include <gtest/gtest.h>
 
 #include <filesystem>
 #include <memory>
@@ -413,7 +414,7 @@ TEST_F(SidebarTest, NonExistentTextInSearchMode) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│                                    │
+│  No matches                        │
 │                                    │
 │                                    │
 │                                    │
@@ -621,6 +622,88 @@ TEST_F(SidebarTest, SelectPreviousDirectoryAfterGoingUp) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, ReloadDirectoryOnFocus) {
+  // Create temporary directory with a few files
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_reload_on_focus";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directory(dir);
+  utils::CreateEmptyFile(dir / "a.mp3");
+  utils::CreateEmptyFile(dir / "c.mp3");
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(false));
+  block = ftxui::Make<interface::Sidebar>(dispatcher, dir.string(), file_handler_mock_);
+
+  auto sidebar = std::static_pointer_cast<interface::Block>(block);
+  sidebar->SetFocused(true);
+
+  // Select "c.mp3" and remove focus from block
+  block->OnEvent(ftxui::Event::End);
+  sidebar->SetFocused(false);
+
+  // Add a new file while block is not focused, list must not change
+  utils::CreateEmptyFile(dir / "b.mp3");
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+  EXPECT_THAT(rendered, Not(HasSubstr("b.mp3")));
+
+  // After getting focus again, list must contain the new file and keep "c.mp3" selected
+  sidebar->SetFocused(true);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│  b.mp3 "));
+  EXPECT_THAT(rendered, HasSubstr("│▶ c.mp3 "));
+
+  std::filesystem::remove_all(dir);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, DimNonAudioFiles) {
+  // Create temporary directory with audio and non-audio files
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_dim_non_audio";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directory(dir);
+  utils::CreateEmptyFile(dir / "notes.txt");
+  utils::CreateEmptyFile(dir / "song.FLAC");
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(false));
+  block = ftxui::Make<interface::Sidebar>(dispatcher, dir.string(), file_handler_mock_);
+
+  ftxui::Render(*screen, block->Render());
+
+  // Check if first character from the given entry name is rendered as dimmed
+  auto is_dimmed = [this](const std::string& name) {
+    const int length = static_cast<int>(name.size());
+
+    for (int y = 0; y < screen->dimy(); ++y) {
+      for (int x = 0; x + length <= screen->dimx(); ++x) {
+        bool match = true;
+        for (int i = 0; i < length && match; ++i) {
+          match = screen->PixelAt(x + i, y).character == name.substr(i, 1);
+        }
+
+        if (match) {
+          return screen->PixelAt(x, y).dim;
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Could not find entry " << name;
+    return false;
+  };
+
+  EXPECT_TRUE(is_dimmed("notes.txt"));
+  EXPECT_FALSE(is_dimmed("song.FLAC"));
+
+  std::filesystem::remove_all(dir);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, NotifyFileSelection) {
   // Setup expectation for event sending
   std::filesystem::path file{"audio_player.cc"};
@@ -748,7 +831,7 @@ TEST_F(SidebarTest, TryToNavigateOnEmptySearch) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│                                    │
+│  No matches                        │
 │                                    │
 │                                    │
 │                                    │
@@ -793,7 +876,7 @@ TEST_F(SidebarTest, NavigateAndEraseCharactersOnSearch) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│                                    │
+│  No matches                        │
 │                                    │
 │                                    │
 │                                    │

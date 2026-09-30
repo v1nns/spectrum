@@ -30,6 +30,7 @@ class FileMenu : public BaseMenu<FileMenu> {
     ftxui::Decorator prefix;
     MenuEntryOption directory;
     MenuEntryOption file;
+    MenuEntryOption unsupported;
     MenuEntryOption playing;
   };
 
@@ -79,6 +80,10 @@ class FileMenu : public BaseMenu<FileMenu> {
   //! While on search mode, filter all entries to keep only those matching the given text
   void FilterEntriesBy(const std::string& text);
 
+  //! Get style for entry based on its state and type (playing, directory, media or other file)
+  [[nodiscard]] const MenuEntryOption& GetEntryStyle(const util::File& entry,
+                                                     bool is_highlighted) const;
+
   //! Select entry matching the given filename (if found)
   void SelectEntryByFilename(const std::filesystem::path& filename);
 
@@ -99,6 +104,13 @@ class FileMenu : public BaseMenu<FileMenu> {
    * @return true if directory was parsed succesfully, false otherwise
    */
   bool RefreshList(const std::filesystem::path& dir_path);
+
+  /**
+   * @brief Read current directory again, to update list with any file change. Active entry is kept
+   *        selected (if it still exists). Nothing is done while search mode is enabled.
+   * @return true if list was updated, false otherwise
+   */
+  bool Reload();
 
   //! Get current directory
   const std::filesystem::path& GetCurrentDir() const { return curr_dir_; }

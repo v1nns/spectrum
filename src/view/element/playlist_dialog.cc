@@ -108,10 +108,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 /* ********************************************************************************************** */
 
 void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
-  // Check if FileMenu must reset list of files back to default path
-  if (auto& derived = menu_files_->actual(); derived.GetCurrentDir() != base_path_) {
-    derived.RefreshList(base_path_);
-  }
+  // Always read files from default path again, as they may have changed since last time
+  menu_files_->actual().RefreshList(base_path_);
 
   // Update internal cache
   curr_operation_ = operation;
@@ -309,9 +307,6 @@ void PlaylistDialog::OnOpen() {
 /* ********************************************************************************************** */
 
 void PlaylistDialog::OnClose() {
-  // Reset default path in file menu
-  menu_files_->actual().RefreshList(std::filesystem::current_path());
-
   modified_playlist_.reset();
   input_playlist_.Clear();
   btn_save_->Disable();

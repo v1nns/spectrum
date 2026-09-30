@@ -52,6 +52,11 @@ ftxui::Element SongMenu::RenderImpl() {
                            max_size | focus_management | ftxui::reflect(boxes[i]));
   }
 
+  // Let user know that search did not match anything
+  if (IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderNoMatches());
+  }
+
   ftxui::Elements content{
       ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
   };

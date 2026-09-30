@@ -92,6 +92,12 @@ class ListDirectory : public TabItem {
    */
   bool OnCustomEvent(const CustomEvent& event) override;
 
+  /**
+   * @brief Called when this tab item becomes active (or its parent block gets focus), to read
+   * current directory again and update list with any file change
+   */
+  void OnFocus() override;
+
   /* ******************************************************************************************** */
   //! File list operations
  private:

@@ -479,6 +479,15 @@ class BaseMenu : public Element {
   //! Check if search mode enabled
   bool IsSearchEnabled() const { return search_params_.has_value(); }
 
+  //! Render placeholder for when search mode is enabled and no entry matches the text
+  [[nodiscard]] ftxui::Element RenderNoMatches() const {
+    return ftxui::hbox({
+               ftxui::text(std::string(kMaxIconColumns, ' ')),
+               ftxui::text("No matches"),
+           }) |
+           ftxui::dim;
+  }
+
   //! Render UI element for search
   ftxui::Element RenderSearch() const {
     if (!IsSearchEnabled()) {

@@ -104,6 +104,11 @@ bool Sidebar::OnCustomEvent(const CustomEvent& event) {
 void Sidebar::OnFocus() {
   // Update internal state for all buttons
   for (const auto& [id, item] : tab_elem_.items()) item->GetButton()->UpdateParentFocus(true);
+
+  // Let files tab refresh its list (playlist tab is not notified, as it would reset its cursor)
+  if (tab_elem_.active() == View::Files) {
+    tab_elem_.active_item()->OnFocus();
+  }
 }
 
 /* ********************************************************************************************** */
