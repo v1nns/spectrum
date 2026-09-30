@@ -1,5 +1,6 @@
 #include "view/element/question_dialog.h"
 
+#include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 
@@ -16,8 +17,14 @@ QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatche
           },
       .focused =
           Button::Style::State{
-              .foreground = ftxui::Color::DeepSkyBlue4Ter,
+              .foreground = ftxui::Color::Black,
               .background = ftxui::Color::LightSkyBlue1,
+          },
+      // Button activated by Return key
+      .selected =
+          Button::Style::State{
+              .foreground = ftxui::Color::Black,
+              .background = ftxui::Color::Grey93,
           },
       .pressed =
           Button::Style::State{
@@ -26,7 +33,7 @@ QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatche
           },
       .highlight =
           Button::Style::State{
-              .foreground = ftxui::Color::DeepPink4Bis,
+              .foreground = ftxui::Color::DarkRed,
           },
 
       .delimiters = Button::Delimiters(" ", " "),
@@ -57,7 +64,26 @@ QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
 /* ********************************************************************************************** */
 
-void QuestionDialog::SetMessage(const model::QuestionData& data) { content_ = data; }
+void QuestionDialog::SetMessage(const model::QuestionData& data) {
+  content_ = data;
+
+  // Always start with the safest option
+  SelectButton(false);
+}
+
+/* ********************************************************************************************** */
+
+void QuestionDialog::SelectButton(bool yes) {
+  yes_selected_ = yes;
+
+  if (yes_selected_) {
+    btn_yes_->Select();
+    btn_no_->Unselect();
+  } else {
+    btn_no_->Select();
+    btn_yes_->Unselect();
+  }
+}
 
 /* ********************************************************************************************** */
 
@@ -84,6 +110,20 @@ bool QuestionDialog::OnEventImpl(const ftxui::Event& event) {
 
   if (event == keybinding::Dialog::No) {
     btn_no_->OnClick();
+    return true;
+  }
+
+  // Move selection between buttons
+  if (event == Keybind::ArrowLeft || event == Keybind::ArrowRight || event == Keybind::Left ||
+      event == Keybind::Right || event == Keybind::Tab || event == Keybind::TabReverse) {
+    SelectButton(!yes_selected_);
+    return true;
+  }
+
+  // Press selected button
+  if (event == Keybind::Return) {
+    LOG("Handle key to press selected button");
+    (yes_selected_ ? btn_yes_ : btn_no_)->OnClick();
     return true;
   }
 

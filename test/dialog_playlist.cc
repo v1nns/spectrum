@@ -13,9 +13,11 @@
 #include "mock/event_dispatcher_mock.h"
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
+#include "model/question_data.h"
 #include "util/file_handler.h"
 #include "view/element/error_dialog.h"
 #include "view/element/playlist_dialog.h"
+#include "view/element/question_dialog.h"
 
 namespace {
 
@@ -1390,6 +1392,97 @@ TEST_F(ErrorDialogTest, ShowMessageWithDetail) {
   GetErrorDialog()->SetErrorMessage("File not supported", "");
 
   EXPECT_THAT(Render(), Not(HasSubstr("Daft Punk")));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with QuestionDialog class
+ */
+class QuestionDialogTest : public ::DialogTest {
+ protected:
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+    dispatcher = std::make_shared<EventDispatcherMock>();
+    question_dialog = std::make_shared<interface::QuestionDialog>(dispatcher);
+    dialog = question_dialog;
+  }
+
+  //! Show question dialog with mocked callbacks
+  void Ask() {
+    question_dialog->SetMessage(model::QuestionData{
+        .question = "Do you want to delete \"Chill mix\"?",
+        .cb_yes = cb_yes.AsStdFunction(),
+        .cb_no = cb_no.AsStdFunction(),
+    });
+
+    dialog->Open();
+  }
+
+  //!< Screen dimension
+  ftxui::Dimensions size = ftxui::Dimensions{.dimx = 60, .dimy = 12};
+
+  std::shared_ptr<interface::QuestionDialog> question_dialog;  //!< Same as dialog, without casting
+
+  MockFunction<void()> cb_yes;  //!< Callback for "Yes" button
+  MockFunction<void()> cb_no;   //!< Callback for "No" button
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(QuestionDialogTest, ReturnPressesNoByDefault) {
+  EXPECT_CALL(cb_yes, Call).Times(0);
+  EXPECT_CALL(cb_no, Call);
+
+  Ask();
+  dialog->OnEvent(ftxui::Event::Return);
+
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(QuestionDialogTest, SelectYesAndPressReturn) {
+  EXPECT_CALL(cb_yes, Call);
+  EXPECT_CALL(cb_no, Call).Times(0);
+
+  Ask();
+
+  // Move selection back and forth, ending on "Yes"
+  dialog->OnEvent(ftxui::Event::ArrowRight);
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::TabReverse);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(QuestionDialogTest, SelectionIsResetForNewQuestion) {
+  EXPECT_CALL(cb_yes, Call).Times(0);
+  EXPECT_CALL(cb_no, Call);
+
+  // Select "Yes" but close dialog without answering
+  Ask();
+  dialog->OnEvent(ftxui::Event::ArrowRight);
+  dialog->OnEvent(ftxui::Event::Escape);
+
+  // New question must start with "No" selected again
+  Ask();
+  dialog->OnEvent(ftxui::Event::Return);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(QuestionDialogTest, AnswerWithKeybinding) {
+  EXPECT_CALL(cb_yes, Call);
+  EXPECT_CALL(cb_no, Call).Times(0);
+
+  Ask();
+  dialog->OnEvent(ftxui::Event::Character('y'));
+
+  EXPECT_FALSE(dialog->IsVisible());
 }
 
 }  // namespace

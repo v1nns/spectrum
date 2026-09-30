@@ -1,5 +1,6 @@
 #include "view/element/help_dialog.h"
 
+#include "ftxui/dom/elements.hpp"
 #include "view/base/keybinding.h"
 
 namespace interface {
@@ -62,9 +63,9 @@ ftxui::Element HelpDialog::title(const std::string& message) const {
 ftxui::Element HelpDialog::command(const std::string& keybind,
                                    const std::string& description) const {
   return ftxui::hbox({
-      ftxui::text(keybind) | ftxui::color(ftxui::Color::PaleTurquoise1),
+      ftxui::text(keybind) | ftxui::color(ftxui::Color::PaleTurquoise1) | ftxui::bold,
       ftxui::text(!keybind.empty() ? " - " : ""),
-      ftxui::text(description) | ftxui::color(ftxui::Color::Grey11),
+      ftxui::text(description) | ftxui::color(ftxui::Color::Black),
   });
 }
 

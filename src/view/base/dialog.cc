@@ -36,10 +36,12 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
 
   // Create dialog decorator style
   auto decorator = ftxui::size(HEIGHT, EQUAL, height) | ftxui::size(WIDTH, EQUAL, width) |
-                   ftxui::bgcolor(style_.background) | ftxui::color(style_.foreground) |
-                   ftxui::clear_under | ftxui::center;
+                   ftxui::bgcolor(style_.background) | ftxui::color(style_.foreground);
 
-  return RenderImpl(curr_size) | border_decorator | decorator;
+  // Keep an empty margin around dialog border, otherwise it would be merged with the borders
+  // from blocks behind it (as both are drawn using box characters)
+  return RenderImpl(curr_size) | border_decorator | decorator | ftxui::borderEmpty |
+         ftxui::clear_under | ftxui::center;
 }
 
 /* ********************************************************************************************** */
