@@ -10,7 +10,8 @@ namespace interface {
 
 Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
                  const std::string& optional_path,
-                 const std::shared_ptr<util::FileHandler> file_handler)
+                 const std::shared_ptr<util::FileHandler> file_handler,
+                 const std::function<bool(const util::File& file)>& contains_audio_cb)
     : Block{dispatcher, model::BlockIdentifier::Sidebar,
             interface::Size{.width = kMaxColumns, .height = 0}} {
   // Initialize file handler
@@ -19,7 +20,7 @@ Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
   // Create all tabs
   tab_elem_[View::Files] = std::make_unique<ListDirectory>(
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this), keybinding::Sidebar::FocusList,
-      file_handler_, kMaxColumns, optional_path);
+      file_handler_, kMaxColumns, optional_path, contains_audio_cb);
 
   tab_elem_[View::Playlist] = std::make_unique<PlaylistViewer>(
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this),

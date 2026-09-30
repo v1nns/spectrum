@@ -128,6 +128,10 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   if (!media_notifier) return;
 
   if (result != error::kSuccess) {
+    // Song information was already sent to UI (error happened while decoding), so clear it,
+    // otherwise UI would keep showing information about a song that is not playing anymore
+    if (!error_parsing) media_notifier->ClearSongInformation(true);
+
     // In case of error, notify about it
     media_notifier->NotifyError(result);
     return;

@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_LIST_DIRECTORY_H_
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -37,6 +38,9 @@ class ListDirectory : public TabItem {
   static constexpr std::string_view kTabName = "files";  //!< Tab title
 
  public:
+  //! Callback to check if given file contains an audio stream
+  using AudioCheckCallback = std::function<bool(const util::File& file)>;
+
   /**
    * @brief Construct a new ListDirectory object
    * @param id Parent block identifier
@@ -46,12 +50,15 @@ class ListDirectory : public TabItem {
    * @param file_handler Utility handler to manage any file operation
    * @param max_columns Maximum number of visual columns to be used by this element
    * @param optional_path Custom directory path to fill initial list of files
+   * @param contains_audio_cb Callback to check if selected file contains audio stream before
+   *                          asking to play it (if empty, no check is done)
    */
   explicit ListDirectory(const model::BlockIdentifier& id,
                          const std::shared_ptr<EventDispatcher>& dispatcher,
                          const FocusCallback& on_focus, const keybinding::Key& keybinding,
                          const std::shared_ptr<util::FileHandler>& file_handler, int max_columns,
-                         const std::string& optional_path = "");
+                         const std::string& optional_path = "",
+                         const AudioCheckCallback& contains_audio_cb = nullptr);
 
   /**
    * @brief Destroy the List Directory object
@@ -95,6 +102,14 @@ class ListDirectory : public TabItem {
    */
   util::File SelectFileToPlay(bool pick_next);
 
+  /**
+   * @brief Send file selection to be played by audio thread. If file does not contain an audio
+   * stream, it is not sent (to not interrupt current song) and an error is shown instead
+   * @param file Filepath
+   * @return true if file selection was handled (sent or error shown), otherwise false
+   */
+  bool SendFileSelection(const util::File& file);
+
   /* ******************************************************************************************** */
   //! Local cache for current active information
  protected:
@@ -107,6 +122,8 @@ class ListDirectory : public TabItem {
   std::optional<std::filesystem::path> curr_playing_ = std::nullopt;  //!< Current song playing
 
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
+
+  AudioCheckCallback contains_audio_cb_;  //!< Check if file contains audio before playing it
 
   FileMenu menu_;  //!< Menu with a list of files
 

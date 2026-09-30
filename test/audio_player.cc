@@ -480,10 +480,10 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
 
     // Only these should be called
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kUnknownError))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
-    EXPECT_CALL(*notifier, ClearSongInformation(true)).Times(0);
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);
@@ -1208,10 +1208,10 @@ TEST_F(PlayerTest, ErrorDecodingSongFromPlaylistPlayNextAndExit) {
 
     // Only these should be called on error
     EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kDecodeFileFailed))).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
     }));
-    EXPECT_CALL(*notifier, ClearSongInformation(true)).Times(0);
 
     // Setup expectations for playing next song
     EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath)))

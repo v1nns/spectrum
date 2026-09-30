@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BLOCK_SIDEBAR_H_
 #define INCLUDE_VIEW_BLOCK_SIDEBAR_H_
 
+#include <functional>
 #include <memory>
 
 #include "util/file_handler.h"
@@ -32,10 +33,12 @@ class Sidebar : public Block {
    * @param dispatcher Block event dispatcher
    * @param optional_path List files from custom path instead of the current one
    * @param file_handler Interface to file handler
+   * @param contains_audio_cb Callback to check if file contains audio stream before playing it
    */
   explicit Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::string& optional_path = "",
-                   const std::shared_ptr<util::FileHandler> file_handler = nullptr);
+                   const std::shared_ptr<util::FileHandler> file_handler = nullptr,
+                   const std::function<bool(const util::File& file)>& contains_audio_cb = nullptr);
 
   /**
    * @brief Destroy the Sidebar object

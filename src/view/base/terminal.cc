@@ -57,8 +57,16 @@ void Terminal::Init(const std::string& initial_path) {
   // use itself as a mediator to send events between them
   std::shared_ptr<EventDispatcher> dispatcher = shared_from_this();
 
+  // Callback to check if file contains an audio stream, used before trying to play a file
+  const std::function<bool(const util::File&)> contains_audio_cb =
+#ifndef SPECTRUM_DEBUG
+      driver::FFmpeg::ContainsAudioStream;
+#else
+      driver::DummyDecoder::ContainsAudioStream;
+#endif
+
   // Create blocks
-  auto sidebar = std::make_shared<Sidebar>(dispatcher, initial_path);
+  auto sidebar = std::make_shared<Sidebar>(dispatcher, initial_path, nullptr, contains_audio_cb);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
   auto tab_viewer = std::make_shared<MainContent>(dispatcher);
   auto media_player = std::make_shared<MediaPlayer>(dispatcher);
@@ -76,13 +84,7 @@ void Terminal::Init(const std::string& initial_path) {
   // Create dialogs
   error_dialog_ = std::make_unique<ErrorDialog>(dispatcher);
   help_dialog_ = std::make_unique<HelpDialog>(dispatcher);
-  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher,
-#ifndef SPECTRUM_DEBUG
-                                                      driver::FFmpeg::ContainsAudioStream,
-#else
-                                                      driver::DummyDecoder::ContainsAudioStream,
-#endif
-                                                      initial_path);
+  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher, contains_audio_cb, initial_path);
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 }
 

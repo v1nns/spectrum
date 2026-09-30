@@ -160,11 +160,14 @@ error::Code FFmpeg::ConfigureDecoder() {
     return error::kUnknownError;
   }
 
-  // Force to use stereo as channel layout
-#if LIBAVUTIL_VERSION_MAJOR > 56
-  decoder_->ch_layout = AV_CHANNEL_LAYOUT_STEREO;
-#else
-  decoder_->channel_layout = AV_CH_LAYOUT_STEREO;
+  // Keep the input channel layout, filter graph is responsible for converting it to stereo output.
+  // Overriding it here would make abuffer expect a layout different from the decoded frames
+#if LIBAVUTIL_VERSION_MAJOR <= 56
+  // Old API may not fill a channel layout (e.g. WAV without channel mask), so use default one
+  if (decoder_->channel_layout == 0) {
+    decoder_->channel_layout =
+        static_cast<uint64_t>(av_get_default_channel_layout(decoder_->channels));
+  }
 #endif
 
   result = avcodec_open2(decoder_.get(), codec, nullptr);
@@ -325,12 +328,12 @@ error::Code FFmpeg::CreateFilterAformat() {
 
   std::string ch_layout(64, ' ');
 
-// Get channel layout description
+// Get output channel layout description (always stereo, regardless of the input layout)
 #if LIBAVUTIL_VERSION_MAJOR > 56
-  av_channel_layout_describe(&decoder_->ch_layout, ch_layout.data(), ch_layout.size());
+  av_channel_layout_describe(ch_layout_.get(), ch_layout.data(), ch_layout.size());
 #else
-  av_get_channel_layout_string(ch_layout.data(), static_cast<int>(ch_layout.size()),
-                               decoder_->channels, decoder_->channel_layout);
+  av_get_channel_layout_string(ch_layout.data(), static_cast<int>(ch_layout.size()), 2,
+                               AV_CH_LAYOUT_STEREO);
 #endif
 
   // Set filter options through the AVOptions API
@@ -479,11 +482,12 @@ void FFmpeg::FillAudioInformation(model::Song& audio_info) {
   const AVDictionaryEntry* tag = nullptr;
 
   // Get track name
-  tag = av_dict_get(input_stream_->metadata, "title", tag, AV_DICT_IGNORE_SUFFIX);
+  // Note: each lookup must search the whole dictionary (prev=nullptr), as tags may be in any order
+  tag = av_dict_get(input_stream_->metadata, "title", nullptr, AV_DICT_IGNORE_SUFFIX);
   if (tag) audio_info.title = std::string{tag->value};
 
   // Get artist name
-  tag = av_dict_get(input_stream_->metadata, "artist", tag, AV_DICT_IGNORE_SUFFIX);
+  tag = av_dict_get(input_stream_->metadata, "artist", nullptr, AV_DICT_IGNORE_SUFFIX);
   if (tag) audio_info.artist = std::string{tag->value};
 
   const AVCodecParameters* audio_stream = input_stream_->streams[stream_index_]->codecpar;

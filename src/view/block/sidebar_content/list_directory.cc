@@ -18,9 +18,11 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
                              const std::shared_ptr<EventDispatcher>& dispatcher,
                              const FocusCallback& on_focus, const keybinding::Key& keybinding,
                              const std::shared_ptr<util::FileHandler>& file_handler,
-                             int max_columns, const std::string& optional_path)
+                             int max_columns, const std::string& optional_path,
+                             const AudioCheckCallback& contains_audio_cb)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)),
       max_columns_(max_columns),
+      contains_audio_cb_(contains_audio_cb),
       menu_(menu::CreateFileMenu(
           dispatcher, file_handler,
 
@@ -37,14 +39,8 @@ ListDirectory::ListDirectory(const model::BlockIdentifier& id,
             if (!active) return false;
 
             // Send user action to controller, try to play selected entry
-            auto dispatcher = dispatcher_.lock();
-            if (!dispatcher) return false;
-
             LOG("Handle on_click event on menu entry=", *active);
-            auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
-            dispatcher->SendEvent(event_selection);
-
-            return true;
+            return SendFileSelection(*active);
           },
           menu::Style::Default, optional_path)) {
   // Set max columns for an entry in menu
@@ -96,15 +92,10 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
 
   if (event == CustomEvent::Identifier::PlaySong) {
     LOG("Received request from media player to play selected file");
-    auto dispatcher = dispatcher_.lock();
-    if (!dispatcher) return false;
-
     auto active = menu_->GetActiveEntry();
     if (!active) return false;
 
-    auto event_selection = interface::CustomEvent::NotifyFileSelection(*active);
-    dispatcher->SendEvent(event_selection);
-
+    SendFileSelection(*active);
     return true;
   }
 
@@ -114,11 +105,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     if (auto file = SelectFileToPlay(/*pick_next=*/false); !file.empty()) {
       LOG("Skipping song, attempt to play previous file: ", file);
       // Send user action to controller
-      auto dispatcher = dispatcher_.lock();
-      if (!dispatcher) return false;
-
-      auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
-      dispatcher->SendEvent(event_selection);
+      SendFileSelection(file);
     }
 
     return true;
@@ -130,11 +117,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     if (auto file = SelectFileToPlay(/*pick_next=*/true); !file.empty()) {
       LOG("Skipping song, attempt to play next file: ", file);
       // Send user action to controller
-      auto dispatcher = dispatcher_.lock();
-      if (!dispatcher) return false;
-
-      auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
-      dispatcher->SendEvent(event_selection);
+      SendFileSelection(file);
     }
 
     return true;
@@ -155,11 +138,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
       if (auto file = SelectFileToPlay(/*pick_next=*/true); !file.empty()) {
         LOG("Song finished, attempt to play next file: ", file);
         // Send user action to controller
-        auto dispatcher = dispatcher_.lock();
-        if (!dispatcher) return false;
-
-        auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
-        dispatcher->SendEvent(event_selection);
+        SendFileSelection(file);
       }
     }
   }
@@ -188,10 +167,9 @@ util::File ListDirectory::SelectFileToPlay(bool is_next) {
   // Iterate circularly through all file entries
   bool found = false;
   for (file = entries[new_index]; attempts > 0; --attempts, file = entries[new_index]) {
-    // TODO: create API on decoder to check if this file contains an audio stream
-
     // Found a possible file to play
-    if (new_index != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file)) {
+    if (new_index != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file) &&
+        (!contains_audio_cb_ || contains_audio_cb_(file))) {
       found = true;
       break;
     }
@@ -200,6 +178,25 @@ util::File ListDirectory::SelectFileToPlay(bool is_next) {
   }
 
   return found ? file : util::File{};
+}
+
+/* ********************************************************************************************** */
+
+bool ListDirectory::SendFileSelection(const util::File& file) {
+  auto dispatcher = dispatcher_.lock();
+  if (!dispatcher) return false;
+
+  // Do not send it to audio thread, otherwise current song would be stopped for nothing
+  if (contains_audio_cb_ && !contains_audio_cb_(file)) {
+    ERROR("Selected file does not contain an audio stream, file=", file);
+    dispatcher->SetApplicationError(error::kFileNotSupported);
+    return true;
+  }
+
+  auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
+  dispatcher->SendEvent(event_selection);
+
+  return true;
 }
 
 }  // namespace interface

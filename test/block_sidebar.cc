@@ -911,6 +911,79 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
 
 /* ********************************************************************************************** */
 
+/**
+ * @brief Tests with Sidebar class using a callback to check if file contains audio stream
+ */
+class SidebarAudioCheckTest : public ::SidebarTest {
+ protected:
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(38, 15);
+    dispatcher = std::make_shared<EventDispatcherMock>();
+
+    EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(true));
+
+    // Only these files are considered to contain an audio stream
+    auto contains_audio = [](const util::File& file) {
+      return file.filename() == "audio_player.cc" || file.filename() == "block_media_player.cc";
+    };
+
+    block = ftxui::Make<interface::Sidebar>(dispatcher, LISTDIR_PATH, file_handler_mock_,
+                                            contains_audio);
+
+    auto dummy = std::static_pointer_cast<interface::Block>(block);
+    dummy->SetFocused(true);
+  }
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarAudioCheckTest, SelectFileWithoutAudioStream) {
+  // File without audio stream must not be sent to player (it would stop current song)
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::NotifyFileSelection)))
+      .Times(0);
+
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kFileNotSupported)));
+
+  // Select "block_file_info.cc"
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Return);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarAudioCheckTest, PlayNextFileSkippingFilesWithoutAudioStream) {
+  InSequence seq;
+  auto derived = GetListDirectory();
+
+  // Simulate player sending event to update song info
+  std::filesystem::path file{LISTDIR_PATH + std::string{"/audio_player.cc"}};
+  derived->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = file}));
+  EXPECT_EQ(file, GetCurrentPlaying());
+
+  // Next files ("block_file_info.cc" and "block_main_content.cc") do not contain audio stream
+  std::filesystem::path next_file{LISTDIR_PATH + std::string{"/block_media_player.cc"}};
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::filesystem::path>(next_file)))))
+      .Times(1);
+
+  EXPECT_CALL(*dispatcher, SetApplicationError(_)).Times(0);
+
+  // Simulate player sending event to notify that song has ended
+  derived->OnCustomEvent(interface::CustomEvent::UpdateSongState(
+      model::Song::CurrentInformation{.state = model::Song::MediaState::Finished}));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, EmptyPlaylist) {
   model::Playlists data{};
 

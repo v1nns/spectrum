@@ -25,6 +25,9 @@ if(NOT SPECTRUM_DEBUG)
     pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-2.6)
   endif()
 
+  # libxml2 (used directly by libxml_wrapper, and only a private dependency of libxml++)
+  pkg_search_module(LIBXML2 REQUIRED IMPORTED_TARGET libxml-2.0)
+
   # embedded python
   pkg_search_module(PYTHON3 REQUIRED IMPORTED_TARGET python3)
   pkg_search_module(PYTHON3EMBED REQUIRED IMPORTED_TARGET python3-embed)
@@ -43,7 +46,11 @@ if(NOT DISABLE_POPULATE)
   FetchContent_Declare(
     ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736)
+    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736
+    # Backport upstream fix for out-of-bounds read in LinearGradient (fixed in FTXUI v6.0.0).
+    # Skip applying it when already applied, so that re-running the patch step does not fail.
+    PATCH_COMMAND sh -c "git apply --reverse --check \"$0\" 2>/dev/null || git apply \"$0\""
+                  ${PROJECT_SOURCE_DIR}/patches/ftxui-linear-gradient-oob.patch)
 
   FetchContent_MakeAvailable(ftxui)
 
@@ -187,6 +194,7 @@ if(NOT SPECTRUM_DEBUG)
     INTERFACE PkgConfig::CURL
     PRIVATE
     INTERFACE PkgConfig::LIBXML
+    INTERFACE PkgConfig::LIBXML2
     PRIVATE
     INTERFACE PkgConfig::PYTHON3
     INTERFACE PkgConfig::PYTHON3EMBED)
