@@ -698,6 +698,77 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Melodic House",
+                                         .songs =
+                                             {
+                                                 model::Song{.filepath = "Crazy hit.mp3"},
+                                                 model::Song{.filepath = "Crazy frog.mp3"},
+                                                 model::Song{.filepath = "Crazy love.mp3"},
+                                             },
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Focus playlist menu and navigate on it
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('j'));
+
+  // Focus files menu again (wrapping around) and navigate on it
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('j'));
+
+  // Focus playlist menu using reverse direction and navigate on it
+  dialog->OnEvent(ftxui::Event::TabReverse);
+  dialog->OnEvent(ftxui::Event::Character('j'));
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Modify Playlist                               ║
+║                                                                            ║
+║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
+║      │test                          ││  Crazy hit.mp3               │      ║
+║      │  ..                          ││  Crazy frog.mp3              │      ║
+║      │  audio_lyric_finder.cc       ││▶ Crazy love.mp3              │      ║
+║      │▶ audio_player.cc             ││                              │      ║
+║      │  block_file_info.cc          ││                              │      ║
+║      │  block_main_content.cc       ││                              │      ║
+║      │  block_media_player.cc       ││                              │      ║
+║      │  block_sidebar.cc            ││                              │      ║
+║      │  CMakeLists.txt              ││                              │      ║
+║      │  dialog_playlist.cc          ││                              │      ║
+║      │  driver_fftw.cc              ││                              │      ║
+║      │  general                     ││                              │      ║
+║      │  middleware_media_controller.││                              │      ║
+║      │  mock                        ││                              │      ║
+║      │  util_argparser.cc           ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
   model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
                                      .playlist = model::Playlist{

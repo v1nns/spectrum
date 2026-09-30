@@ -69,6 +69,16 @@ class FocusController final {
   void SetFocus(int index);
 
   /**
+   * @brief Move focus to next element, wrapping around to the first one after the last
+   */
+  void FocusNext();
+
+  /**
+   * @brief Move focus to previous element, wrapping around to the last one before the first
+   */
+  void FocusPrevious();
+
+  /**
    * @brief Set element to be focused when navigating forward while no element is focused
    *        (by default, it is the first element appended)
    * @param element Element already appended to this controller

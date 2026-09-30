@@ -82,6 +82,28 @@ void FocusController::SetFocus(int index) {
 
 /* ********************************************************************************************** */
 
+void FocusController::FocusNext() {
+  if (elements_.empty()) return;
+
+  int size = static_cast<int>(elements_.size());
+  int new_index = HasElementFocused() ? (focus_index_ + 1) % size : initial_index_;
+
+  UpdateFocus(focus_index_, new_index);
+}
+
+/* ********************************************************************************************** */
+
+void FocusController::FocusPrevious() {
+  if (elements_.empty()) return;
+
+  int size = static_cast<int>(elements_.size());
+  int new_index = HasElementFocused() ? (focus_index_ + size - 1) % size : initial_index_;
+
+  UpdateFocus(focus_index_, new_index);
+}
+
+/* ********************************************************************************************** */
+
 void FocusController::SetInitialFocus(const Element& element) {
   auto it = std::find(elements_.begin(), elements_.end(), &element);
 

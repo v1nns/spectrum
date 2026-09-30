@@ -257,6 +257,21 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
     }
   }
 
+  // Switch focus between menus (unless playlist name is being edited)
+  if (!input_playlist_.IsEditing()) {
+    if (event == keybinding::Navigation::Tab) {
+      LOG("Handle key to focus next menu");
+      focus_ctl_.FocusNext();
+      return true;
+    }
+
+    if (event == keybinding::Navigation::TabReverse) {
+      LOG("Handle key to focus previous menu");
+      focus_ctl_.FocusPrevious();
+      return true;
+    }
+  }
+
   // Otherwise, pass event to focus controller to handle and pass it along to focused element
   if (focus_ctl_.OnEvent(event)) {
     return true;
