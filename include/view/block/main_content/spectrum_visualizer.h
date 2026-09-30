@@ -6,9 +6,11 @@
 #ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
 
+#include <chrono>
 #include <string_view>
 
 #include "model/bar_animation.h"
+#include "view/element/flash_message.h"
 #include "view/element/tab.h"
 
 namespace interface {
@@ -22,6 +24,8 @@ class SpectrumVisualizer : public TabItem {
   static constexpr int kGaugeMinWidth = 1;      //!< Maximum value for gauge width
   static constexpr int kGaugeMaxWidth = 4;      //!< Minimum value for gauge width
   static constexpr int kGaugeSpacing = 1;       //!< Spacing between gauges
+
+  static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
 
  public:
   /**
@@ -66,6 +70,16 @@ class SpectrumVisualizer : public TabItem {
    */
   int GetBarWidth() const { return gauge_width_; }
 
+  /**
+   * @brief Briefly show a hint on how to exit fullscreen mode (along with current animation name)
+   */
+  void ShowFullscreenHint();
+
+  /**
+   * @brief Hide any message being shown on visualizer
+   */
+  void HideMessage();
+
   /* ******************************************************************************************** */
   // Private methods
  private:
@@ -84,6 +98,8 @@ class SpectrumVisualizer : public TabItem {
       model::BarAnimation::HorizontalMirror;  //!< Control which bar animation to draw
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
   int gauge_width_ = kGaugeDefaultWidth;  //!< Current audio bar width
+
+  FlashMessage message_;  //!< Brief feedback shown over visualizer (e.g. animation name)
 };
 
 }  // namespace interface

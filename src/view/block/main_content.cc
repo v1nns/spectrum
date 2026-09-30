@@ -1,6 +1,7 @@
 #include "view/block/main_content.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "util/logger.h"
@@ -15,18 +16,18 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, model::BlockIdentifier::MainContent,
             interface::Size{.width = 0, .height = 0}},
       tab_elem_{} {
-  // Create all tabs
-  tab_elem_[View::Visualizer] = std::make_unique<SpectrumVisualizer>(
-      GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
-      keybinding::MainContent::FocusVisualizer);
+  // Create all tabs (keeping a direct reference to visualizer, used to show fullscreen hint)
+  auto visualizer = std::make_unique<SpectrumVisualizer>(
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusVisualizer);
+
+  visualizer_ = visualizer.get();
+  tab_elem_[View::Visualizer] = std::move(visualizer);
 
   tab_elem_[View::Equalizer] = std::make_unique<AudioEqualizer>(
-      GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
-      keybinding::MainContent::FocusEqualizer);
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusEqualizer);
 
-  tab_elem_[View::Lyric] =
-      std::make_unique<SongLyric>(GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
-                                  keybinding::MainContent::FocusLyric);
+  tab_elem_[View::Lyric] = std::make_unique<SongLyric>(
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusLyric);
 
   // Set visualizer as active tab
   tab_elem_.SetActive(View::Visualizer);
@@ -38,8 +39,11 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher)
 /* ********************************************************************************************** */
 
 ftxui::Element MainContent::Render() {
-  // Toggle flag only if it was enabled
-  if (is_fullscreen_) is_fullscreen_ = false;
+  // Toggle flag only if it was enabled (and hide fullscreen hint, if still visible)
+  if (is_fullscreen_) {
+    is_fullscreen_ = false;
+    visualizer_->HideMessage();
+  }
 
   auto block_focused = IsFocused();
   auto active_button = tab_elem_.active();
@@ -71,8 +75,11 @@ ftxui::Element MainContent::Render() {
 /* ********************************************************************************************** */
 
 ftxui::Element MainContent::RenderFullscreen() {
-  // Toggle flag only if it was disabled
-  if (!is_fullscreen_) is_fullscreen_ = true;
+  // Toggle flag only if it was disabled (and let user know how to exit from it)
+  if (!is_fullscreen_) {
+    is_fullscreen_ = true;
+    visualizer_->ShowFullscreenHint();
+  }
 
   return tab_elem_.active_item()->Render();
 }

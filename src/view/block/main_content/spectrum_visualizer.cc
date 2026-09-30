@@ -3,8 +3,12 @@
 #include <algorithm>
 #include <ftxui/dom/elements.hpp>
 
+#include "model/bar_animation.h"
+#include "util/formatter.h"
 #include "util/logger.h"
+#include "view/base/custom_event.h"
 #include "view/base/keybinding.h"
+#include "view/element/tab.h"
 
 namespace interface {
 
@@ -12,7 +16,14 @@ SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
                                        const std::shared_ptr<EventDispatcher>& dispatcher,
                                        const FocusCallback& on_focus,
                                        const keybinding::Key& keybinding)
-    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}),
+      message_{[this] {
+                 // Message has expired, so UI must be refreshed to remove it from screen
+                 if (auto disp = dispatcher_.lock(); disp) {
+                   disp->SendEvent(CustomEvent::Refresh());
+                 }
+               },
+               kMessageDuration} {}
 
 /* ********************************************************************************************** */
 
@@ -50,8 +61,33 @@ ftxui::Element SpectrumVisualizer::Render() {
       break;
   }
 
+  // Draw message (if any) on the upper-right corner, over the animation
+  if (auto message = message_.GetText(); message.has_value()) {
+    bar_visualizer = ftxui::dbox({
+        bar_visualizer,
+        ftxui::vbox({
+            ftxui::hbox({
+                ftxui::filler(),
+                ftxui::text(*message) | ftxui::bold | ftxui::color(ftxui::Color::White),
+            }),
+            ftxui::filler(),
+        }),
+    });
+  }
+
   return bar_visualizer;
 }
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::ShowFullscreenHint() {
+  const std::string key = util::EventToString(keybinding::Visualizer::ToggleFullscreen);
+  message_.Show(key + ": exit fullscreen · " + std::string{model::GetAnimationName(curr_anim_)});
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::HideMessage() { message_.Hide(); }
 
 /* ********************************************************************************************** */
 
@@ -69,6 +105,9 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
 
     auto event_animation = CustomEvent::ChangeBarAnimation(curr_anim_);
     dispatcher->SendEvent(event_animation);
+
+    // Let user know which animation is being drawn now
+    message_.Show(std::string{model::GetAnimationName(curr_anim_)});
 
     return true;
   }

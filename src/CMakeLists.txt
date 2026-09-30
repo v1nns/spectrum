@@ -117,6 +117,7 @@ target_sources(
           view/block/sidebar_content/list_directory.cc
           view/block/sidebar_content/playlist_viewer.cc
           view/element/button.cc
+          view/element/flash_message.cc
           view/element/focus_controller.cc
           view/element/error_dialog.cc
           view/element/help_dialog.cc

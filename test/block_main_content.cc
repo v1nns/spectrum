@@ -1,6 +1,11 @@
 #include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <future>
 #include <memory>
+#include <thread>
 
 #include "general/block.h"
 #include "general/utils.h"
@@ -8,14 +13,18 @@
 #include "mock/lyric_finder_mock.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/song_lyric.h"
+#include "view/element/flash_message.h"
 
 namespace {
 
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
+using ::testing::Not;
+using ::testing::Optional;
 using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::VariantWith;
@@ -164,7 +173,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁                    │
+│                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁     Vertical mirror│
 │                                                  ▂▂ ▄▄ ▇▇ ██ ██ ██ ██ ██ ▇▇ ▄▄ ▂▂           │
 │                                         ▃▃ ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▅▅ ▃▃  │
 │           ▄▄ ██ ▄▄                ▄▄ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
@@ -220,7 +229,7 @@ TEST_F(MainContentTest, AnimationMono) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                                                                                             │
+│                                                                                         Mono│
 │                                                                 ▆▆                          │
 │                                                              ▄▄ ██ ▄▄                       │
 │                                                           ▁▁ ██ ██ ██ ▁▁                    │
@@ -391,7 +400,7 @@ TEST_F(MainContentTest, VisualizerOnFullscreen) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-                                             ▇▇ ▇▇                                             
+                                             ▇▇ ▇▇       z: exit fullscreen · Horizontal mirror
                                        ▁▁ ██ ██ ██ ██ ▁▁                                       
                                     ▂▂ ██ ██ ██ ██ ██ ██ ▂▂                                    
                                  ▂▂ ██ ██ ██ ██ ██ ██ ██ ██ ▂▂                                 
@@ -420,6 +429,25 @@ TEST_F(MainContentTest, VisualizerOnFullscreen) {
 
   // And check that screen is equal to before
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, HideFullscreenHintAfterExit) {
+  auto tab_viewer = std::static_pointer_cast<interface::MainContent>(block);
+
+  // Entering fullscreen shows a hint on how to exit it
+  ftxui::Render(*screen, tab_viewer->RenderFullscreen());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("z: exit fullscreen · Horizontal mirror"));
+
+  // After exiting fullscreen, hint must not be shown anymore
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, Not(HasSubstr("exit fullscreen")));
 }
 
 /* ********************************************************************************************** */
@@ -1762,6 +1790,92 @@ TEST_F(MockMainContentTest, CheckFocus) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with FlashMessage class
+ */
+class FlashMessageTest : public ::testing::Test {
+ protected:
+  static constexpr std::chrono::milliseconds kDuration{50};   //!< Time that message stays visible
+  static constexpr std::chrono::milliseconds kTimeout{2000};  //!< Maximum time to wait for events
+
+  void SetUp() override {
+    message = std::make_unique<interface::FlashMessage>(
+        [this] {
+          expired++;
+          if (!notified.exchange(true)) {
+            on_expire.set_value();
+          }
+        },
+        kDuration);
+  }
+
+  //! Wait until expiration callback is triggered (or timeout)
+  bool WaitForExpiration() {
+    return on_expire.get_future().wait_for(kTimeout) == std::future_status::ready;
+  }
+
+  std::unique_ptr<interface::FlashMessage> message;  //!< Flash message under test
+
+  std::atomic<int> expired = 0;        //!< Number of times that message expired
+  std::atomic<bool> notified = false;  //!< Control to set promise only once
+  std::promise<void> on_expire;        //!< Notify test that message expired
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(FlashMessageTest, InitialState) { EXPECT_FALSE(message->GetText().has_value()); }
+
+/* ********************************************************************************************** */
+
+TEST_F(FlashMessageTest, ShowAndExpire) {
+  message->Show("Mono");
+  EXPECT_THAT(message->GetText(), Optional(Eq("Mono")));
+
+  ASSERT_TRUE(WaitForExpiration());
+
+  EXPECT_FALSE(message->GetText().has_value());
+  EXPECT_EQ(expired, 1);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FlashMessageTest, ReplaceMessage) {
+  message->Show("Mono");
+  message->Show("Vertical mirror");
+
+  EXPECT_THAT(message->GetText(), Optional(Eq("Vertical mirror")));
+
+  ASSERT_TRUE(WaitForExpiration());
+
+  // Even with two messages shown, only the last one expires
+  EXPECT_FALSE(message->GetText().has_value());
+  EXPECT_EQ(expired, 1);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FlashMessageTest, HideBeforeExpiration) {
+  message->Show("Mono");
+  message->Hide();
+
+  EXPECT_FALSE(message->GetText().has_value());
+
+  // Wait longer than message duration, callback must not be triggered for a hidden message
+  std::this_thread::sleep_for(kDuration * 3);
+  EXPECT_EQ(expired, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FlashMessageTest, DestroyWhileVisible) {
+  message->Show("Mono");
+  message.reset();
+
+  EXPECT_EQ(expired, 0);
 }
 
 }  // namespace

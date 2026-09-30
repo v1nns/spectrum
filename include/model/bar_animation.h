@@ -7,6 +7,7 @@
 #define INCLUDE_MODEL_BAR_ANIMATION_H_
 
 #include <iostream>
+#include <string_view>
 
 namespace model {
 
@@ -25,6 +26,13 @@ enum BarAnimation {
 
 //! BarAnimation pretty print
 std::ostream& operator<<(std::ostream& out, const BarAnimation& animation);
+
+/**
+ * @brief Get user-friendly name for animation (to be shown on UI)
+ * @param animation Bar animation
+ * @return Animation name
+ */
+std::string_view GetAnimationName(const BarAnimation& animation);
 
 //! Utility method to check if animation has spacing or not
 inline bool IsAnimationSpaced(BarAnimation& animation) {

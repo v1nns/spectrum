@@ -19,6 +19,8 @@ class MainContentTest;
 
 namespace interface {
 
+class SpectrumVisualizer;
+
 /**
  * @brief Component to display a set of tabs and their respective content
  */
@@ -104,6 +106,8 @@ class MainContent : public Block {
   WindowButton btn_exit_;  //!< Exit button
 
   Tab tab_elem_;  //!< Tab containing multiple panels with some content
+
+  SpectrumVisualizer* visualizer_ = nullptr;  //!< Visualizer tab item (owned by tab_elem_)
 
   bool is_fullscreen_ =
       false;  //!< Cache flag set by parent(Terminal block) via Render or RenderFullscreen, this is
