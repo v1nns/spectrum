@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <memory>
 #include <set>
+#include <string>
 
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/ffmpeg.h"
@@ -15,10 +16,12 @@
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/component/screen_interactive.hpp"
+#include "ftxui/dom/elements.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "model/application_error.h"
 #include "model/block_identifier.h"
 #include "model/playlist_operation.h"
+#include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/base/keybinding.h"
@@ -140,6 +143,11 @@ ftxui::Element Terminal::Render() {
     SendEvent(event_calculate);
   }
 
+  // Blocks would be cut or overlapped, so ask user to resize terminal instead
+  if (IsTooSmall()) {
+    return RenderTooSmall();
+  }
+
   ftxui::Element terminal;
 
   if (!fullscreen_mode_) {
@@ -171,12 +179,44 @@ ftxui::Element Terminal::Render() {
 
 /* ********************************************************************************************** */
 
+ftxui::Element Terminal::RenderTooSmall() const {
+  auto size_to_string = [](int columns, int lines) {
+    return std::to_string(columns) + "x" + std::to_string(lines);
+  };
+
+  const std::string exit_key = util::EventToString(keybinding::General::ExitApplication);
+
+  return ftxui::vbox({
+             ftxui::text("Terminal too small") | ftxui::bold | ftxui::hcenter,
+             ftxui::text(""),
+             ftxui::text("Current: " + size_to_string(size_.dimx, size_.dimy)) | ftxui::hcenter,
+             ftxui::text("Minimum: " + size_to_string(kMinColumns, kMinLines)) | ftxui::hcenter,
+             ftxui::text(""),
+             ftxui::text("Resize it or press " + exit_key + " to quit") | ftxui::dim |
+                 ftxui::hcenter,
+         }) |
+         ftxui::center | ftxui::flex;
+}
+
+/* ********************************************************************************************** */
+
 bool Terminal::OnEvent(ftxui::Event event) {
   // Treat any pending custom event
   OnCustomEvent();
 
   // Translate terminal-specific key sequences (e.g. Home/End under tmux)
   event = keybinding::Normalize(event);
+
+  // Blocks are not visible, so do not let user interact with them (only quit is allowed)
+  if (IsTooSmall()) {
+    if (event == keybinding::General::ExitApplication) {
+      LOG("Handle key to exit (terminal too small)");
+      Exit();
+      return true;
+    }
+
+    return false;
+  }
 
   // Cannot do anything while dialog box is opened
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);

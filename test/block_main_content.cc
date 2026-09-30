@@ -489,6 +489,21 @@ TEST_F(MainContentTest, HideFullscreenHintAfterExit) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, CalculateNumberOfBarsWhileVisualizerIsNotActive) {
+  // Focus equalizer tab
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Terminal was resized, so visualizer must ask for a new number of bars even if it is not active
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ResizeAnalysis),
+                              Field(&interface::CustomEvent::content, VariantWith<int>(22)))));
+
+  Process(interface::CustomEvent::CalculateNumberOfBars(22));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, RenderEqualizer) {
   block->OnEvent(ftxui::Event::Character('2'));
 
@@ -499,14 +514,14 @@ TEST_F(MainContentTest, RenderEqualizer) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
+│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
 │                                                                                             │
-│╭─────────────╮                                                                              │
-││→ Custom     │                                                                              │
-│╰─────────────╯   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-│                  ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
+│   ╭─────────────╮                                                                           │
+│   │→ Custom     │                                                                           │
+│   ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
 │                                                                                             │
-│                  0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB   0 dB│
+│                      0      0      0      0      0      0      0      0      0       0      │
 │                                                                                             │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
@@ -514,6 +529,22 @@ TEST_F(MainContentTest, RenderEqualizer) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
+  // With enough width, labels contain their units
+  screen = std::make_unique<ftxui::Screen>(140, 15);
+
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("32 Hz"));
+  EXPECT_THAT(rendered, HasSubstr("16 kHz"));
+  EXPECT_THAT(rendered, HasSubstr("0 dB"));
 }
 
 /* ********************************************************************************************** */
@@ -568,14 +599,14 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
+│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
 │                                                                                             │
-│╭─────────────╮                                                           ▂▂                 │
-││→ Custom     │           ▇▇                                              ██                 │
-│╰─────────────╯   ██      ██      ██      ▆▆      ██      ▄▄      ██      ██     ██     ██   │
-│                  ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
+│   ╭─────────────╮                                                     ▂▂                    │
+│   │→ Custom     │           ▇▇                                        ██                    │
+│   ╰─────────────╯    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██      ██     │
+│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
 │                                                                                             │
-│                  0 dB    5 dB    0 dB   -2 dB    0 dB   -3 dB    0 dB    7 dB    0 dB   0 dB│
+│                      0      5      0      -2     0      -3     0      7      0       0      │
 │                                                                                             │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
@@ -602,14 +633,14 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
+│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
 │                                                                                             │
-│╭─────────────╮                                                                              │
-││→ Custom     │                           ▇▇                                                 │
-│╰─────────────╯   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-│                  ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
+│   ╭─────────────╮                                                                           │
+│   │→ Custom     │                         ▇▇                                                │
+│   ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
 │                                                                                             │
-│                  0 dB    0 dB    0 dB    5 dB    0 dB    0 dB    0 dB    0 dB    0 dB   0 dB│
+│                      0      0      0      5      0      0      0      0      0       0      │
 │                                                                                             │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
@@ -639,14 +670,14 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
+│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
 │                                                                                             │
-│╭─────────────╮                                                                              │
-││→ Custom     │                                                                              │
-│╰─────────────╯   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-│                  ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
+│   ╭─────────────╮                                                                           │
+│   │→ Custom     │                                                                           │
+│   ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
 │                                                                                             │
-│                  0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB   0 dB│
+│                      0      0      0      0      0      0      0      0      0       0      │
 │                                                                                             │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
@@ -672,16 +703,16 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Custom     │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││◉ Custom     │                                                                              │
-││○ Electronic │                                                                              │
-││○ Pop        │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││○ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB    0 dB   0 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Custom     │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │◉ Custom     │                                                                           │
+│   │○ Electronic │                                                                           │
+│   │○ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    0      0      0      0      0      0      0      0      0       0      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -710,16 +741,16 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Electronic │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││○ Custom     │                                                                              │
-││◉ Electronic │   ▃▃      ▄▄      ▃▃                      ▂▂      ▄▄      ▂▂     ▃▃     ▃▃   │
-││○ Pop        │   ██      ██      ██      ▆▆      ██      ██      ██      ██     ██     ██   │
-││○ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   2 dB    3 dB    2 dB   -2 dB    0 dB    1 dB    3 dB    1 dB    2 dB   2 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Electronic │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │○ Custom     │                                                                           │
+│   │◉ Electronic │    ▃▃     ▄▄     ▃▃                   ▂▂     ▄▄     ▂▂     ▃▃      ▃▃     │
+│   │○ Pop        │    ██     ██     ██     ▆▆     ██     ██     ██     ██     ██      ██     │
+│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    2      3      2      -2     0      1      3      1      2       2      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -797,16 +828,16 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Pop        │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││○ Custom     │                                                                              │
-││○ Electronic │   ▂▂      ▃▃      ▂▂                      ▃▃      ▂▂      ▂▂     ▃▃     ▄▄   │
-││◉ Pop        │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││○ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   1 dB    2 dB    1 dB    0 dB    0 dB    2 dB    1 dB    1 dB    2 dB   3 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Pop        │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │○ Custom     │                                                                           │
+│   │○ Electronic │    ▂▂     ▃▃     ▂▂                   ▃▃     ▂▂     ▂▂     ▃▃      ▄▄     │
+│   │◉ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    1      2      1      0      0      2      1      1      2       3      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -832,16 +863,16 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Pop        │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││○ Custom     │                                                                              │
-││○ Electronic │   ▂▂      ▃▃      ▂▂                      ▃▃      ▂▂      ▂▂     ▃▃     ▄▄   │
-││◉ Pop        │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││○ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   1 dB    2 dB    1 dB    0 dB    0 dB    2 dB    1 dB    1 dB    2 dB   3 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Pop        │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │○ Custom     │                                                                           │
+│   │○ Electronic │    ▂▂     ▃▃     ▂▂                   ▃▃     ▂▂     ▂▂     ▃▃      ▄▄     │
+│   │◉ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    1      2      1      0      0      2      1      1      2       3      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -877,16 +908,16 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Rock       │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││○ Custom     │                                                                              │
-││○ Electronic │   ▂▂      ▃▃      ▂▂                                      ▂▂     ▃▃     ▄▄   │
-││○ Pop        │   ██      ██      ██      ▇▇      ▄▄      ▇▇      ██      ██     ██     ██   │
-││◉ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   1 dB    2 dB    1 dB   -1 dB   -3 dB   -1 dB    0 dB    1 dB    2 dB   3 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Rock       │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │○ Custom     │                                                                           │
+│   │○ Electronic │    ▂▂     ▃▃     ▂▂                                 ▂▂     ▃▃      ▄▄     │
+│   │○ Pop        │    ██     ██     ██     ▇▇     ▄▄     ▇▇     ██     ██     ██      ██     │
+│   │◉ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    1      2      1      -1     -3     -1     0      1      2       3      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -911,16 +942,16 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Rock       │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││○ Custom     │                                                                              │
-││○ Electronic │   ▂▂      ▃▃      ▂▂                                      ▂▂     ▃▃     ▄▄   │
-││○ Pop        │   ██      ██      ██      ▇▇      ▄▄      ▇▇      ██      ██     ██     ██   │
-││◉ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   1 dB    2 dB    1 dB   -1 dB   -3 dB   -1 dB    0 dB    1 dB    2 dB   3 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Rock       │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │○ Custom     │                                                                           │
+│   │○ Electronic │    ▂▂     ▃▃     ▂▂                                 ▂▂     ▃▃      ▄▄     │
+│   │○ Pop        │    ██     ██     ██     ▇▇     ▄▄     ▇▇     ██     ██     ██      ██     │
+│   │◉ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    1      2      1      -1     -3     -1     0      1      2       3      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -969,14 +1000,14 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
+│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
 │                                                                                             │
-│╭─────────────╮                                                           ▂▂                 │
-││→ Custom     │           ▇▇                                              ██                 │
-│╰─────────────╯   ██      ██      ██      ▆▆      ██      ▄▄      ██      ██     ██     ██   │
-│                  ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
+│   ╭─────────────╮                                                     ▂▂                    │
+│   │→ Custom     │           ▇▇                                        ██                    │
+│   ╰─────────────╯    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██      ██     │
+│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
 │                                                                                             │
-│                  0 dB    5 dB    0 dB   -2 dB    0 dB   -3 dB    0 dB    7 dB    0 dB   0 dB│
+│                      0      5      0      -2     0      -3     0      7      0       0      │
 │                                                                                             │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
@@ -1008,16 +1039,16 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Electronic │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││○ Custom     │                                                                              │
-││◉ Electronic │   ▃▃      ▄▄      ▃▃                      ▂▂      ▄▄      ▂▂     ▃▃     ▃▃   │
-││○ Pop        │   ██      ██      ██      ▆▆      ██      ██      ██      ██     ██     ██   │
-││○ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   2 dB    3 dB    2 dB   -2 dB    0 dB    1 dB    3 dB    1 dB    2 dB   2 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Electronic │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │○ Custom     │                                                                           │
+│   │◉ Electronic │    ▃▃     ▄▄     ▃▃                   ▂▂     ▄▄     ▂▂     ▃▃      ▃▃     │
+│   │○ Pop        │    ██     ██     ██     ▆▆     ██     ██     ██     ██     ██      ██     │
+│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    2      3      2      -2     0      1      3      1      2       2      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │
@@ -1044,16 +1075,16 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│╭─────────────╮                                                                              │
-││↓ Custom     │ 32 Hz   64 Hz   125 Hz  250 Hz  500 Hz  1 kHz   2 kHz   4 kHz   8 kHz 16 kHz │
-│├─────────────┤                                                                              │
-││◉ Custom     │                                                           ▂▂                 │
-││○ Electronic │           ▇▇                                              ██                 │
-││○ Pop        │   ██      ██      ██      ▆▆      ██      ▄▄      ██      ██     ██     ██   │
-││○ Rock       │   ██      ██      ██      ██      ██      ██      ██      ██     ██     ██   │
-││             │                                                                              │
-││             │   0 dB    5 dB    0 dB   -2 dB    0 dB   -3 dB    0 dB    7 dB    0 dB   0 dB│
-│╰─────────────╯                                                                              │
+│   ╭─────────────╮                                                                           │
+│   │↓ Custom     │    32     64    125    250    500     1k     2k     4k     8k     16k     │
+│   ├─────────────┤                                                                           │
+│   │◉ Custom     │                                                     ▂▂                    │
+│   │○ Electronic │           ▇▇                                        ██                    │
+│   │○ Pop        │    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██      ██     │
+│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│   │             │                                                                           │
+│   │             │    0      5      0      -2     0      -3     0      7      0       0      │
+│   ╰─────────────╯                                                                           │
 │                               ┌─────────────┐┌─────────────┐                                │
 │                               │    Apply    ││    Reset    │                                │
 │                               └─────────────┘└─────────────┘                                │

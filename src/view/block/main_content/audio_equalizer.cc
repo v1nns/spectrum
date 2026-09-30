@@ -2,8 +2,10 @@
 
 #include <functional>
 
+#include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -35,24 +37,28 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 /* ********************************************************************************************** */
 
 ftxui::Element AudioEqualizer::Render() {
-  ftxui::Elements elements;
+  // EQ picker + frequency bars (compact version uses shorter labels, to fit in narrow terminals)
+  auto build = [this](bool compact) {
+    ftxui::Elements elements;
 
-  // EQ picker + frequency bars
-  // TODO: constexpr these values
-  elements.reserve(3 + 2 * bars_.size());
+    // TODO: constexpr these values
+    elements.reserve(3 + (2 * bars_.size()));
 
-  elements.push_back(ftxui::filler());
-  elements.push_back(picker_.Render());
-  elements.push_back(ftxui::filler());
-
-  // Iterate through all frequency bars
-  for (auto& bar : bars_) {
-    elements.push_back(bar.Render());
     elements.push_back(ftxui::filler());
-  }
+    elements.push_back(picker_.Render());
+    elements.push_back(ftxui::filler());
+
+    // Iterate through all frequency bars
+    for (auto& bar : bars_) {
+      elements.push_back(bar.Draw(compact));
+      elements.push_back(ftxui::filler());
+    }
+
+    return ftxui::hbox(elements);
+  };
 
   return ftxui::vbox({
-      ftxui::hbox(elements) | ftxui::flex_grow,
+      fit_or_fallback(build(false), build(true)) | ftxui::flex_grow,
       ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center,
   });
 }

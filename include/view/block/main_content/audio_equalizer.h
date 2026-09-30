@@ -8,16 +8,19 @@
 
 #include <algorithm>
 #include <array>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "ftxui/component/component.hpp"
 #include "model/audio_filter.h"
+#include "util/formatter.h"
 #include "view/base/element.h"
 #include "view/base/keybinding.h"
 #include "view/element/button.h"
 #include "view/element/focus_controller.h"
 #include "view/element/tab.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -101,7 +104,9 @@ class AudioEqualizer : public TabItem {
   //! Internal structures
 
   struct FrequencyBar final : public Element {
-    static constexpr int kMaxGainLength = 8;  //!< Maximum string length in the input box for gain
+    static constexpr int kMaxGainLength = 8;      //!< Maximum length in the input box for gain
+    static constexpr int kCompactGainLength = 4;  //!< Same as above, but when space is limited
+    static constexpr int kKiloHertz = 1000;       //!< Used to format frequency in compact mode
 
     //! Style for frequency bar
     struct BarStyle {
@@ -125,7 +130,14 @@ class AudioEqualizer : public TabItem {
      * @brief Render frequency bar
      * @return UI element
      */
-    ftxui::Element Render() override {
+    ftxui::Element Render() override { return Draw(false); }
+
+    /**
+     * @brief Render frequency bar
+     * @param compact Use shorter labels (without units), for when there is not much space available
+     * @return UI element
+     */
+    ftxui::Element Draw(bool compact) {
       using ftxui::EQUAL;
       using ftxui::WIDTH;
 
@@ -150,7 +162,8 @@ class AudioEqualizer : public TabItem {
       return ftxui::vbox({
           // title
           empty_line(),
-          ftxui::text(filter->GetFrequency()) | ftxui::color(ftxui::Color::White) | ftxui::hcenter,
+          ftxui::text(compact ? GetCompactFrequency() : filter->GetFrequency()) |
+              ftxui::color(ftxui::Color::White) | ftxui::hcenter,
           empty_line(),
 
           // frequency gauge
@@ -158,10 +171,32 @@ class AudioEqualizer : public TabItem {
 
           // gain input
           empty_line(),
-          ftxui::text(filter->GetGain()) | ftxui::color(ftxui::Color::White) | ftxui::inverted |
-              ftxui::hcenter | ftxui::size(WIDTH, EQUAL, kMaxGainLength),
+          ftxui::text(compact ? GetCompactGain() : filter->GetGain()) |
+              ftxui::color(ftxui::Color::White) | ftxui::inverted | ftxui::hcenter |
+              ftxui::size(WIDTH, EQUAL, compact ? kCompactGainLength : kMaxGainLength),
           empty_line(),
       });
+    }
+
+    //! Format gain without unit, centered in the input box (to highlight the whole box)
+    [[nodiscard]] std::string GetCompactGain() const {
+      std::string gain = util::to_string_with_precision(filter->gain, 0);
+
+      const int padding = kCompactGainLength - static_cast<int>(gain.size());
+      if (padding <= 0) {
+        return gain;
+      }
+
+      const int left = padding / 2;
+      return std::string(left, ' ') + gain + std::string(padding - left, ' ');
+    }
+
+    //! Format frequency without unit (e.g. "125" for 125 Hz and "16k" for 16 kHz)
+    [[nodiscard]] std::string GetCompactFrequency() const {
+      const auto frequency = static_cast<int>(filter->frequency);
+
+      return frequency < kKiloHertz ? std::to_string(frequency)
+                                    : std::to_string(frequency / kKiloHertz) + "k";
     }
 
    private:

@@ -48,6 +48,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   static constexpr int kBlockMainContent = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
+  //! Minimum terminal size to render all blocks without cutting their content: width is limited
+  //! by media player (buttons + volume) next to sidebar, and height leaves room for a few files in
+  //! sidebar besides the fixed height from file information and media player blocks
+  static constexpr int kMinColumns = 105;
+  static constexpr int kMinLines = 24;
+
   /**
    * @brief Construct a new Terminal object
    */
@@ -205,6 +211,21 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @param new_index Block index to be focused
    */
   void UpdateFocus(int old_index, int new_index);
+
+  /**
+   * @brief Check if terminal is smaller than the minimum size to render all blocks (fullscreen
+   * mode is not affected, as it renders only spectrum visualizer)
+   * @return true if terminal is too small, otherwise false
+   */
+  bool IsTooSmall() const {
+    return !fullscreen_mode_ && (size_.dimx < kMinColumns || size_.dimy < kMinLines);
+  }
+
+  /**
+   * @brief Renders message asking user to resize terminal
+   * @return UI element
+   */
+  ftxui::Element RenderTooSmall() const;
 
   /**
    * @brief Check for all dialogs if any is opened

@@ -7,6 +7,11 @@
 #define INCLUDE_VIEW_ELEMENT_UTIL_H_
 
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/dom/node.hpp>
+#include <ftxui/screen/box.hpp>
+#include <ftxui/screen/screen.hpp>
+#include <memory>
+#include <utility>
 
 namespace interface {
 
@@ -21,6 +26,44 @@ inline const ftxui::Decorator set_size(int width, int height) {
   return ftxui::size(ftxui::WIDTH, ftxui::EQUAL, width) |
          ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, height);
 };
+
+/**
+ * @brief Node that renders the preferred element only if it fits in the width given by parent,
+ * otherwise renders the fallback element. It requests only the fallback size from its parent, so
+ * it never forces other elements (e.g. neighbour blocks) to shrink
+ */
+class FitOrFallback : public ftxui::Node {
+  static constexpr int kPreferred = 0;  //!< Index for preferred element
+  static constexpr int kFallback = 1;   //!< Index for fallback element
+
+ public:
+  FitOrFallback(ftxui::Element preferred, ftxui::Element fallback)
+      : ftxui::Node({std::move(preferred), std::move(fallback)}) {}
+
+  void ComputeRequirement() override {
+    ftxui::Node::ComputeRequirement();
+    requirement_ = children_.at(kFallback)->requirement();
+  }
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+
+    const int width = box.x_max - box.x_min + 1;
+    active_ = width >= children_.at(kPreferred)->requirement().min_x ? kPreferred : kFallback;
+
+    children_.at(active_)->SetBox(box);
+  }
+
+  void Render(ftxui::Screen& screen) override { children_.at(active_)->Render(screen); }
+
+ private:
+  int active_ = kPreferred;  //!< Element chosen to be rendered
+};
+
+//! Render preferred element if it fits in the available width, otherwise render fallback element
+inline ftxui::Element fit_or_fallback(ftxui::Element preferred, ftxui::Element fallback) {
+  return std::make_shared<FitOrFallback>(std::move(preferred), std::move(fallback));
+}
 
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_UTIL_H_

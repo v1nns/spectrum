@@ -130,6 +130,14 @@ bool MainContent::OnCustomEvent(const CustomEvent& event) {
     tab_elem_[View::Lyric]->OnCustomEvent(event);
   }
 
+  // Same for TabItem::SpectrumVisualizer, it must always know the number of bars that fits on
+  // screen (e.g. after terminal resize), otherwise it would draw too many bars when it becomes
+  // active again
+  if (event == CustomEvent::Identifier::CalculateNumberOfBars &&
+      tab_elem_.active() != View::Visualizer) {
+    return visualizer_->OnCustomEvent(event);
+  }
+
   return tab_elem_.active_item()->OnCustomEvent(event);
 }
 
