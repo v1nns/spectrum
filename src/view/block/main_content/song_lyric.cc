@@ -1,9 +1,13 @@
 #include "view/block/main_content/song_lyric.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <future>
 #include <iomanip>
+#include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include "audio/lyric/lyric_finder.h"
 #include "ftxui/dom/elements.hpp"
@@ -28,7 +32,7 @@ ftxui::Element SongLyric::Render() {
   ftxui::Element content;
   ftxui::Decorator style = ftxui::color(ftxui::Color::White) | ftxui::bold | ftxui::center;
 
-  if (audio_info_.filepath.empty()) {
+  if (audio_info_.IsEmpty()) {
     return ftxui::text("No song playing...") | style;
   }
 
@@ -40,11 +44,14 @@ ftxui::Element SongLyric::Render() {
     // It is not that great to have this inside Render(), but it is working fine...
     // TODO: Must rethink this in the near "future"
     // Use something like producer/consumer and remove std::future
-    if (auto result = async_fetcher_->get(); result) lyrics_ = *result;
+    lyric::SearchResult result = async_fetcher_->get();
+
+    status_ = result.status;
+    lyrics_ = std::move(result.lyrics);
   }
 
   if (lyrics_.empty()) {
-    return ftxui::text("Failed to fetch =(") | style;
+    return DrawFailure();
   }
 
   return DrawSongLyrics(lyrics_);
@@ -54,6 +61,14 @@ ftxui::Element SongLyric::Render() {
 
 bool SongLyric::OnEvent(const ftxui::Event& event) {
   using Keybind = keybinding::Navigation;
+
+  // Search again for song lyrics, as last attempt did not find them
+  if (event == keybinding::Lyric::Retry && CanRetry()) {
+    LOG("Handle key to retry fetching song lyrics");
+    StartFetching();
+    return true;
+  }
+
   if (lyrics_.empty()) return false;
 
   int old_focus = focused_;
@@ -91,6 +106,9 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     audio_info_ = model::Song{};
     async_fetcher_.reset();
     lyrics_.clear();
+    artist_.clear();
+    title_.clear();
+    status_.reset();
     focused_ = 0;
   }
 
@@ -98,12 +116,10 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
     LOG("Received new song information from player");
     audio_info_ = event.GetContent<model::Song>();
+    ParseSearchTerms();
 
-    if (!audio_info_.filepath.empty()) {
-      LOG("Launch async task to fetch song lyrics");
-      // TODO: this is not good, must change to another permanent running thread
-      async_fetcher_ = std::make_unique<std::future<FetchResult>>(
-          std::async(std::launch::async, std::bind(&SongLyric::FetchSongLyrics, this)));
+    if (!audio_info_.IsEmpty()) {
+      StartFetching();
     }
   }
 
@@ -112,59 +128,139 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-SongLyric::FetchResult SongLyric::FetchSongLyrics() {
-  LOG("Started executing thread to fetch song lyrics");
+void SongLyric::StartFetching() {
+  // Reset any result from last search
+  async_fetcher_.reset();
+  lyrics_.clear();
+  status_.reset();
+  focused_ = 0;
 
-  std::string artist;
-  std::string title;
+  if (!HasSearchTerms()) {
+    ERROR("Missing artist or title, song lyrics will not be fetched");
+    return;
+  }
+
+  LOG("Launch async task to fetch song lyrics");
+
+  // TODO: this is not good, must change to another permanent running thread
+  async_fetcher_ = std::make_unique<std::future<lyric::SearchResult>>(std::async(
+      std::launch::async,
+      [this, artist = artist_, title = title_] { return finder_->Search(artist, title); }));
+}
+
+/* ********************************************************************************************** */
+
+bool SongLyric::CanRetry() {
+  // Retrying makes sense only when search was executed and did not find anything
+  const bool search_failed = status_ == lyric::SearchResult::Status::NotFound ||
+                             status_ == lyric::SearchResult::Status::FetchFailed;
+
+  return search_failed && !IsFetching();
+}
+
+/* ********************************************************************************************** */
+
+void SongLyric::ParseSearchTerms() {
+  artist_.clear();
+  title_.clear();
 
   if (!audio_info_.artist.empty() && !audio_info_.title.empty()) {
     LOG("Getting information from audio metadata");
-    artist = audio_info_.artist;
-    title = audio_info_.title;
-  } else {
-    std::string filepath = audio_info_.filepath;
-    LOG("Getting information from audio filepath=", filepath);
-
-    size_t pos = filepath.find_last_of('/');
-    std::string filename = filepath.substr(pos + 1);
-
-    // If contains more than one hiphen, should not fetch at all
-    if (std::string::difference_type n = std::count(filename.begin(), filename.end(), '-'); n > 1) {
-      ERROR("Contains more than one hiphen on filename, song lyrics will not be fetched");
-      return std::nullopt;
-    }
-
-    // Split into artist + title + .extension
-    pos = filename.find('-', 0);
-
-    // If filename is not in the expected format ("dummy - song.mp3"), should not fetch song
-    if (pos == std::string::npos) {
-      ERROR("Filename does not contain a supported pattern");
-      return std::nullopt;
-    }
-
-    size_t ext_pos = filename.find_last_of('.');
-
-    artist = util::trim(filename.substr(0, pos));
-    title = ext_pos != std::string::npos ? util::trim(filename.substr(pos + 1, ext_pos - pos - 1))
-                                         : util::trim(filename.substr(pos + 1));
+    artist_ = audio_info_.artist;
+    title_ = audio_info_.title;
+    return;
   }
 
-  if (artist.empty() || title.empty()) {
+  // Streamed song does not have a filename, its information comes only from its title
+  if (audio_info_.stream_info.has_value()) {
+    ERROR("Streamed song title does not contain artist and title");
+    return;
+  }
+
+  const std::string filepath = audio_info_.filepath;
+  LOG("Getting information from audio filepath=", filepath);
+
+  size_t pos = filepath.find_last_of('/');
+  std::string filename = filepath.substr(pos + 1);
+
+  // If contains more than one hiphen, should not fetch at all
+  if (const std::string::difference_type n = std::count(filename.begin(), filename.end(), '-');
+      n > 1) {
+    ERROR("Contains more than one hiphen on filename, song lyrics will not be fetched");
+    return;
+  }
+
+  // Split into artist + title + .extension
+  pos = filename.find('-', 0);
+
+  // If filename is not in the expected format ("dummy - song.mp3"), should not fetch song
+  if (pos == std::string::npos) {
+    ERROR("Filename does not contain a supported pattern");
+    return;
+  }
+
+  const size_t ext_pos = filename.find_last_of('.');
+
+  artist_ = util::trim(filename.substr(0, pos));
+  title_ = ext_pos != std::string::npos ? util::trim(filename.substr(pos + 1, ext_pos - pos - 1))
+                                        : util::trim(filename.substr(pos + 1));
+
+  // Both must be filled, otherwise search is not possible
+  if (!HasSearchTerms()) {
     ERROR("Failed to parse artist and title");
-    return std::nullopt;
+    artist_.clear();
+    title_.clear();
+  }
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element SongLyric::DrawFailure() const {
+  auto line = [](const std::string& content) {
+    return ftxui::text(content) | ftxui::color(ftxui::Color::White) | ftxui::hcenter;
+  };
+
+  const std::string retry_hint = util::EventToString(keybinding::Lyric::Retry) + ": retry search";
+
+  ftxui::Elements lines;
+
+  if (!HasSearchTerms()) {
+    lines = {
+        line("Cannot search lyrics without artist and title") | ftxui::bold,
+        line(audio_info_.stream_info.has_value()
+                 ? "(video title is not in the \"Artist - Title\" format)"
+                 : "(add them to metadata or name the file as \"Artist - Title\")") |
+            ftxui::dim,
+    };
+
+    return ftxui::vbox(lines) | ftxui::center;
   }
 
-  FetchResult result = finder_->Search(artist, title);
+  switch (status_.value_or(lyric::SearchResult::Status::NotFound)) {
+    case lyric::SearchResult::Status::NotFound:
+      lines = {
+          line("Lyrics not found for") | ftxui::bold,
+          line("\"" + artist_ + " - " + title_ + "\"") | ftxui::bold,
+          ftxui::text(""),
+          line(retry_hint) | ftxui::dim,
+      };
+      break;
 
-  if (!result.value().empty()) {
-    LOG("Found song lyrics");
-  } else {
-    ERROR("Failed to fetch song lyrics");
+    case lyric::SearchResult::Status::FetchFailed:
+      lines = {
+          line("Could not reach lyrics websites (network error)") | ftxui::bold,
+          ftxui::text(""),
+          line(retry_hint) | ftxui::dim,
+      };
+      break;
+
+    case lyric::SearchResult::Status::Found:
+      // Should not happen, as lyrics are drawn instead of this
+      lines = {line("Lyrics not available") | ftxui::bold};
+      break;
   }
 
-  return result;
+  return ftxui::vbox(lines) | ftxui::center;
 }
 
 /* ********************************************************************************************** */

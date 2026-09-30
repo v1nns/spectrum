@@ -6,6 +6,7 @@
 #ifndef INCLUDE_AUDIO_LYRIC_LYRIC_FINDER_H_
 #define INCLUDE_AUDIO_LYRIC_LYRIC_FINDER_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -21,6 +22,21 @@ class LyricFinderTest;
 #endif
 
 namespace lyric {
+
+/**
+ * @brief Result from searching song lyrics
+ */
+struct SearchResult {
+  //! Possible outcomes from search
+  enum class Status : std::uint8_t {
+    Found,        //!< Song lyrics found
+    NotFound,     //!< Search engines were reached, but none of them contains song lyrics
+    FetchFailed,  //!< Could not fetch content from any search engine (e.g. network error)
+  };
+
+  Status status = Status::NotFound;  //!< Search outcome
+  model::SongLyric lyrics;           //!< Song lyrics (filled only when found)
+};
 
 /**
  * @brief Responsible to fetch content from search engines and web scrap song lyrics from it
@@ -68,9 +84,9 @@ class LyricFinder {
    * @brief Search for lyrics by fetching the search engine and web scraping it
    * @param artist Artist name
    * @param title Song name
-   * @return Song lyrics
+   * @return Search result, containing song lyrics (if found)
    */
-  virtual model::SongLyric Search(const std::string& artist, const std::string& title);
+  virtual SearchResult Search(const std::string& artist, const std::string& title);
 
   /* ******************************************************************************************** */
   //! Variables

@@ -10,6 +10,7 @@
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "model/application_error.h"
 #include "util/file_handler.h"
 #include "util/formatter.h"
 #include "util/logger.h"
@@ -297,7 +298,7 @@ bool FileMenu::RefreshList(const std::filesystem::path& dir_path) {
     auto dispatcher = GetDispatcher();
     if (!dispatcher) return false;
 
-    dispatcher->SetApplicationError(error::kAccessDirFailed);
+    dispatcher->SetApplicationError(error::kAccessDirFailed, dir_path.string());
 
     return false;
   }

@@ -129,7 +129,7 @@ struct Equalizer {
 
 //! Lyric keybindings
 struct Lyric {
-  // TODO: retry
+  static Key Retry;
 };
 
 /* ********************************************************************************************** */

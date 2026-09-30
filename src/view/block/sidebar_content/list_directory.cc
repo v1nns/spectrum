@@ -8,6 +8,7 @@
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "model/application_error.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
@@ -196,7 +197,7 @@ bool ListDirectory::SendFileSelection(const util::File& file) {
   // Do not send it to audio thread, otherwise current song would be stopped for nothing
   if (contains_audio_cb_ && !contains_audio_cb_(file)) {
     ERROR("Selected file does not contain an audio stream, file=", file);
-    dispatcher->SetApplicationError(error::kFileNotSupported);
+    dispatcher->SetApplicationError(error::kFileNotSupported, file.filename().string());
     return true;
   }
 

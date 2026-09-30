@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <functional>
+#include <iomanip>
 #include <memory>
 #include <set>
 
@@ -15,6 +16,7 @@
 #include "ftxui/component/event.hpp"
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
+#include "model/application_error.h"
 #include "model/block_identifier.h"
 #include "model/playlist_operation.h"
 #include "util/logger.h"
@@ -572,13 +574,13 @@ void Terminal::ProcessEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void Terminal::SetApplicationError(error::Code id) {
+void Terminal::SetApplicationError(error::Code id, const std::string& detail) {
   // Get error message
   std::string message{error::ApplicationError::GetMessage(id)};
 
   // Log error and show it on dialog
-  ERROR(message);
-  error_dialog_->SetErrorMessage(message);
+  ERROR(message, " detail=", std::quoted(detail));
+  error_dialog_->SetErrorMessage(message, detail);
 
   last_error_ = id;
 }

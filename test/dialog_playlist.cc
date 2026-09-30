@@ -14,6 +14,7 @@
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
 #include "util/file_handler.h"
+#include "view/element/error_dialog.h"
 #include "view/element/playlist_dialog.h"
 
 namespace {
@@ -23,6 +24,7 @@ using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
 using ::testing::MockFunction;
+using ::testing::Not;
 using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::VariantWith;
@@ -1313,6 +1315,81 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 
   // Save playlist
   dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with ErrorDialog class
+ */
+class ErrorDialogTest : public ::DialogTest {
+ protected:
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+    dispatcher = std::make_shared<EventDispatcherMock>();
+    error_dialog = std::make_shared<interface::ErrorDialog>(dispatcher);
+    dialog = error_dialog;
+  }
+
+  //! Getter for ErrorDialog
+  auto GetErrorDialog() -> interface::ErrorDialog* { return error_dialog.get(); }
+
+  //! Render dialog and return its content (without ANSI commands and empty spaces)
+  std::string Render() {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
+  }
+
+  //!< Screen dimension
+  ftxui::Dimensions size = ftxui::Dimensions{.dimx = 50, .dimy = 12};
+
+  std::shared_ptr<interface::ErrorDialog> error_dialog;  //!< Same as dialog, but without casting
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(ErrorDialogTest, ShowMessageWithoutDetail) {
+  GetErrorDialog()->SetErrorMessage("Cannot decode song", "");
+
+  const std::string expected = R"(
+╔═══════════════════════════════════╗
+║ ERROR                             ║
+║                                   ║
+║        Cannot decode song         ║
+║                                   ║
+║                                   ║
+╚═══════════════════════════════════╝
+)";
+
+  EXPECT_THAT(Render(), StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ErrorDialogTest, ShowMessageWithDetail) {
+  GetErrorDialog()->SetErrorMessage("Cannot decode song", "Daft Punk - Around the World.mp3");
+
+  const std::string expected = R"(
+╔═══════════════════════════════════╗
+║ ERROR                             ║
+║                                   ║
+║        Cannot decode song         ║
+║                                   ║
+║ Daft Punk - Around the World.mp3  ║
+║                                   ║
+║                                   ║
+║                                   ║
+╚═══════════════════════════════════╝
+)";
+
+  EXPECT_THAT(Render(), StrEq(expected));
+
+  // After closing it, detail must not be shown again for a new error without detail
+  dialog->OnEvent(ftxui::Event::Return);
+  GetErrorDialog()->SetErrorMessage("File not supported", "");
+
+  EXPECT_THAT(Render(), Not(HasSubstr("Daft Punk")));
 }
 
 }  // namespace

@@ -2,6 +2,7 @@
 
 #include <iomanip>
 #include <stdexcept>
+#include <string>
 
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/alsa.h"
@@ -119,6 +120,9 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   LOG("Reset media control with error code=", result);
   bool notify_finished = media_control_.state == State::Play;
 
+  // Keep song file name, in case of error it is shown to user
+  const std::string filename = curr_song_ ? curr_song_->filepath.filename().string() : "";
+
   // Clear internal data
   decoder_->ClearCache();
   media_control_.Reset();
@@ -133,7 +137,7 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
     if (!error_parsing) media_notifier->ClearSongInformation(true);
 
     // In case of error, notify about it
-    media_notifier->NotifyError(result);
+    media_notifier->NotifyError(result, filename);
     return;
   }
 
@@ -436,7 +440,9 @@ void Player::SetAudioVolume(const model::Volume& value) {
       // Notify error
       if (result != error::kSuccess) {
         auto media_notifier = notifier_.lock();
-        if (media_notifier) media_notifier->NotifyError(result);
+        if (media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
       }
     } break;
 
@@ -487,7 +493,9 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
       // Notify error
       if (result != error::kSuccess) {
         auto media_notifier = notifier_.lock();
-        if (media_notifier) media_notifier->NotifyError(result);
+        if (media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
       }
     } break;
 

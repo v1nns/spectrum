@@ -28,6 +28,7 @@ using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::Return;
+using ::testing::StrEq;
 using ::testing::VariantWith;
 
 using testing::TestSyncer;
@@ -215,8 +216,8 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
   //   notifier->SendAudioRaw();
 
   error::Code error = error::kUnknownError;
-  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error)));
-  notifier->NotifyError(error);
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error), StrEq("song.mp3")));
+  notifier->NotifyError(error, "song.mp3");
 }
 
 /* ********************************************************************************************** */

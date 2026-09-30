@@ -16,6 +16,7 @@
 #include "gmock/gmock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/file_handler_mock.h"
+#include "model/application_error.h"
 #include "view/base/keybinding.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
@@ -128,7 +129,7 @@ class ListDirectoryCtorTest : public ::SidebarTest {
 
 TEST_F(ListDirectoryCtorTest, CreateWithBadInitialPath) {
   // Setup expectation
-  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed))).Times(0);
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed), _)).Times(0);
 
   // Use bad path as base dir, block will notify an error about not being to access it
   std::string source_dir{"/path/that/does/not/exist"};
@@ -1118,7 +1119,8 @@ TEST_F(SidebarAudioCheckTest, SelectFileWithoutAudioStream) {
                               interface::CustomEvent::Identifier::NotifyFileSelection)))
       .Times(0);
 
-  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kFileNotSupported)));
+  EXPECT_CALL(*dispatcher,
+              SetApplicationError(Eq(error::kFileNotSupported), StrEq("block_file_info.cc")));
 
   // Select "block_file_info.cc"
   block->OnEvent(ftxui::Event::ArrowDown);
@@ -1148,7 +1150,7 @@ TEST_F(SidebarAudioCheckTest, PlayNextFileSkippingFilesWithoutAudioStream) {
                                     VariantWith<std::filesystem::path>(next_file)))))
       .Times(1);
 
-  EXPECT_CALL(*dispatcher, SetApplicationError(_)).Times(0);
+  EXPECT_CALL(*dispatcher, SetApplicationError(_, _)).Times(0);
 
   // Simulate player sending event to notify that song has ended
   derived->OnCustomEvent(interface::CustomEvent::UpdateSongState(

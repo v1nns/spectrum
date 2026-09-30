@@ -183,7 +183,7 @@ ftxui::Element HelpDialog::BuildTabInfo() const {
                             vertical_margin(),
 
                             title("lyrics"),
-                            command("", "N/A"),
+                            command("r", "Retry search (if it failed)"),
 
                         }) |
                         block_decorator;

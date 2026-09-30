@@ -9,6 +9,7 @@
 #include <chrono>
 #include <future>
 #include <optional>
+#include <string>
 #include <string_view>
 
 #include "audio/lyric/lyric_finder.h"
@@ -97,13 +98,34 @@ class SongLyric : public TabItem {
     return async_fetcher_ && is_state(*async_fetcher_, std::future_status::ready);
   }
 
-  //! Result from asynchronous fetch operation (if empty, it means that failed)
-  using FetchResult = std::optional<model::SongLyric>;
+  /**
+   * @brief Get artist and title to search for song lyrics, from song metadata or its filename
+   * (following the pattern "artist - title.ext"). If not possible, both are left empty
+   */
+  void ParseSearchTerms();
 
   /**
-   * @brief Use updated song information to fetch song lyrics
+   * @brief Check if song information contains enough data to search for song lyrics
+   * @return true if both artist and title are known, otherwise false
    */
-  FetchResult FetchSongLyrics();
+  [[nodiscard]] bool HasSearchTerms() const { return !artist_.empty() && !title_.empty(); }
+
+  /**
+   * @brief Launch asynchronous task to search for song lyrics using current artist and title
+   */
+  void StartFetching();
+
+  /**
+   * @brief Check if user may retry fetching song lyrics (only when last attempt did not find them)
+   * @return true if retry is possible, otherwise false
+   */
+  bool CanRetry();
+
+  /**
+   * @brief Renders message explaining why song lyrics are not being shown
+   * @return UI element
+   */
+  [[nodiscard]] ftxui::Element DrawFailure() const;
 
   /**
    * @brief Renders the song lyrics element
@@ -116,10 +138,15 @@ class SongLyric : public TabItem {
 
   model::Song audio_info_;   //!< Audio information from current song
   model::SongLyric lyrics_;  //!< Song lyrics from current song
-  int focused_ = 0;          //!< Index for paragraph focused from song lyric
+
+  std::string artist_;  //!< Artist used to search for song lyrics
+  std::string title_;   //!< Title used to search for song lyrics
+
+  std::optional<lyric::SearchResult::Status> status_;  //!< Outcome from last search
+  int focused_ = 0;  //!< Index for paragraph focused from song lyric
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
-  std::unique_ptr<std::future<FetchResult>> async_fetcher_;  //!< Use lyric finder asynchronously
+  std::unique_ptr<std::future<lyric::SearchResult>> async_fetcher_;  //!< Search asynchronously
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

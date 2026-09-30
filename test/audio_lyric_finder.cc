@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
+#include <gtest/gtest.h>
 
 #include <memory>
 
@@ -77,8 +78,9 @@ TEST_F(LyricFinderTest, SearchWithEmptyResult) {
   std::string artist{"Powfu"};
   std::string title{"abandoned house"};
 
-  auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, Eq(model::SongLyric{}));
+  auto result = finder->Search(artist, title);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+  EXPECT_THAT(result.lyrics, Eq(model::SongLyric{}));
 }
 
 /* ********************************************************************************************** */
@@ -138,8 +140,9 @@ TEST_F(LyricFinderTest, SearchWithResultUsingGoogle) {
       "With the real world\n",
   };
 
-  auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
+  auto result = finder->Search(artist, title);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
 /* ********************************************************************************************** */
@@ -235,8 +238,9 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
       "You ain't special, everybody got problems, uh\n",
   };
 
-  auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
+  auto result = finder->Search(artist, title);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
 /* ********************************************************************************************** */
@@ -254,8 +258,9 @@ TEST_F(LyricFinderTest, ErrorOnFetch) {
 
   const model::SongLyric expected{};
 
-  auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
+  auto result = finder->Search(artist, title);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::FetchFailed);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
 /* ********************************************************************************************** */
@@ -273,8 +278,9 @@ TEST_F(LyricFinderTest, ErrorOnParse) {
 
   const model::SongLyric expected{};
 
-  auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
+  auto result = finder->Search(artist, title);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
 /* ********************************************************************************************** */
@@ -311,8 +317,9 @@ TEST_F(LyricFinderTest, ErrorOnFormattingLyrics) {
 
   const model::SongLyric expected{};
 
-  auto song_lyrics = finder->Search(artist, title);
-  EXPECT_THAT(song_lyrics, ElementsAreArray(expected));
+  auto result = finder->Search(artist, title);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
 }  // namespace

@@ -1,5 +1,6 @@
 #include "middleware/media_controller.h"
 
+#include <string>
 #include <thread>
 
 #ifndef SPECTRUM_DEBUG
@@ -323,12 +324,12 @@ void MediaController::SendAudioRaw(int* buffer, int size) {
 
 /* ********************************************************************************************** */
 
-void MediaController::NotifyError(error::Code code) {
+void MediaController::NotifyError(error::Code code, const std::string& detail) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
   // Notify Terminal about error that has occurred in Audio thread
-  dispatcher->SetApplicationError(code);
+  dispatcher->SetApplicationError(code, detail);
 }
 
 /* ********************************************************************************************** */

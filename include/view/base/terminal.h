@@ -191,7 +191,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   void ProcessEvent(const CustomEvent& event) override;
 
   //! Set application error (can be originated from controller or any interface::block)
-  void SetApplicationError(error::Code id) override;
+  void SetApplicationError(error::Code id, const std::string& detail) override;
 
   /* ******************************************************************************************** */
   //! Utils

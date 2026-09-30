@@ -57,8 +57,9 @@ class Notifier {
   /**
    * @brief Notify UI with error code from some background operation
    * @param code Application error code
+   * @param detail What the error refers to, like the song file name (optional, may be empty)
    */
-  virtual void NotifyError(error::Code code) = 0;
+  virtual void NotifyError(error::Code code, const std::string& detail) = 0;
 };
 
 }  // namespace interface

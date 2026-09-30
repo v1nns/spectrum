@@ -1,5 +1,8 @@
 #include "audio/lyric/lyric_finder.h"
 
+#include <string>
+#include <utility>
+
 #include "model/application_error.h"
 
 #ifndef SPECTRUM_DEBUG
@@ -54,10 +57,10 @@ LyricFinder::LyricFinder(std::unique_ptr<web::UrlFetcher>&& fetcher,
 
 /* ********************************************************************************************** */
 
-model::SongLyric LyricFinder::Search(const std::string& artist, const std::string& title) {
+SearchResult LyricFinder::Search(const std::string& artist, const std::string& title) {
   LOG("Started fetching song by artist=", artist, " title=", title);
   std::string buffer;
-  model::SongLyric lyrics;
+  bool fetched_any = false;
 
   for (const auto& engine : engines_) {
     // Fetch content from search engine
@@ -67,17 +70,20 @@ model::SongLyric LyricFinder::Search(const std::string& artist, const std::strin
       continue;
     }
 
+    fetched_any = true;
+
     // Web scrap content to search for lyric
     if (model::SongLyric raw = parser_->Parse(buffer, engine->xpath()); !raw.empty()) {
       if (model::SongLyric formatted = engine->FormatLyrics(raw); !formatted.empty()) {
         LOG("Found lyrics using search engine=", *engine);
-        lyrics.swap(formatted);
-        break;
+        return SearchResult{.status = SearchResult::Status::Found, .lyrics = std::move(formatted)};
       }
     }
   }
 
-  return lyrics;
+  // Distinguish between not being able to reach any engine and not finding lyrics on them
+  return SearchResult{.status = fetched_any ? SearchResult::Status::NotFound
+                                            : SearchResult::Status::FetchFailed};
 }
 
 }  // namespace lyric

@@ -5,12 +5,17 @@
 #include <chrono>
 #include <future>
 #include <memory>
+#include <string>
 #include <thread>
+#include <utility>
 
+#include "audio/lyric/lyric_finder.h"
+#include "ftxui/dom/node.hpp"
 #include "general/block.h"
 #include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/lyric_finder_mock.h"
+#include "model/song.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/element/flash_message.h"
@@ -28,6 +33,16 @@ using ::testing::Optional;
 using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::VariantWith;
+
+//! Create search result for lyric finder mock (lyrics found, unless they are empty)
+lyric::SearchResult MakeSearchResult(model::SongLyric lyrics) {
+  auto status =
+      lyrics.empty() ? lyric::SearchResult::Status::NotFound : lyric::SearchResult::Status::Found;
+
+  return lyric::SearchResult{.status = status, .lyrics = std::move(lyrics)};
+}
+
+/* ********************************************************************************************** */
 
 /**
  * @brief Tests with MainContent class
@@ -71,6 +86,28 @@ class MainContentTest : public ::BlockTest {
 
     // Return lyric finder mock
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
+  }
+
+  //! Render block until song lyrics are no longer being fetched (or timeout) and return screen
+  std::string RenderUntilFetched() {
+    constexpr std::chrono::milliseconds kTimeout{2000};
+    constexpr std::chrono::milliseconds kInterval{5};
+
+    std::string rendered;
+
+    for (std::chrono::milliseconds elapsed{0}; elapsed < kTimeout; elapsed += kInterval) {
+      screen->Clear();
+      ftxui::Render(*screen, block->Render());
+      rendered = utils::FilterAnsiCommands(screen->ToString());
+
+      if (rendered.find("Fetching lyrics...") == std::string::npos) {
+        break;
+      }
+
+      std::this_thread::sleep_for(kInterval);
+    }
+
+    return rendered;
   }
 
   static constexpr int kNumberBars = 30;  //!< Number of bars for visualizer tab view
@@ -1065,11 +1102,11 @@ TEST_F(MainContentTest, FetchSongLyrics) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return model::SongLyric{
+        return MakeSearchResult(model::SongLyric{
             "Found crazy lyrics\n"
             "about some stuff\n"
             "that I don't even know\n",
-        };
+        });
       }));
 
   // Send event to notify that song has started playing
@@ -1158,7 +1195,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return model::SongLyric{};
+        return MakeSearchResult(model::SongLyric{});
       }));
 
   // Send event to notify that song has started playing
@@ -1214,10 +1251,10 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
+│                                    Lyrics not found for                                     │
+│                                   "southstar - Miss You"                                    │
 │                                                                                             │
-│                                                                                             │
-│                                     Failed to fetch =(                                      │
-│                                                                                             │
+│                                      r: retry search                                        │
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1245,10 +1282,10 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return model::SongLyric{
+        return MakeSearchResult(model::SongLyric{
             "Funny you asked\n"
             "Yeah, found something\n",
-        };
+        });
       }));
 
   // Send event to notify that song has started playing
@@ -1320,6 +1357,101 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, RetryFetchSongLyricsAfterNetworkError) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto* finder = GetFinder();
+
+  // First attempt fails to reach search engines, second one finds song lyrics
+  EXPECT_CALL(*finder, Search(std::string{"southstar"}, std::string{"Miss You"}))
+      .WillOnce(Return(lyric::SearchResult{.status = lyric::SearchResult::Status::FetchFailed}))
+      .WillOnce(Return(MakeSearchResult(model::SongLyric{"Miss you, miss you\n"})));
+
+  const model::Song audio{
+      .filepath = "/path/to/song.mp3", .artist = "southstar", .title = "Miss You"};
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Could not reach lyrics websites (network error)"));
+  EXPECT_THAT(rendered, HasSubstr("r: retry search"));
+
+  // Retry search
+  block->OnEvent(ftxui::Event::Character('r'));
+
+  rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Miss you, miss you"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, FetchSongLyricsWithoutArtistAndTitle) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto* finder = GetFinder();
+
+  // Without metadata and without "artist - title" pattern in filename, search is not possible
+  EXPECT_CALL(*finder, Search(_, _)).Times(0);
+
+  const model::Song audio{.filepath = "/path/to/song.mp3"};
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  const std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Cannot search lyrics without artist and title"));
+  EXPECT_THAT(rendered, Not(HasSubstr("retry")));
+
+  // Retry is not possible, as it would fail for the same reason
+  EXPECT_FALSE(block->OnEvent(ftxui::Event::Character('r')));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, FetchSongLyricsFromStream) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto* finder = GetFinder();
+
+  // Streamed song has no filepath, artist and title come from parsing its title
+  EXPECT_CALL(*finder, Search(std::string{"Sonic Youth"}, std::string{"Kool Thing"}))
+      .WillOnce(Return(MakeSearchResult(model::SongLyric{"I don't wanna, I don't think so\n"})));
+
+  const model::Song audio{
+      .artist = "Sonic Youth",
+      .title = "Kool Thing",
+      .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=dummy"},
+  };
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  const std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("I don't wanna, I don't think so"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, FetchSongLyricsFromStreamWithoutArtist) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto* finder = GetFinder();
+
+  // Stream title was not in "artist - title" format, so only title is known
+  EXPECT_CALL(*finder, Search(_, _)).Times(0);
+
+  const model::Song audio{
+      .title = "so be it",
+      .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=dummy"},
+  };
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  const std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Cannot search lyrics without artist and title"));
+  EXPECT_THAT(rendered, HasSubstr("video title is not in the \"Artist - Title\" format"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, FetchSongLyricsWithDifferentFilenames) {
   // Set focus on tab item 3
   block->OnEvent(ftxui::Event::Character('3'));
@@ -1335,7 +1467,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithDifferentFilenames) {
     else
       // Setup expectations before start fetching song lyrics
       EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-          .WillRepeatedly(Return(model::SongLyric{}));
+          .WillRepeatedly(Return(lyric::SearchResult{}));
 
     // Send event to notify that song has started playing
     model::Song audio{.filepath = filepath};
@@ -1383,10 +1515,10 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return model::SongLyric{
+        return MakeSearchResult(model::SongLyric{
             "Just imagine the lyrics\n"
             "In this block\n",
-        };
+        });
       }));
 
   // Send event to notify that song has started playing
@@ -1469,7 +1601,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return model::SongLyric{
+        return MakeSearchResult(model::SongLyric{
             "Feels like I'm waiting\n"
             "Like I'm watching\n"
             "Watching you for love\n"
@@ -1517,7 +1649,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
             "If you want me\n"
             "If you need me\n"
             "I'm yours\n",
-        };
+        });
       }));
 
   // Send event to notify that song has started playing
@@ -1655,10 +1787,10 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-        return model::SongLyric{
+        return MakeSearchResult(model::SongLyric{
             "Funny you asked\n"
             "Yeah, found something\n",
-        };
+        });
       }));
 
   // Send event to notify that song has started playing

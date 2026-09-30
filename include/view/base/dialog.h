@@ -129,6 +129,9 @@ class Dialog {
   //! Get event dispatcher
   std::shared_ptr<EventDispatcher> GetDispatcher() const;
 
+  //! Change minimum number of lines for dialog content (border is added automatically)
+  void SetMinimumLines(int lines) { size_.min_line = lines + kBorderSize; }
+
   /* ******************************************************************************************** */
   //! Variables
  private:

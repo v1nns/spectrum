@@ -1,5 +1,9 @@
 #include "view/element/error_dialog.h"
 
+#include <string>
+#include <string_view>
+
+#include "ftxui/dom/elements.hpp"
 #include "view/base/keybinding.h"
 
 namespace interface {
@@ -10,19 +14,31 @@ ErrorDialog::ErrorDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
 
 /* ********************************************************************************************** */
 
-void ErrorDialog::SetErrorMessage(const std::string_view& message) {
+void ErrorDialog::SetErrorMessage(const std::string_view& message, const std::string& detail) {
   message_ = message;
+  detail_ = detail;
+
+  // Make room for detail only when there is one
+  SetMinimumLines(detail_.empty() ? kMaxLines : kMaxLines + kDetailLines);
+
   Open();
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Element ErrorDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
-  return ftxui::vbox({
+  ftxui::Elements content{
       ftxui::text(" ERROR") | ftxui::bold,
       ftxui::text(""),
       ftxui::paragraph(message_) | ftxui::center | ftxui::bold,
-  });
+  };
+
+  if (!detail_.empty()) {
+    content.push_back(ftxui::text(""));
+    content.push_back(ftxui::paragraph(detail_) | ftxui::center);
+  }
+
+  return ftxui::vbox(content);
 }
 
 /* ********************************************************************************************** */
@@ -46,6 +62,7 @@ bool ErrorDialog::OnMouseEventImpl(ftxui::Event event) { return false; }
 
 void ErrorDialog::OnClose() {
   message_.clear();
+  detail_.clear();
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
