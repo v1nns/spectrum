@@ -272,6 +272,9 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
     }
   }
 
+  // Let base class close this dialog, instead of focus controller removing focus from menu
+  if (event == keybinding::Navigation::Escape) return false;
+
   // Otherwise, pass event to focus controller to handle and pass it along to focused element
   if (focus_ctl_.OnEvent(event)) {
     return true;

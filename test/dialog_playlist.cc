@@ -644,8 +644,6 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
   std::string typed{"jjj ljjj "};
   utils::QueueCharacterEvents(*dialog, typed);
 
-  dialog->OnEvent(ftxui::Event::Escape);
-
   ftxui::Render(*screen, dialog->Render(size));
   std::string rendered = GetRenderedScreen();
 
@@ -765,6 +763,37 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 )";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, CloseWithEscape) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Melodic House",
+                                         .songs =
+                                             {
+                                                 model::Song{.filepath = "Crazy hit.mp3"},
+                                             },
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Escape while searching on files menu only exits search mode
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Escape while renaming playlist only exits edit mode
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('r'));
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Otherwise, escape closes dialog
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_FALSE(dialog->IsVisible());
 }
 
 /* ********************************************************************************************** */

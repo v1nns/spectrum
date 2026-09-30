@@ -166,7 +166,7 @@ ftxui::Element HelpDialog::BuildTabInfo() const {
 
                             title("visualizer"),
                             command("a", "Change spectrum animation"),
-                            command("h", "Hide other blocks"),
+                            command("z", "Toggle fullscreen"),
 
                             vertical_margin(),
 

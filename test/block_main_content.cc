@@ -358,6 +358,18 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, ToggleFullscreenOnVisualizer) {
+  // Navigation keys must not toggle fullscreen, only the dedicated keybinding
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::ToggleFullscreen)));
+
+  block->OnEvent(ftxui::Event::Character('h'));
+  block->OnEvent(ftxui::Event::Character('z'));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, VisualizerOnFullscreen) {
   auto tab_viewer = std::static_pointer_cast<interface::MainContent>(block);
 

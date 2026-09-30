@@ -88,7 +88,7 @@ Key MediaPlayer::SeekBackward = Key::Character('b');
 /* ----------------------------------------- Visualizer ----------------------------------------- */
 
 Key Visualizer::ChangeAnimation = Key::Character('a');
-Key Visualizer::ToggleFullscreen = Key::Character('h');
+Key Visualizer::ToggleFullscreen = Key::Character('z');
 Key Visualizer::IncreaseBarWidth = Key::Character('.');
 Key Visualizer::DecreaseBarWidth = Key::Character(',');
 
