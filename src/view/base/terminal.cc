@@ -173,6 +173,9 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Treat any pending custom event
   OnCustomEvent();
 
+  // Translate terminal-specific key sequences (e.g. Home/End under tmux)
+  event = keybinding::Normalize(event);
+
   // Cannot do anything while dialog box is opened
   if (error_dialog_->IsVisible()) return error_dialog_->OnEvent(event);
 

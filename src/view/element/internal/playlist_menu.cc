@@ -57,7 +57,7 @@ ftxui::Element PlaylistMenu::RenderImpl() {
   }
 
   ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |
-                          ftxui::vscroll_indicator | ftxui::frame | ftxui::yflex_grow};
+                          ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex_grow};
 
   // Append search box, if enabled
   if (IsSearchEnabled()) {
@@ -65,7 +65,7 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     content.push_back(ftxui::text(""));
   }
 
-  return ftxui::vbox(content) | ftxui::frame | ftxui::flex;
+  return ftxui::vbox(content) | ftxui::yframe | ftxui::flex;
 }
 
 /* ********************************************************************************************** */

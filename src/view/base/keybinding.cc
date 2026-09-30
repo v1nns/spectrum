@@ -1,5 +1,7 @@
 #include "view/base/keybinding.h"
 
+#include <string>
+
 namespace interface {
 
 namespace keybinding {
@@ -111,6 +113,18 @@ Key Playlist::Delete = Key::Character('d');
 
 Key Playlist::Rename = Key::Character('r');
 Key Playlist::Save = Key::Character('s');
+
+/* ********************************************************************************************** */
+
+Key Normalize(const Key& event) {
+  const std::string& input = event.input();
+
+  // VT220-style sequences: ESC [ 1 ~ / ESC [ 7 ~ for Home, ESC [ 4 ~ / ESC [ 8 ~ for End
+  if (input == "\x1B[1~" || input == "\x1B[7~") return Navigation::Home;
+  if (input == "\x1B[4~" || input == "\x1B[8~") return Navigation::End;
+
+  return event;
+}
 
 }  // namespace keybinding
 

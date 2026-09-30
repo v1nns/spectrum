@@ -15,6 +15,7 @@
 #include "gmock/gmock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/file_handler_mock.h"
+#include "view/base/keybinding.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
 #include "view/block/sidebar_content/playlist_viewer.h"
@@ -29,6 +30,7 @@ using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::Not;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::StrEq;
@@ -187,6 +189,63 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, RenderWithNarrowWidth) {
+  // Sidebar does not have enough room for its maximum columns, so entries must be truncated on
+  // the right side (and never horizontally scrolled, which used to hide the cursor prefix)
+  screen = std::make_unique<ftxui::Screen>(24, 8);
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist╮
+│test                  │
+│  ..                  │
+│▶ audio_lyric_finder.c│
+│  audio_player.cc     │
+│  block_file_info.cc  │
+│  block_main_content.c│
+╰──────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NavigateWithAlternativeHomeEnd) {
+  // Sequences sent by tmux (and other terminals) for End and Home keys
+  auto end = interface::keybinding::Normalize(ftxui::Event::Special("\x1B[4~"));
+  auto home = interface::keybinding::Normalize(ftxui::Event::Special("\x1B[1~"));
+
+  EXPECT_EQ(end, ftxui::Event::End);
+  EXPECT_EQ(home, ftxui::Event::Home);
+
+  // Also check rxvt-style sequences
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::Special("\x1B[8~")), ftxui::Event::End);
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::Special("\x1B[7~")), ftxui::Event::Home);
+
+  // Other events must remain untouched
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::ArrowDown), ftxui::Event::ArrowDown);
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::Character('4')),
+            ftxui::Event::Character('4'));
+
+  block->OnEvent(end);
+  block->OnEvent(home);
+  block->OnEvent(end);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("▶ "));
+  EXPECT_THAT(rendered, Not(HasSubstr("▶ ..")));
 }
 
 /* ********************************************************************************************** */
@@ -1403,10 +1462,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│▶ Chill mix really long and the cool│
+│▶ Chill mix really long and the coo │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1432,10 +1491,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│▶  mix really long and the coolest o│
+│▶  mix really long and the coolest  │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1461,10 +1520,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│  Chill mix really long and the cool│
+│  Chill mix really long and the coo │
 │▶   chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1529,7 +1588,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │  Chill mix [3]                     │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│▶   chilling with a really long name│
+│▶   chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1587,7 +1646,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │  Chill mix [3]                     │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │▶ Lofi [3]                          │
 │    lofi 1.mp3                      │
 │    lofi 2.mp3                      │

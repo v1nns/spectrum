@@ -92,7 +92,6 @@ struct Sidebar {
 struct MediaPlayer {
   static Key PlayOrPause;
   static Key Stop;
-  static Key ClearSong;
 
   static Key SkipToPrevious;
   static Key SkipToNext;
@@ -149,6 +148,16 @@ struct Playlist {
   static Key Rename;
   static Key Save;
 };
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Translate alternative escape sequences sent by some terminals (e.g. tmux, rxvt) into the
+ * sequence used by the keybinding table, so that key comparison works regardless of the terminal
+ * @param event Event received from terminal
+ * @return Normalized event (or the same event if no translation is needed)
+ */
+Key Normalize(const Key& event);
 
 }  // namespace interface::keybinding
 #endif  // INCLUDE_VIEW_BASE_KEYBINDING_H_

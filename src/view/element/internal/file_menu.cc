@@ -93,7 +93,7 @@ ftxui::Element FileMenu::RenderImpl() {
   }
 
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::frame | ftxui::flex,
+      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
   };
 
   // Append search box, if enabled

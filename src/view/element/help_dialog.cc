@@ -129,7 +129,6 @@ ftxui::Element HelpDialog::BuildGeneralInfo() const {
               title("player"),
               command("p", "Pause/Resume current song"),
               command("s", "Stop current song"),
-              command("c", "Clear current song"),
               command("+/-", "Increase/decrease volume"),
               command("m", "Toggle volume mute"),
               command("f", "Seek forward position in current song"),
