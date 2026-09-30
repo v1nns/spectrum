@@ -14,6 +14,7 @@ namespace {
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::Field;
+using ::testing::HasSubstr;
 using ::testing::Invoke;
 using ::testing::Return;
 using ::testing::StrEq;
@@ -445,7 +446,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Change 64Hz frequency (using keybindings for frequency navigation)
-  std::string typed{"lllkkkkk"};
+  std::string typed{"llkkkkk"};
   utils::QueueCharacterEvents(*block, typed);
 
   // Change 250Hz frequency
@@ -514,7 +515,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Change 250Hz frequency (using keybindings for frequency navigation)
-  std::string typed{"lllllkkkkk"};
+  std::string typed{"llllkkkkk"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -585,7 +586,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Using keybindings for navigation, open preset picker
-  std::string typed{"l jj"};
+  std::string typed{"lh jj"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -652,6 +653,48 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
+  // Set focus on tab item 2
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // First navigation key focuses the first frequency bar, so go back to focus the preset picker
+  std::string typed{"lh"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  // Without opening the picker, go to next preset
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("→ Electronic"));
+
+  // Go back twice, which must wrap around to the last preset
+  block->OnEvent(ftxui::Event::ArrowUp);
+  block->OnEvent(ftxui::Event::Character('k'));
+
+  // Setup expectation to check that will send audio filters matching Rock EQ
+  using model::AudioFilter;
+  using model::EqualizerPreset;
+  EqualizerPreset audio_filters{AudioFilter::CreatePresets()["Rock"]};
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ApplyAudioFilters),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::EqualizerPreset>(audio_filters)))));
+
+  block->OnEvent(ftxui::Event::Character('a'));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("→ Rock"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
@@ -668,7 +711,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Pop"
-  std::string typed{"l jjj a"};
+  std::string typed{"lh jjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -748,7 +791,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Rock"
-  std::string typed{"l jjjj a"};
+  std::string typed{"lh jjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -816,7 +859,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Change some frequencies (using keybindings for frequency navigation)
-  std::string typed{"lllkkkkklljjlljjjllkkkkkkk"};
+  std::string typed{"llkkkkklljjlljjjllkkkkkkk"};
   utils::QueueCharacterEvents(*block, typed);
 
   // Setup expectation for event with new audio filters applied
@@ -877,7 +920,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<model::EqualizerPreset>(electronic_preset)))));
 
-  typed = "l jj a";
+  typed = "lh jj a";
   utils::QueueCharacterEvents(*block, typed);
 
   // It is necessary to clear screen, otherwise it will be dirty

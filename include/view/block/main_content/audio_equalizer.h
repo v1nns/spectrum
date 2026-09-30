@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 
+#include <algorithm>
 #include <array>
 #include <string_view>
 #include <vector>
@@ -333,13 +334,30 @@ class AudioEqualizer : public TabItem {
         }
       }
 
-      if (opened &&
-          (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down)) {
+      // While closed, cycle through presets
+      if (!opened) {
+        bool previous =
+            event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up;
+        bool next =
+            event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down;
+
+        if (!previous && !next) return false;
+
+        auto it = std::find(presets.begin(), presets.end(), *preset_name);
+        int size = static_cast<int>(presets.size());
+        int index = it != presets.end() ? static_cast<int>(it - presets.begin()) : 0;
+
+        index = (index + (next ? 1 : size - 1)) % size;
+        update_preset(presets[index]);
+
+        return true;
+      }
+
+      if (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down) {
         entry_focused = entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
       }
 
-      if (opened &&
-          (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up)) {
+      if (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up) {
         entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
       }
 

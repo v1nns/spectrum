@@ -22,6 +22,9 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
   focus_ctl_.Append(picker_);
   focus_ctl_.Append(bars_.begin(), bars_.end());
 
+  // When navigating into this tab, start focus on the first frequency bar (instead of the picker)
+  focus_ctl_.SetInitialFocus(bars_.front());
+
   // Set zeroed custom EQ as last EQ applied
   last_applied_.Update(preset_name_, current_preset());
 

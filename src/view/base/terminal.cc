@@ -348,13 +348,6 @@ bool Terminal::OnFocusEvent(const ftxui::Event& event) {
     return HandleEventFromInterfaceToInterface(interface::CustomEvent::SetPreviousFocused());
   }
 
-  // Remove focus from all blocks
-  if (focused_index_ != kInvalidIndex && event == keybinding::Navigation::Escape) {
-    LOG("Handle key to remove focus from all blocks");
-    UpdateFocus(focused_index_, kInvalidIndex);
-    return true;
-  }
-
   // To avoid checking the upcoming if-statements, first check if event is a character
   if (!event.is_character()) return false;
 

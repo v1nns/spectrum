@@ -68,6 +68,13 @@ class FocusController final {
    */
   void SetFocus(int index);
 
+  /**
+   * @brief Set element to be focused when navigating forward while no element is focused
+   *        (by default, it is the first element appended)
+   * @param element Element already appended to this controller
+   */
+  void SetInitialFocus(const Element& element);
+
   /* ******************************************************************************************** */
   //! Internal implementation
  private:
@@ -89,6 +96,7 @@ class FocusController final {
 
   std::vector<Element*> elements_;   //!< List of elements ordered by focus priority
   int focus_index_ = kInvalidIndex;  //!< Index to current element focused
+  int initial_index_ = 0;            //!< Index to be focused when there is no element focused
 
   //!< List of mapped events to be handled as action key
   const std::array<ftxui::Event, 6> action_events{Keybinding::ArrowUp, Keybinding::ArrowDown,

@@ -96,7 +96,6 @@ ftxui::Element HelpDialog::BuildGeneralInfo() const {
               command("Shift+4", "Focus player"),
               command("Tab", "Focus next block"),
               command("Shift+Tab", "Focus previous block"),
-              command("Esc", "Remove focus"),
 
               // TODO: create a new view for sidebar and register playlist keybindings
               title("files"),
@@ -176,6 +175,7 @@ ftxui::Element HelpDialog::BuildTabInfo() const {
                             command("h/j/k/l", "Navigate on elements"),
                             command("Space/Return", "Open/close picker"),
                             command("            ", "Select new preset"),
+                            command("j/k", "Cycle presets (picker closed)"),
                             command("Esc", "Cancel focus"),
                             command("a", "Apply equalizer settings"),
                             command("r", "Reset equalizer settings"),

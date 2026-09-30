@@ -1,5 +1,7 @@
 #include "view/element/focus_controller.h"
 
+#include <algorithm>
+
 #include "util/formatter.h"
 #include "util/logger.h"
 
@@ -11,8 +13,11 @@ bool FocusController::OnEvent(const ftxui::Event& event) {
     LOG("Handle navigation key=", util::EventToString(event));
 
     // Calculate new index based on upper bound
-    int new_index =
-        focus_index_ + (focus_index_ < (static_cast<int>(elements_.size()) - 1) ? 1 : 0);
+    int size = static_cast<int>(elements_.size());
+    int new_index = focus_index_ + (focus_index_ < (size - 1) ? 1 : 0);
+
+    // If no element is focused yet, start from the initial index
+    if (!HasElementFocused() && initial_index_ < size) new_index = initial_index_;
     UpdateFocus(focus_index_, new_index);
 
     return true;
@@ -73,6 +78,19 @@ void FocusController::SetFocus(int index) {
   if (!elements_.empty() && (index + 1) <= elements_.size()) {
     UpdateFocus(focus_index_, index);
   }
+}
+
+/* ********************************************************************************************** */
+
+void FocusController::SetInitialFocus(const Element& element) {
+  auto it = std::find(elements_.begin(), elements_.end(), &element);
+
+  if (it == elements_.end()) {
+    ERROR("Cannot set initial focus on element not appended to controller");
+    return;
+  }
+
+  initial_index_ = static_cast<int>(it - elements_.begin());
 }
 
 /* ********************************************************************************************** */
