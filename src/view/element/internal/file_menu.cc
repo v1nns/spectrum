@@ -1,5 +1,6 @@
 #include "view/element/internal/file_menu.h"
 
+#include <algorithm>
 #include <iomanip>
 
 #include "ftxui/component/component.hpp"
@@ -142,21 +143,44 @@ bool FileMenu::OnClickImpl() {
   if (!active.has_value()) return false;
 
   std::filesystem::path new_dir;
+  bool going_up = false;
 
   if (active->filename() == ".." && std::filesystem::exists(curr_dir_.parent_path())) {
     // Change to parent folder
     new_dir = curr_dir_.parent_path();
+    going_up = true;
   } else if (std::filesystem::is_directory(*active)) {
     // Change to selected folder
     new_dir = curr_dir_ / active->filename();
   }
 
   if (!new_dir.empty()) {
-    return RefreshList(new_dir);
+    // Search results belong to the current folder, so leave search mode before changing it
+    ResetSearch();
+
+    std::filesystem::path old_dir = curr_dir_;
+    if (!RefreshList(new_dir)) return false;
+
+    // When going to parent folder, select the folder we came from
+    if (going_up) SelectEntryByFilename(old_dir.filename());
+
+    return true;
   }
 
   // Otherwise, it is a file, so execute custom on_click function (implemented by owner class)
   return on_click_(*active);
+}
+
+/* ********************************************************************************************** */
+
+void FileMenu::SelectEntryByFilename(const std::filesystem::path& filename) {
+  auto it = std::find_if(entries_.begin(), entries_.end(),
+                         [&filename](const util::File& f) { return f.filename() == filename; });
+
+  if (it == entries_.end()) return;
+
+  ResetState(static_cast<int>(it - entries_.begin()));
+  UpdateActiveEntry();
 }
 
 /* ********************************************************************************************** */

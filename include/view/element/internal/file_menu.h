@@ -79,6 +79,9 @@ class FileMenu : public BaseMenu<FileMenu> {
   //! While on search mode, filter all entries to keep only those matching the given text
   void FilterEntriesBy(const std::string& text);
 
+  //! Select entry matching the given filename (if found)
+  void SelectEntryByFilename(const std::filesystem::path& filename);
+
   /* ******************************************************************************************** */
   //! Derived specialization
 

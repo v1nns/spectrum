@@ -80,6 +80,12 @@ class SidebarTest : public ::BlockTest {
   //! Getter for current dir from ListDirectory
   auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->GetCurrentDir(); }
 
+  //! Getter for filename from active entry in ListDirectory
+  auto GetActiveFilename() -> std::filesystem::path {
+    auto active = GetListDirectory()->menu_->GetActiveEntry();
+    return active.has_value() ? active->filename() : std::filesystem::path{};
+  }
+
   //! Hacky method to add new entry in files tab_item
   void EmplaceFile(const std::filesystem::path& entry) {
     auto files = GetListDirectory();
@@ -581,11 +587,36 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│spectrum                            │
-│▶ ..                                │)";
+│spectrum                            │)";
 
   // Instead of checking for the whole list, just check that changed the base directory
   EXPECT_THAT(rendered, HasSubstr(expected));
+
+  // And that the directory we came from is selected
+  EXPECT_THAT(rendered, HasSubstr("│▶ test "));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SelectPreviousDirectoryAfterGoingUp) {
+  // Enter "general" directory (found by search), then go back to parent directory using ".."
+  std::string typed{"/general"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  block->OnEvent(ftxui::Event::Return);
+  EXPECT_EQ(GetCurrentDir().filename(), "general");
+
+  block->OnEvent(ftxui::Event::Home);
+  block->OnEvent(ftxui::Event::Return);
+  EXPECT_EQ(GetCurrentDir().filename(), "test");
+
+  // Cursor must be on the directory we came from, instead of ".."
+  EXPECT_EQ(GetActiveFilename(), "general");
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│▶ general "));
 }
 
 /* ********************************************************************************************** */
