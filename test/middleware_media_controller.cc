@@ -22,11 +22,15 @@ namespace {
 
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::DoubleEq;
+using ::testing::Each;
 using ::testing::ElementsAreArray;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::Lt;
+using ::testing::Matcher;
 using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::VariantWith;
@@ -96,6 +100,62 @@ class MediaControllerTest : public ::testing::Test {
   //! Getter for Analyzer (necessary as inner variable is an unique_ptr)
   auto GetAnalyzer() -> AnalyzerMock* {
     return reinterpret_cast<AnalyzerMock*>(controller->analyzer_.get());
+  }
+
+  //! Run analysis on raw audio (analyzer output at maximum height) and check bars sent to UI, which
+  //! must be at the beginning of fade-in animation only if a new song has started
+  void CheckFadeIn(bool new_song) {
+    constexpr int kSampleSize = 16;
+
+    auto analysis = [&](TestSyncer& syncer) {
+      auto analyzer = GetAnalyzer();
+      auto dispatcher = GetEventDispatcher();
+
+      EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
+      EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
+
+      EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
+          .WillOnce(Invoke([&](double*, int, double* out) {
+            std::fill(out, out + kNumberBars, 1.0);
+            return error::kSuccess;
+          }));
+
+      EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                               interface::CustomEvent::Identifier::UpdateSongInfo)))
+          .Times(new_song ? 1 : 0);
+
+      // Right after a new song starts, bars are still at the beginning of fade-in animation
+      const Matcher<const std::vector<double>&> expected =
+          new_song ? Matcher<const std::vector<double>&>(Each(Lt(0.1)))
+                   : Matcher<const std::vector<double>&>(Each(DoubleEq(1.0)));
+
+      EXPECT_CALL(*dispatcher,
+                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                        interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                  Field(&interface::CustomEvent::content,
+                                        VariantWith<std::vector<double>>(expected)))))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(2); }));
+
+      syncer.NotifyStep(1);
+      RunAnalysisLoop();
+    };
+
+    auto client = [&](TestSyncer& syncer) {
+      auto notifier = GetInterfaceNotifier();
+
+      syncer.WaitForStep(1);
+      if (new_song) {
+        notifier->NotifySongInformation(model::Song{.filepath = "song.mp3"});
+      }
+
+      std::vector<int16_t> buffer(kSampleSize, 1);
+      notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+      syncer.WaitForStep(2);
+      controller->Exit();
+    };
+
+    testing::RunAsyncTest({analysis, client});
   }
 
   //! Run analysis loop (same one executed as a thread in the real-life)
@@ -258,7 +318,7 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
     // Send random data to the thread to analyze it
     syncer.WaitForStep(1);
-    std::vector<int> buffer(sample_size, 1);
+    std::vector<int16_t> buffer(sample_size, 1);
     notifier->SendAudioRaw(buffer.data(), buffer.size());
 
     // Wait for Analysis to finish before exiting from controller
@@ -268,6 +328,14 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
   testing::RunAsyncTest({analysis, client});
 }
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, FadeInBarsWhenNewSongStarts) { CheckFadeIn(true); }
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, NoFadeInWithoutNewSong) { CheckFadeIn(false); }
 
 /* ********************************************************************************************** */
 
@@ -358,7 +426,7 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
     // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
     syncer.WaitForStep(1);
-    std::vector<int> buffer(sample_size, 1);
+    std::vector<int16_t> buffer(sample_size, 1);
     notifier->SendAudioRaw(buffer.data(), buffer.size());
 
     // Send a Pause notification to run ClearAnimation

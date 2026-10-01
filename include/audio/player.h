@@ -65,6 +65,8 @@ class AudioControl {
  * @brief Responsible to control media and play it on hardware
  */
 class Player : public AudioControl {
+  static constexpr int kNumberChannels = 2;  //!< Decoded audio is always stereo
+
  private:
   /**
    * @brief Construct a new Player object

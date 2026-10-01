@@ -6,6 +6,8 @@
 #ifndef INCLUDE_VIEW_BASE_NOTIFIER_H_
 #define INCLUDE_VIEW_BASE_NOTIFIER_H_
 
+#include <cstdint>
+
 #include "model/application_error.h"
 #include "model/song.h"
 
@@ -49,10 +51,10 @@ class Notifier {
 
   /**
    * @brief Send raw audio samples to UI
-   * @param buffer Audio samples
-   * @param size Sample count
+   * @param buffer Audio samples (16-bit, interleaved channels)
+   * @param size Sample count (considering all channels)
    */
-  virtual void SendAudioRaw(int* buffer, int size) = 0;
+  virtual void SendAudioRaw(const int16_t* buffer, int size) = 0;
 
   /**
    * @brief Notify UI with error code from some background operation

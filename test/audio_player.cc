@@ -131,15 +131,21 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
     // Only interested in second argument, which is a lambda created internally by audio_player
     // itself So it is necessary to manually call it, to keep the behaviour similar to a
     // real-life situation
+    // Decoded audio contains 16-bit samples with interleaved channels (stereo)
+    constexpr int kFrames = 4;
+    constexpr int kChannels = 2;
+
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          std::vector<int16_t> samples(kFrames * kChannels, 0);
           int64_t position = 0;
-          callback(0, 0, position);
+          callback(samples.data(), kFrames, position);
           return error::kSuccess;
         }));
 
-    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
-    EXPECT_CALL(*playback, AudioCallback(_, _));
+    // Audio analysis receives all samples (from both channels), while playback receives frames
+    EXPECT_CALL(*notifier, SendAudioRaw(_, kFrames * kChannels));
+    EXPECT_CALL(*playback, AudioCallback(_, kFrames));
 
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Play, .position = 0}));

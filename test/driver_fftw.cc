@@ -13,7 +13,9 @@
 
 namespace {
 
+using ::testing::Each;
 using ::testing::ElementsAreArray;
+using ::testing::Le;
 using ::testing::Matcher;
 
 /**
@@ -38,11 +40,30 @@ class FftwTest : public ::testing::Test {
   // TODO: implement (get block starting on line :78)
   void PrintResults(const std::vector<double>& result) {}
 
+  //! Execute analysis using a sinus wave (200Hz in left channel and 2000Hz in right channel)
+  std::vector<double> Run(int frames) {
+    std::vector<double> out(analyzer->GetOutputSize(), 0);
+    std::vector<double> in(kBufferSize, 0);
+
+    for (int k = 0; k < frames; k++, frame_++) {
+      for (int n = 0; n < kBufferSize / 2; n++) {
+        const double t = n + (static_cast<double>(frame_) * kBufferSize / 2);
+        in[n * 2] = sin(2 * M_PI * 200 / 44100 * t) * 20000;
+        in[(n * 2) + 1] = sin(2 * M_PI * 2000 / 44100 * t) * 20000;
+      }
+
+      analyzer->Execute(in.data(), kBufferSize, out.data());
+    }
+
+    return out;
+  }
+
  protected:
   static constexpr int kNumberBars = 10;    //!< Number of bars per channel
   static constexpr int kBufferSize = 1024;  //!< Input buffer size
 
-  Fftw analyzer;  //!< Audio frequency analysis
+  Fftw analyzer;   //!< Audio frequency analysis
+  int frame_ = 0;  //!< Frame counter, to keep sinus wave unbroken between calls to Run
 };
 
 /* ********************************************************************************************** */
@@ -95,6 +116,18 @@ TEST_F(FftwTest, InitAndExecute) {
   // Check that values are equal to expectation
   ASSERT_THAT(left, ElementsAreArray(expected_200MHz));
   ASSERT_THAT(right, ElementsAreArray(expected_2000MHz));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FftwTest, SensitivityAdjustsQuickly) {
+  // About 0.35 seconds of audio
+  constexpr int kFrames = 30;
+  const auto out = Run(kFrames);
+
+  // Bar for 200Hz is already close to its final value, and no bar exceeds the maximum value
+  EXPECT_GT(out[2], 0.8);
+  EXPECT_THAT(out, Each(Le(1.0)));
 }
 
 }  // namespace

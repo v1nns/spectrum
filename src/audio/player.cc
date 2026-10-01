@@ -1,5 +1,6 @@
 #include "audio/player.h"
 
+#include <cstdint>
 #include <iomanip>
 #include <stdexcept>
 #include <string>
@@ -265,7 +266,9 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
-    media_notifier->SendAudioRaw(static_cast<int*>(buffer), size);
+    // Decoded audio contains 16-bit samples with interleaved channels, and size is the number of
+    // samples per channel
+    media_notifier->SendAudioRaw(static_cast<const int16_t*>(buffer), size * kNumberChannels);
   }
 
   // TODO: check for errors?

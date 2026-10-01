@@ -6,8 +6,10 @@
 #ifndef INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -46,6 +48,9 @@ namespace middleware {
  * Audio Notifier (UI->Player) and Interface Notifier (Player->UI).
  */
 class MediaController : public audio::Notifier, public interface::Notifier {
+  //! Duration of fade-in animation applied to spectrum bars when a new song starts playing
+  static constexpr std::chrono::milliseconds kFadeInDuration{1000};
+
   /**
    * @brief Construct a new MediaController object
    * @param dispatcher Event dispatcher for Interface
@@ -187,7 +192,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    * @param buffer Audio samples
    * @param size Sample count
    */
-  void SendAudioRaw(int* buffer, int size) override;
+  void SendAudioRaw(const int16_t* buffer, int size) override;
 
   /**
    * @brief Notify UI with error code from some background operation
@@ -246,7 +251,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @param input Array with raw data
      * @param size Array size
      */
-    void Append(int* input, int size) {
+    void Append(const int16_t* input, int size) {
       std::unique_lock lock(mutex);
       std::vector<double>::const_iterator end = buffer.end();
 
@@ -356,6 +361,9 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   AnalysisDataSynced sync_data_;  //!< Controls the audio data synchronization
 
   bool finished_;  //!< Flag to control when media controller shouldn't process any new requisitions
+
+  //! Flag set when a new song starts playing, so analysis thread starts fade-in animation
+  std::atomic<bool> fade_in_pending_ = false;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

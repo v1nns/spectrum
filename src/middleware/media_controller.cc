@@ -1,5 +1,9 @@
 #include "middleware/media_controller.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -114,6 +118,9 @@ void MediaController::AnalysisHandler() {
 
   std::vector<double> input, output, previous;
 
+  // Start time of fade-in animation (only set while animation is running)
+  std::optional<std::chrono::steady_clock::time_point> fade_in_start;
+
   while (sync_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
     int in_size = analyzer_->GetBufferSize();
@@ -136,6 +143,25 @@ void MediaController::AnalysisHandler() {
         std::for_each(output.begin(), output.end(), [](double& value) {
           if (value > 1.0) value = 1.0;
         });
+
+        // When a new song starts, let bars rise smoothly instead of jumping to their height
+        if (fade_in_pending_.exchange(false)) {
+          fade_in_start = std::chrono::steady_clock::now();
+        }
+
+        if (fade_in_start.has_value()) {
+          const double progress =
+              std::chrono::duration<double>(std::chrono::steady_clock::now() - *fade_in_start) /
+              kFadeInDuration;
+
+          if (progress >= 1.0) {
+            fade_in_start.reset();
+          } else {
+            // Smoothstep curve: bars start rising slowly and settle smoothly in their height
+            const double gain = progress * progress * (3.0 - (2.0 * progress));
+            std::for_each(output.begin(), output.end(), [gain](double& value) { value *= gain; });
+          }
+        }
 
         previous = output;
 
@@ -288,6 +314,9 @@ void MediaController::ClearSongInformation(bool playing) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongInformation(const model::Song& info) {
+  // Bars must rise smoothly when the new song starts
+  fade_in_pending_ = true;
+
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
@@ -317,7 +346,7 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& cur
 
 /* ********************************************************************************************** */
 
-void MediaController::SendAudioRaw(int* buffer, int size) {
+void MediaController::SendAudioRaw(const int16_t* buffer, int size) {
   // Append audio data to be analyzed by thread
   sync_data_.Append(buffer, size);
 }
