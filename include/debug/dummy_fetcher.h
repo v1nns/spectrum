@@ -8,12 +8,15 @@
 
 #include <string>
 
+#include "model/application_error.h"
+#include "web/base/url_fetcher.h"
+
 namespace driver {
 
 /**
  * @brief Dummy implementation
  */
-class DummyFetcher : public UrlFetcher {
+class DummyFetcher : public web::UrlFetcher {
  public:
   /**
    * @brief Construct a new DummyFetcher object

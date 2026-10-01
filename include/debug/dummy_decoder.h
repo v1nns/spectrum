@@ -20,7 +20,7 @@ namespace driver {
 /**
  * @brief Dummy implementation
  */
-class DummyDecoder : public Decoder {
+class DummyDecoder : public audio::Decoder {
  public:
   /**
    * @brief Construct a new Decoder object

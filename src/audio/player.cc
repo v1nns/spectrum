@@ -12,6 +12,7 @@
 #else
 #include "debug/dummy_decoder.h"
 #include "debug/dummy_playback.h"
+#include "debug/dummy_stream_fetcher.h"
 #endif
 
 #include "view/base/notifier.h"
@@ -43,8 +44,8 @@ std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
   // Create decoder object
   auto dc = std::make_unique<driver::DummyDecoder>();
 
-  // TODO: Create fetcher object
-  // auto ft = std::make_unique<driver::DummyFetcher>();
+  // Create fetcher object
+  auto ft = std::make_unique<driver::DummyStreamFetcher>();
 #endif
 
   // Simply extend the Player class, as we do not want to expose the default constructor,
