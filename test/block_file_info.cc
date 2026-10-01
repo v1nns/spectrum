@@ -7,6 +7,7 @@
 
 namespace {
 
+using ::testing::HasSubstr;
 using ::testing::StrEq;
 
 /**
@@ -143,6 +144,38 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
+  // Use the whole block width (content + border)
+  screen = std::make_unique<ftxui::Screen>(38, 15);
+
+  const model::Song audio{
+      .filepath = "/music/Zzqx Unknown Artist - No Such Song Qwerty.mp3",
+      .artist = "ARTY",
+      .title = "日本語のとても長い曲のタイトルです",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 128000,
+      .bit_depth = 32,
+      .duration = 30,
+  };
+
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // Long filename is cut with an ellipsis, keeping a gap after field name
+  EXPECT_THAT(rendered, HasSubstr("│Filename Zzqx Unknown Artist - No S…│"));
+
+  // Full-width characters use two columns each, so title is cut without breaking any of them
+  EXPECT_THAT(rendered, HasSubstr("│Title  日本語のとても長い曲のタイト…│"));
+
+  // Short values are not changed
+  EXPECT_THAT(rendered, HasSubstr("ARTY│"));
 }
 
 }  // namespace

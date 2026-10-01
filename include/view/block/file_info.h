@@ -22,6 +22,7 @@ namespace interface {
 class FileInfo : public Block {
   static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
   static constexpr int kMaxRows = 15;     //!< Maximum rows for Component
+  static constexpr int kFieldGap = 1;     //!< Minimum space between field name and its value
 
   static constexpr int kMaxSongLines = 8;  //!< Always remember to check song::to_string
 

@@ -48,6 +48,8 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   static constexpr int kBlockMainContent = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
+  static constexpr int kBorderSize = 1;  //!< Columns used by a block border (on each side)
+
   //! Minimum terminal size to render all blocks without cutting their content: width is limited
   //! by media player (buttons + volume) next to sidebar, and height leaves room for a few files in
   //! sidebar besides the fixed height from file information and media player blocks

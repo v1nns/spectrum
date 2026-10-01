@@ -1,6 +1,6 @@
 #include "view/base/terminal.h"
 
-#include <cmath>
+#include <algorithm>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -19,6 +19,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "model/application_error.h"
+#include "model/bar_animation.h"
 #include "model/block_identifier.h"
 #include "model/playlist_operation.h"
 #include "util/formatter.h"
@@ -255,35 +256,29 @@ int Terminal::CalculateNumberBars(const std::optional<model::BarAnimation>& anim
   static model::BarAnimation last_animation = model::BarAnimation::LAST;
   if (animation.has_value()) last_animation = *animation;
 
-  // In this case, should calculate new size for audio visualizer (number of bars for spectrum)
-  auto block_width = static_cast<float>(
-      !fullscreen_mode_
-          ? std::static_pointer_cast<Block>(children_.at(kBlockSidebar))->GetSize().width
-          : 0);
+  // Width available for spectrum visualizer: in fullscreen mode it is the whole terminal,
+  // otherwise it is what remains after sidebar block (with its border) and visualizer border
+  int available = size_.dimx;
 
-  auto bar_width = static_cast<float>(
-      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))->GetBarWidth());
+  if (!fullscreen_mode_) {
+    const int sidebar_width =
+        std::static_pointer_cast<Block>(children_.at(kBlockSidebar))->GetSize().width;
 
-  // crazy math function = (a - b - c - d - e) / f;
-  // considering these:
-  // a = terminal maximum width
-  // b = Sidebar width
-  // c = border width
-  // d = bar width
-  // e = audio bar spacing
-  // f = bar width + audio bar spacing
-  float border_width = !fullscreen_mode_ ? 2 : -1;
-  float bar_spacing = model::IsAnimationSpaced(last_animation) ? 1 : 0;
-  float crazy_math =
-      (static_cast<float>(size_.dimx) - block_width - border_width - bar_width - bar_spacing) /
-      (bar_width + bar_spacing);
+    // Both sidebar and visualizer have borders on left and right sides
+    available -= sidebar_width + (2 * kBorderSize) + (2 * kBorderSize);
+  }
 
-  // Round to nearest odd number
-  crazy_math = floor(crazy_math);
-  if (static_cast<int>(crazy_math) % 2) crazy_math += (bar_width != 3) ? 1 : -1;
+  const int bar_width =
+      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))->GetBarWidth();
+  const int bar_spacing = model::IsAnimationSpaced(last_animation) ? 1 : 0;
 
-  // Return number of audio bars
-  return static_cast<int>(crazy_math);
+  // Maximum number of bars that fit (N bars need N * width + (N - 1) * spacing columns)
+  int number_bars = (available + bar_spacing) / (bar_width + bar_spacing);
+
+  // Bars are split between both audio channels, so round it down to an even number
+  number_bars -= number_bars % 2;
+
+  return std::max(number_bars, 0);
 }
 
 /* ********************************************************************************************** */

@@ -10,7 +10,10 @@
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/box.hpp>
 #include <ftxui/screen/screen.hpp>
+#include <ftxui/screen/string.hpp>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace interface {
@@ -26,6 +29,42 @@ inline const ftxui::Decorator set_size(int width, int height) {
   return ftxui::size(ftxui::WIDTH, ftxui::EQUAL, width) |
          ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, height);
 };
+
+/**
+ * @brief Truncate text to fit in the given number of columns, ending it with an ellipsis when cut.
+ * Width is measured in terminal columns, so it works with multi-byte and full-width characters
+ * @param text Content to fit
+ * @param max_columns Maximum number of columns available
+ * @return Text that fits in the given columns
+ */
+inline std::string ellipsize(const std::string& text, int max_columns) {
+  static constexpr std::string_view kEllipsis = "…";
+  static constexpr int kEllipsisWidth = 1;
+
+  if (max_columns <= 0) {
+    return "";
+  }
+
+  if (ftxui::string_width(text) <= max_columns) {
+    return text;
+  }
+
+  std::string result;
+  int used = 0;
+
+  // Keep as many glyphs as possible, leaving room for the ellipsis
+  for (const auto& glyph : ftxui::Utf8ToGlyphs(text)) {
+    const int width = glyph.empty() ? 0 : ftxui::string_width(glyph);
+    if (used + width > max_columns - kEllipsisWidth) {
+      break;
+    }
+
+    result += glyph;
+    used += width;
+  }
+
+  return result + std::string(kEllipsis);
+}
 
 /**
  * @brief Node that renders the preferred element only if it fits in the width given by parent,
