@@ -175,13 +175,24 @@ error::Code Alsa::Stop() {
 
 error::Code Alsa::AudioCallback(void *buffer, int size) {
   // As this is called multiple times, LOG will not be called here in the beginning
-  if (auto result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
-      result < 0) {
-    ERROR("Cannot write buffer to playback stream, error=", result);
-    if ((result = snd_pcm_recover(playback_handle_.get(), result, 1)) == 0) {
-      // TODO: do something?
-      LOG("Recovered playback stream from error (overrun/underrun), error=", result);
-    }
+  auto result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
+  if (result >= 0) return error::kSuccess;
+
+  ERROR("Cannot write buffer to playback stream, error=", snd_strerror(result));
+
+  // Attempt to recover from error (e.g. overrun/underrun or suspended device)
+  if (int recovered = snd_pcm_recover(playback_handle_.get(), result, 1); recovered < 0) {
+    ERROR("Cannot recover playback stream, error=", snd_strerror(recovered));
+    return error::kPlaybackFailed;
+  }
+
+  LOG("Recovered playback stream from error=", snd_strerror(result));
+
+  // Buffer was not written, so try it again
+  result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
+  if (result < 0) {
+    ERROR("Cannot write buffer to playback stream after recovering, error=", snd_strerror(result));
+    return error::kPlaybackFailed;
   }
 
   return error::kSuccess;

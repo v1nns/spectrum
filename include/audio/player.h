@@ -391,6 +391,8 @@ class Player : public AudioControl {
 
   int period_size_;  //!< Period size from Playback driver
 
+  error::Code playback_error_ = error::kSuccess;  //!< Error while writing samples to playback
+
   bool finished_;  //!< Flag to control when player should not process any new requisitions
 
   /* ******************************************************************************************** */

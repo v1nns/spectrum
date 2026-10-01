@@ -515,6 +515,63 @@ TEST_F(PlayerTest, ErrorDecodingFile) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, ErrorWritingToPlayback) {
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Received filepath to play
+    const std::string expected_name{"Daft Punk - Around the World"};
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, expected_name)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Output device fails (e.g. it was disconnected), so decoding must stop
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          std::vector<int16_t> samples(8, 0);
+          int64_t position = 0;
+          EXPECT_FALSE(callback(samples.data(), nullptr, 4, position));
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _));
+    EXPECT_CALL(*playback, AudioCallback(_, _)).WillOnce(Return(error::kPlaybackFailed));
+
+    // Song did not finish, it failed
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(0);
+
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kPlaybackFailed), StrEq(expected_name)))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play file
+    player_ctl->Play(std::string{"Daft Punk - Around the World"});
+
+    // Wait for Player to notify error before client asks to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, ChangeVolume) {
   auto decoder = GetDecoder();
   auto player_ctl = GetAudioControl();

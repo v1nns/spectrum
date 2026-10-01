@@ -38,6 +38,7 @@ static constexpr Code kCorruptedData = 35;
 
 //! ALSA driver errors
 static constexpr Code kSetupAudioParamsFailed = 50;
+static constexpr Code kPlaybackFailed = 51;
 
 //! FFMPEG driver errors
 static constexpr Code kDecodeFileFailed = 70;
@@ -54,7 +55,7 @@ class ApplicationError {
   using Message = std::pair<Code, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 13> kErrorMap{{
+  static constexpr std::array<Message, 14> kErrorMap{{
       {kTerminalInitialization, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, "No support to change colors"},
       {kAccessDirFailed, "Cannot access directory"},
@@ -66,6 +67,7 @@ class ApplicationError {
       {kInconsistentHeaderInfo, "Header data is inconsistent"},
       {kCorruptedData, "File is corrupted"},
       {kSetupAudioParamsFailed, "Cannot set audio parameters"},
+      {kPlaybackFailed, "Cannot play audio on output device (was it disconnected?)"},
       {kDecodeFileFailed, "Cannot decode song"},
       {kSeekFrameFailed, "Cannot seek frame in song"},
       {kUnknownError, "Unknown error used for almost everything during development =)"},

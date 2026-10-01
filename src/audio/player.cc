@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/alsa.h"
@@ -275,9 +276,12 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
     media_notifier->SendAudioRaw(static_cast<const int16_t*>(samples), size * kNumberChannels);
   }
 
-  // TODO: check for errors?
-  // Write samples to playback
-  playback_->AudioCallback(buffer, size);
+  // Write samples to playback (stop playing song if it fails, e.g. output device disconnected)
+  if (auto result = playback_->AudioCallback(buffer, size); result != error::kSuccess) {
+    ERROR("Cannot write samples to playback, stop playing song, error=", result);
+    playback_error_ = result;
+    return false;
+  }
 
   // Notify song state to graphical interface
   if (last_position != new_position) {
@@ -345,11 +349,15 @@ void Player::AudioHandler() {
       return HandleCommand(buffer, analysis, size, new_position, position);
     });
 
+    // Decoding stops without error when playback fails, so report it from here
+    if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
+
     // Reached end of song, this may be originated from one of these situations:
     //  1. naturally;
     //  2. forced to stop/exit by user;
     //  3. error from fetching streaming info;
     //  4. error from decoding;
+    //  5. error from playback;
     ResetMediaControl(result);
   }
 
