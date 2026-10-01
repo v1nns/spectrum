@@ -19,6 +19,14 @@ static const char* to_chars(const BarAnimation& animation) {
       return "VerticalMirrorNoSpace";
     case BarAnimation::MonoNoSpace:
       return "MonoNoSpace";
+    case BarAnimation::SpectrumLine:
+      return "SpectrumLine";
+    case BarAnimation::SpectrumLineMirror:
+      return "SpectrumLineMirror";
+    case BarAnimation::SpectrumLineFilled:
+      return "SpectrumLineFilled";
+    case BarAnimation::SpectrumLineFilledMirror:
+      return "SpectrumLineFilledMirror";
     case BarAnimation::LAST:
     default:
       return "Invalid";
@@ -49,6 +57,14 @@ std::string_view GetAnimationName(const BarAnimation& animation) {
       return "Vertical mirror (no space)";
     case BarAnimation::MonoNoSpace:
       return "Mono (no space)";
+    case BarAnimation::SpectrumLine:
+      return "Line";
+    case BarAnimation::SpectrumLineMirror:
+      return "Line (mirror)";
+    case BarAnimation::SpectrumLineFilled:
+      return "Line (filled)";
+    case BarAnimation::SpectrumLineFilledMirror:
+      return "Line (filled mirror)";
     case BarAnimation::LAST:
     default:
       return "Invalid";

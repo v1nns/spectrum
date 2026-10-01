@@ -1,7 +1,14 @@
 #include "view/block/main_content/spectrum_visualizer.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <ftxui/dom/canvas.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <utility>
+#include <vector>
 
 #include "model/bar_animation.h"
 #include "util/formatter.h"
@@ -55,6 +62,22 @@ ftxui::Element SpectrumVisualizer::Render() {
       DrawAnimationMono(bar_visualizer, false);
       break;
 
+    case model::BarAnimation::SpectrumLine:
+      DrawAnimationLine(bar_visualizer, LineStyle::Plain);
+      break;
+
+    case model::BarAnimation::SpectrumLineMirror:
+      DrawAnimationLine(bar_visualizer, LineStyle::Mirror);
+      break;
+
+    case model::BarAnimation::SpectrumLineFilled:
+      DrawAnimationLine(bar_visualizer, LineStyle::Filled);
+      break;
+
+    case model::BarAnimation::SpectrumLineFilledMirror:
+      DrawAnimationLine(bar_visualizer, LineStyle::FilledMirror);
+      break;
+
     case model::BarAnimation::LAST:
       ERROR("Audio visualizer current animation contains invalid value");
       curr_anim_ = model::BarAnimation::HorizontalMirror;
@@ -99,9 +122,11 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
     if (!dispatcher) return false;
 
     spectrum_data_.clear();
-    curr_anim_ = curr_anim_ < model::BarAnimation::MonoNoSpace
-                     ? static_cast<model::BarAnimation>(curr_anim_ + 1)  // get next
-                     : model::BarAnimation::HorizontalMirror;            // reset to first one
+    // Get next animation (or go back to the first one, after the last one)
+    curr_anim_ = static_cast<model::BarAnimation>(curr_anim_ + 1);
+    if (curr_anim_ == model::BarAnimation::LAST) {
+      curr_anim_ = model::BarAnimation::HorizontalMirror;
+    }
 
     auto event_animation = CustomEvent::ChangeBarAnimation(curr_anim_);
     dispatcher->SendEvent(event_animation);
@@ -169,10 +194,7 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
     int number_bars = event.GetContent<int>();
 
     // To fill entire screen, multiply value by 2
-    if (curr_anim_ == model::BarAnimation::VerticalMirror ||
-        curr_anim_ == model::BarAnimation::Mono ||
-        curr_anim_ == model::BarAnimation::VerticalMirrorNoSpace ||
-        curr_anim_ == model::BarAnimation::MonoNoSpace) {
+    if (model::IsAnimationFullWidthPerChannel(curr_anim_)) {
       number_bars *= 2;
     }
 
@@ -191,12 +213,10 @@ void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
                                      ftxui::Elements& elements, bool space) const {
   using ftxui::gaugeDirection;
   constexpr auto color = [](const ftxui::Direction& dir) {
-    auto gradient = ftxui::LinearGradient()
-                        .Angle(dir == ftxui::Direction::Up ? 270 : 90)
-                        .Stop(ftxui::Color(95, 135, 215), 0.0f)
-                        .Stop(ftxui::Color(115, 155, 215), 0.3f)
-                        .Stop(ftxui::Color(155, 188, 235), 0.6f)
-                        .Stop(ftxui::Color(185, 208, 252), 0.8f);
+    auto gradient = ftxui::LinearGradient().Angle(dir == ftxui::Direction::Up ? 270 : 90);
+    for (const auto& stop : kGradient) {
+      gradient.Stop(ftxui::Color(stop.red, stop.green, stop.blue), stop.position);
+    }
 
     return ftxui::color(gradient);
   };
@@ -300,7 +320,7 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer, bool spac
   entries.reserve(total_size);
 
   for (int i = 0; i < size; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries, space);
+    CreateGauge(average.at(i), ftxui::Direction::Up, entries, space);
   }
 
   if (space) {
@@ -309,6 +329,207 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer, bool spac
   }
 
   visualizer = ftxui::hbox(entries) | ftxui::hcenter;
+}
+
+/* ********************************************************************************************** */
+
+namespace {
+
+//! Get spectrum value for a column of dots, interpolating between the nearest points
+double ValueAt(const std::vector<double>& data, int x, int width) {
+  const int points = static_cast<int>(data.size());
+  const double position = static_cast<double>(x) * (points - 1) / (width - 1);
+  const int index = std::min(static_cast<int>(position), points - 2);
+  const double fraction = position - index;
+
+  return (data.at(index) * (1 - fraction)) + (data.at(index + 1) * fraction);
+}
+
+}  // namespace
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawAnimationLine(ftxui::Element& visualizer, LineStyle style) {
+  // Data contains both channels (left channel in the first half and right channel in the second)
+  const auto size = static_cast<std::ptrdiff_t>(spectrum_data_.size() / 2);
+  if (size < 2) {
+    return;
+  }
+
+  std::vector<double> left(spectrum_data_.begin(), spectrum_data_.begin() + size);
+  std::vector<double> right(spectrum_data_.begin() + size, spectrum_data_.begin() + (2 * size));
+
+  // Single line uses the average from both channels
+  if (style == LineStyle::Plain || style == LineStyle::Filled) {
+    std::transform(left.begin(), left.end(), right.begin(), left.begin(),
+                   [](double a, double b) { return (a + b) / 2; });
+  }
+
+  // Canvas is created with the size of the area available to it (in braille dots)
+  auto draw = [left = std::move(left), right = std::move(right), style](ftxui::Canvas& canvas) {
+    if (canvas.width() < 2 || canvas.height() < 2) {
+      return;
+    }
+
+    switch (style) {
+      case LineStyle::Plain:
+        DrawLine(canvas, left);
+        break;
+      case LineStyle::Mirror:
+        DrawMirroredLines(canvas, left, right);
+        break;
+      case LineStyle::Filled:
+        DrawFilledArea(canvas, left);
+        break;
+      case LineStyle::FilledMirror:
+        DrawMirroredFilledAreas(canvas, left, right);
+        break;
+    }
+  };
+
+  // Minimum size is a single cell, as canvas fills all the available space
+  visualizer = ftxui::canvas(1, 1, std::move(draw)) | ftxui::flex;
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawRun(ftxui::Canvas& canvas, const VerticalRun& run,
+                                 const Baseline& baseline) {
+  for (int y = std::min(run.from, run.to); y <= std::max(run.from, run.to); y++) {
+    const double position = static_cast<double>(std::abs(baseline.y - y)) / baseline.range;
+    canvas.DrawPoint(run.x, y, true, GetGradientColor(position));
+  }
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawLine(ftxui::Canvas& canvas, const std::vector<double>& data) {
+  const int bottom = canvas.height() - 1;
+  int previous = -1;
+
+  for (int x = 0; x < canvas.width(); x++) {
+    const int y = bottom - static_cast<int>(std::lround(ValueAt(data, x, canvas.width()) * bottom));
+
+    // Connect to the previous column, so line keeps continuous even when it is steep
+    DrawRun(canvas, VerticalRun{.x = x, .from = previous < 0 ? y : previous, .to = y},
+            Baseline{.y = bottom, .range = bottom});
+
+    previous = y;
+  }
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawMirroredLines(ftxui::Canvas& canvas, const std::vector<double>& left,
+                                           const std::vector<double>& right) {
+  const int bottom = canvas.height() - 1;
+  const int middle = canvas.height() / 2;
+
+  int previous_top = -1;
+  int previous_down = -1;
+
+  for (int x = 0; x < canvas.width(); x++) {
+    // Left channel goes up from the middle, right channel goes down from it
+    const int top =
+        middle - static_cast<int>(std::lround(ValueAt(left, x, canvas.width()) * middle));
+    const int down =
+        middle +
+        static_cast<int>(std::lround(ValueAt(right, x, canvas.width()) * (bottom - middle)));
+
+    DrawRun(canvas, VerticalRun{.x = x, .from = previous_top < 0 ? top : previous_top, .to = top},
+            Baseline{.y = middle, .range = middle});
+
+    DrawRun(canvas,
+            VerticalRun{.x = x, .from = previous_down < 0 ? down : previous_down, .to = down},
+            Baseline{.y = middle, .range = bottom - middle});
+
+    previous_top = top;
+    previous_down = down;
+  }
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawFilledArea(ftxui::Canvas& canvas, const std::vector<double>& data) {
+  const int bottom = canvas.height() - 1;
+
+  for (int x = 0; x < canvas.width(); x++) {
+    const int y = bottom - static_cast<int>(std::lround(ValueAt(data, x, canvas.width()) * bottom));
+
+    // Fill everything below the line
+    FillBlocks(canvas, VerticalRun{.x = x, .from = y, .to = bottom},
+               Baseline{.y = bottom, .range = bottom});
+  }
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::DrawMirroredFilledAreas(ftxui::Canvas& canvas,
+                                                 const std::vector<double>& left,
+                                                 const std::vector<double>& right) {
+  const int bottom = canvas.height() - 1;
+  const int middle = canvas.height() / 2;
+
+  for (int x = 0; x < canvas.width(); x++) {
+    // Left channel is filled up from the middle, right channel is filled down from it
+    const int top =
+        middle - static_cast<int>(std::lround(ValueAt(left, x, canvas.width()) * middle));
+    const int down =
+        middle +
+        static_cast<int>(std::lround(ValueAt(right, x, canvas.width()) * (bottom - middle)));
+
+    FillBlocks(canvas, VerticalRun{.x = x, .from = top, .to = middle},
+               Baseline{.y = middle, .range = middle});
+    FillBlocks(canvas, VerticalRun{.x = x, .from = middle, .to = down},
+               Baseline{.y = middle, .range = bottom - middle});
+  }
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::FillBlocks(ftxui::Canvas& canvas, const VerticalRun& run,
+                                    const Baseline& baseline) {
+  // Blocks are used (instead of braille dots), so the area looks solid. Each block has the height
+  // of two braille dots, so it must start from a coordinate multiple of its height
+  static constexpr int kBlockHeight = 2;
+
+  const int first = std::min(run.from, run.to);
+  const int last = std::max(run.from, run.to);
+
+  for (int block = first - (first % kBlockHeight); block <= last; block += kBlockHeight) {
+    const double position = static_cast<double>(std::abs(baseline.y - block)) / baseline.range;
+    canvas.DrawBlock(run.x, block, true, GetGradientColor(position));
+  }
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Color SpectrumVisualizer::GetGradientColor(double position) {
+  const double clamped = std::clamp(position, 0.0, 1.0);
+
+  // Before first stop, there is nothing to interpolate
+  if (clamped <= kGradient.front().position) {
+    const auto& stop = kGradient.front();
+    return {stop.red, stop.green, stop.blue};
+  }
+
+  for (size_t i = 1; i < kGradient.size(); i++) {
+    const auto& start = kGradient.at(i - 1);
+    const auto& end = kGradient.at(i);
+
+    if (clamped <= end.position) {
+      const double t = (clamped - start.position) / (end.position - start.position);
+      auto lerp = [t](uint8_t a, uint8_t b) {
+        return static_cast<uint8_t>(std::lround(a + ((b - a) * t)));
+      };
+
+      return {lerp(start.red, end.red), lerp(start.green, end.green), lerp(start.blue, end.blue)};
+    }
+  }
+
+  // After last stop, there is nothing to interpolate
+  const auto& stop = kGradient.back();
+  return {stop.red, stop.green, stop.blue};
 }
 
 }  // namespace interface

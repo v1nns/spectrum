@@ -6,9 +6,13 @@
 #ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_VISUALIZER_H_
 
+#include <array>
 #include <chrono>
+#include <cstdint>
 #include <string_view>
+#include <vector>
 
+#include "ftxui/dom/canvas.hpp"
 #include "model/bar_animation.h"
 #include "view/element/flash_message.h"
 #include "view/element/tab.h"
@@ -26,6 +30,30 @@ class SpectrumVisualizer : public TabItem {
   static constexpr int kGaugeSpacing = 1;       //!< Spacing between gauges
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
+
+  //! Color stop from gradient used to draw spectrum (position goes from 0.0 to 1.0)
+  struct ColorStop {
+    float position;
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+  };
+
+  //! Gradient from the lowest to the highest part of spectrum
+  static constexpr std::array<ColorStop, 4> kGradient{{
+      {0.0F, 95, 135, 215},
+      {0.3F, 115, 155, 215},
+      {0.6F, 155, 188, 235},
+      {0.8F, 185, 208, 252},
+  }};
+
+  //! Possible styles for animations drawing spectrum as a line
+  enum class LineStyle : uint8_t {
+    Plain,         //!< Single line (average from both channels)
+    Mirror,        //!< Left channel above the middle and right channel below it
+    Filled,        //!< Single line (average from both channels) with area below it filled
+    FilledMirror,  //!< Same as Mirror, but with area between middle and each line filled
+  };
 
  public:
   /**
@@ -91,6 +119,34 @@ class SpectrumVisualizer : public TabItem {
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer, bool space = true);
   void DrawAnimationVerticalMirror(ftxui::Element& visualizer, bool space = true);
   void DrawAnimationMono(ftxui::Element& visualizer, bool space = true);
+  void DrawAnimationLine(ftxui::Element& visualizer, LineStyle style);
+
+  //! Helpers to draw spectrum as a line on canvas (for each LineStyle)
+  //! Vertical run of dots in a canvas column
+  struct VerticalRun {
+    int x;     //!< Column
+    int from;  //!< First row
+    int to;    //!< Last row (may be lower than first row)
+  };
+
+  //! Reference used to color dots based on their distance to it
+  struct Baseline {
+    int y;      //!< Row where gradient starts
+    int range;  //!< Distance from baseline where gradient ends
+  };
+
+  static void DrawRun(ftxui::Canvas& canvas, const VerticalRun& run, const Baseline& baseline);
+  static void DrawLine(ftxui::Canvas& canvas, const std::vector<double>& data);
+  static void DrawMirroredLines(ftxui::Canvas& canvas, const std::vector<double>& left,
+                                const std::vector<double>& right);
+  static void DrawFilledArea(ftxui::Canvas& canvas, const std::vector<double>& data);
+  static void DrawMirroredFilledAreas(ftxui::Canvas& canvas, const std::vector<double>& left,
+                                      const std::vector<double>& right);
+  static void FillBlocks(ftxui::Canvas& canvas, const VerticalRun& run, const Baseline& baseline);
+
+  //! Get color from spectrum gradient
+  //! @param position Position in gradient, from 0.0 (lowest) to 1.0 (highest)
+  static ftxui::Color GetGradientColor(double position);
 
   /* ******************************************************************************************** */
   //! Variables

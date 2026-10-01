@@ -1,20 +1,25 @@
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <future>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <utility>
 
 #include "audio/lyric/lyric_finder.h"
+#include "ftxui/component/event.hpp"
 #include "ftxui/dom/node.hpp"
 #include "general/block.h"
 #include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/lyric_finder_mock.h"
+#include "model/bar_animation.h"
 #include "model/song.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/song_lyric.h"
@@ -24,6 +29,7 @@ namespace {
 
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::AnyNumber;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
@@ -174,6 +180,243 @@ TEST_F(MainContentTest, AnimationHorizontalMirror) {
 │              ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▅▅              │
 │        ▂▂ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▂▂        │
 │  ▄▄ ▇▇ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▇▇ ▄▄  │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationMonoUsesAverageFromChannels) {
+  // Left channel is silent, while right channel is at maximum height
+  constexpr int kBarsPerChannel = 30;
+  std::vector<double> values(kBarsPerChannel, 0.0);
+  values.insert(values.end(), kBarsPerChannel, 1.0);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  constexpr int kPresses = model::BarAnimation::Mono - model::BarAnimation::HorizontalMirror;
+  for (int i = 0; i < kPresses; i++) {
+    block->OnEvent(ftxui::Event::Character('a'));
+  }
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // Bars must be drawn with half of their maximum height (average from both channels)
+  int rows_with_bars = 0;
+  std::istringstream lines{rendered};
+  for (std::string line; std::getline(lines, line);) {
+    if (line.find("█") != std::string::npos) {
+      rows_with_bars++;
+    }
+  }
+
+  // Block has 13 rows for content, so half of them must contain bars (allowing one row of rounding)
+  constexpr double kHalfContentRows = 13 / 2.0;
+  constexpr double kTolerance = 1.0;
+  EXPECT_NEAR(rows_with_bars, kHalfContentRows, kTolerance) << rendered;
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationSpectrumLine) {
+  // Single line, using the average from both channels
+  // Left channel: rising then falling values, right channel: the same values in reverse order
+  std::vector<double> left{0.1, 0.2, 0.4, 0.7, 0.9, 0.7, 0.4, 0.2, 0.1, 0.1,
+                           0.2, 0.3, 0.5, 0.6, 0.5, 0.3, 0.2, 0.1, 0.1, 0.1};
+  std::vector<double> values(left);
+  values.insert(values.end(), left.rbegin(), left.rend());
+
+  // Ignore any event sent while changing animation
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Change animation until reaching the expected one
+  constexpr int kPresses =
+      model::BarAnimation::SpectrumLine - model::BarAnimation::HorizontalMirror;
+  for (int i = 0; i < kPresses; i++) {
+    block->OnEvent(ftxui::Event::Character('a'));
+  }
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  const std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+│                                                                                         Line│
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                  ⣠⠞⠉⠉⠉⠉⠙⠲⢤⣀                                     ⢀⣠⠴⠚⠉⠉⠉⠉⠙⢦⡀                 │
+│               ⣀⡴⠋⠁        ⠈⠙⠲⣄                               ⢀⡴⠚⠉         ⠉⠳⣄⡀              │
+│             ⣠⠞⠁              ⠈⠙⢦⣀                         ⢀⣠⠞⠉               ⠙⢦⡀            │
+│           ⢀⡼⠁                   ⠈⠳⣄⡀                    ⣀⡴⠋                    ⠹⣄           │
+│         ⣠⠴⠋                        ⠙⢦⣀               ⢀⣠⠞⠁                       ⠈⠳⢤⡀        │
+│     ⣀⡤⠖⠋⠁                            ⠈⠓⠲⠤⢤⣀⣀⣀⣀⣀⣀⣀⣠⠤⠴⠒⠋                             ⠉⠓⠦⣄⡀    │
+│⠤⠖⠒⠋⠉⠁                                                                                  ⠉⠉⠓⠒⠦│
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationSpectrumLineMirror) {
+  // Left channel above the middle and right channel below it
+  // Left channel: rising then falling values, right channel: the same values in reverse order
+  std::vector<double> left{0.1, 0.2, 0.4, 0.7, 0.9, 0.7, 0.4, 0.2, 0.1, 0.1,
+                           0.2, 0.3, 0.5, 0.6, 0.5, 0.3, 0.2, 0.1, 0.1, 0.1};
+  std::vector<double> values(left);
+  values.insert(values.end(), left.rbegin(), left.rend());
+
+  // Ignore any event sent while changing animation
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Change animation until reaching the expected one
+  constexpr int kPresses =
+      model::BarAnimation::SpectrumLineMirror - model::BarAnimation::HorizontalMirror;
+  for (int i = 0; i < kPresses; i++) {
+    block->OnEvent(ftxui::Event::Character('a'));
+  }
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  const std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+│                   ⣀⣀                                                           Line (mirror)│
+│               ⣀⡤⠖⠋⠁⠈⠙⠲⢤⣀                                                                    │
+│            ⢀⡤⠞⠁        ⠈⠳⢤⡀                                 ⢀⣀⣀⣀⣀                           │
+│          ⣠⠴⠋              ⠙⠦⣄                          ⢀⣠⠖⠚⠉⠉   ⠈⠉⠙⠒⠦⣄                      │
+│      ⢀⣠⠖⠋⠁                  ⠈⠙⠦⣄⡀                 ⢀⣀⡤⠴⠚⠉             ⠈⠙⠲⠤⣄⣀                 │
+│⣀⣀⡤⠤⠖⠚⠉                          ⠉⠓⠲⠤⢤⣀⣀⣀⣀⣀⣀⣀⣀⡤⠴⠒⠚⠉⠉                       ⠈⠉⠙⠒⠲⠤⢤⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀│
+│                                                                                             │
+│⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠦⠤⣄⣀⡀                          ⣀⣀⡤⠤⠖⠒⠒⠒⠒⠒⠒⠒⠲⠤⢤⣀⡀                           ⢀⣀⡤⠤⠖⠒│
+│                ⠉⠉⠓⠲⢤⣀               ⢀⡤⠖⠒⠋⠉⠁               ⠉⠓⠦⣄⡀                   ⢀⣠⠴⠚⠉     │
+│                     ⠈⠙⠲⢤⣀⣀     ⢀⣀⣠⠴⠚⠉                         ⠉⠳⣄⡀             ⢀⣠⠞⠉         │
+│                          ⠈⠉⠙⠒⠚⠉⠉                                 ⠙⠦⣄         ⣀⡴⠋            │
+│                                                                    ⠈⠙⠲⢤⣀ ⢀⡤⠖⠋⠁              │
+│                                                                        ⠈⠉⠉                  │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
+  // Same as single line, but with the area below it filled
+  // Left channel: rising then falling values, right channel: the same values in reverse order
+  std::vector<double> left{0.1, 0.2, 0.4, 0.7, 0.9, 0.7, 0.4, 0.2, 0.1, 0.1,
+                           0.2, 0.3, 0.5, 0.6, 0.5, 0.3, 0.2, 0.1, 0.1, 0.1};
+  std::vector<double> values(left);
+  values.insert(values.end(), left.rbegin(), left.rend());
+
+  // Ignore any event sent while changing animation
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Change animation until reaching the expected one
+  constexpr int kPresses =
+      model::BarAnimation::SpectrumLineFilled - model::BarAnimation::HorizontalMirror;
+  for (int i = 0; i < kPresses; i++) {
+    block->OnEvent(ftxui::Event::Character('a'));
+  }
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  const std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+│                                                                                Line (filled)│
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                  ▄██████▙▄▖                                     ▗▄▟██████▄                  │
+│               ▄▟████████████▙▖                               ▗▟████████████▙▄               │
+│             ▄██████████████████▄▖                         ▗▄██████████████████▄             │
+│           ▗▟█████████████████████▙▄                     ▄▟█████████████████████▙▖           │
+│         ▄▟██████████████████████████▄▖               ▗▄██████████████████████████▙▄         │
+│     ▄▄█████████████████████████████████▙▄▄▄▄▄▄▄▄▄▄▄▟█████████████████████████████████▄▄     │
+│▄███████████████████████████████████████████████████████████████████████████████████████████▄│
+│█████████████████████████████████████████████████████████████████████████████████████████████│
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeAnimationWrapsAround) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Go through all animations, until the last one
+  constexpr int kPresses = model::BarAnimation::LAST - model::BarAnimation::HorizontalMirror - 1;
+  for (int i = 0; i < kPresses; i++) {
+    block->OnEvent(ftxui::Event::Character('a'));
+  }
+
+  // After the last animation, it goes back to the first one
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(
+                  Field(&interface::CustomEvent::id,
+                        interface::CustomEvent::Identifier::ChangeBarAnimation),
+                  Field(&interface::CustomEvent::content,
+                        VariantWith<model::BarAnimation>(model::BarAnimation::HorizontalMirror)))));
+
+  block->OnEvent(ftxui::Event::Character('a'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationSpectrumLineFilledMirror) {
+  // Same as mirrored lines, but with the area between middle and each line filled
+  // Left channel: rising then falling values, right channel: the same values in reverse order
+  std::vector<double> left{0.1, 0.2, 0.4, 0.7, 0.9, 0.7, 0.4, 0.2, 0.1, 0.1,
+                           0.2, 0.3, 0.5, 0.6, 0.5, 0.3, 0.2, 0.1, 0.1, 0.1};
+  std::vector<double> values(left);
+  values.insert(values.end(), left.rbegin(), left.rend());
+
+  // Ignore any event sent while changing animation
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Change animation until reaching the expected one
+  constexpr int kPresses =
+      model::BarAnimation::SpectrumLineFilledMirror - model::BarAnimation::HorizontalMirror;
+  for (int i = 0; i < kPresses; i++) {
+    block->OnEvent(ftxui::Event::Character('a'));
+  }
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  const std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+│                   ▄▖                                                    Line (filled mirror)│
+│               ▄▄█████▙▄▖                                                                    │
+│            ▗▄███████████▙▄                                  ▗▄▄▄▖                           │
+│          ▄▟████████████████▄▖                          ▗▄███████████▄▖                      │
+│      ▗▄███████████████████████▄▄                  ▗▄▄▟█████████████████▙▄▄▖                 │
+│▄▄▄▄███████████████████████████████▙▄▄▄▄▄▄▄▄▄▄▄▟███████████████████████████████▙▄▄▄▄▄▄▄▄▄▄▄▄▄│
+│█████████████████████████████████████████████████████████████████████████████████████████████│
+│▀▀▀▀▀▀▀▀▀▀▀▀███████████████████████████████████▀▀▀▀▀▀▀▀▜███████████████████████████████████▀▀│
+│                ▀▀▀▜███████████████████▀▀▀▀                ▀▀████████████████████████▛▀▘     │
+│                     ▝▀▜███████████▛▀▘                         ▀▜█████████████████▀▘         │
+│                          ▝▀▀▀▀▀▘                                 ▀████████████▛▘            │
+│                                                                    ▝▀▜█████▀▀               │
+│                                                                        ▝▀▘                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

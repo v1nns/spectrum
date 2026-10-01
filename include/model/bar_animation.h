@@ -21,7 +21,11 @@ enum BarAnimation {
   HorizontalMirrorNoSpace = 11003,  //!< Both channels (L/R) are mirrored horizontally without space
   VerticalMirrorNoSpace = 11004,    //!< Both channels (L/R) are mirrored vertically without space
   MonoNoSpace = 11005,              //!< Average from the sum of both channels (L/R) without space
-  LAST = 11006,
+  SpectrumLine = 11006,             //!< Line connecting the average of both channels (L/R)
+  SpectrumLineMirror = 11007,       //!< Lines from both channels (L/R) mirrored vertically
+  SpectrumLineFilled = 11008,       //!< Same as SpectrumLine, but filling the area below the line
+  SpectrumLineFilledMirror = 11009,  //!< Same as SpectrumLineMirror, but filling the area of lines
+  LAST = 11010,
 };
 
 //! BarAnimation pretty print
@@ -45,6 +49,10 @@ inline bool IsAnimationSpaced(BarAnimation& animation) {
     case HorizontalMirrorNoSpace:
     case VerticalMirrorNoSpace:
     case MonoNoSpace:
+    case SpectrumLine:
+    case SpectrumLineMirror:
+    case SpectrumLineFilled:
+    case SpectrumLineFilledMirror:
       return false;
 
     case LAST:
@@ -52,6 +60,33 @@ inline bool IsAnimationSpaced(BarAnimation& animation) {
       return true;
   }
 };
+
+/**
+ * @brief Check if animation draws each channel (or their average) across the whole width, instead
+ * of splitting width between both channels. In this case, it needs twice the number of bars that
+ * fit on screen from audio analysis
+ * @param animation Bar animation
+ * @return true if animation uses the whole width for each channel, otherwise false
+ */
+inline bool IsAnimationFullWidthPerChannel(const BarAnimation& animation) {
+  switch (animation) {
+    case VerticalMirror:
+    case Mono:
+    case VerticalMirrorNoSpace:
+    case MonoNoSpace:
+    case SpectrumLine:
+    case SpectrumLineMirror:
+    case SpectrumLineFilled:
+    case SpectrumLineFilledMirror:
+      return true;
+
+    case HorizontalMirror:
+    case HorizontalMirrorNoSpace:
+    case LAST:
+    default:
+      return false;
+  }
+}
 
 }  // namespace model
 
