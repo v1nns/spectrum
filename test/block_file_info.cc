@@ -89,7 +89,7 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 │Sample rate           44.1 kHz│
 │Bit rate              256 kbps│
 │Bits per sample        32 bits│
-│Duration               123 sec│
+│Duration                 02:03│
 │                              │
 │                              │
 │                              │
@@ -176,6 +176,33 @@ TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
 
   // Short values are not changed
   EXPECT_THAT(rendered, HasSubstr("ARTY│"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, ShowLossySongWithLongDuration) {
+  // Use the whole block width (content + border)
+  screen = std::make_unique<ftxui::Screen>(38, 15);
+
+  // Lossy formats (e.g. MP3) do not have bit depth, so decoder reports it as zero
+  const model::Song audio{
+      .filepath = "/music/podcast.mp3",
+      .artist = "ARTY",
+      .title = "Long episode",
+      .num_channels = 2,
+      .sample_rate = 44100,
+      .bit_rate = 128000,
+      .bit_depth = 0,
+      .duration = 3723,
+  };
+
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│Bits per sample                    —│"));
+  EXPECT_THAT(rendered, HasSubstr("│Duration                    01:02:03│"));
 }
 
 }  // namespace

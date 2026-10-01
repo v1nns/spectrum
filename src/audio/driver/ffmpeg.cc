@@ -499,7 +499,12 @@ void FFmpeg::FillAudioInformation(model::Song& audio_info) {
 #endif
   audio_info.sample_rate = static_cast<uint32_t>(audio_stream->sample_rate);
   audio_info.bit_rate = static_cast<uint32_t>(audio_stream->bit_rate);
-  audio_info.bit_depth = static_cast<uint32_t>(sample_fmt_info[audio_stream->format].bits);
+  // Use bit depth from source (e.g. 16 or 24 bits for FLAC/WAV), not from the decoded sample format
+  // (which is 32 bits float for lossy codecs like MP3). For lossy codecs, it stays 0 (not
+  // applicable)
+  audio_info.bit_depth = static_cast<uint32_t>(audio_stream->bits_per_raw_sample > 0
+                                                   ? audio_stream->bits_per_raw_sample
+                                                   : audio_stream->bits_per_coded_sample);
   audio_info.duration = static_cast<uint32_t>(input_stream_->duration / AV_TIME_BASE);
 }
 

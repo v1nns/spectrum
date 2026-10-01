@@ -143,8 +143,22 @@ std::string to_string(const Song& arg) {
   std::string channels = is_empty ? "<Empty>" : std::to_string(arg.num_channels);
   std::string sample_rate = is_empty ? "<Empty>" : util::format_with_prefix(arg.sample_rate, "Hz");
   std::string bit_rate = is_empty ? "<Empty>" : util::format_with_prefix(arg.bit_rate, "bps");
-  std::string bit_depth = is_empty ? "<Empty>" : util::format_with_prefix(arg.bit_depth, "bits");
-  std::string duration = is_empty ? "<Empty>" : util::format_with_prefix(arg.duration, "sec");
+
+  // Bit depth is not applicable for lossy formats (e.g. MP3), as they are not stored as PCM samples
+  const std::string bit_depth = [&]() -> std::string {
+    if (is_empty) {
+      return "<Empty>";
+    }
+
+    if (arg.bit_depth == 0) {
+      return "—";
+    }
+
+    return util::format_with_prefix(arg.bit_depth, "bits");
+  }();
+
+  // Same format used by media player
+  const std::string duration = is_empty ? "<Empty>" : time_to_string(arg.duration);
 
   std::ostringstream ss;
 
