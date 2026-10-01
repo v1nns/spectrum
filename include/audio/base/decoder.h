@@ -37,8 +37,10 @@ class Decoder {
   /**
    * @brief Function invoked after resample is available.
    * (for better understanding: take a look at Audio Loop from Player, and also Playback class)
+   * Arguments: buffer to playback, buffer to audio analysis (same samples, but not affected by
+   * volume, may be null), number of samples per channel and current position
    */
-  using AudioCallback = std::function<bool(void*, int, int64_t&)>;
+  using AudioCallback = std::function<bool(void*, void*, int, int64_t&)>;
 
   /**
    * @brief Open song as input stream and check for codec compatibility for decoding

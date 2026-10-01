@@ -122,13 +122,15 @@ class Player : public AudioControl {
 
   /**
    * @brief Handle an audio command from internal queue
-   * @param buffer Audio buffer
+   * @param buffer Audio buffer (to playback)
+   * @param analysis Audio buffer to analysis (same samples, but not affected by volume)
    * @param size Buffer size
    * @param new_position Latest position in the song (in seconds)
    * @param last_position Last position to control when current position has changed
    * @return True if player should keep playing audio, False if not
    */
-  bool HandleCommand(void* buffer, int size, int64_t& new_position, int& last_position);
+  bool HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
+                     int& last_position);
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream

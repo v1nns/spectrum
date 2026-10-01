@@ -157,7 +157,8 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
 /* ********************************************************************************************** */
 
-bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& last_position) {
+bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
+                           int& last_position) {
   auto command = media_control_.Pop();
   auto media_notifier = notifier_.lock();
 
@@ -267,8 +268,10 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
     // Decoded audio contains 16-bit samples with interleaved channels, and size is the number of
-    // samples per channel
-    media_notifier->SendAudioRaw(static_cast<const int16_t*>(buffer), size * kNumberChannels);
+    // samples per channel. Analysis must use samples not affected by volume (if available), so
+    // spectrum visualizer keeps working even when audio is muted
+    const void* samples = analysis != nullptr ? analysis : buffer;
+    media_notifier->SendAudioRaw(static_cast<const int16_t*>(samples), size * kNumberChannels);
   }
 
   // TODO: check for errors?
@@ -336,10 +339,10 @@ void Player::AudioHandler() {
     int position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(period_size_ / 2,
-                              [this, &position](void* buffer, int size, int64_t& new_position) {
-                                return HandleCommand(buffer, size, new_position, position);
-                              });
+    result = decoder_->Decode(period_size_ / 2, [this, &position](void* buffer, void* analysis,
+                                                                  int size, int64_t& new_position) {
+      return HandleCommand(buffer, analysis, size, new_position, position);
+    });
 
     // Reached end of song, this may be originated from one of these situations:
     //  1. naturally;

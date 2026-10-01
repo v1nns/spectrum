@@ -67,8 +67,9 @@ class FFmpeg final : public audio::Decoder {
   //! These are ffmpeg-specific filters
   error::Code CreateFilterAbufferSrc();
   error::Code CreateFilterVolume();
-  error::Code CreateFilterAformat();
-  error::Code CreateFilterAbufferSink();
+  error::Code CreateFilterAformat(const char* name);
+  error::Code CreateFilterAsplit();
+  error::Code CreateFilterAbufferSink(const char* name);
   error::Code CreateFilterEqualizer(const std::string& name, const model::AudioFilter& filter);
 
   /**
@@ -188,9 +189,16 @@ class FFmpeg final : public audio::Decoder {
   static constexpr char kFilterAformat[] = "aformat";
   static constexpr char kFilterEqualizer[] = "equalizer";
   static constexpr char kFilterAbufferSink[] = "abuffersink";
+  static constexpr char kFilterAsplit[] = "asplit";
+
+  //! Names for filter instances that exist in both branches from filtergraph (playback/analysis)
+  static constexpr char kAformatPlayback[] = "aformat";
+  static constexpr char kAformatAnalysis[] = "aformat_analysis";
+  static constexpr char kSinkPlayback[] = "sink";
+  static constexpr char kSinkAnalysis[] = "sink_analysis";
 
   static constexpr int kDefaultFilterCount =
-      4;  //!< Number of filters without considering equalizer filters
+      3;  //!< Number of filters in the main chain without considering equalizer filters
   static constexpr int kResponseSize = 64;  //!< Response message size from AVFilter command
 
   /* ******************************************************************************************** */
@@ -205,7 +213,8 @@ class FFmpeg final : public audio::Decoder {
 
     Packet packet;         //!< Raw audio data read from input stream
     Frame frame_decoded;   //!< Frame received from decoder
-    Frame frame_filtered;  //!< Frame received from filtergraph
+    Frame frame_filtered;  //!< Frame received from filtergraph (to playback)
+    Frame frame_analysis;  //!< Frame received from filtergraph (to analysis, without volume)
 
     error::Code err_code;  //!< Error code for decoding and equalizing audio
     bool keep_playing;     //!< Control flag for playing audio
@@ -222,6 +231,7 @@ class FFmpeg final : public audio::Decoder {
     void ClearFrames() const {
       av_frame_unref(frame_decoded.get());
       av_frame_unref(frame_filtered.get());
+      av_frame_unref(frame_analysis.get());
     }
 
     /**
@@ -234,7 +244,9 @@ class FFmpeg final : public audio::Decoder {
      * @brief Check if internal structures are allocated correctly
      * @return true for correct allocation, false otherwise
      */
-    bool CheckAllocations() const { return packet && frame_decoded && frame_filtered; }
+    [[nodiscard]] bool CheckAllocations() const {
+      return packet && frame_decoded && frame_filtered && frame_analysis;
+    }
   };
 
   /**
@@ -267,9 +279,10 @@ class FFmpeg final : public audio::Decoder {
 
   model::Volume volume_ = model::Volume{1.f};  //!< Playback stream volume
 
-  FilterGraph filter_graph_;      //!< Directed graph of connected filters
-  FilterContext buffersrc_ctx_;   //!< Input buffer for audio frames in the filter chain
-  FilterContext buffersink_ctx_;  //!< Output buffer from filter chain
+  FilterGraph filter_graph_;         //!< Directed graph of connected filters
+  FilterContext buffersrc_ctx_;      //!< Input buffer for audio frames in the filter chain
+  FilterContext buffersink_ctx_;     //!< Output buffer from filter chain (to playback)
+  FilterContext analysis_sink_ctx_;  //!< Output buffer from filter chain (to audio analysis)
 
   using FilterName = std::string;
   std::map<FilterName, model::AudioFilter, std::less<>> audio_filters_;  //!< Equalization filters

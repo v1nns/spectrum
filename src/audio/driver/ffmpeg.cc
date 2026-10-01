@@ -206,15 +206,30 @@ error::Code FFmpeg::ConfigureFilters() {
     if (result != error::kSuccess) return result;
   }
 
-  // Create and configure aformat filter
-  result = CreateFilterAformat();
+  // Create and configure asplit filter, to split audio between playback and analysis
+  result = CreateFilterAsplit();
   if (result != error::kSuccess) return result;
 
-  // Create and configure abuffersink filter
-  result = CreateFilterAbufferSink();
-  if (result != error::kSuccess) return result;
+  // Create and configure aformat filter for both branches
+  for (const char* name : {kAformatPlayback, kAformatAnalysis}) {
+    result = CreateFilterAformat(name);
+    if (result != error::kSuccess) {
+      return result;
+    }
+  }
 
-  // Link all filters in a linear chain
+  // Create and configure abuffersink filter for both branches
+  for (const char* name : {kSinkPlayback, kSinkAnalysis}) {
+    result = CreateFilterAbufferSink(name);
+    if (result != error::kSuccess) {
+      return result;
+    }
+  }
+
+  buffersink_ctx_.reset(avfilter_graph_get_filter(filter_graph_.get(), kSinkPlayback));
+  analysis_sink_ctx_.reset(avfilter_graph_get_filter(filter_graph_.get(), kSinkAnalysis));
+
+  // Link all filters
   result = ConnectFilters();
 
   return result;
@@ -306,8 +321,8 @@ error::Code FFmpeg::CreateFilterVolume() {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::CreateFilterAformat() {
-  LOG("Create aformat filter");
+error::Code FFmpeg::CreateFilterAformat(const char* name) {
+  LOG("Create aformat filter with name=", name);
 
   // Find aformat filter
   const AVFilter* aformat = avfilter_get_by_name(kFilterAformat);
@@ -318,8 +333,7 @@ error::Code FFmpeg::CreateFilterAformat() {
   }
 
   // Create an instance of aformat filter, it ensures that the output is of the format we want
-  AVFilterContext* aformat_ctx =
-      avfilter_graph_alloc_filter(filter_graph_.get(), aformat, kFilterAformat);
+  AVFilterContext* aformat_ctx = avfilter_graph_alloc_filter(filter_graph_.get(), aformat, name);
 
   if (!aformat_ctx) {
     ERROR("Cannot allocate the aformat instance");
@@ -353,8 +367,39 @@ error::Code FFmpeg::CreateFilterAformat() {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::CreateFilterAbufferSink() {
-  LOG("Create abuffersink filter");
+error::Code FFmpeg::CreateFilterAsplit() {
+  LOG("Create asplit filter");
+
+  // Find asplit filter
+  const AVFilter* asplit = avfilter_get_by_name(kFilterAsplit);
+
+  if (!asplit) {
+    ERROR("Cannot find the asplit filter");
+    return error::kUnknownError;
+  }
+
+  // Create an instance of asplit filter, it duplicates audio for both playback and analysis
+  AVFilterContext* asplit_ctx =
+      avfilter_graph_alloc_filter(filter_graph_.get(), asplit, kFilterAsplit);
+
+  if (!asplit_ctx) {
+    ERROR("Cannot allocate the asplit instance");
+    return error::kUnknownError;
+  }
+
+  // Initialize filter with two outputs
+  if (const int result = avfilter_init_str(asplit_ctx, "outputs=2"); result < 0) {
+    ERROR("Cannot initialize the asplit filter, error=", av_err2str(result));
+    return error::kUnknownError;
+  }
+
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::CreateFilterAbufferSink(const char* name) {
+  LOG("Create abuffersink filter with name=", name);
 
   // Find abuffersink filter
   const AVFilter* abuffersink = avfilter_get_by_name(kFilterAbufferSink);
@@ -365,15 +410,15 @@ error::Code FFmpeg::CreateFilterAbufferSink() {
   }
 
   // Create an instance of abuffersink filter, it will be used to get filtered data out of the graph
-  buffersink_ctx_.reset(avfilter_graph_alloc_filter(filter_graph_.get(), abuffersink, "sink"));
+  AVFilterContext* sink_ctx = avfilter_graph_alloc_filter(filter_graph_.get(), abuffersink, name);
 
-  if (!buffersink_ctx_) {
+  if (!sink_ctx) {
     ERROR("Cannot allocate the abuffersink instance");
     return error::kUnknownError;
   }
 
   // This filter takes no options
-  if (int result = avfilter_init_str(buffersink_ctx_.get(), nullptr); result < 0) {
+  if (const int result = avfilter_init_str(sink_ctx, nullptr); result < 0) {
     ERROR("Cannot initialize the abuffersink instance, error=", av_err2str(result));
     return error::kUnknownError;
   }
@@ -423,40 +468,60 @@ error::Code FFmpeg::CreateFilterEqualizer(const std::string& name,
 /* ********************************************************************************************** */
 
 error::Code FFmpeg::ConnectFilters() {
-  LOG("Connect all filters in a linear chain");
+  LOG("Connect all filters");
 
   // Find existing instance of filters
   AVFilterContext* volume_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterVolume);
-  AVFilterContext* aformat_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterAformat);
+  AVFilterContext* asplit_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterAsplit);
+  AVFilterContext* aformat_playback =
+      avfilter_graph_get_filter(filter_graph_.get(), kAformatPlayback);
+  AVFilterContext* aformat_analysis =
+      avfilter_graph_get_filter(filter_graph_.get(), kAformatAnalysis);
 
-  // Filters will be linked considering the ordination in this vector
-  std::vector<AVFilterContext*> filters_to_link;
-  filters_to_link.reserve(kDefaultFilterCount + audio_filters_.size());
+  // Main chain: abuffer -> equalizer filters -> asplit
+  std::vector<AVFilterContext*> main_chain;
+  main_chain.reserve(kDefaultFilterCount + audio_filters_.size());
 
-  // Add both abuffer and volume filters
-  filters_to_link.insert(filters_to_link.end(), {buffersrc_ctx_.get(), volume_ctx});
+  main_chain.push_back(buffersrc_ctx_.get());
 
-  // Add equalizer filters
   for (const auto& [name, filter] : audio_filters_) {
-    filters_to_link.push_back(avfilter_graph_get_filter(filter_graph_.get(), name.c_str()));
+    main_chain.push_back(avfilter_graph_get_filter(filter_graph_.get(), name.c_str()));
   }
 
-  // Add aformat and abuffersink filters
-  filters_to_link.insert(filters_to_link.end(), {aformat_ctx, buffersink_ctx_.get()});
+  main_chain.push_back(asplit_ctx);
 
-  // Link all the filters, it will form a linear chain
-  int result = 0;
-  for (auto it = filters_to_link.begin(); it != filters_to_link.end() && result >= 0;) {
-    auto next = std::next(it);
+  // Link a sequence of filters, using the given output pad from the first filter
+  auto link_chain = [](const std::vector<AVFilterContext*>& chain, unsigned first_pad) {
+    int result = 0;
+    unsigned pad = first_pad;
 
-    if (next == filters_to_link.end()) break;
+    for (auto it = chain.begin(); std::next(it) != chain.end() && result >= 0; ++it, pad = 0) {
+      result = avfilter_link(*it, pad, *std::next(it), 0);
+    }
 
-    result = avfilter_link(*it, 0, *next, 0);
-    it = next;
+    return result;
+  };
+
+  // Split audio in two branches, as audio analysis must not be affected by volume (otherwise,
+  // muting audio would also clear spectrum visualizer):
+  //  - playback: asplit -> volume -> aformat -> abuffersink
+  //  - analysis: asplit -> aformat -> abuffersink
+  static constexpr unsigned kPlaybackPad = 0;
+  static constexpr unsigned kAnalysisPad = 1;
+
+  int result = link_chain(main_chain, 0);
+
+  if (result >= 0) {
+    result =
+        link_chain({asplit_ctx, volume_ctx, aformat_playback, buffersink_ctx_.get()}, kPlaybackPad);
+  }
+
+  if (result >= 0) {
+    result = link_chain({asplit_ctx, aformat_analysis, analysis_sink_ctx_.get()}, kAnalysisPad);
   }
 
   if (result < 0) {
-    ERROR("Cannot connect filters in the linear chain, error=", av_err2str(result));
+    ERROR("Cannot connect filters, error=", av_err2str(result));
     return error::kUnknownError;
   }
 
@@ -544,6 +609,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
       .packet{Packet(av_packet_alloc())},
       .frame_decoded{Frame(av_frame_alloc())},
       .frame_filtered{Frame(av_frame_alloc())},
+      .frame_analysis{Frame(av_frame_alloc())},
       .err_code = error::kSuccess,
       .keep_playing = true,
       .reset_filters = false,
@@ -613,6 +679,7 @@ void FFmpeg::ClearCache() {
   // Filters
   buffersrc_ctx_.reset();
   buffersink_ctx_.reset();
+  analysis_sink_ctx_.reset();
 
   // Custom data for audio filters
   audio_filters_.clear();
@@ -679,13 +746,15 @@ error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
-  // Get source and sink
+  // Get source and sinks
   AVFilterContext* source = buffersrc_ctx_.get();
   AVFilterContext* sink = buffersink_ctx_.get();
+  AVFilterContext* analysis_sink = analysis_sink_ctx_.get();
 
   // Get allocated pointer for frames (decoded and filtered)
   AVFrame* decoded = shared_context_.frame_decoded.get();
   AVFrame* filtered = shared_context_.frame_filtered.get();
+  AVFrame* analysis = shared_context_.frame_analysis.get();
 
   // Push the audio data from decoded frame into the filtergraph
   if (av_buffersrc_add_frame_flags(source, decoded, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
@@ -701,12 +770,19 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
   // Pull filtered audio from the filtergraph
   while ((result = av_buffersink_get_samples(sink, filtered, samples)) >= 0 &&
          shared_context_.KeepDecoding()) {
+    // Pull the same samples from analysis branch (they are not affected by volume)
+    void* analysis_data =
+        av_buffersink_get_samples(analysis_sink, analysis, filtered->nb_samples) >= 0
+            ? static_cast<void*>(analysis->data[0])
+            : nullptr;
+
     // Send filtered audio data to Player
-    shared_context_.keep_playing = callback(static_cast<void*>(filtered->data[0]),
+    shared_context_.keep_playing = callback(static_cast<void*>(filtered->data[0]), analysis_data,
                                             filtered->nb_samples, shared_context_.position);
 
-    // Clear frame from filtergraph
+    // Clear frames from filtergraph
     av_frame_unref(filtered);
+    av_frame_unref(analysis);
 
     // Check if EQ has updated or song position has changed
     if (shared_context_.reset_filters || shared_context_.position != old_position) {
