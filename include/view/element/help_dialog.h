@@ -6,28 +6,58 @@
 #ifndef INCLUDE_VIEW_ELEMENT_HELP_H_
 #define INCLUDE_VIEW_ELEMENT_HELP_H_
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 #include "view/base/dialog.h"
 
 namespace interface {
 
 /**
- * @brief Customized dialog box to show a helper
+ * @brief Customized dialog box to show all keybindings, split by sections and scrollable
  */
 class HelpDialog : public Dialog {
-  static constexpr int kMaxColumns = 90;  //!< Maximum columns for Element
-  static constexpr int kMaxLines = 30;    //!< Maximum lines for Element
+  static constexpr int kMaxColumns = 90;       //!< Width for Element
+  static constexpr float kHeightRatio = 0.8F;  //!< Height relative to terminal height
+  static constexpr int kMinLines = 12;         //!< Minimum lines for Element
+  static constexpr int kMaxLines = 40;         //!< Maximum lines for Element
+
+  static constexpr int kHeaderLines = 2;       //!< Lines used by title (and margin below it)
+  static constexpr int kFooterLines = 2;       //!< Lines used by scroll hint (and margin above it)
+  static constexpr int kKeysColumnWidth = 20;  //!< Width for column with keybindings
 
  public:
+  //! Sections from help, each one describing keybindings for a part of the interface
+  enum class Section : uint8_t {
+    General,         //!< Keybindings available everywhere
+    Lists,           //!< Navigation on lists (files and playlists)
+    Files,           //!< Sidebar with files
+    Playlists,       //!< Sidebar with playlists
+    PlaylistDialog,  //!< Dialog to create/modify a playlist
+    Visualizer,      //!< Spectrum visualizer
+    Equalizer,       //!< Audio equalizer
+    Lyrics,          //!< Song lyrics
+    Player,          //!< Media player
+    Questions,       //!< Dialog asking for confirmation
+  };
+
   /**
    * @brief Construct a new Help object
    * @param dispatcher Event dispatcher
    */
-  HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy Help object
    */
   ~HelpDialog() override = default;
+
+  /**
+   * @brief Show help, scrolled to the given section
+   * @param section Section to show first (e.g. related to the focused block)
+   */
+  void Show(Section section);
 
   /* ******************************************************************************************** */
   //! Custom implementation
@@ -53,61 +83,47 @@ class HelpDialog : public Dialog {
   bool OnMouseEventImpl(ftxui::Event event) override;
 
   /* ******************************************************************************************** */
-  //! Public API
- public:
-  /**
-   * @brief Set dialog state to visible
-   */
-  void ShowGeneralInfo();
-
-  /**
-   * @brief Set dialog state to visible
-   */
-  void ShowTabInfo();
-
-  /* ******************************************************************************************** */
-  //! UI utilities
+  //! Content
  private:
-  /**
-   * @brief Possible tab views to render on this block
-   */
-  enum class View {
-    General,  //!< Display general info (default)
-    Tab,      //!< Display tab info
-    LAST,
+  //! Single line from help content
+  struct Line {
+    //! Possible types of line
+    enum class Type : uint8_t { Title, Entry, Blank };
+
+    Type type = Type::Blank;  //!< Line type
+    std::string keys;         //!< Keybindings (only for entries)
+    std::string text;         //!< Section title or keybinding description
+    Section section;          //!< Section that contains this line
   };
 
   /**
-   * @brief Build UI component for title
-   * @param message Content to show as title
-   * @return User interface element
+   * @brief Create all lines from help content
+   * @return Help content
    */
-  ftxui::Element title(const std::string& message) const;
+  static std::vector<Line> CreateContent();
 
   /**
-   * @brief Build UI component for keybinding + command
-   * @param keybind Keybinding option
-   * @param description Command description
+   * @brief Render a single line from help content
+   * @param line Line to render
    * @return User interface element
    */
-  ftxui::Element command(const std::string& keybind, const std::string& description) const;
+  static ftxui::Element RenderLine(const Line& line);
 
   /**
-   * @brief Build UI component for general block information
-   * @return User interface element
+   * @brief Scroll content, keeping it within limits
+   * @param offset Number of lines to scroll (negative values scroll up)
    */
-  ftxui::Element BuildGeneralInfo() const;
+  void Scroll(int offset);
 
-  /**
-   * @brief Build UI component for tab information
-   * @return User interface element
-   */
-  ftxui::Element BuildTabInfo() const;
+  //! Get maximum value for first line visible
+  int GetMaxFirstLine() const;
 
   /* ******************************************************************************************** */
   //! Variables
 
-  View active_ = View::General;  //!< Current view displayed on dialog
+  std::vector<Line> lines_ = CreateContent();  //!< Help content
+  int first_line_ = 0;                         //!< First line visible
+  mutable int visible_lines_ = 1;              //!< Lines visible (updated when rendered)
 };
 
 }  // namespace interface

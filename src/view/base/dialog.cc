@@ -1,6 +1,7 @@
 #include "view/base/dialog.h"
 
 #include "ftxui/dom/elements.hpp"
+#include "ftxui/screen/terminal.hpp"
 #include "view/base/keybinding.h"
 
 namespace interface {
@@ -14,11 +15,7 @@ Dialog::Dialog(const std::shared_ptr<EventDispatcher>& dispatcher, const Size& s
 
 /* ********************************************************************************************** */
 
-ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
-  using ftxui::EQUAL;
-  using ftxui::HEIGHT;
-  using ftxui::WIDTH;
-
+ftxui::Dimensions Dialog::CalculateSize(const ftxui::Dimensions& curr_size) const {
   // Calculate both width and height
   int width = curr_size.dimx * size_.width;
   int height = curr_size.dimy * size_.height;
@@ -30,6 +27,18 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
   // Check if it is not above the maximum value
   if (size_.max_column && width > size_.max_column) width = size_.max_column;
   if (size_.max_line && height > size_.max_line) height = size_.max_line;
+
+  return ftxui::Dimensions{.dimx = width, .dimy = height};
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
+
+  const auto [width, height] = CalculateSize(curr_size);
 
   // Create border decorator style
   auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, ftxui::Color::Grey85);

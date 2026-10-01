@@ -155,6 +155,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   bool OnGlobalModeEvent(const ftxui::Event& event);
 
   /**
+   * @brief Get help section related to what is focused (block and its active tab)
+   * @return Help section
+   */
+  HelpDialog::Section GetHelpSection() const;
+
+  /**
    * @brief Handle event when fullscreen mode is enabled
    * @param event Received event from screen
    * @return true if event was handled, otherwise false

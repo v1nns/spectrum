@@ -4,6 +4,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <sstream>
 
 #include "ftxui/dom/node.hpp"
 #include "ftxui/screen/screen.hpp"
@@ -16,6 +17,7 @@
 #include "model/question_data.h"
 #include "util/file_handler.h"
 #include "view/element/error_dialog.h"
+#include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
 #include "view/element/question_dialog.h"
 
@@ -1483,6 +1485,121 @@ TEST_F(QuestionDialogTest, AnswerWithKeybinding) {
   dialog->OnEvent(ftxui::Event::Character('y'));
 
   EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with HelpDialog class
+ */
+class HelpDialogTest : public ::DialogTest {
+ protected:
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+    dispatcher = std::make_shared<EventDispatcherMock>();
+    help_dialog = std::make_shared<interface::HelpDialog>(dispatcher);
+    dialog = help_dialog;
+  }
+
+  //! Render dialog and return its content (without ANSI commands and empty spaces)
+  std::string Render() {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
+  }
+
+  //! Get first line from help content (just after dialog title)
+  std::string GetFirstContentLine() {
+    std::istringstream lines{Render()};
+    std::string line;
+
+    // Skip lines until reaching dialog title
+    while (std::getline(lines, line) && line.find("Help") == std::string::npos) {
+    }
+
+    // Then skip empty lines (containing only dialog border)
+    auto is_empty = [](std::string text) {
+      const std::string border{"║"};
+      for (auto pos = text.find(border); pos != std::string::npos; pos = text.find(border)) {
+        text.erase(pos, border.size());
+      }
+
+      return text.find_first_not_of(' ') == std::string::npos;
+    };
+
+    while (std::getline(lines, line) && is_empty(line)) {
+    }
+
+    return line;
+  }
+
+  //!< Screen dimension
+  ftxui::Dimensions size = ftxui::Dimensions{.dimx = 100, .dimy = 20};
+
+  std::shared_ptr<interface::HelpDialog> help_dialog;  //!< Same as dialog, but without casting
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ShowSectionRelatedToFocus) {
+  help_dialog->Show(interface::HelpDialog::Section::Equalizer);
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Content starts from the given section
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("equalizer"));
+  EXPECT_THAT(Render(), HasSubstr("Cycle presets (picker closed)"));
+
+  // Opening it again from another context starts from the related section
+  dialog->OnEvent(ftxui::Event::Escape);
+  help_dialog->Show(interface::HelpDialog::Section::Player);
+
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("player"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ScrollContent) {
+  help_dialog->Show(interface::HelpDialog::Section::General);
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
+  EXPECT_THAT(Render(), HasSubstr("1-"));
+
+  // Scroll down a single line
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(Render(), HasSubstr("2-"));
+
+  // Scrolling up from the top keeps it at the top
+  dialog->OnEvent(ftxui::Event::Home);
+  dialog->OnEvent(ftxui::Event::ArrowUp);
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
+
+  // Go to the end, last section must be visible (and scrolling down does not go further)
+  dialog->OnEvent(ftxui::Event::End);
+  const std::string at_end = Render();
+  dialog->OnEvent(ftxui::Event::PageDown);
+
+  EXPECT_THAT(at_end, HasSubstr("confirmation dialog"));
+  EXPECT_THAT(Render(), StrEq(at_end));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ContainsAllKeybindings) {
+  help_dialog->Show(interface::HelpDialog::Section::General);
+
+  // Collect all content by scrolling page by page
+  constexpr int kMaxPages = 10;  //!< More than enough pages to reach the end of help content
+
+  std::string content;
+  for (int page = 0; page < kMaxPages; page++) {
+    content += Render();
+    dialog->OnEvent(ftxui::Event::PageDown);
+  }
+
+  // Some keybindings that were missing in the past
+  EXPECT_THAT(content, HasSubstr("Decrease/increase bar width"));
+  EXPECT_THAT(content, HasSubstr("Rename playlist"));
+  EXPECT_THAT(content, HasSubstr("Save playlist"));
+  EXPECT_THAT(content, HasSubstr("Go to previous/next page"));
 }
 
 }  // namespace

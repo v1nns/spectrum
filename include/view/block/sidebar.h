@@ -84,6 +84,12 @@ class Sidebar : public Block {
     LAST,
   };
 
+  /**
+   * @brief Get tab view being displayed
+   * @return Active view
+   */
+  View GetActiveView() const { return static_cast<View>(tab_elem_.active()); }
+
   /* ******************************************************************************************** */
   //! Private methods
  private:

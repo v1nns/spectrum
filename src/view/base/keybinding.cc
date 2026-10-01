@@ -51,7 +51,6 @@ Key Dialog::No = Key::Character('n');
 /* ------------------------------------------ General ------------------------------------------- */
 
 Key General::ExitApplication = Key::Character('q');
-Key General::ShowTabHelper = Key::Special("\x1B[23~");  //! F11
 Key General::ShowHelper = Key::Special("\x1B[24~");     //! F12
 
 Key General::FocusSidebar = Key::Character('!');      //! Shift + 1
