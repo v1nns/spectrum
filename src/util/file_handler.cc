@@ -7,7 +7,10 @@
 #include <algorithm>
 #include <exception>
 #include <fstream>
+#include <iomanip>
 #include <set>
+#include <string_view>
+#include <system_error>
 
 #include "nlohmann/json.hpp"
 #include "util/formatter.h"
@@ -39,6 +42,58 @@ static bool sort_files(const File& a, const File& b) {
   std::for_each(rhs.begin(), rhs.end(), to_lower);
 
   return lhs < rhs;
+}
+
+/**
+ * @brief Parse a single song from playlists file and append it to the given playlist
+ * @param song JSON object with song data (throws nlohmann::json::exception if a field is invalid)
+ * @param filepaths Files already added to playlist (to avoid including the same file twice)
+ * @param playlist Playlist to append song
+ */
+static void ParseSong(const nlohmann::json& song, std::set<std::filesystem::path>& filepaths,
+                      model::Playlist& playlist) {
+  if (song.contains("path") && std::filesystem::exists(song["path"].get<std::string>())) {
+    // Insert only if filepath is not duplicated
+    if (auto [it, inserted] = filepaths.emplace(song["path"].get<std::string>()); inserted) {
+      // Song from filepath
+      playlist.songs.emplace_back(model::Song{
+          .filepath = song["path"].get<std::string>(),
+      });
+    }
+
+  } else if (song.contains("url") && util::IsYoutubeUrl(song["url"])) {
+    // Song from URL
+    playlist.songs.emplace_back(model::Song{
+        .artist = song.contains("artist") ? util::filter_ascii(song["artist"]) : "",
+        .title = song.contains("title") ? util::filter_ascii(song["title"]) : "",
+        .stream_info =
+            model::StreamInfo{
+                .base_url = song["url"],
+            },
+    });
+  }
+}
+
+/**
+ * @brief Copy file to "<filepath>.bak" (replacing any older backup), so its content is not lost
+ * when the original file is overwritten
+ * @param filepath Full path to file
+ */
+static void BackupFile(const std::string& filepath) {
+  static constexpr std::string_view kBackupSuffix = ".bak";
+
+  std::string backup = filepath + std::string(kBackupSuffix);
+  std::error_code error;
+
+  std::filesystem::copy_file(filepath, backup, std::filesystem::copy_options::overwrite_existing,
+                             error);
+
+  if (error) {
+    ERROR("Cannot create backup file=", std::quoted(backup), ", error=", error.message());
+    return;
+  }
+
+  LOG("Created backup file=", std::quoted(backup));
 }
 
 }  // namespace internal
@@ -97,17 +152,36 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
   if (!std::filesystem::exists(file_path)) return false;
 
-  std::ifstream json(file_path);
-  nlohmann::json parsed = nlohmann::json::parse(json);
+  nlohmann::json parsed;
+
+  try {
+    std::ifstream json(file_path);
+    parsed = nlohmann::json::parse(json);
+  } catch (const nlohmann::json::exception& e) {
+    ERROR("Cannot parse playlists file=", std::quoted(file_path), ", error=", e.what());
+    internal::BackupFile(file_path);
+    return false;
+  }
 
   LOG("Found playlist file, start parsing it");
-  if (!parsed.contains("playlists")) return false;
+  if (!parsed.is_object() || !parsed.contains("playlists") || !parsed["playlists"].is_array()) {
+    ERROR("Playlists file does not contain a list of playlists, file=", std::quoted(file_path));
+    internal::BackupFile(file_path);
+    return false;
+  }
 
   model::Playlists tmp;
+  bool skipped = false;  // Invalid entries are lost on next save, so keep a backup of the file
 
-  // Parse all playlists
+  // Parse all playlists (skipping only the invalid ones, so a single bad entry does not discard
+  // all the others)
   for (auto& [_, playlist] : parsed["playlists"].items()) {
-    if (!playlist.contains("name") || !playlist.contains("songs")) continue;
+    if (!playlist.is_object() || !playlist.contains("name") || !playlist.contains("songs") ||
+        !playlist["name"].is_string() || !playlist["songs"].is_array()) {
+      ERROR("Skipping playlist with missing or invalid name/songs, playlist=", playlist.dump());
+      skipped = true;
+      continue;
+    }
 
     model::Playlist entry{.name = playlist["name"], .songs = {}};
 
@@ -116,31 +190,20 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
     // Parse all songs from a single playlist
     for (auto& [_, song] : playlist["songs"].items()) {
-      if (song.contains("path") && std::filesystem::exists(song["path"])) {
-        // Insert only if filepath is not duplicated
-        if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
-          // Song from filepath
-          entry.songs.emplace_back(model::Song{
-              .filepath = song["path"],
-          });
-        }
-
-      } else if (song.contains("url") && util::IsYoutubeUrl(song["url"])) {
-        // Song from URL
-        entry.songs.emplace_back(model::Song{
-            .artist = song.contains("artist") ? util::filter_ascii(song["artist"]) : "",
-            .title = song.contains("title") ? util::filter_ascii(song["title"]) : "",
-            .stream_info =
-                model::StreamInfo{
-                    .base_url = song["url"],
-                },
-        });
+      try {
+        internal::ParseSong(song, filepaths, entry);
+      } catch (const nlohmann::json::exception& e) {
+        ERROR("Skipping invalid song=", song.dump(), " from playlist=", std::quoted(entry.name),
+              ", error=", e.what());
+        skipped = true;
       }
     }
 
     // Append playlist
     tmp.push_back(entry);
   }
+
+  if (skipped) internal::BackupFile(file_path);
 
   LOG("Parsed ", tmp.size(), " playlists");
   playlists = std::move(tmp);

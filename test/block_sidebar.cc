@@ -261,6 +261,7 @@ TEST_F(SidebarTest, NavigateWithAlternativeHomeEnd) {
 TEST_F(SidebarTest, NavigateToMockDir) {
   block->OnEvent(ftxui::Event::End);
   block->OnEvent(ftxui::Event::ArrowUp);
+  block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
@@ -764,7 +765,6 @@ TEST_F(SidebarTest, RunTextAnimation) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
@@ -775,6 +775,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
+│  util_file_handler.cc              │
 │▶ this_is_a_really_long_pathname_to_│
 ╰────────────────────────────────────╯)";
 
@@ -793,7 +794,6 @@ TEST_F(SidebarTest, RunTextAnimation) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
@@ -804,6 +804,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
+│  util_file_handler.cc              │
 │▶ is_a_really_long_pathname_to_test.│
 ╰────────────────────────────────────╯)";
 
@@ -911,13 +912,13 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
+│  util_file_handler.cc              │
 │  some_music_0.mp3                  │
 │  some_music_1.mp3                  │
 │  some_music_2.mp3                  │
@@ -1013,7 +1014,7 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   auto derived = GetListDirectory();
 
   // Setup expectation to play last file
-  std::filesystem::path file{LISTDIR_PATH + std::string{"/util_argparser.cc"}};
+  std::filesystem::path file{LISTDIR_PATH + std::string{"/util_file_handler.cc"}};
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,
                                     interface::CustomEvent::Identifier::NotifyFileSelection),
@@ -1031,7 +1032,6 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  audio_player.cc                   │
 │  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
@@ -1042,7 +1042,8 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
-│▶ util_argparser.cc                 │
+│  util_argparser.cc                 │
+│▶ util_file_handler.cc              │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
