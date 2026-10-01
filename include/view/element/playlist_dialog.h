@@ -11,6 +11,7 @@
 #include <functional>
 #include <optional>
 #include <string_view>
+#include <utility>
 
 #include "ftxui/component/screen_interactive.hpp"
 #include "model/playlist_operation.h"
@@ -21,6 +22,8 @@
 #include "view/element/flash_message.h"
 #include "view/element/focus_controller.h"
 #include "view/element/menu.h"
+#include "view/element/text_input.h"
+#include "view/element/url_input.h"
 
 namespace interface {
 
@@ -32,6 +35,20 @@ class PlaylistDialog : public Dialog {
   static constexpr int kMinLines = 25;    //!< Minimum lines for Element
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
+
+  static constexpr int kSourcePane = 0;  //!< Focus index for pane with songs to add (files/URL)
+
+  static constexpr std::string_view kUnnamed = "<unnamed>";  //!< Title for playlist without name
+  static constexpr std::string_view kNamePlaceholder = "type a name";  //!< Placeholder for rename
+
+  //! Minimum columns for playlist title (rename hint is hidden when there is less space)
+  static constexpr int kMinTitleColumns = 10;
+
+  //! Source of songs to add into playlist (displayed as tabs on the left pane)
+  enum class Source {
+    Files,    //!< Songs from local files
+    Youtube,  //!< Songs streamed from YouTube URL
+  };
 
  public:
   /**
@@ -99,111 +116,79 @@ class PlaylistDialog : public Dialog {
    */
   void UpdateButtonState();
 
+  /**
+   * @brief Start editing playlist name
+   */
+  void StartRename();
+
+  /**
+   * @brief Handle event while playlist name is being edited
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnRenameEvent(const ftxui::Event& event);
+
+  /**
+   * @brief Stop editing playlist name
+   * @param keep_name Flag to keep typed name (if valid), otherwise restore previous name
+   */
+  void FinishRename(bool keep_name);
+
+  /**
+   * @brief Render playlist name (with hint for rename keybinding) to display on pane border
+   * @param max_columns Maximum columns available on pane border
+   * @return Element Playlist name or text input (while editing)
+   */
+  ftxui::Element RenderPlaylistTitle(int max_columns) const;
+
+  /**
+   * @brief Get message displayed next to save button
+   * @return Message (error, confirmation or reason why playlist cannot be saved yet) and its style
+   */
+  std::pair<std::string, ftxui::Decorator> GetSaveMessage() const;
+
+  /**
+   * @brief Show source of songs on the left pane and focus it
+   * @param source Source to show (files or YouTube URL)
+   */
+  void ShowSource(Source source);
+
+  /**
+   * @brief Add song streamed from the given URL to modified playlist
+   * @param url YouTube URL
+   * @return Error message if URL was rejected, otherwise std::nullopt
+   */
+  std::optional<std::string> AddUrl(const std::string& url);
+
   /* ******************************************************************************************** */
   //! Variables
 
   std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
 
   //!< Operation to execute + playlist to be modified
-  model::PlaylistOperation curr_operation_ = model::PlaylistOperation{
-      .action = model::PlaylistOperation::Operation::None, .playlist = model::Playlist{}};
+  model::PlaylistOperation curr_operation_ =
+      model::PlaylistOperation{.action = model::PlaylistOperation::Operation::None,
+                               .playlist = model::Playlist{},
+                               .other_names = {}};
 
   std::optional<model::Playlist> modified_playlist_;  //!< Playlist with latest modification
 
   FileMenu menu_files_;  //!< Menu containing all files from a given directory
 
-  // TODO:
-  // - encapsulate in a struct
-  // - create <C-Backspace> to delete word
-  // - do not use ftxui::Input (maybe, to avoid the cursor bug)
+  std::unique_ptr<UrlInput> url_input_;  //!< Text input to add songs from YouTube URL
 
-  // TODO: DOC
-  struct Input {
-    //!< Default text to show when name is empty
-    static constexpr std::string_view kDefaultName = "<unnamed>";
+  Source source_ = Source::Files;  //!< Source of songs currently shown on the left pane
+  WindowButton btn_files_;         //!< Tab button to show files on the left pane
+  WindowButton btn_youtube_;       //!< Tab button to show URL input on the left pane
 
-    std::string name;         //!< Playlist name to display on text/input
-    int cursor_position = 0;  //!< Cursor position in text input
-    bool edit_mode = false;   //!< Flag to control edit mode, when enabled, text input is displayed
-
-    ftxui::Element Render(int min) const {
-      // TODO: must show unnamed when is on edit mode and input name is empty
-      if (name.empty() && !edit_mode) {
-        return ftxui::text(std::string(kDefaultName));
-      }
-
-      auto decorator =
-          edit_mode ? ftxui::bgcolor(ftxui::Color::Grey11) : ftxui::color(ftxui::Color::Grey11);
-
-      auto size = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, std::min(min, (int)name.length()));
-
-      return ftxui::text(name) | decorator | size;
-    }
-
-    bool OnEvent(const ftxui::Event& event) {
-      using Keybind = keybinding::Navigation;
-
-      bool event_handled = false;
-
-      // Any alphabetic character
-      if (event.is_character()) {
-        name.insert(cursor_position, event.character());
-        cursor_position++;
-        event_handled = true;
-      }
-
-      // Backspace
-      if (event == Keybind::Backspace && !name.empty()) {
-        if (cursor_position > 0) {
-          name.erase(cursor_position - 1, 1);
-          cursor_position--;
-        }
-
-        event_handled = true;
-      }
-
-      // Delete
-      if (event == Keybind::Delete && !name.empty() && cursor_position < name.size()) {
-        name.erase(cursor_position, 1);
-        if (cursor_position > 0) cursor_position--;
-
-        event_handled = true;
-      }
-
-      // Arrow left
-      if (event == Keybind::ArrowLeft) {
-        if (cursor_position > 0) cursor_position--;
-        event_handled = true;
-      }
-
-      // Arrow right
-      if (event == Keybind::ArrowRight) {
-        if (auto size = (int)name.size(); cursor_position < size) cursor_position++;
-        event_handled = true;
-      }
-
-      // Exit from edit mode
-      if (edit_mode && (event == Keybind::Return || event == Keybind::Escape)) {
-        LOG("Exiting from edit mode");
-        edit_mode = false;
-        event_handled = true;
-      }
-
-      return event_handled;
-    }
-
-    bool IsEditing() const { return edit_mode; }
-    void EnableEdit() { edit_mode = true; }
-    void DisableEdit() { edit_mode = false; }
-
-    void Clear() {
-      name.clear();
-      cursor_position = 0;
-      edit_mode = false;
-    }
+  //! State for renaming playlist
+  struct Rename {
+    TextInput input;                   //!< Text input to type playlist name
+    bool editing = false;              //!< Flag to indicate if playlist name is being edited
+    std::optional<std::string> error;  //!< Reason why typed name was rejected
   };
 
-  Input input_playlist_;    // Text input to display playlistn name
+  Rename rename_;           //!< Rename playlist state
   SongMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_save_;  //!< Button to save (persist) playlist

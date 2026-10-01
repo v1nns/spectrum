@@ -7,12 +7,12 @@
 #include <algorithm>
 #include <exception>
 #include <fstream>
-#include <regex>
 #include <set>
 
 #include "nlohmann/json.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "util/url.h"
 
 namespace util {
 
@@ -39,12 +39,6 @@ static bool sort_files(const File& a, const File& b) {
   std::for_each(rhs.begin(), rhs.end(), to_lower);
 
   return lhs < rhs;
-}
-
-//! Basic URL validation pattern
-static bool IsYoutubeValid(const std::string& url) {
-  std::regex valid_url(R"(^(https?://)?(www\.)?(?:youtube\.com|youtu\.be)/.*$)");
-  return std::regex_match(url, valid_url);
 }
 
 }  // namespace internal
@@ -131,7 +125,7 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
           });
         }
 
-      } else if (song.contains("url") && internal::IsYoutubeValid(song["url"])) {
+      } else if (song.contains("url") && util::IsYoutubeUrl(song["url"])) {
         // Song from URL
         entry.songs.emplace_back(model::Song{
             .artist = song.contains("artist") ? util::filter_ascii(song["artist"]) : "",

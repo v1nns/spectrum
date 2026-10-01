@@ -8,6 +8,7 @@
 
 #include <deque>
 #include <string>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
@@ -29,8 +30,11 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Put together all possible styles for an entry in this component
   struct Style {
     ftxui::Decorator prefix;
+    ftxui::Decorator tag;
     MenuEntryOption entry;
   };
+
+  static constexpr std::string_view kStreamTag = "[yt]";  //!< Tag for songs from streaming
 
   //! Define a custom value for maximum number of columns used as icon
   static constexpr int GetMaxColumnsForIconImpl() { return -1; }
@@ -103,6 +107,9 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Getter for active entry (focused/selected)
   std::optional<model::Song> GetActiveEntryImpl() const;
 
+  //! Get text to display for the given entry
+  static std::string GetEntryText(const model::Song& entry);
+
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
 
@@ -119,6 +126,7 @@ class SongMenu : public BaseMenu<SongMenu> {
   //!< Style for each element inside this component
   Style style_ = Style{
       .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
+      .tag = ftxui::color(ftxui::Color::LightPink1) | ftxui::bold,
       .entry = Colored(ftxui::Color::Grey11),
   };
 

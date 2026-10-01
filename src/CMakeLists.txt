@@ -125,6 +125,8 @@ target_sources(
           view/element/question_dialog.cc
           view/element/tab.cc
           view/element/text_animation.cc
+          view/element/text_input.cc
+          view/element/url_input.cc
           view/element/menu.cc
           view/element/internal/file_menu.cc
           view/element/internal/playlist_menu.cc

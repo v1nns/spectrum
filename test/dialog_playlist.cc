@@ -86,7 +86,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
 ║      │test                          ││                              │      ║
 ║      │▶ ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -111,7 +111,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Add a song to save           ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -144,7 +144,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ Chill mix ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ Chill mix ───────────────────╮      ║
 ║      │test                          ││▶ chilling 1.mp3              │      ║
 ║      │▶ ..                          ││  chilling 2.mp3              │      ║
 ║      │  audio_lyric_finder.cc       ││  chilling 3.mp3              │      ║
@@ -214,7 +214,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
 ║      │test                          ││▶ block_file_info.cc          │      ║
 ║      │  ..                          ││  driver_fftw.cc              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -239,7 +239,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Name it to save (r)          ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -264,7 +264,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ─────────[r:rename]╮      ║
 ║      │test                          ││  block_file_info.cc          │      ║
 ║      │  ..                          ││▶ block_main_content.cc       │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -289,7 +289,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Name it to save (r)          ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -326,7 +326,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ summer hits ─────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ summer hits ───────[r:rename]╮      ║
 ║      │test                          ││  block_file_info.cc          │      ║
 ║      │  ..                          ││▶ block_main_content.cc       │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -396,7 +396,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ─────────[r:rename]╮      ║
 ║      │test                          ││▶ block_media_player.cc       │      ║
 ║      │  ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -421,7 +421,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Name it to save (r)          ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -459,7 +459,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ only the best ───────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ only the best ─────[r:rename]╮      ║
 ║      │test                          ││▶ block_media_player.cc       │      ║
 ║      │  ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -523,7 +523,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ Melodic House ─────[r:rename]╮      ║
 ║      │test                          ││▶ Crazy hit.mp3               │      ║
 ║      │▶ ..                          ││  Crazy frog.mp3              │      ║
 ║      │  audio_lyric_finder.cc       ││  Crazy love.mp3              │      ║
@@ -595,7 +595,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ Melodic House ─────[r:rename]╮      ║
 ║      │test                          ││▶ Crazy hit.mp3               │      ║
 ║      │▶ ..                          ││  Crazy frog.mp3              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -660,7 +660,7 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ Melodic House ─────[r:rename]╮      ║
 ║      │test                          ││  Crazy hit.mp3               │      ║
 ║      │  ..                          ││  Crazy frog.mp3              │      ║
 ║      │  audio_lyric_finder.cc       ││▶ Crazy love.mp3              │      ║
@@ -740,7 +740,7 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ Melodic House ───────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ Melodic House ─────[r:rename]╮      ║
 ║      │test                          ││  Crazy hit.mp3               │      ║
 ║      │  ..                          ││  Crazy frog.mp3              │      ║
 ║      │  audio_lyric_finder.cc       ││▶ Crazy love.mp3              │      ║
@@ -851,6 +851,336 @@ TEST_F(PlaylistDialogTest, ShowMessageAfterSave) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, AddYoutubeUrlAndSave) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Show URL input and add a YouTube URL
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
+║      │                              ││▶ [yt] youtu.be/dQw4w9WgXcQ   │      ║
+║      │ Paste a YouTube URL:         ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │ Return: add                  ││                              │      ║
+║      │ Escape: clear                ││                              │      ║
+║      │                              ││                              │      ║
+║      │ ✓ Added to playlist          ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │ Name it to save (r)          ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Set a name to playlist and save it
+  dialog->OnEvent(ftxui::Event::Tab);
+  utils::QueueCharacterEvents(*dialog, "rmix");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  // Setup expectation for event to save playlist in JSON file
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .WillOnce(Invoke([](const interface::CustomEvent event) {
+        auto content = event.GetContent<model::Playlist>();
+        EXPECT_THAT(content.name, "mix");
+        ASSERT_THAT(content.songs.size(), Eq(1));
+        ASSERT_TRUE(content.songs.front().stream_info.has_value());
+        EXPECT_THAT(content.songs.front().stream_info->base_url,
+                    StrEq("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+      }));
+
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RejectInvalidAndDuplicatedUrl) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Modify,
+      .playlist =
+          model::Playlist{
+              .index = 0,
+              .name = "Melodic House",
+              .songs =
+                  {
+                      model::Song{
+                          .stream_info =
+                              model::StreamInfo{.base_url = "https://youtu.be/dQw4w9WgXcQ"}},
+                  },
+          },
+  };
+
+  GetPlaylistDialog()->Open(operation);
+  dialog->OnEvent(ftxui::Event::F2);
+
+  // URL from another website
+  utils::QueueCharacterEvents(*dialog, "https://vimeo.com/123");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ Not a YouTube URL"));
+
+  // URL already in playlist
+  dialog->OnEvent(ftxui::Event::Escape);
+  utils::QueueCharacterEvents(*dialog, "https://youtu.be/dQw4w9WgXcQ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ Already in playlist"));
+
+  // Playlist was not modified, so it cannot be saved
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(0);
+
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, TypeKeybindingsIntoUrlInput) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+
+  GetPlaylistDialog()->Open(operation);
+  dialog->OnEvent(ftxui::Event::F2);
+
+  // Keys to close dialog, save playlist and navigate are typed as part of the URL
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(0);
+
+  utils::QueueCharacterEvents(*dialog, "qshjkl");
+  EXPECT_TRUE(dialog->IsVisible());
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("qshjkl"));
+
+  // First escape clears text, second one closes dialog
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_TRUE(dialog->IsVisible());
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), Not(HasSubstr("qshjkl")));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, SwitchBetweenFilesAndUrlInput) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Show URL input, then files again
+  dialog->OnEvent(ftxui::Event::F2);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("Paste a YouTube URL:"));
+
+  dialog->OnEvent(ftxui::Event::F1);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+  EXPECT_THAT(rendered, Not(HasSubstr("Paste a YouTube URL:")));
+  EXPECT_THAT(rendered, HasSubstr("audio_player.cc"));
+
+  // Files menu is focused again, so it is possible to add a file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+  utils::QueueCharacterEvents(*dialog, "jj ");
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ audio_player.cc"));
+
+  // Dialog always opens showing files
+  dialog->OnEvent(ftxui::Event::F2);
+  dialog->OnEvent(ftxui::Event::Escape);
+  GetPlaylistDialog()->Open(operation);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), Not(HasSubstr("Paste a YouTube URL:")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RenameStartsAtEndAndEscapeCancels) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Modify,
+      .playlist = model::Playlist{.index = 0,
+                                  .name = "Lofi",
+                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Focus playlist menu, type something and cancel it
+  dialog->OnEvent(ftxui::Event::Tab);
+  utils::QueueCharacterEvents(*dialog, "rX");
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("╭ LofiX "));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("[Escape:cancel]"));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_TRUE(dialog->IsVisible());
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("╭ Lofi ─"));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("[r:rename]"));
+
+  // Rename again, now appending text to the end of name
+  utils::QueueCharacterEvents(*dialog, "r beats");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .WillOnce(Invoke([](const interface::CustomEvent event) {
+        EXPECT_THAT(event.GetContent<model::Playlist>().name, StrEq("Lofi beats"));
+      }));
+
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RenameWithAccentedCharacters) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Modify,
+      .playlist = model::Playlist{.index = 0,
+                                  .name = "",
+                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('r'));
+
+  // Type multi-byte characters and erase some of them
+  for (const auto& character : {"M", "ú", "s", "i", "c", "a", "s"}) {
+    dialog->OnEvent(ftxui::Event::Character(character));
+  }
+
+  dialog->OnEvent(ftxui::Event::Backspace);
+  dialog->OnEvent(ftxui::Event::Backspace);
+
+  // Delete first character (cursor must stay at the beginning) and type it again
+  dialog->OnEvent(ftxui::Event::Home);
+  dialog->OnEvent(ftxui::Event::Delete);
+  dialog->OnEvent(ftxui::Event::Character("m"));
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("╭ músic ─"));
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .WillOnce(Invoke([](const interface::CustomEvent event) {
+        EXPECT_THAT(event.GetContent<model::Playlist>().name, StrEq("músic"));
+      }));
+
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RejectEmptyAndDuplicatedName) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Modify,
+      .playlist = model::Playlist{.index = 0,
+                                  .name = "Lofi",
+                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .other_names = {"Chill"},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Erase whole name and try to confirm it
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('r'));
+  for (int i = 0; i < 4; ++i) dialog->OnEvent(ftxui::Event::Backspace);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("type a name"));
+
+  utils::QueueCharacterEvents(*dialog, "   ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ Name can't be empty"));
+
+  // Name used by another playlist (spaces around it are ignored)
+  utils::QueueCharacterEvents(*dialog, "Chill ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ Name already used"));
+
+  // Still editing, so a valid name can be typed
+  utils::QueueCharacterEvents(*dialog, "out");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+  EXPECT_THAT(rendered, Not(HasSubstr("✗")));
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .WillOnce(Invoke([](const interface::CustomEvent event) {
+        EXPECT_THAT(event.GetContent<model::Playlist>().name, StrEq("Chill out"));
+      }));
+
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, ReloadFilesOnOpen) {
   // Create temporary directory with a single file
   auto dir = std::filesystem::temp_directory_path() / "spectrum_test_reload_on_open";
@@ -909,7 +1239,7 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
   std::string typed{"lr"};
   utils::QueueCharacterEvents(*dialog, typed);
 
-  dialog->OnEvent(ftxui::Event::ArrowLeftCtrl);
+  dialog->OnEvent(ftxui::Event::Home);
 
   // Add random preffix to playlist name
   typed = "not so ";
@@ -925,7 +1255,7 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ not so Lofi ─────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ not so Lofi ───────[r:rename]╮      ║
 ║      │test                          ││▶ Love song.mp3               │      ║
 ║      │▶ ..                          ││  Reggae wubba dubba.mp3      │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -995,7 +1325,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
 ║      │test                          ││                              │      ║
 ║      │  ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -1020,7 +1350,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Add a song to save           ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1054,7 +1384,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
 ║      │test                          ││▶ block_main_content.cc       │      ║
 ║      │  ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -1079,7 +1409,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Name it to save (r)          ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1127,7 +1457,7 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ onceuponatimetherewasa ──────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ onceuponatimetherewasanepicp ╮      ║
 ║      │test                          ││▶ block_media_player.cc       │      ║
 ║      │  ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -1184,7 +1514,7 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
 ║      │test                          ││                              │      ║
 ║      │▶ ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -1209,7 +1539,7 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Add a song to save           ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1235,7 +1565,7 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ <unnamed> ───────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
 ║      │test                          ││                              │      ║
 ║      │▶ ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -1260,7 +1590,7 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Add a song to save           ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1324,7 +1654,7 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
-║      ╭ files ───────────────────────╮╭ Chill piano ─────────────────╮      ║
+║      ╭ F1:files  F2:youtube ────────╮╭ Chill piano ───────[r:rename]╮      ║
 ║      │test                          ││                              │      ║
 ║      │▶ ..                          ││                              │      ║
 ║      │  audio_lyric_finder.cc       ││                              │      ║
@@ -1349,7 +1679,7 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Add a song to save           ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";

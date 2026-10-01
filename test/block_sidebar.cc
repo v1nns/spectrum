@@ -1876,6 +1876,7 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
   model::PlaylistOperation expected_operation{
       .action = model::PlaylistOperation::Operation::Create,
       .playlist = model::Playlist{},
+      .other_names = {"Chill mix", "Lofi"},
   };
 
   EXPECT_CALL(*dispatcher,
@@ -1891,6 +1892,7 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
   expected_operation = {
       .action = model::PlaylistOperation::Operation::Modify,
       .playlist = data[0],
+      .other_names = {"Lofi"},
   };
 
   // Setup expectation for playlist operation

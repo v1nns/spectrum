@@ -85,6 +85,14 @@ class FocusController final {
    */
   void SetInitialFocus(const Element& element);
 
+  /**
+   * @brief Replace an appended element by another one, keeping its position and focus state
+   *        (e.g. when a block switches the content displayed in the same place)
+   * @param current Element already appended to this controller
+   * @param replacement Element to take its place
+   */
+  void Replace(const Element& current, Element& replacement);
+
   /* ******************************************************************************************** */
   //! Internal implementation
  private:

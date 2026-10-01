@@ -220,6 +220,19 @@ void PlaylistViewer::OnFocus() {
 
 /* ********************************************************************************************** */
 
+std::vector<std::string> PlaylistViewer::GetPlaylistNames(std::optional<int> skip_index) const {
+  std::vector<std::string> names;
+
+  for (const auto& playlist : menu_->actual().GetEntries()) {
+    if (skip_index.has_value() && playlist.index == *skip_index) continue;
+    names.push_back(playlist.name);
+  }
+
+  return names;
+}
+
+/* ********************************************************************************************** */
+
 void PlaylistViewer::CreateButtons() {
   btn_create_ = Button::make_button(
       "create",
@@ -235,6 +248,7 @@ void PlaylistViewer::CreateButtons() {
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Create,
             .playlist = model::Playlist{},
+            .other_names = GetPlaylistNames(),
         };
 
         auto event = interface::CustomEvent::ShowPlaylistManager(operation);
@@ -260,6 +274,7 @@ void PlaylistViewer::CreateButtons() {
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Modify,
             .playlist = *entry,
+            .other_names = GetPlaylistNames(entry->index),
         };
 
         auto event = interface::CustomEvent::ShowPlaylistManager(operation);

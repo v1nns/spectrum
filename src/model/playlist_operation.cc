@@ -38,7 +38,8 @@ std::ostream& operator<<(std::ostream& out, const PlaylistOperation& p) {
 /* ********************************************************************************************** */
 
 bool operator==(const PlaylistOperation& lhs, const PlaylistOperation& rhs) {
-  return std::tie(lhs.action, lhs.playlist) == std::tie(rhs.action, rhs.playlist);
+  return std::tie(lhs.action, lhs.playlist, lhs.other_names) ==
+         std::tie(rhs.action, rhs.playlist, rhs.other_names);
 }
 
 /* ********************************************************************************************** */

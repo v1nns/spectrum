@@ -1,5 +1,7 @@
 #include "view/element/internal/song_menu.h"
 
+#include "util/url.h"
+
 namespace interface {
 namespace internal {
 
@@ -43,10 +45,15 @@ ftxui::Element SongMenu::RenderImpl() {
     // In case of entry text too long, animation thread will be running, so we gotta take the
     // text content from there
     auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                                : entry.GetTitle());
+                                                                : GetEntryText(entry));
+
+    // Tag songs played from streaming
+    auto tag = entry.stream_info.has_value() ? ftxui::text(std::string(kStreamTag) + " ")
+                                             : ftxui::emptyElement();
 
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,
+                               tag | style_.tag,
                                text | style | ftxui::xflex,
                            }) |
                            max_size | focus_management | ftxui::reflect(boxes[i]));
@@ -92,7 +99,18 @@ int SongMenu::GetSizeImpl() const {
 
 std::string SongMenu::GetActiveEntryAsTextImpl() const {
   auto active = GetActiveEntryImpl();
-  return active.has_value() ? active->GetTitle() : "";
+  return active.has_value() ? GetEntryText(*active) : "";
+}
+
+/* ********************************************************************************************** */
+
+std::string SongMenu::GetEntryText(const model::Song& entry) {
+  // While there is no title for streaming, show a shorter version of URL
+  if (entry.stream_info.has_value() && entry.title.empty()) {
+    return util::ShortenYoutubeUrl(entry.stream_info->base_url);
+  }
+
+  return entry.GetTitle();
 }
 
 /* ********************************************************************************************** */

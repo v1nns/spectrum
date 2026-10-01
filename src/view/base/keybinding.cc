@@ -113,6 +113,9 @@ Key Playlist::Delete = Key::Character('d');
 Key Playlist::Rename = Key::Character('r');
 Key Playlist::Save = Key::Character('s');
 
+Key Playlist::ShowFiles = Key::Special("\x1BOP");    //! F1
+Key Playlist::ShowYoutube = Key::Special("\x1BOQ");  //! F2
+
 /* ********************************************************************************************** */
 
 Key Normalize(const Key& event) {

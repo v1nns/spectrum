@@ -6,7 +6,10 @@
 #ifndef INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_PLAYLIST_MANAGER_H_
 #define INCLUDE_VIEW_BLOCK_SIDEBAR_CONTENT_PLAYLIST_MANAGER_H_
 
+#include <optional>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "util/file_handler.h"
 #include "view/element/button.h"
@@ -87,6 +90,13 @@ class PlaylistViewer : public TabItem {
    * @brief Initialize all UI buttons to manage playlists
    */
   void CreateButtons();
+
+  /**
+   * @brief Get names from all playlists
+   * @param skip_index Index of playlist to leave out (e.g. the one being modified)
+   * @return List of playlist names
+   */
+  std::vector<std::string> GetPlaylistNames(std::optional<int> skip_index = std::nullopt) const;
 
   /**
    * @brief Callback triggered by QuestionDialog on "yes" click

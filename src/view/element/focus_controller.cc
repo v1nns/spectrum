@@ -117,6 +117,24 @@ void FocusController::SetInitialFocus(const Element& element) {
 
 /* ********************************************************************************************** */
 
+void FocusController::Replace(const Element& current, Element& replacement) {
+  auto it = std::find(elements_.begin(), elements_.end(), &current);
+
+  if (it == elements_.end()) {
+    ERROR("Cannot replace element not appended to controller");
+    return;
+  }
+
+  // Move focus state to the new element
+  bool focused = current.IsFocused();
+  if (focused) (*it)->SetFocus(false);
+
+  *it = &replacement;
+  if (focused) replacement.SetFocus(true);
+}
+
+/* ********************************************************************************************** */
+
 void FocusController::UpdateFocus(int old_index, int new_index) {
   // If equal, do nothing
   if (old_index == new_index) return;
