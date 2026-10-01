@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 #define INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 
+#include <chrono>
 #include <ftxui/component/component_base.hpp>
 #include <functional>
 #include <optional>
@@ -17,6 +18,7 @@
 #include "view/base/dialog.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/button.h"
+#include "view/element/flash_message.h"
 #include "view/element/focus_controller.h"
 #include "view/element/menu.h"
 
@@ -28,6 +30,8 @@ namespace interface {
 class PlaylistDialog : public Dialog {
   static constexpr int kMinColumns = 45;  //!< Minimum columns for Element
   static constexpr int kMinLines = 25;    //!< Minimum lines for Element
+
+  static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
 
  public:
   /**
@@ -203,6 +207,8 @@ class PlaylistDialog : public Dialog {
   SongMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_save_;  //!< Button to save (persist) playlist
+
+  FlashMessage message_;  //!< Brief feedback shown below save button (e.g. after saving playlist)
 
   FocusController focus_ctl_;  //!< Controller to manage focus in registered elements
 };

@@ -5,6 +5,7 @@
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "ftxui/screen/string.hpp"
 #include "model/playlist_operation.h"
 
 namespace interface {
@@ -94,7 +95,15 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
             }
 
             return true;
-          })) {
+          })),
+
+      message_{[this] {
+                 // Message has expired, so UI must be refreshed to remove it from screen
+                 if (auto dispatcher = GetDispatcher(); dispatcher) {
+                   dispatcher->SendEvent(interface::CustomEvent::Refresh());
+                 }
+               },
+               kMessageDuration} {
   CreateButtons();
 
   // Append all inner elements to have focus controlled by wrapper
@@ -171,6 +180,12 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   int playlist_width = max_columns_per_menu * 0.7f;
   auto playlist_input = input_playlist_.Render(playlist_width);
 
+  // Message is drawn next to save button, and the same width is reserved on the other side to
+  // keep button centered
+  auto text = message_.GetText();
+  std::string message = text.has_value() ? " " + *text : "";
+  int message_width = ftxui::string_width(message);
+
   constexpr auto focus_decorator = [](bool is_focused) {
     return is_focused ? ftxui::color(ftxui::Color::LightSkyBlue1)
                       : ftxui::color(ftxui::Color::Grey11);
@@ -212,7 +227,13 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
                  ftxui::flex_grow,
 
              ftxui::filler(),
-             btn_save_->Render() | ftxui::center,
+             ftxui::hbox({
+                 ftxui::filler(),
+                 ftxui::text(std::string(message_width, ' ')),
+                 btn_save_->Render(),
+                 ftxui::text(message) | ftxui::bold | ftxui::vcenter,
+                 ftxui::filler(),
+             }),
              ftxui::filler(),
          }) |
          ftxui::flex_grow;
@@ -310,6 +331,7 @@ void PlaylistDialog::OnClose() {
   modified_playlist_.reset();
   input_playlist_.Clear();
   btn_save_->Disable();
+  message_.Hide();
 
   focus_ctl_.SetFocus(0);
 }
@@ -362,6 +384,9 @@ void PlaylistDialog::CreateButtons() {
           LOG("Sending modified playlist to be saved, playlist=", *modified_playlist_);
           auto event_save = interface::CustomEvent::SavePlaylistsToFile(*modified_playlist_);
           dispatcher->SendEvent(event_save);
+
+          // Let user know that playlist was saved
+          message_.Show("Saved ✓");
 
           // Update UI state
           curr_operation_.playlist = modified_playlist_;

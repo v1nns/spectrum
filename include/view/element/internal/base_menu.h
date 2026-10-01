@@ -480,10 +480,13 @@ class BaseMenu : public Element {
   bool IsSearchEnabled() const { return search_params_.has_value(); }
 
   //! Render placeholder for when search mode is enabled and no entry matches the text
-  [[nodiscard]] ftxui::Element RenderNoMatches() const {
+  [[nodiscard]] ftxui::Element RenderNoMatches() const { return RenderPlaceholder("No matches"); }
+
+  //! Render placeholder text (dimmed and aligned with entries) for when menu has nothing to show
+  [[nodiscard]] ftxui::Element RenderPlaceholder(const std::string& text) const {
     return ftxui::hbox({
                ftxui::text(std::string(kMaxIconColumns, ' ')),
-               ftxui::text("No matches"),
+               ftxui::text(text),
            }) |
            ftxui::dim;
   }

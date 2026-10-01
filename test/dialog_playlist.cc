@@ -351,7 +351,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Saved ✓                      ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -484,7 +484,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Saved ✓                      ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -620,7 +620,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Saved ✓                      ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -802,6 +802,51 @@ TEST_F(PlaylistDialogTest, CloseWithEscape) {
   // Otherwise, escape closes dialog
   dialog->OnEvent(ftxui::Event::Escape);
   EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ShowMessageAfterSave) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Melodic House",
+                                         .songs =
+                                             {
+                                                 model::Song{.filepath = "Crazy hit.mp3"},
+                                             },
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+
+  // Add random file to playlist
+  std::string typed{"jjj "};
+  utils::QueueCharacterEvents(*dialog, typed);
+
+  // Setup expectation for event to save playlist in JSON file
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)));
+
+  // Save playlist, dialog should stay open and show confirmation message
+  dialog->OnEvent(ftxui::Event::Character('s'));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("Saved ✓"));
+
+  // Close and open dialog again, message should not be displayed anymore
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_FALSE(dialog->IsVisible());
+
+  GetPlaylistDialog()->Open(operation);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), Not(HasSubstr("Saved ✓")));
 }
 
 /* ********************************************************************************************** */
@@ -1107,7 +1152,7 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │                              ║
+║                              │     Save     │ Saved ✓                      ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";

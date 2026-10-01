@@ -5,6 +5,7 @@
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "model/playlist.h"
+#include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 
@@ -59,6 +60,12 @@ ftxui::Element PlaylistMenu::RenderImpl() {
   // Let user know that search did not match anything
   if (IsSearchEnabled() && menu_entries.empty()) {
     menu_entries.push_back(RenderNoMatches());
+  }
+
+  // Let user know how to create the first playlist
+  if (!IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderPlaceholder(
+        "No playlists, press " + util::EventToString(keybinding::Playlist::Create) + " to create"));
   }
 
   ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |

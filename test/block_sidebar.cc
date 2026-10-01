@@ -1173,7 +1173,7 @@ TEST_F(SidebarTest, EmptyPlaylist) {
 
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│                                    │
+│  No playlists, press c to create   │
 │                                    │
 │                                    │
 │                                    │
@@ -2155,7 +2155,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│                                    │
+│  No playlists, press c to create   │
 │                                    │
 │                                    │
 │                                    │
@@ -2254,7 +2254,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│                                    │
+│  No playlists, press c to create   │
 │                                    │
 │                                    │
 │                                    │
