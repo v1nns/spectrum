@@ -32,6 +32,9 @@ class CURLWrapper : public web::UrlFetcher {
       "User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.17 (KHTML, like Gecko) "
       "Chrome/24.0.1312.70 Safari/537.17";
 
+  static constexpr long kConnectTimeout = 10;  //!< Maximum time to connect (in seconds)
+  static constexpr long kTimeout = 20;         //!< Maximum time for whole request (in seconds)
+
  public:
   /**
    * @brief Fetch content from the given URL
@@ -53,6 +56,9 @@ class CURLWrapper : public web::UrlFetcher {
    * @return Real size from received data
    */
   static size_t WriteCallback(const char *buffer, size_t size, size_t nmemb, void *data);
+
+  //! Called periodically by cURL during request, returning non-zero to abort it
+  static int ProgressCallback(void *data, curl_off_t, curl_off_t, curl_off_t, curl_off_t);
 
   //! Smart pointer to manage CURL resource
   using CURLGuard = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;

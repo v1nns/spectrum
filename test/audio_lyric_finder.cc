@@ -322,4 +322,19 @@ TEST_F(LyricFinderTest, ErrorOnFormattingLyrics) {
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, CancelSearchBeforeFetching) {
+  auto fetcher = GetFetcher();
+
+  // Owner already canceled this search (e.g. song changed), so nothing should be fetched
+  finder->SetCancelCheck([] { return true; });
+
+  EXPECT_CALL(*fetcher, Fetch(_, _)).Times(0);
+
+  auto result = finder->Search("Artist", "Title");
+
+  EXPECT_TRUE(result.lyrics.empty());
+}
+
 }  // namespace

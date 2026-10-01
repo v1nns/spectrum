@@ -57,12 +57,27 @@ LyricFinder::LyricFinder(std::unique_ptr<web::UrlFetcher>&& fetcher,
 
 /* ********************************************************************************************** */
 
+void LyricFinder::SetCancelCheck(const web::UrlFetcher::CancelCheck& check) {
+  cancel_check_ = check;
+
+  // Fetcher may not exist when this class is mocked
+  if (fetcher_) fetcher_->SetCancelCheck(check);
+}
+
+/* ********************************************************************************************** */
+
 SearchResult LyricFinder::Search(const std::string& artist, const std::string& title) {
   LOG("Started fetching song by artist=", artist, " title=", title);
   std::string buffer;
   bool fetched_any = false;
 
   for (const auto& engine : engines_) {
+    // Result is discarded by owner when search is canceled, so just stop it
+    if (cancel_check_ && cancel_check_()) {
+      LOG("Canceled search for song lyrics");
+      return SearchResult{.status = SearchResult::Status::FetchFailed};
+    }
+
     // Fetch content from search engine
     if (auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title), buffer);
         result != error::kSuccess) {

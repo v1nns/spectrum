@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <future>
+#include <mutex>
 #include <iomanip>
 #include <memory>
 #include <optional>
@@ -20,11 +20,21 @@ namespace interface {
 SongLyric::SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
                      const FocusCallback& on_focus, const keybinding::Key& keybinding)
-    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}) {}
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}),
+      fetcher_{&SongLyric::FetchLoop, this} {}
 
 /* ********************************************************************************************** */
 
-SongLyric::~SongLyric() { async_fetcher_.reset(); }
+SongLyric::~SongLyric() {
+  {
+    // Any search in progress is canceled as soon as exit flag is set
+    std::scoped_lock lock(mutex_);
+    exit_ = true;
+  }
+
+  notifier_.notify_one();
+  fetcher_.join();
+}
 
 /* ********************************************************************************************** */
 
@@ -36,18 +46,10 @@ ftxui::Element SongLyric::Render() {
     return ftxui::text("No song playing...") | style;
   }
 
+  ConsumeSearchResult();
+
   if (IsFetching()) {
     return ftxui::text("Fetching lyrics...") | style;
-  }
-
-  if (IsResultReady()) {
-    // It is not that great to have this inside Render(), but it is working fine...
-    // TODO: Must rethink this in the near "future"
-    // Use something like producer/consumer and remove std::future
-    lyric::SearchResult result = async_fetcher_->get();
-
-    status_ = result.status;
-    lyrics_ = std::move(result.lyrics);
   }
 
   if (lyrics_.empty()) {
@@ -104,7 +106,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     audio_info_ = model::Song{};
-    async_fetcher_.reset();
+    CancelFetching();
     lyrics_.clear();
     artist_.clear();
     title_.clear();
@@ -130,7 +132,7 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
 
 void SongLyric::StartFetching() {
   // Reset any result from last search
-  async_fetcher_.reset();
+  CancelFetching();
   lyrics_.clear();
   status_.reset();
   focused_ = 0;
@@ -140,12 +142,73 @@ void SongLyric::StartFetching() {
     return;
   }
 
-  LOG("Launch async task to fetch song lyrics");
+  LOG("Send request to fetch song lyrics");
 
-  // TODO: this is not good, must change to another permanent running thread
-  async_fetcher_ = std::make_unique<std::future<lyric::SearchResult>>(std::async(
-      std::launch::async,
-      [this, artist = artist_, title = title_] { return finder_->Search(artist, title); }));
+  {
+    std::scoped_lock lock(mutex_);
+    pending_ = Request{.id = ++request_id_, .artist = artist_, .title = title_};
+    fetching_ = true;
+  }
+
+  notifier_.notify_one();
+}
+
+/* ********************************************************************************************** */
+
+void SongLyric::CancelFetching() {
+  std::scoped_lock lock(mutex_);
+
+  // Changing request identifier cancels search in progress and discards its result
+  request_id_++;
+  pending_.reset();
+  result_.reset();
+  fetching_ = false;
+}
+
+/* ********************************************************************************************** */
+
+void SongLyric::ConsumeSearchResult() {
+  std::scoped_lock lock(mutex_);
+  if (!result_.has_value()) return;
+
+  status_ = result_->status;
+  lyrics_ = std::move(result_->lyrics);
+  result_.reset();
+  fetching_ = false;
+}
+
+/* ********************************************************************************************** */
+
+void SongLyric::FetchLoop() {
+  std::unique_lock lock(mutex_);
+
+  while (true) {
+    notifier_.wait(lock, [this] { return exit_ || pending_.has_value(); });
+    if (exit_) return;
+
+    Request request = std::move(*pending_);
+    pending_.reset();
+
+    // Search without holding the lock, so UI thread never waits for it
+    lock.unlock();
+
+    finder_->SetCancelCheck([this, id = request.id] { return exit_ || id != request_id_; });
+    lyric::SearchResult result = finder_->Search(request.artist, request.title);
+
+    lock.lock();
+
+    // Discard result from canceled request
+    if (exit_ || request.id != request_id_) continue;
+
+    result_ = std::move(result);
+
+    // Ask for a UI refresh, so search result is rendered right away
+    if (auto dispatcher = dispatcher_.lock(); dispatcher) {
+      lock.unlock();
+      dispatcher->SendEvent(CustomEvent::Refresh());
+      lock.lock();
+    }
+  }
 }
 
 /* ********************************************************************************************** */

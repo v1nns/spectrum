@@ -88,12 +88,21 @@ class LyricFinder {
    */
   virtual SearchResult Search(const std::string& artist, const std::string& title);
 
+  /**
+   * @brief Set function to check if search in progress must be canceled (checked before each
+   * search engine, and also while fetching content from it)
+   * @param check Function returning true to cancel search
+   */
+  void SetCancelCheck(const web::UrlFetcher::CancelCheck& check);
+
   /* ******************************************************************************************** */
   //! Variables
  private:
   Config engines_ = SearchConfig::Create();   //!< Search engine settings
   std::unique_ptr<web::UrlFetcher> fetcher_;  //!< URL fetcher
   std::unique_ptr<web::HtmlParser> parser_;   //!< HTML parser
+
+  web::UrlFetcher::CancelCheck cancel_check_;  //!< Check if search in progress must be canceled
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

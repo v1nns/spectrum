@@ -79,6 +79,11 @@ class MainContentTest : public ::BlockTest {
 
     // And finally, override lyric finder to use a mock
     song_lyric->finder_ = std::make_unique<LyricFinderMock>();
+
+    // Song lyrics are fetched in another thread, which asks for UI refresh when result is ready
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                             interface::CustomEvent::Identifier::Refresh)))
+        .Times(AnyNumber());
   }
 
   //! Getter for LyricFinder (necessary as inner variable is an unique_ptr)
@@ -1856,6 +1861,60 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeSongWhileFetchingLyrics) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  // Search for first song gets stuck (e.g. slow network) until it is released
+  std::promise<void> release;
+  std::shared_future<void> released = release.get_future().share();
+  std::atomic<bool> first_started = false;
+
+  EXPECT_CALL(*finder, Search("Artist A", "Song A"))
+      .WillOnce(Invoke([&](const std::string&, const std::string&) {
+        first_started = true;
+        released.wait();
+        return MakeSearchResult(model::SongLyric{"Lyrics from first song\n"});
+      }));
+
+  EXPECT_CALL(*finder, Search("Artist B", "Song B"))
+      .WillOnce(Return(MakeSearchResult(model::SongLyric{"Lyrics from second song\n"})));
+
+  Process(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = "/a.mp3", .artist = "Artist A", .title = "Song A"}));
+
+  for (int i = 0; i < 200 && !first_started; ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+
+  ASSERT_TRUE(first_started);
+
+  // Changing song must not wait for the search in progress
+  auto change = std::async(std::launch::async, [this] {
+    Process(interface::CustomEvent::ClearSongInfo());
+    Process(interface::CustomEvent::UpdateSongInfo(
+        model::Song{.filepath = "/b.mp3", .artist = "Artist B", .title = "Song B"}));
+  });
+
+  bool changed_without_waiting =
+      change.wait_for(std::chrono::seconds(1)) == std::future_status::ready;
+
+  // Always release first search, so this test never hangs
+  release.set_value();
+  change.wait();
+
+  EXPECT_TRUE(changed_without_waiting);
+
+  // Result from first search is discarded
+  std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Lyrics from second song"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Lyrics from first song")));
 }
 
 /* ********************************************************************************************** */
