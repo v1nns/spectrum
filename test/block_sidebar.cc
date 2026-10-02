@@ -3,8 +3,11 @@
 #include <gtest/gtest-test-part.h>
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <memory>
+#include <thread>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_base.hpp"
@@ -21,6 +24,8 @@
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
 #include "view/block/sidebar_content/playlist_viewer.h"
+#include "view/element/text_animation.h"
+#include "view/element/util.h"
 
 namespace {
 
@@ -2553,6 +2558,65 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+//! Tests for shortening current directory shown as title in files tab
+TEST(ShortenPathTest, PathThatFits) {
+  EXPECT_THAT(interface::shorten_path("/home/user/music", 16), StrEq("/home/user/music"));
+}
+
+TEST(ShortenPathTest, StartFromDirectorySeparator) {
+  EXPECT_THAT(interface::shorten_path("/home/user/collection/electronic/artists/aphex", 30),
+              StrEq(".../electronic/artists/aphex"));
+}
+
+TEST(ShortenPathTest, LastDirectoryLongerThanColumns) {
+  EXPECT_THAT(interface::shorten_path("/home/user/a_really_long_folder_name_for_an_album", 20),
+              StrEq("...name_for_an_album"));
+}
+
+TEST(ShortenPathTest, MultiByteAndFullWidthCharacters) {
+  // Each accented letter takes a single column (and must never be split)
+  EXPECT_THAT(interface::shorten_path("/home/Músicas clássicas", 12), StrEq("...clássicas"));
+
+  // Full-width characters take two columns each
+  EXPECT_THAT(interface::shorten_path("/home/音楽音楽音楽", 9), StrEq("...楽音楽"));
+}
+
+TEST(ShortenPathTest, NotEnoughColumns) {
+  EXPECT_THAT(interface::shorten_path("/home/user", 2), StrEq(".."));
+  EXPECT_THAT(interface::shorten_path("/home/user", 0), StrEq(""));
+}
+
+/* ********************************************************************************************** */
+
+//! Tests for text animation used by menus to show long entries
+TEST(TextAnimationTest, MoveWholeCharacterOnEachStep) {
+  std::atomic<int> updates = 0;
+
+  interface::TextAnimation animation;
+  animation.cb_update = [&updates] { updates++; };
+
+  // Wait until animation has moved text the given number of steps (or timeout)
+  auto wait_steps = [&updates](int steps) {
+    for (int i = 0; i < 100 && updates < steps; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  };
+
+  animation.Start("ção");
+  EXPECT_THAT(animation.GetText(), StrEq("ção "));
+
+  // Each step must move a whole character, even when it uses more than one byte
+  wait_steps(1);
+  EXPECT_THAT(animation.GetText(), StrEq("ão ç"));
+
+  wait_steps(2);
+  EXPECT_THAT(animation.GetText(), StrEq("o çã"));
+
+  animation.Stop();
 }
 
 }  // namespace

@@ -1477,17 +1477,18 @@ TEST_F(PlayerTest, PlaySongFilesFromPlaylist) {
       EXPECT_CALL(*playback, AudioCallback(_, _));
 
       EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
-                                 .state = model::Song::MediaState::Play, .position = 0}))
-          .WillOnce(Invoke([&, i] {
-            // Exit only after playing the last song
-            if (i == 2) syncer.NotifyStep(2);
-          }));
+                                 .state = model::Song::MediaState::Play, .position = 0}));
 
       // These are called by Player::ResetMediaControl()
       EXPECT_CALL(*decoder, ClearCache());
       EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                  .state = model::Song::MediaState::Finished}));
-      EXPECT_CALL(*notifier, ClearSongInformation(true));
+
+      // Exit only after the last song has finished (otherwise, exit could arrive before song
+      // finishes, and then it would not be notified as finished)
+      EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&, i] {
+        if (i == 2) syncer.NotifyStep(2);
+      }));
     }
 
     // Notify that expectations are set, and run audio loop
@@ -1555,17 +1556,18 @@ TEST_F(PlayerTest, PlayStreamingSongsFromPlaylist) {
       EXPECT_CALL(*playback, AudioCallback(_, _));
 
       EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
-                                 .state = model::Song::MediaState::Play, .position = 0}))
-          .WillOnce(Invoke([&, i] {
-            // Exit only after playing the last song
-            if (i == 2) syncer.NotifyStep(2);
-          }));
+                                 .state = model::Song::MediaState::Play, .position = 0}));
 
       // These are called by Player::ResetMediaControl()
       EXPECT_CALL(*decoder, ClearCache());
       EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                  .state = model::Song::MediaState::Finished}));
-      EXPECT_CALL(*notifier, ClearSongInformation(true));
+
+      // Exit only after the last song has finished (otherwise, exit could arrive before song
+      // finishes, and then it would not be notified as finished)
+      EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&, i] {
+        if (i == 2) syncer.NotifyStep(2);
+      }));
     }
 
     // Notify that expectations are set, and run audio loop

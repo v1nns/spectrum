@@ -498,4 +498,74 @@ TEST_F(ArgparserTest, ParseMultipleExpectedArgsWithEmptyType) {
   EXPECT_EQ("off", parsed_args["coverage"]->get_string());
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, ParseExpectedArgWithMissingValue) {
+  // Option expecting a value is the last argument
+  SetupCommandArguments({"--testing"});
+
+  Parser argparser = util::ArgumentParser::Configure(ExpectedArguments{
+      Argument{.name = "testing", .choices = {"-t", "--testing"}, .description = "Dummy testing"},
+  });
+
+  try {
+    argparser->Parse(argv.size(), argv.data());
+    FAIL() << "Expected parsing error";
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Missing value for argument"));
+  }
+
+  EXPECT_EQ(buffer.str(), "spectrum: missing value for option [--testing]\n");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, SetupExpectedArgumentWithInvalidChoice) {
+  for (const std::string choice : {"t", "-test", "--", "-", "---testing", "--te st", "-t-"}) {
+    try {
+      util::ArgumentParser::Configure(ExpectedArguments{
+          Argument{.name = "testing", .choices = {choice, ""}, .description = "Dummy testing"},
+      });
+      ADD_FAILURE() << "Expected parsing error for choice=" << choice;
+    } catch (util::parsing_error& err) {
+      EXPECT_EQ(err.what(),
+                std::string("Invalid choice for argument (expected \"-x\" or \"--word\")"));
+    }
+  }
+
+  // Valid choices (also with a single choice)
+  EXPECT_NO_THROW(util::ArgumentParser::Configure(ExpectedArguments{
+      Argument{.name = "a", .choices = {"-a", "--all-songs"}, .description = "Dummy"},
+      Argument{.name = "b", .choices = {"--b2", ""}, .description = "Dummy"},
+  }));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, SetupExpectedArgumentWithDuplicatedChoice) {
+  try {
+    util::ArgumentParser::Configure(ExpectedArguments{
+        Argument{.name = "testing", .choices = {"-t", "--testing"}, .description = "Dummy"},
+        Argument{.name = "timer", .choices = {"-t", "--timer"}, .description = "Dummy"},
+    });
+    FAIL() << "Expected parsing error";
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(),
+              std::string("Cannot configure duplicated choice for different arguments"));
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ArgparserTest, SetupExpectedArgumentWithoutChoices) {
+  try {
+    util::ArgumentParser::Configure(ExpectedArguments{
+        Argument{.name = "testing", .choices = {"", ""}, .description = "Dummy"},
+    });
+    FAIL() << "Expected parsing error";
+  } catch (util::parsing_error& err) {
+    EXPECT_EQ(err.what(), std::string("Cannot configure argument without choices"));
+  }
+}
+
 }  // namespace

@@ -16,6 +16,7 @@
 #include "model/playlist_operation.h"
 #include "model/question_data.h"
 #include "util/file_handler.h"
+#include "view/base/keybinding.h"
 #include "view/element/error_dialog.h"
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
@@ -1122,6 +1123,43 @@ TEST_F(PlaylistDialogTest, RenameWithAccentedCharacters) {
       }));
 
   dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RenameDeletingWords) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Modify,
+      .playlist = model::Playlist{.index = 0,
+                                  .name = "Músicas para codar",
+                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(ftxui::Event::Character('r'));
+
+  // Delete words using all supported keys (separators between words are deleted along with them)
+  dialog->OnEvent(interface::keybinding::Navigation::CtrlW);
+  dialog->OnEvent(interface::keybinding::Navigation::AltBackspace);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("Músicas "));
+  EXPECT_THAT(GetRenderedScreen(), Not(HasSubstr("para")));
+
+  dialog->OnEvent(interface::keybinding::Navigation::CtrlBackspace);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("type a name"));
+
+  // Cancel it, so name is restored
+  dialog->OnEvent(ftxui::Event::Escape);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("╭ Músicas para codar ─"));
 }
 
 /* ********************************************************************************************** */

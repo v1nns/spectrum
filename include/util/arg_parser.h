@@ -174,6 +174,12 @@ class ArgumentParser {
    */
   [[noreturn]] void PrintErrorAndThrow(const std::string& argument, const std::string& value) const;
 
+  /**
+   * @brief Print error about missing value for argument (option was the last one) and throw
+   * @param argument Argument that expects a value
+   */
+  [[noreturn]] void PrintMissingValueAndThrow(const std::string& argument) const;
+
   /* ******************************************************************************************** */
   //! Variables
 

@@ -38,7 +38,8 @@ class TextInput {
   //! Public API
 
   /**
-   * @brief Handles an editing event: characters, Backspace, Delete, ←/→, Home and End
+   * @brief Handles an editing event: characters, Backspace, Delete, ←/→, Home, End and delete
+   * previous word (Ctrl+Backspace, Ctrl+W or Alt+Backspace)
    * @param event Received event from screen
    * @return true if event was handled (characters are always handled, even if filtered out)
    */
@@ -78,6 +79,9 @@ class TextInput {
 
   //! Join glyphs back into text content
   void SetGlyphs(const std::vector<std::string>& glyphs);
+
+  //! Delete word before cursor (and any separators between it and the cursor), like a shell does
+  void DeletePreviousWord();
 
   /* ******************************************************************************************** */
   //! Variables

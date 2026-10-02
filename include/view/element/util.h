@@ -11,6 +11,8 @@
 #include <ftxui/screen/box.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/screen/string.hpp>
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -64,6 +66,51 @@ inline std::string ellipsize(const std::string& text, int max_columns) {
   }
 
   return result + std::string(kEllipsis);
+}
+
+/**
+ * @brief Shorten path to fit in the given number of columns, keeping its end (e.g.
+ * ".../artists/aphex"). When possible, it starts at a directory separator, so no directory name is
+ * cut; otherwise (last directory name is too long by itself), it keeps the end of that name.
+ * Width is measured in terminal columns, so it works with multi-byte and full-width characters
+ * @param path Path to fit
+ * @param max_columns Maximum number of columns available
+ * @return Path that fits in the given columns
+ */
+inline std::string shorten_path(const std::string& path, int max_columns) {
+  static constexpr std::string_view kEllipsis = "...";
+  static constexpr int kEllipsisWidth = 3;
+
+  if (ftxui::string_width(path) <= max_columns) {
+    return path;
+  }
+
+  const int available = max_columns - kEllipsisWidth;
+  if (available <= 0) {
+    return std::string(kEllipsis.substr(0, std::max(max_columns, 0)));
+  }
+
+  // Keep as many glyphs as possible from the end of path
+  const auto glyphs = ftxui::Utf8ToGlyphs(path);
+  auto begin = glyphs.end();
+
+  for (int used = 0; begin != glyphs.begin();) {
+    const int width = ftxui::string_width(*std::prev(begin));
+    if (used + width > available) break;
+
+    used += width;
+    --begin;
+  }
+
+  std::string tail;
+  for (auto it = begin; it != glyphs.end(); ++it) tail += *it;
+
+  // Prefer to start from a directory separator, so the first directory name is not cut
+  if (auto separator = tail.find('/'); separator != std::string::npos) {
+    tail = tail.substr(separator);
+  }
+
+  return std::string(kEllipsis) + tail;
 }
 
 /**

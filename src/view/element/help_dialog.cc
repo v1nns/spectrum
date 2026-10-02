@@ -119,6 +119,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
             "Show files/YouTube URL input"},
            {ToString(Navigation::Space), "Add/remove song"},
            {ToString(Navigation::Return), "Add YouTube URL (while typing it)"},
+           {"Ctrl+W/Alt+Backspace", "Delete previous word (while typing)"},
            {ToString(keybinding::Playlist::Rename), "Rename playlist"},
            {ToString(keybinding::Playlist::Save), "Save playlist"},
            {ToString(Navigation::Escape), "Cancel rename or close dialog"},

@@ -33,9 +33,11 @@ Key Navigation::PageDown = Key::Special({27, 91, 54, 126});  //! PageDown key
 Key Navigation::Backspace = Key::Special({127});         //! Backspace key
 Key Navigation::AltBackspace = Key::Special({27, 127});  //! Alt + Backspace
 
-// TODO: this is not working...
-// Key Navigation::CtrlBackspace = Key::Special("\x1b[127;5u");  //! Ctrl + Backspace
-// Key Navigation::CtrlBackspaceReverse = Key::Special("\027");  //! Ctrl + Backspace (alternative)
+// Most terminals send Ctrl + Backspace as ^H, but FTXUI always translates it into Backspace (as
+// some terminals send ^H for Backspace), so it cannot be distinguished. Only terminals sending it
+// as CSI u, or as ^W (Ctrl + W), are supported
+Key Navigation::CtrlBackspace = Key::Special("\x1b[127;5u");  //! Ctrl + Backspace (CSI u)
+Key Navigation::CtrlW = Key::Special({23});                      //! Ctrl + W
 
 Key Navigation::Delete = Key::Special("\x1B[3~");  //! Delete key
 

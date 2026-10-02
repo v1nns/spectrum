@@ -1,6 +1,7 @@
 #include "view/element/text_input.h"
 
 #include <algorithm>
+#include <cctype>
 #include <numeric>
 
 #include "ftxui/screen/string.hpp"
@@ -37,6 +38,12 @@ bool TextInput::OnEvent(const ftxui::Event& event) {
       cursor_--;
       SetGlyphs(glyphs);
     }
+    return true;
+  }
+
+  if (event == Keybind::CtrlBackspace || event == Keybind::CtrlW ||
+      event == Keybind::AltBackspace) {
+    DeletePreviousWord();
     return true;
   }
 
@@ -154,6 +161,26 @@ std::vector<std::string> TextInput::GetGlyphs() const {
 
 void TextInput::SetGlyphs(const std::vector<std::string>& glyphs) {
   text_ = std::accumulate(glyphs.begin(), glyphs.end(), std::string{});
+}
+
+/* ********************************************************************************************** */
+
+void TextInput::DeletePreviousWord() {
+  auto glyphs = GetGlyphs();
+
+  // Letters and digits (including multi-byte ones, like accented letters) are part of a word, while
+  // anything else is a separator (e.g. space, slash or dot)
+  auto is_word = [](const std::string& glyph) {
+    return glyph.size() > 1 || std::isalnum(static_cast<unsigned char>(glyph.front()));
+  };
+
+  int begin = cursor_;
+  while (begin > 0 && !is_word(glyphs[static_cast<size_t>(begin - 1)])) begin--;
+  while (begin > 0 && is_word(glyphs[static_cast<size_t>(begin - 1)])) begin--;
+
+  glyphs.erase(glyphs.begin() + begin, glyphs.begin() + cursor_);
+  cursor_ = begin;
+  SetGlyphs(glyphs);
 }
 
 }  // namespace interface

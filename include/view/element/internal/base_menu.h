@@ -143,10 +143,7 @@ class BaseMenu : public Element {
    * @brief Handles a double click event from mouse
    * @param event Received event from screen
    */
-  void HandleDoubleClick(ftxui::Event& event) override {
-    // TODO: update animated entry based also on mouse focus
-    UpdateFocusedEntry(event);
-  }
+  void HandleDoubleClick(ftxui::Event& event) override { UpdateFocusedEntry(event); }
 
   /**
    * @brief Handles a hover event from mouse
@@ -222,7 +219,7 @@ class BaseMenu : public Element {
       *selected = i;
 
       if (click) {
-        LOG_T("Handle double left click mouse event on entry=", i);
+        LOG_T("Handle left click mouse event on entry=", i);
         OnClick();
       }
 
@@ -452,7 +449,7 @@ class BaseMenu : public Element {
   bool IsAnimationRunning() const { return animation_.enabled; }
 
   //! Getter for text from animation effect
-  std::string GetTextFromAnimation() const { return animation_.text; }
+  std::string GetTextFromAnimation() const { return animation_.GetText(); }
 
   /* ******************************************************************************************** */
   //! Highlight entry
@@ -603,10 +600,12 @@ class BaseMenu : public Element {
     std::string text = GetActiveEntryAsText();
     int max_icon_columns = actual().GetMaxColumnsForIconImpl();
 
-    int count_chars = (int)text.length() + (max_icon_columns ? max_icon_columns : kMaxIconColumns);
+    // Use columns (instead of bytes), so names with multi-byte characters that fit are not animated
+    int icon_columns = max_icon_columns ? max_icon_columns : kMaxIconColumns;
+    int columns = ftxui::string_width(text) + icon_columns;
 
     // Start animation thread
-    if (count_chars > max_columns_) animation_.Start(text);
+    if (columns > max_columns_) animation_.Start(text);
   }
 
   /* ******************************************************************************************** */

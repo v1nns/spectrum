@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <regex>
 
 namespace util {
 
@@ -25,6 +26,10 @@ void ArgumentParser::Add(const ExpectedArguments& args) {
     return choice == "-h" || choice == "--help";
   };
 
+  // Valid choice is a single dash followed by a single character (e.g. "-l"), or a double dash
+  // followed by a word (e.g. "--log"), where word may contain letters, digits and dashes
+  static const std::regex kValidChoice(R"(^(-[A-Za-z0-9]|--[A-Za-z0-9][A-Za-z0-9-]*)$)");
+
   // Insert expected arguments into internal cache
   for (const auto& arg : args) {
     // Check if argument matches some fields from default help argument
@@ -33,10 +38,33 @@ void ArgumentParser::Add(const ExpectedArguments& args) {
       throw parsing_error("Cannot override default help text");
     }
 
-    // TODO: filter arg.choices to match a single char OR word
-
-    if (auto [dummy, inserted] = expected_arguments_.insert(arg); !inserted)
+    if (expected_arguments_.find(arg) != expected_arguments_.end())
       throw parsing_error("Cannot configure duplicated argument");
+
+    // Check choices (argument may have fewer choices than the maximum, leaving the others empty)
+    bool has_choice = false;
+
+    for (const auto& choice : arg.choices) {
+      if (choice.empty()) continue;
+
+      if (!std::regex_match(choice, kValidChoice)) {
+        throw parsing_error("Invalid choice for argument (expected \"-x\" or \"--word\")");
+      }
+
+      auto same_choice = [&choice](const Argument& other) {
+        return std::find(other.choices.begin(), other.choices.end(), choice) != other.choices.end();
+      };
+
+      if (std::any_of(expected_arguments_.begin(), expected_arguments_.end(), same_choice)) {
+        throw parsing_error("Cannot configure duplicated choice for different arguments");
+      }
+
+      has_choice = true;
+    }
+
+    if (!has_choice) throw parsing_error("Cannot configure argument without choices");
+
+    expected_arguments_.insert(arg);
   }
 }
 
@@ -68,6 +96,9 @@ ParsedArguments ArgumentParser::Parse(int count, char** values) const {
     if (found->is_empty) {
       opts[found->name] = true;
     } else {
+      // Value is missing (option is the last argument), print error and finish
+      if (index + 1 >= count) PrintMissingValueAndThrow(argument);
+
       // Parse value for argument
       std::string value = values[++index];
 
@@ -145,6 +176,14 @@ void ArgumentParser::PrintErrorAndThrow(const std::string& argument,
   std::cout << "spectrum: invalid value(" << value << ") for option [" << argument << "]\n";
 
   throw parsing_error("Received unexpected value for argument");
+}
+
+/* ********************************************************************************************** */
+
+void ArgumentParser::PrintMissingValueAndThrow(const std::string& argument) const {
+  std::cout << "spectrum: missing value for option [" << argument << "]\n";
+
+  throw parsing_error("Missing value for argument");
 }
 
 }  // namespace util

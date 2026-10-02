@@ -73,7 +73,7 @@ class FileInfo : public Block {
   using Entry = std::pair<std::string, std::string>;  //!< A pair of <Field,Value>
   std::vector<Entry> audio_info_;                     //!< Parsed audio information to render on UI
 
-  bool is_song_playing_ = false;  //!< Flag to control when a song is playing
+  bool has_song_info_ = false;  //!< Flag to indicate if displaying information from a song
 };
 
 }  // namespace interface

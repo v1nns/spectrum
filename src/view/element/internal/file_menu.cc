@@ -353,23 +353,10 @@ std::string FileMenu::GetTitle() const {
   return curr_dir_.filename().string();
 #endif
 
-  const std::string curr_dir = curr_dir_.string();
-  int max_columns = GetMaxColumns();
+  // Considering window border on both sides
+  static constexpr int kBorderColumns = 2;
 
-  // Everything fine, directory does not exceed maximum column length
-  if (curr_dir.size() <= max_columns) {
-    return curr_dir;
-  }
-
-  // Oh no, it does exceed, so we must truncate the exceeding text
-  int offset =
-      (int)curr_dir.size() - (max_columns - 5);  // Considering window border(2) + ellipsis(3)
-  const std::string& substr = curr_dir.substr(offset);
-  auto index = substr.find('/');
-
-  // TODO: implement logic for when the dirname exceeds the max_columns by itself
-
-  return index != std::string::npos ? std::string("..." + substr.substr(index)) : substr;
+  return shorten_path(curr_dir_.string(), GetMaxColumns() - kBorderColumns);
 }
 
 /* ********************************************************************************************** */

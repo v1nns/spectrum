@@ -30,9 +30,9 @@ ftxui::Element FileInfo::Render() {
   ftxui::Elements lines;
   lines.reserve(audio_info_.size());
 
-  // Choose a different color for when there is no current song
+  // Choose a different color for when there is no current song (paused song still has its info)
   ftxui::Color::Palette256 color =
-      is_song_playing_ ? ftxui::Color::LightSteelBlue1 : ftxui::Color::LightSteelBlue3;
+      has_song_info_ ? ftxui::Color::LightSteelBlue1 : ftxui::Color::LightSteelBlue3;
 
   for (const auto& [field, value] : audio_info_) {
     // Calculate maximum width for text value (keeping a gap between field and value)
@@ -42,7 +42,8 @@ ftxui::Element FileInfo::Render() {
     ftxui::Element item = ftxui::hbox({
         ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::SteelBlue1),
         ftxui::filler(),
-        // TODO: maybe use TextAnimation element for Field filename
+        // Long values are cut with an ellipsis (instead of animated), as the full filename is
+        // already animated in files list when selected
         ftxui::text(ellipsize(value, width)) | ftxui::align_right |
             ftxui::size(WIDTH, LESS_THAN, width) | ftxui::color(ftxui::Color(color)),
     });
@@ -82,7 +83,7 @@ bool FileInfo::OnCustomEvent(const CustomEvent& event) {
 
 void FileInfo::ParseAudioInfo(const model::Song& audio) {
   audio_info_.clear();
-  is_song_playing_ = !audio.IsEmpty();  // TODO: evaluate this
+  has_song_info_ = !audio.IsEmpty();
 
   // Use istringstream to split string into lines and parse it as <Field, Value>
   std::istringstream input{model::to_string(audio)};
