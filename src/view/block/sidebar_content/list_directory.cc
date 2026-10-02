@@ -85,7 +85,9 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     LOG("Received new song information from player");
 
     // Set current song
-    curr_playing_ = event.GetContent<model::Song>().filepath;
+    const auto& song = event.GetContent<model::Song>();
+    curr_playing_ = song.filepath;
+    play_next_file_ = !song.playlist.has_value();
 
     // Update highlighted entry in menu
     menu_->ResetSearch();
@@ -95,6 +97,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     curr_playing_.reset();
+    play_next_file_ = false;
     menu_->ResetHighlight();
   }
 
@@ -133,10 +136,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
 
 #ifndef SPECTRUM_DEBUG
   // Do not return true because other blocks may use it
-  if (curr_playing_ && event == CustomEvent::Identifier::UpdateSongState) {
-    // TODO: disable this attempt to play next song for the following situations:
-    // - with SPECTRUM_DEBUG=ON
-    // - when user stopped song (by stop button or S key)
+  if (curr_playing_ && play_next_file_ && event == CustomEvent::Identifier::UpdateSongState) {
     // P.S.: in the future, remove this code block and make ListDirectory always send a queue of
     // files to AudioPlayer
 

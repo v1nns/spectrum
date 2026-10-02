@@ -349,6 +349,9 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   //! Get event dispatcher
   std::shared_ptr<interface::EventDispatcher> GetDispatcher() const;
 
+  //! Get audio player
+  std::shared_ptr<audio::AudioControl> GetPlayer() const;
+
   /* ******************************************************************************************** */
   //! Variables
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Send events to UI blocks

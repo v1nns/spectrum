@@ -91,9 +91,10 @@ bool Sidebar::OnEvent(ftxui::Event event) {
 
 bool Sidebar::OnCustomEvent(const CustomEvent& event) {
   // Process these events for all tab items, so the one not active also highlights the song playing
-  // (or stops highlighting it)
+  // (or stops highlighting it), and files tab can play next file even when it is not active
   if (event == CustomEvent::Identifier::UpdateSongInfo ||
-      event == CustomEvent::Identifier::ClearSongInfo) {
+      event == CustomEvent::Identifier::ClearSongInfo ||
+      event == CustomEvent::Identifier::UpdateSongState) {
     for (const auto& [id, item] : tab_elem_.items()) item->OnCustomEvent(event);
     return false;
   }

@@ -127,6 +127,10 @@ class ListDirectory : public TabItem {
  private:
   std::optional<std::filesystem::path> curr_playing_ = std::nullopt;  //!< Current song playing
 
+  //! Flag to play next file when current song finishes (only for songs not played from playlist,
+  //! as player itself takes care of playing next song from playlist)
+  bool play_next_file_ = false;
+
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
 
   AudioCheckCallback contains_audio_cb_;  //!< Check if file contains audio before playing it

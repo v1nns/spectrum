@@ -197,7 +197,7 @@ void MediaController::AnalysisHandler() {
 /* ********************************************************************************************** */
 
 void MediaController::NotifyFileSelection(const std::filesystem::path& filepath) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->Play(filepath);
@@ -206,7 +206,7 @@ void MediaController::NotifyFileSelection(const std::filesystem::path& filepath)
 /* ********************************************************************************************** */
 
 void MediaController::Pause() {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->PauseOrResume();
@@ -219,7 +219,7 @@ void MediaController::Resume(bool run_animation) {
     // Do not toggle player right away, let thread run its animation first
     sync_data_.Push(Command::RunRegainAnimation);
   } else {
-    auto player = player_ctl_.lock();
+    auto player = GetPlayer();
     if (!player) return;
 
     player->PauseOrResume();
@@ -229,7 +229,7 @@ void MediaController::Resume(bool run_animation) {
 /* ********************************************************************************************** */
 
 void MediaController::Stop() {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->Stop();
@@ -238,7 +238,7 @@ void MediaController::Stop() {
 /* ********************************************************************************************** */
 
 void MediaController::SetVolume(model::Volume value) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->SetAudioVolume(value);
@@ -254,7 +254,7 @@ void MediaController::ResizeAnalysisOutput(int value) {
 /* ********************************************************************************************** */
 
 void MediaController::SeekForwardPosition(int value) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->SeekForwardPosition(value);
@@ -263,7 +263,7 @@ void MediaController::SeekForwardPosition(int value) {
 /* ********************************************************************************************** */
 
 void MediaController::SeekBackwardPosition(int value) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->SeekBackwardPosition(value);
@@ -272,7 +272,7 @@ void MediaController::SeekBackwardPosition(int value) {
 /* ********************************************************************************************** */
 
 void MediaController::ApplyAudioFilters(const model::EqualizerPreset& filters) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->ApplyAudioFilters(filters);
@@ -281,8 +281,7 @@ void MediaController::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
-  auto player = player_ctl_.lock();
-  // TODO: add error log for every time that was not possible to acquire a lock for player instance
+  auto player = GetPlayer();
   if (!player) return;
 
   player->Play(playlist);
@@ -291,7 +290,7 @@ void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifyErrorDialogClosed() {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->DequeueNextSong();
@@ -435,12 +434,22 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
 /* ********************************************************************************************** */
 
 std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() const {
+  // Do not throw if it fails: this happens while application is exiting (after interface is
+  // destroyed), so caller simply skips its notification
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) ERROR("Cannot lock event dispatcher");
-  // TODO: decide if should throw a exception here... sometimes this error can happen when
-  // application is exiting
 
   return dispatcher;
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<audio::AudioControl> MediaController::GetPlayer() const {
+  // Same as dispatcher, this happens while application is exiting, so caller skips its command
+  auto player = player_ctl_.lock();
+  if (!player) ERROR("Cannot lock audio player, command will be discarded");
+
+  return player;
 }
 
 }  // namespace middleware

@@ -33,12 +33,13 @@ target_sources(
           block_sidebar.cc
           dialog_playlist.cc
           driver_fftw.cc
+          driver_ytdlp.cc
           middleware_media_controller.cc
           util_argparser.cc
           util_file_handler.cc)
 
 target_link_libraries(test PRIVATE GTest::gtest GTest::gmock GTest::gtest_main
-                                   spectrum_lib)
+                                   spectrum_lib nlohmann_json::nlohmann_json)
 
 target_include_directories(test PRIVATE ${CMAKE_SOURCE_DIR}/include
                                         ${CMAKE_SOURCE_DIR}/test)

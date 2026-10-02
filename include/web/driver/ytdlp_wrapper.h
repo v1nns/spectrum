@@ -16,6 +16,12 @@
 #include "util/logger.h"
 #include "web/base/stream_fetcher.h"
 
+#ifdef ENABLE_TESTS
+namespace {
+class YtDlpWrapperTest;
+}
+#endif
+
 namespace driver {
 
 /**
@@ -62,8 +68,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 
     parsed = json.loads(json.dumps(ydl.sanitize_info(info)))
 
-    filtered = list(filter(lambda x: (x['resolution'] == 'audio only'), parsed["formats"]))
-    filtered.sort(key=lambda x: x["quality"], reverse=True)
+    filtered = list(filter(lambda x: (x.get('resolution') == 'audio only'), parsed["formats"]))
 
     if len(filtered):
       result = True
@@ -112,6 +117,15 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
    * @param song Song information
    */
   void FillStreamInfo(const nlohmann::json &entry, uint32_t duration, model::Song &song);
+
+  /**
+   * @brief Select best audio stream to play, preferring (in this order): direct HTTP streams
+   * (instead of HLS playlists), original language (instead of dubbed audio), audio without dynamic
+   * range compression, and then the highest quality and bitrate
+   * @param streams JSON list with all audio-only formats extracted by yt-dlp
+   * @return Pointer to selected entry from list (or nullptr, if none of them has an URL)
+   */
+  static const nlohmann::json *SelectStream(const nlohmann::json &streams);
 
   /**
    * @brief A utility struct for embedding Python interpreter in C++ application.
@@ -211,6 +225,13 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
   //! Variables
 
   PythonWrapper python_;  //!< Wrapper to run python code
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::YtDlpWrapperTest;
+#endif
 };
 
 }  // namespace driver

@@ -98,12 +98,12 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -156,12 +156,12 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -226,12 +226,12 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -276,12 +276,12 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -338,12 +338,12 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -408,12 +408,12 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -471,12 +471,12 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -535,12 +535,12 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -607,12 +607,12 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -672,12 +672,12 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -752,12 +752,12 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1267,12 +1267,12 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1337,12 +1337,12 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1396,12 +1396,12 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1469,12 +1469,12 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1526,12 +1526,12 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1577,12 +1577,12 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1666,12 +1666,12 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║      │  CMakeLists.txt              ││                              │      ║
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
+║      │  driver_ytdlp.cc             ││                              │      ║
 ║      │  general                     ││                              │      ║
 ║      │  middleware_media_controller.││                              │      ║
 ║      │  mock                        ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║

@@ -179,8 +179,8 @@ TEST_F(SidebarTest, InitialRender) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -212,8 +212,8 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -335,7 +335,7 @@ TEST_F(SidebarTest, EnterOnSearchMode) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
-│  general                           │
+│  driver_ytdlp.cc                   │
 │Search:                             │
 ╰────────────────────────────────────╯)";
 
@@ -368,9 +368,9 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  util_argparser.cc                 │
 │Search:e                            │
 ╰────────────────────────────────────╯)";
 
@@ -485,8 +485,8 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -524,8 +524,8 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -573,6 +573,52 @@ TEST_F(SidebarTest, ClearSongInfoOnAllTabs) {
   sidebar->OnCustomEvent(clear_song);
   EXPECT_FALSE(IsFileHighlighted());
   EXPECT_FALSE(IsPlaylistSongHighlighted());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, PlayNextFileWhileShowingPlaylists) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_lyric_finder.cc")};
+  std::filesystem::path next_file{LISTDIR_PATH + std::string("/audio_player.cc")};
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+
+  // File played from files tab, then user switches to playlist tab
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = file}));
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(false));
+  block->OnEvent(ftxui::Event::F2);
+
+  // When song finishes, files tab must still play the next file
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<std::filesystem::path>(next_file)))));
+
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongState(
+      model::Song::CurrentInformation{.state = model::Song::MediaState::Finished}));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, DoNotPlayNextFileAfterPlaylistSong) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_lyric_finder.cc")};
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+
+  // Song played from playlist (while showing files tab)
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = file, .playlist = "Chill mix"}));
+
+  // Player already takes care of playing next song from playlist
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::NotifyFileSelection)))
+      .Times(0);
+
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongState(
+      model::Song::CurrentInformation{.state = model::Song::MediaState::Finished}));
 }
 
 /* ********************************************************************************************** */
@@ -625,8 +671,8 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -801,8 +847,8 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -829,12 +875,12 @@ TEST_F(SidebarTest, RunTextAnimation) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
@@ -858,12 +904,12 @@ TEST_F(SidebarTest, RunTextAnimation) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
@@ -976,8 +1022,8 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
@@ -1029,8 +1075,8 @@ TEST_F(SidebarTest, PlayNextFileAfterFinished) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1096,13 +1142,13 @@ TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_file_info.cc                │
 │  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │

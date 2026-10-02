@@ -282,6 +282,28 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MediaControllerTest, DiscardCommandsWhenPlayerIsGone) {
+  auto notifier = GetPlayerNotifier();
+
+  // Simulate application exiting: audio player is destroyed before media controller
+  audio_ctl.reset();
+  ASSERT_EQ(GetAudioControl(), nullptr);
+
+  // Commands must be discarded (and logged), without crashing
+  notifier->NotifyFileSelection("/some/song.mp3");
+  notifier->Pause();
+  notifier->Resume(/*run_animation=*/false);
+  notifier->Stop();
+  notifier->SetVolume(model::Volume{0.5f});
+  notifier->SeekForwardPosition(1);
+  notifier->SeekBackwardPosition(1);
+  notifier->ApplyAudioFilters(model::AudioFilter::CreatePresets()["Custom"]);
+  notifier->NotifyPlaylistSelection(model::Playlist{.index = 0, .name = "Mix"});
+  notifier->NotifyErrorDialogClosed();
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
   int sample_size = 16;
 

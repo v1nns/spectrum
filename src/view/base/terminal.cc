@@ -450,7 +450,8 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
 
   auto media_ctl = notifier_.lock();
   if (!media_ctl) {
-    // TODO: improve handling here and also for each method call
+    // This happens while application is exiting, so there is no audio thread to handle it anymore
+    ERROR("Cannot lock media controller, event to audio thread will be discarded, event=", event);
     return !event_handled;
   }
 
