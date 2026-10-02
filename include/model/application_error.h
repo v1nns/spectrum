@@ -15,7 +15,6 @@
 namespace error {
 
 //! To make life easier in the first versions, error is simple an int
-// TODO: next step is to add a level (like critical or non-critical, warning, ...)
 using Code = int;
 
 //! Everything fine!
