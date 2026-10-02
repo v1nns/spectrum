@@ -136,9 +136,19 @@ ftxui::Element MediaPlayer::Render() {
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(5, ' '));
 
-  // In order to maintain media buttons centered on screen, it is necessary to append this dummy
-  // margin based on volume string length
-  auto dummy_margin = ftxui::text(std::string(vol_info.size(), ' '));
+  // Repeat and shuffle modes (dimmed when disabled), on the left side to keep media buttons
+  // centered on screen (same width as volume information)
+  auto mode = [](const std::string& text, bool enabled) {
+    return ftxui::text(text) | (enabled ? ftxui::color(ftxui::Color::White) : ftxui::dim);
+  };
+
+  ftxui::Element modes = ftxui::vbox({
+                             ftxui::filler(),
+                             mode(std::string{"Shuffle: "} + (shuffle_ ? "on" : "off"), shuffle_),
+                             mode("Repeat: " + std::string{model::GetRepeatModeName(repeat_)},
+                                  repeat_ != model::RepeatMode::Off),
+                         }) |
+                         ftxui::size(ftxui::WIDTH, ftxui::EQUAL, static_cast<int>(vol_info.size()));
 
   // Warning (if any) uses the empty line between media buttons and song duration
   ftxui::Element warning = ftxui::text("");
@@ -150,7 +160,7 @@ ftxui::Element MediaPlayer::Render() {
   ftxui::Element content = ftxui::vbox({
       ftxui::hbox({
           margin,
-          dummy_margin,
+          modes,
           ftxui::filler(),
           btn_previous_->Render(),
           btn_play_->Render(),
@@ -207,12 +217,8 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-CustomEvent MediaPlayer::CreateSkipEvent(bool next) const {
-  if (song_.playlist.has_value()) {
-    return next ? CustomEvent::SkipToNextPlaylistSong() : CustomEvent::SkipToPreviousPlaylistSong();
-  }
-
-  return next ? CustomEvent::SkipToNextSong() : CustomEvent::SkipToPreviousSong();
+CustomEvent MediaPlayer::CreateSkipEvent(bool next) {
+  return next ? CustomEvent::SkipToNextPlaylistSong() : CustomEvent::SkipToPreviousPlaylistSong();
 }
 
 /* ********************************************************************************************** */
@@ -306,7 +312,7 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
+bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
   // Play a song or pause/resume current song
   if (event == keybinding::MediaPlayer::PlayOrPause) {
     LOG("Handle key to play/pause song");
@@ -336,6 +342,24 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     auto event_stop = interface::CustomEvent::StopSong();
     dispatcher->SendEvent(event_stop);
 
+    return true;
+  }
+
+  if (event == keybinding::MediaPlayer::ToggleRepeat) {
+    repeat_ = model::GetNextRepeatMode(repeat_);
+    LOG("Handle key to change repeat mode to ", repeat_);
+
+    auto dispatcher = GetDispatcher();
+    dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+    return true;
+  }
+
+  if (event == keybinding::MediaPlayer::ToggleShuffle) {
+    shuffle_ = !shuffle_;
+    LOG("Handle key to toggle shuffle to ", shuffle_ ? "on" : "off");
+
+    auto dispatcher = GetDispatcher();
+    dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
     return true;
   }
 

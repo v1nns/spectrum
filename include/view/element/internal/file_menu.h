@@ -59,6 +59,14 @@ class FileMenu : public BaseMenu<FileMenu> {
    */
   ~FileMenu() override = default;
 
+  /**
+   * @brief Check if file extension belongs to a known audio/media format (it does not open the
+   * file)
+   * @param file Filepath
+   * @return True if it is a media file, otherwise false
+   */
+  static bool HasMediaExtension(const util::File& file);
+
   /* ******************************************************************************************** */
   //! Mandatory API implementation
  private:

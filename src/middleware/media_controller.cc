@@ -316,6 +316,24 @@ void MediaController::SkipToPreviousSong() {
 
 /* ********************************************************************************************** */
 
+void MediaController::SetRepeatMode(model::RepeatMode mode) {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SetRepeatMode(mode);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SetShuffle(bool enabled) {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SetShuffle(enabled);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimation);
 

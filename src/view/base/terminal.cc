@@ -522,6 +522,14 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
       media_ctl->SkipToPreviousSong();
     } break;
 
+    case CustomEvent::Identifier::SetRepeatMode: {
+      media_ctl->SetRepeatMode(event.GetContent<model::RepeatMode>());
+    } break;
+
+    case CustomEvent::Identifier::SetShuffle: {
+      media_ctl->SetShuffle(event.GetContent<bool>());
+    } break;
+
     default:
       event_handled = false;
       break;

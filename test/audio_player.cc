@@ -3,9 +3,11 @@
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -2055,9 +2057,9 @@ TEST_F(PlayerTest, SkipToNextWhilePausedInPlaylist) {
 
 /* ********************************************************************************************** */
 
-TEST_F(PlayerTest, SkipIsIgnoredForSingleFile) {
+TEST_F(PlayerTest, SkipToNextIsIgnoredForSingleFile) {
   CheckSkipIsIgnored([](audio::AudioControl& player) { player.Play("single.mp3"); }, "single.mp3",
-                     {/*skip_to_next=*/true, /*skip_to_next=*/false});
+                     {/*skip_to_next=*/true});
 }
 
 /* ********************************************************************************************** */
@@ -2135,6 +2137,223 @@ TEST_F(PlayerTest, StopClearsPlaylist) {
   };
 
   testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, RepeatOneSongFromPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Repeated",
+      .songs =
+          {
+              model::Song{.filepath = "repeat 1.mp3"},
+              model::Song{.filepath = "repeat 2.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*GetPlayback(), Prepare()).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+
+    InSequence seq;
+
+    // First song finishes, so it is played again
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Skip to next song (user can still skip songs while repeating one)
+          EXPECT_FALSE(callback(0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath)))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          syncer.NotifyStep(4);
+          syncer.WaitForStep(5);
+
+          // Exit
+          EXPECT_FALSE(callback(0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->SetRepeatMode(model::RepeatMode::One);
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->SkipToNext();
+    syncer.NotifyStep(3);
+
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+    syncer.NotifyStep(5);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, RepeatAllSongsFromPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Looping",
+      .songs =
+          {
+              model::Song{.filepath = "loop 1.mp3"},
+              model::Song{.filepath = "loop 2.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*GetPlayback(), Prepare()).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+
+    InSequence seq;
+
+    // Both songs finish
+    for (int i = 0; i < 2; ++i) {
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[i].filepath)))
+          .WillOnce(Return(error::kSuccess));
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+            callback(0, 0, 0, position);
+            return error::kSuccess;
+          }));
+    }
+
+    // After last song, first one is played again
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Exit
+          EXPECT_FALSE(callback(0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->SetRepeatMode(model::RepeatMode::All);
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+    syncer.NotifyStep(3);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ShuffleSongsFromPlaylist) {
+  model::Playlist playlist = model::Playlist{.index = 0, .name = "Shuffled"};
+  for (int i = 0; i < 8; ++i) {
+    playlist.songs.push_back(model::Song{.filepath = "song " + std::to_string(i) + ".mp3"});
+  }
+
+  std::vector<std::filesystem::path> played;
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*GetPlayback(), Prepare()).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+
+    // Every song is played until its end
+    EXPECT_CALL(*decoder, Open(_))
+        .Times(static_cast<int>(playlist.songs.size()))
+        .WillRepeatedly(Invoke([&](model::Song& song) {
+          played.push_back(song.filepath);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillRepeatedly(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+          return error::kSuccess;
+        }));
+
+    // Exit only after the last song has finished
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillRepeatedly(Invoke([&] {
+      if (played.size() == playlist.songs.size()) syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->SetShuffle(true);
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+
+  // Selected song is played first, then every other song is played once (in any order)
+  ASSERT_EQ(played.size(), playlist.songs.size());
+  EXPECT_EQ(played.front(), playlist.songs.front().filepath);
+
+  std::vector<std::filesystem::path> expected;
+  for (const auto& song : playlist.songs) expected.push_back(song.filepath);
+
+  std::sort(played.begin(), played.end());
+  std::sort(expected.begin(), expected.end());
+  EXPECT_EQ(played, expected);
 }
 
 }  // namespace

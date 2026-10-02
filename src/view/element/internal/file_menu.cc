@@ -34,8 +34,11 @@ constexpr std::array kMediaExtensions{
     ".3gp"sv, ".avi"sv, ".flv"sv, ".m4v"sv, ".mkv"sv, ".mov"sv, ".mp4"sv, ".mpeg"sv, ".mpg"sv,
     ".ogv"sv, ".ts"sv, ".webm"sv, ".wmv"sv};
 
-//! Check if file extension belongs to a known audio/media format (it does not open the file)
-bool HasMediaExtension(const util::File& file) {
+}  // namespace
+
+/* ********************************************************************************************** */
+
+bool FileMenu::HasMediaExtension(const util::File& file) {
   std::string extension = file.extension().string();
   std::transform(extension.begin(), extension.end(), extension.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -44,7 +47,7 @@ bool HasMediaExtension(const util::File& file) {
          kMediaExtensions.end();
 }
 
-}  // namespace
+/* ********************************************************************************************** */
 
 FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::shared_ptr<util::FileHandler>& file_handler,

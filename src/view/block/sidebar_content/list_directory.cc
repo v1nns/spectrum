@@ -3,12 +3,14 @@
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <system_error>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "model/application_error.h"
+#include "model/playlist.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
@@ -87,7 +89,6 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     // Set current song
     const auto& song = event.GetContent<model::Song>();
     curr_playing_ = song.filepath;
-    play_next_file_ = !song.playlist.has_value();
 
     // Update highlighted entry in menu
     menu_->ResetSearch();
@@ -97,7 +98,6 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     curr_playing_.reset();
-    play_next_file_ = false;
     menu_->ResetHighlight();
   }
 
@@ -110,82 +110,31 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     return true;
   }
 
-  if (event == CustomEvent::Identifier::SkipToPreviousSong) {
-    LOG("Received request from media player to play previous song");
-
-    if (auto file = SelectFileToPlay(/*pick_next=*/false); !file.empty()) {
-      LOG("Skipping song, attempt to play previous file: ", file);
-      // Send user action to controller
-      SendFileSelection(file);
-    }
-
-    return true;
-  }
-
-  if (event == CustomEvent::Identifier::SkipToNextSong) {
-    LOG("Received request from media player to play next song");
-
-    if (auto file = SelectFileToPlay(/*pick_next=*/true); !file.empty()) {
-      LOG("Skipping song, attempt to play next file: ", file);
-      // Send user action to controller
-      SendFileSelection(file);
-    }
-
-    return true;
-  }
-
-#ifndef SPECTRUM_DEBUG
-  // Do not return true because other blocks may use it
-  if (curr_playing_ && play_next_file_ && event == CustomEvent::Identifier::UpdateSongState) {
-    // P.S.: in the future, remove this code block and make ListDirectory always send a queue of
-    // files to AudioPlayer
-
-    // In case that song has finished successfully, attempt to play next one
-    if (auto content = event.GetContent<model::Song::CurrentInformation>();
-        content.state == model::Song::MediaState::Finished) {
-      if (auto file = SelectFileToPlay(/*pick_next=*/true); !file.empty()) {
-        LOG("Song finished, attempt to play next file: ", file);
-        // Send user action to controller
-        SendFileSelection(file);
-      }
-    }
-  }
-#endif
-
   return false;
 }
 
 /* ********************************************************************************************** */
 
-util::File ListDirectory::SelectFileToPlay(bool is_next) {
-  // Get entries from menu element
-  const auto& entries = menu_->GetEntries();
-  int size = static_cast<int>(entries.size());
+model::Playlist ListDirectory::CreateQueue(const util::File& file) {
+  model::Playlist queue{.index = -1, .songs = {model::Song{.filepath = file}}};
 
-  if (size <= 2) return util::File{};
+  // Starting from the selected file, every other media file from the list is played once (and in
+  // case of error, player simply skips to the next one)
+  const auto entries = menu_->GetEntries();
+  auto selected = std::find(entries.begin(), entries.end(), file);
+  if (selected == entries.end()) return queue;
 
-  // Get index from current song playing
-  int index = static_cast<int>(
-      std::distance(entries.begin(), std::find(entries.begin(), entries.end(), *curr_playing_)));
-
-  int new_index = is_next ? (index + 1) % size : (index + size - 1) % size;
-  int attempts = size;
-  util::File file;
-
-  // Iterate circularly through all file entries
-  bool found = false;
-  for (file = entries[new_index]; attempts > 0; --attempts, file = entries[new_index]) {
-    // Found a possible file to play
-    if (new_index != 0 && file != *curr_playing_ && !std::filesystem::is_directory(file) &&
-        (!contains_audio_cb_ || contains_audio_cb_(file))) {
-      found = true;
-      break;
+  auto add_to_queue = [&queue](const util::File& entry) {
+    std::error_code error;
+    if (!std::filesystem::is_directory(entry, error) && internal::FileMenu::HasMediaExtension(entry)) {
+      queue.songs.push_back(model::Song{.filepath = entry});
     }
+  };
 
-    new_index = is_next ? (new_index + 1) % size : (new_index + size - 1) % size;
-  }
+  std::for_each(std::next(selected), entries.end(), add_to_queue);
+  std::for_each(entries.begin(), selected, add_to_queue);
 
-  return found ? file : util::File{};
+  return queue;
 }
 
 /* ********************************************************************************************** */
@@ -201,7 +150,8 @@ bool ListDirectory::SendFileSelection(const util::File& file) {
     return true;
   }
 
-  auto event_selection = interface::CustomEvent::NotifyFileSelection(file);
+  // Send directory files as a queue, so player can play next/previous file by itself
+  auto event_selection = interface::CustomEvent::NotifyPlaylistSelection(CreateQueue(file));
   dispatcher->SendEvent(event_selection);
 
   return true;

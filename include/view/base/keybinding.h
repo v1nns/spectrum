@@ -103,6 +103,9 @@ struct MediaPlayer {
 
   static Key SeekForward;
   static Key SeekBackward;
+
+  static Key ToggleRepeat;
+  static Key ToggleShuffle;
 };
 
 /* ********************************************************************************************** */

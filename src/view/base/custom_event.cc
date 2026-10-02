@@ -16,6 +16,7 @@ struct ContentVisitor {
   void operator()(int i) const { out << i; }
   void operator()(bool b) const { out << (b ? "true" : "false"); }
   void operator()(const std::string& s) const { out << std::quoted(s); }
+  void operator()(const model::RepeatMode& m) const { out << m; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
@@ -126,6 +127,14 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "SkipToPreviousPlaylistSong";
       break;
 
+    case CustomEvent::Identifier::SetRepeatMode:
+      out << "SetRepeatMode";
+      break;
+
+    case CustomEvent::Identifier::SetShuffle:
+      out << "SetShuffle";
+      break;
+
     case CustomEvent::Identifier::Refresh:
       out << "Refresh";
       break;
@@ -172,14 +181,6 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::UpdateBarWidth:
       out << "UpdateBarWidth";
-      break;
-
-    case CustomEvent::Identifier::SkipToNextSong:
-      out << "SkipToNextSong";
-      break;
-
-    case CustomEvent::Identifier::SkipToPreviousSong:
-      out << "SkipToPreviousSong";
       break;
 
     case CustomEvent::Identifier::ShowPlaylistManager:
@@ -392,6 +393,26 @@ CustomEvent CustomEvent::SkipToPreviousPlaylistSong() {
 
 /* ********************************************************************************************** */
 
+CustomEvent CustomEvent::SetRepeatMode(model::RepeatMode mode) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetRepeatMode,
+      .content = mode,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SetShuffle(bool enabled) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetShuffle,
+      .content = enabled,
+  };
+}
+
+/* ********************************************************************************************** */
+
 CustomEvent CustomEvent::Refresh() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -498,24 +519,6 @@ CustomEvent CustomEvent::UpdateBarWidth() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::UpdateBarWidth,
-  };
-}
-
-/* ********************************************************************************************** */
-
-CustomEvent CustomEvent::SkipToNextSong() {
-  return CustomEvent{
-      .type = Type::FromInterfaceToInterface,
-      .id = Identifier::SkipToNextSong,
-  };
-}
-
-/* ********************************************************************************************** */
-
-CustomEvent CustomEvent::SkipToPreviousSong() {
-  return CustomEvent{
-      .type = Type::FromInterfaceToInterface,
-      .id = Identifier::SkipToPreviousSong,
   };
 }
 

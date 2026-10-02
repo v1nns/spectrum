@@ -16,6 +16,7 @@
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
 #include "model/question_data.h"
+#include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -55,6 +56,8 @@ struct CustomEvent {
     NotifyDialogClosed = 60010,
     SkipToNextPlaylistSong = 60011,
     SkipToPreviousPlaylistSong = 60012,
+    SetRepeatMode = 60013,
+    SetShuffle = 60014,
 
     // Events from interface to interface
     Refresh = 70000,
@@ -69,8 +72,6 @@ struct CustomEvent {
     PlaySong = 70009,
     ToggleFullscreen = 70010,
     UpdateBarWidth = 70011,
-    SkipToNextSong = 70012,
-    SkipToPreviousSong = 70013,
     ShowPlaylistManager = 70014,
     SavePlaylistsToFile = 70015,
     ShowQuestionDialog = 70016,
@@ -107,6 +108,8 @@ struct CustomEvent {
   static CustomEvent NotifyDialogClosed();
   static CustomEvent SkipToNextPlaylistSong();
   static CustomEvent SkipToPreviousPlaylistSong();
+  static CustomEvent SetRepeatMode(model::RepeatMode mode);
+  static CustomEvent SetShuffle(bool enabled);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
@@ -121,8 +124,6 @@ struct CustomEvent {
   static CustomEvent PlaySong();
   static CustomEvent ToggleFullscreen();
   static CustomEvent UpdateBarWidth();
-  static CustomEvent SkipToNextSong();
-  static CustomEvent SkipToPreviousSong();
   static CustomEvent ShowPlaylistManager(const model::PlaylistOperation& operation);
   static CustomEvent SavePlaylistsToFile(const model::Playlist& changed_playlist);
   static CustomEvent ShowQuestionDialog(const model::QuestionData& data);
@@ -135,7 +136,8 @@ struct CustomEvent {
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
-                   model::PlaylistOperation, model::QuestionData, bool, std::string>;
+                   model::PlaylistOperation, model::QuestionData, bool, std::string,
+                   model::RepeatMode>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

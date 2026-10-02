@@ -7,9 +7,12 @@
 
 namespace {
 
+using ::testing::AllOf;
 using ::testing::Field;
+using ::testing::InSequence;
 using ::testing::Invoke;
 using ::testing::StrEq;
+using ::testing::VariantWith;
 
 /**
  * @brief Tests with FileInfo class
@@ -45,8 +48,8 @@ TEST_F(MediaPlayerTest, InitialRender) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -84,8 +87,8 @@ TEST_F(MediaPlayerTest, UpdateSongInfo) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     00:00                                                                          03:13     │
@@ -131,8 +134,8 @@ TEST_F(MediaPlayerTest, StartPlaying) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     █████████████████████████████████▎                                                       │
 │     01:43                                                                          04:19     │
@@ -181,8 +184,8 @@ TEST_F(MediaPlayerTest, PauseAndResume) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ███▋                                                                                     │
 │     00:11                                                                          04:12     │
@@ -209,8 +212,8 @@ TEST_F(MediaPlayerTest, PauseAndResume) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ████                                                                                     │
 │     00:12                                                                          04:12     │
@@ -249,8 +252,8 @@ TEST_F(MediaPlayerTest, ChangeVolume) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume:  85%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume:  85%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -285,8 +288,8 @@ TEST_F(MediaPlayerTest, ToggleVolumeMute) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume:   0%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume:   0%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -309,8 +312,8 @@ TEST_F(MediaPlayerTest, ToggleVolumeMute) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -356,8 +359,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndClear) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     █████████████████████████████████▎                                                       │
 │     01:43                                                                          04:19     │
@@ -381,8 +384,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndClear) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -428,8 +431,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ███████████████████████████████████████████████████████████▏                             │
 │     01:43                                                                          02:26     │
@@ -455,8 +458,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ███████████████████████████████████████████████████████████▏                             │
 │     01:43                                                                          02:26     │
@@ -489,8 +492,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSendKeyboardCommands) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -536,8 +539,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndStop) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ████████████████████████████████▋                                                        │
 │     01:23                                                                          03:33     │
@@ -568,8 +571,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndStop) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -597,8 +600,8 @@ TEST_F(MediaPlayerTest, AttemptToPlay) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -610,12 +613,14 @@ TEST_F(MediaPlayerTest, AttemptToPlay) {
 
 TEST_F(MediaPlayerTest, AttemptToSkipSong) {
   // Setup expectations
-  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::SkipToPreviousSong)))
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToPreviousPlaylistSong)))
       .Times(0);
 
-  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::SkipToNextSong)))
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToNextPlaylistSong)))
       .Times(0);
 
   block->OnEvent(ftxui::Event::Character('<'));
@@ -632,8 +637,8 @@ TEST_F(MediaPlayerTest, AttemptToSkipSong) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -679,8 +684,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToNext) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ████████████████████████████████▋                                                        │
 │     01:23                                                                          03:33     │
@@ -690,8 +695,9 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToNext) {
   EXPECT_THAT(rendered, StrEq(expected));
 
   // Process keyboard event to skip song
-  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
-                                           interface::CustomEvent::Identifier::SkipToNextSong)));
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToNextPlaylistSong)));
 
   auto event_stop = ftxui::Event::Character('>');
   block->OnEvent(event_stop);
@@ -720,8 +726,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToNext) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ▎                                                                                        │
 │     00:01                                                                          03:33     │
@@ -767,8 +773,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ████████████████████████▊                                                                │
 │     01:03                                                                          03:33     │
@@ -780,7 +786,7 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
   // Process keyboard event to skip song
   EXPECT_CALL(*dispatcher,
               SendEvent(Field(&interface::CustomEvent::id,
-                              interface::CustomEvent::Identifier::SkipToPreviousSong)));
+                              interface::CustomEvent::Identifier::SkipToPreviousPlaylistSong)));
 
   auto event_stop = ftxui::Event::Character('<');
   block->OnEvent(event_stop);
@@ -809,8 +815,8 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││ ⣶  ⣶ ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││ ⣿  ⣿ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││ ⠿  ⠿ ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                                                                              │
 │     ▎                                                                                        │
 │     00:01                                                                          03:33     │
@@ -837,8 +843,8 @@ TEST_F(MediaPlayerTest, ShowWarning) {
 │                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
 │                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
 │                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
-│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
-│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│     Shuffle: off              │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: off               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
 │                                File not supported: broken.mp3                                │
 │                                                                                              │
 │     --:--                                                                          --:--     │
@@ -850,27 +856,46 @@ TEST_F(MediaPlayerTest, ShowWarning) {
 
 /* ********************************************************************************************** */
 
-TEST_F(MediaPlayerTest, SkipSongFromPlaylist) {
-  model::Song audio{
-      .filepath = "/another/custom/path/to/music.mp3",
-      .playlist = "Mix",
-      .duration = 213,
-  };
+TEST_F(MediaPlayerTest, ChangeRepeatModeAndShuffle) {
+  // Repeat mode cycles through all modes, and each one is sent to audio player
+  {
+    InSequence seq;
+    for (auto mode : {model::RepeatMode::All, model::RepeatMode::One, model::RepeatMode::Off,
+                      model::RepeatMode::All}) {
+      EXPECT_CALL(
+          *dispatcher,
+          SendEvent(AllOf(
+              Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetRepeatMode),
+              Field(&interface::CustomEvent::content, VariantWith<model::RepeatMode>(mode)))));
+    }
+  }
 
-  Process(interface::CustomEvent::UpdateSongInfo(audio));
-  Process(interface::CustomEvent::UpdateSongState(
-      model::Song::CurrentInformation{.state = model::Song::MediaState::Play, .position = 83}));
+  for (int i = 0; i < 4; ++i) block->OnEvent(ftxui::Event::Character('t'));
 
-  // Song comes from a playlist, so audio player must handle skip events (instead of files tab)
   EXPECT_CALL(*dispatcher,
-              SendEvent(Field(&interface::CustomEvent::id,
-                              interface::CustomEvent::Identifier::SkipToNextPlaylistSong)));
-  block->OnEvent(ftxui::Event::Character('>'));
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::SetShuffle),
+                              Field(&interface::CustomEvent::content, VariantWith<bool>(true)))));
+  block->OnEvent(ftxui::Event::Character('x'));
 
-  EXPECT_CALL(*dispatcher,
-              SendEvent(Field(&interface::CustomEvent::id,
-                              interface::CustomEvent::Identifier::SkipToPreviousPlaylistSong)));
-  block->OnEvent(ftxui::Event::Character('<'));
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                              │
+│                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
+│                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
+│                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
+│     Shuffle: on               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│     Repeat: all               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│                                                                                              │
+│                                                                                              │
+│     --:--                                                                          --:--     │
+│                                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
 }
 
 }  // namespace

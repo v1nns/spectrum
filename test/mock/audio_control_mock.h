@@ -26,6 +26,8 @@ class AudioControlMock final : public audio::AudioControl {
   MOCK_METHOD(void, DequeueNextSong, (), (override));
   MOCK_METHOD(void, SkipToNext, (), (override));
   MOCK_METHOD(void, SkipToPrevious, (), (override));
+  MOCK_METHOD(void, SetRepeatMode, (model::RepeatMode), (override));
+  MOCK_METHOD(void, SetShuffle, (bool), (override));
   MOCK_METHOD(void, Exit, (), (override));
 };
 

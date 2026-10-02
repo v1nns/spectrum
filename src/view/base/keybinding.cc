@@ -37,7 +37,7 @@ Key Navigation::AltBackspace = Key::Special({27, 127});  //! Alt + Backspace
 // some terminals send ^H for Backspace), so it cannot be distinguished. Only terminals sending it
 // as CSI u, or as ^W (Ctrl + W), are supported
 Key Navigation::CtrlBackspace = Key::Special("\x1b[127;5u");  //! Ctrl + Backspace (CSI u)
-Key Navigation::CtrlW = Key::Special({23});                      //! Ctrl + W
+Key Navigation::CtrlW = Key::Special({23});                   //! Ctrl + W
 
 Key Navigation::Delete = Key::Special("\x1B[3~");  //! Delete key
 
@@ -53,7 +53,7 @@ Key Dialog::No = Key::Character('n');
 /* ------------------------------------------ General ------------------------------------------- */
 
 Key General::ExitApplication = Key::Character('q');
-Key General::ShowHelper = Key::Special("\x1B[24~");     //! F12
+Key General::ShowHelper = Key::Special("\x1B[24~");  //! F12
 
 Key General::FocusSidebar = Key::Character('!');      //! Shift + 1
 Key General::FocusInfo = Key::Character('@');         //! Shift + 2
@@ -85,6 +85,9 @@ Key MediaPlayer::Mute = Key::Character('m');
 
 Key MediaPlayer::SeekForward = Key::Character('f');
 Key MediaPlayer::SeekBackward = Key::Character('b');
+
+Key MediaPlayer::ToggleRepeat = Key::Character('t');
+Key MediaPlayer::ToggleShuffle = Key::Character('x');
 
 /* ----------------------------------------- Visualizer ----------------------------------------- */
 

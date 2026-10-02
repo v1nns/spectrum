@@ -12,6 +12,25 @@
 namespace interface {
 namespace internal {
 
+namespace {
+
+//! Set position of each song in playlist, so the same song can be listed (and highlighted) twice
+model::Playlist WithSongPositions(model::Playlist playlist) {
+  int position = 0;
+  for (auto& song : playlist.songs) song.index = position++;
+
+  return playlist;
+}
+
+//! Check if song entry from playlist is the one being played (by position, when available)
+bool IsSameEntry(const model::Song& playing, const model::Song& entry) {
+  if (playing.index.has_value() && entry.index.has_value()) return playing.index == entry.index;
+
+  return playing.Compare(entry);
+}
+
+}  // namespace
+
 PlaylistMenu::PlaylistMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                            const TextAnimation::Callback& force_refresh, const Callback& on_click)
     : BaseMenu(dispatcher, force_refresh), on_click_{on_click} {}
@@ -51,7 +70,7 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     // Add songs
     for (const auto& song : entry.playlist.songs) {
       is_highlighted = highlighted_ ? highlighted_->playlist == entry.playlist.name &&
-                                          (highlighted_->GetTitle() == song.GetTitle())
+                                          IsSameEntry(*highlighted_, song)
                                     : false;
       menu_entries.push_back(CreateEntry(index++, song.GetTitle(), is_highlighted, false));
     }
@@ -211,12 +230,11 @@ void PlaylistMenu::SetEntriesImpl(const model::Playlists& entries) {
   for (const auto& playlist : entries) {
     auto tmp = InternalPlaylist{
         .collapsed = false,
-        .playlist =
-            model::Playlist{
-                .index = count++,
-                .name = playlist.name,
-                .songs = playlist.songs,
-            },
+        .playlist = WithSongPositions(model::Playlist{
+            .index = count++,
+            .name = playlist.name,
+            .songs = playlist.songs,
+        }),
     };
     entries_.push_back(tmp);
   }
@@ -234,7 +252,7 @@ void PlaylistMenu::EmplaceImpl(const model::Playlist& entry) {
 
   entries_.emplace_back(InternalPlaylist{
       .collapsed = false,
-      .playlist = new_entry,
+      .playlist = WithSongPositions(new_entry),
   });
 }
 
@@ -248,7 +266,7 @@ void PlaylistMenu::UpdateOrEmplaceImpl(const model::Playlist& entry) {
     // If modified playlist is based on an existing one, just replace it
     if (internal_entry.playlist.index == entry.index) {
       LOG("Changing old playlist=", internal_entry.playlist, " to new playlist=", entry);
-      internal_entry.playlist = entry;
+      internal_entry.playlist = WithSongPositions(entry);
       found = true;
     }
   }
@@ -264,7 +282,7 @@ void PlaylistMenu::UpdateOrEmplaceImpl(const model::Playlist& entry) {
 
     entries_.emplace_back(InternalPlaylist{
         .collapsed = false,
-        .playlist = new_entry,
+        .playlist = WithSongPositions(new_entry),
     });
   }
 }
@@ -306,8 +324,8 @@ bool PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
     }
 
     for (auto& song : tmp.playlist.songs) {
-      // We check if songs are equal based only on the streaming URL or filepath
-      if (song.Compare(entry)) {
+      // Check if it is the same entry (by position in playlist, or by streaming URL or filepath)
+      if (!found && IsSameEntry(entry, song)) {
         // Always collapse playlist
         tmp.collapsed = true;
 

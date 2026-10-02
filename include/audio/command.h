@@ -34,6 +34,7 @@ struct Command {
     Exit = 8008,
     SkipToNext = 8009,
     SkipToPrevious = 8010,
+    PlayNext = 8011,
   };
 
   //! Overloaded operators
@@ -65,6 +66,7 @@ struct Command {
   static Command Exit();
   static Command SkipToNext();
   static Command SkipToPrevious();
+  static Command PlayNext();
 
   //! Possible types for content
   using Content = std::variant<std::monostate, model::Song, int, model::Volume,

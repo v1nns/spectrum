@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
 #include "view/base/block.h"
@@ -71,7 +72,7 @@ class MediaPlayer : public Block {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool HandleMediaEvent(const ftxui::Event& event) const;
+  bool HandleMediaEvent(const ftxui::Event& event);
 
   /**
    * @brief Handle event for volume control
@@ -87,9 +88,8 @@ class MediaPlayer : public Block {
    */
   bool HandleSeekEvent(const ftxui::Event& event) const;
 
-  //! Create event to skip song (handled by audio player for songs from playlist, otherwise by
-  //! files tab, which selects next/previous file from directory)
-  CustomEvent CreateSkipEvent(bool next) const;
+  //! Create event to skip song (handled by audio player, as songs are always played from a queue)
+  static CustomEvent CreateSkipEvent(bool next);
 
   //! Utility to check media state
   bool IsPlaying() const {
@@ -107,6 +107,9 @@ class MediaPlayer : public Block {
 
   model::Song song_ = model::Song{};  //!< Audio information from current song
   model::Volume volume_;              //!< General sound volume
+
+  model::RepeatMode repeat_ = model::RepeatMode::Off;  //!< Repeat mode for songs from queue
+  bool shuffle_ = false;                               //!< Shuffle songs from queue
 
   ftxui::Box duration_box_;           //!< Box for song duration component (gauge)
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused

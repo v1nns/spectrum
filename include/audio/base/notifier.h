@@ -10,6 +10,7 @@
 
 #include "model/audio_filter.h"
 #include "model/playlist.h"
+#include "model/repeat_mode.h"
 #include "model/volume.h"
 
 namespace audio {
@@ -104,6 +105,18 @@ class Notifier {
    * @brief Notify Audio Player to play previous song from playlist
    */
   virtual void SkipToPreviousSong() = 0;
+
+  /**
+   * @brief Notify Audio Player about repeat mode selected by user
+   * @param mode Repeat mode
+   */
+  virtual void SetRepeatMode(model::RepeatMode mode) = 0;
+
+  /**
+   * @brief Notify Audio Player about shuffle state selected by user
+   * @param enabled Shuffle state
+   */
+  virtual void SetShuffle(bool enabled) = 0;
 };
 
 }  // namespace audio

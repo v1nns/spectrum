@@ -165,6 +165,8 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {ToString(keybinding::MediaPlayer::SeekBackward), "Seek backward"},
            {Join(keybinding::MediaPlayer::SkipToPrevious, keybinding::MediaPlayer::SkipToNext),
             "Skip to previous/next song"},
+           {ToString(keybinding::MediaPlayer::ToggleRepeat), "Change repeat mode (off/all/one)"},
+           {ToString(keybinding::MediaPlayer::ToggleShuffle), "Toggle shuffle"},
        }},
       {Section::Questions,
        "confirmation dialog",

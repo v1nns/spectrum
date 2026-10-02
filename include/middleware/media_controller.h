@@ -176,6 +176,18 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void SkipToPreviousSong() override;
 
+  /**
+   * @brief Notify Audio Player about repeat mode selected by user
+   * @param mode Repeat mode
+   */
+  void SetRepeatMode(model::RepeatMode mode) override;
+
+  /**
+   * @brief Notify Audio Player about shuffle state selected by user
+   * @param enabled Shuffle state
+   */
+  void SetShuffle(bool enabled) override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

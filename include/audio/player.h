@@ -13,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -22,6 +23,7 @@
 #include "model/application_error.h"
 #include "model/audio_filter.h"
 #include "model/playlist.h"
+#include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
 #include "util/logger.h"
@@ -60,6 +62,8 @@ class AudioControl {
   virtual void DequeueNextSong() = 0;
   virtual void SkipToNext() = 0;
   virtual void SkipToPrevious() = 0;
+  virtual void SetRepeatMode(model::RepeatMode mode) = 0;
+  virtual void SetShuffle(bool enabled) = 0;
   virtual void Exit() = 0;
 };
 
@@ -141,13 +145,21 @@ class Player : public AudioControl {
   void AudioHandler();
 
   /**
-   * @brief After a song finishes, play next song from playlist (when available)
+   * @brief After a song finishes, play next song from playlist (when available, based on repeat
+   * mode)
    */
   void DequeueNextSongFromPlaylist();
 
   /**
+   * @brief Update order of songs from playlist, in case that shuffle was enabled/disabled since
+   * last time (songs already played keep their order, only the next ones are shuffled)
+   */
+  void ApplyShuffle();
+
+  /**
    * @brief Select song to play based on the given command, updating playlist and its position
-   * @param command Play (song or playlist) or skip (to next or previous song from playlist)
+   * @param command Play (song or playlist), skip (to next or previous song from playlist), or play
+   * next song after current one has finished
    * @return Song to play (or nothing, e.g. when playlist has no next song)
    */
   std::optional<model::Song> SelectSong(const Command& command);
@@ -157,7 +169,7 @@ class Player : public AudioControl {
    * @param command Skip command (to next or previous song)
    * @return True if command can be executed, False if not
    */
-  bool CanSkip(const Command& command) const;
+  bool CanSkip(const Command& command);
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -236,6 +248,18 @@ class Player : public AudioControl {
    * @brief Inform audio loop to play previous song from playlist (on first song, play it again)
    */
   void SkipToPrevious() override;
+
+  /**
+   * @brief Set repeat mode for songs from queue (applied when current song finishes or is skipped)
+   * @param mode Repeat mode
+   */
+  void SetRepeatMode(model::RepeatMode mode) override;
+
+  /**
+   * @brief Enable/disable shuffle for next songs from queue
+   * @param enabled Shuffle state
+   */
+  void SetShuffle(bool enabled) override;
 
   /**
    * @brief Exit from Audio loop
@@ -412,9 +436,16 @@ class Player : public AudioControl {
   MediaControlSynced media_control_;  // Controls the media (play, pause/resume and stop)
 
   std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
-  //! Queue of songs from playlist and position of current song in it (only used by audio thread)
+  //! Queue of songs from playlist, order to play them (indexes from playlist) and position of
+  //! current song in this order (only used by audio thread)
   std::optional<model::Playlist> curr_playlist_;
-  std::size_t curr_index_ = 0;
+  std::vector<std::size_t> order_;
+  std::size_t curr_position_ = 0;
+  bool shuffled_ = false;  //!< Shuffle state when order was created
+
+  std::atomic<model::RepeatMode> repeat_ = model::RepeatMode::Off;  //!< Repeat mode for queue
+  std::atomic<bool> shuffle_ = false;                   //!< Shuffle next songs from queue
+  std::mt19937 random_engine_{std::random_device{}()};  //!< Used to shuffle songs
 
   //! Skip command to handle after current song stops (as media control is reset when song stops)
   std::optional<Command> pending_skip_;

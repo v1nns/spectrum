@@ -14,6 +14,7 @@
 #include <string_view>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/playlist.h"
 #include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/element/menu.h"
@@ -102,11 +103,11 @@ class ListDirectory : public TabItem {
   //! File list operations
  private:
   /**
-   * @brief Select file to play based on the current song playing
-   * @param pick_next Pick next or previous file to play
-   * @return Filepath
+   * @brief Create queue with media files from list to play, starting from the given file
+   * @param file Filepath selected to play
+   * @return Queue of songs (selected file, then every other media file from list, wrapping around)
    */
-  util::File SelectFileToPlay(bool pick_next);
+  model::Playlist CreateQueue(const util::File& file);
 
   /**
    * @brief Send file selection to be played by audio thread. If file does not contain an audio
@@ -126,10 +127,6 @@ class ListDirectory : public TabItem {
   //! Variables
  private:
   std::optional<std::filesystem::path> curr_playing_ = std::nullopt;  //!< Current song playing
-
-  //! Flag to play next file when current song finishes (only for songs not played from playlist,
-  //! as player itself takes care of playing next song from playlist)
-  bool play_next_file_ = false;
 
   int max_columns_;  //!< Maximum number of columns (characters in a single line) available to use
 

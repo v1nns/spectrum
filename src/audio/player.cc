@@ -1,7 +1,9 @@
 #include "audio/player.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <iomanip>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -158,8 +160,9 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
         curr_playlist_.reset();
         failed_songs_ = 0;
         media_notifier->NotifyError(error::kTooManyFailedSongs, "");
-      } else {
-        DequeueNextSongFromPlaylist();
+      } else if (curr_playlist_) {
+        // Do not repeat this song (even if repeat mode is set to it), as it would fail again
+        media_control_.Push(Command::SkipToNext());
       }
     }
 
@@ -374,7 +377,7 @@ void Player::AudioHandler() {
   using Cmd = Command::Identifier;
 
   // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious)) {
+  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext)) {
     // Get command from queue and select song to play (if any)
     auto song = SelectSong(media_control_.Pop());
     if (!song.has_value()) continue;
@@ -442,7 +445,27 @@ void Player::DequeueNextSongFromPlaylist() {
 
   // Song is selected only when command is handled (or playlist is cleared, if there is no next
   // song)
-  media_control_.Push(Command::SkipToNext());
+  media_control_.Push(Command::PlayNext());
+}
+
+/* ********************************************************************************************** */
+
+void Player::ApplyShuffle() {
+  if (!curr_playlist_ || shuffled_ == shuffle_) return;
+  shuffled_ = shuffle_;
+
+  if (shuffled_) {
+    LOG("Shuffle next songs from playlist");
+    std::shuffle(order_.begin() + static_cast<std::ptrdiff_t>(curr_position_) + 1, order_.end(),
+                 random_engine_);
+    return;
+  }
+
+  // Back to original order, continuing from current song
+  LOG("Restore original order of songs from playlist");
+  std::size_t current = order_[curr_position_];
+  std::iota(order_.begin(), order_.end(), 0);
+  curr_position_ = current;
 }
 
 /* ********************************************************************************************** */
@@ -450,13 +473,11 @@ void Player::DequeueNextSongFromPlaylist() {
 std::optional<model::Song> Player::SelectSong(const Command& command) {
   switch (command.GetId()) {
     case Command::Identifier::Play: {
-      if (std::holds_alternative<model::Song>(command.content)) {
-        // Single song, so there is no playlist anymore
-        curr_playlist_.reset();
-        return command.GetContent<model::Song>();
-      }
-
-      auto playlist = command.GetContent<model::Playlist>();
+      // Single song is played as a queue containing only itself (so it can be repeated)
+      auto playlist =
+          std::holds_alternative<model::Song>(command.content)
+              ? model::Playlist{.index = -1, .songs = {command.GetContent<model::Song>()}}
+              : command.GetContent<model::Playlist>();
 
       if (playlist.IsEmpty()) {
         ERROR("Received playlist without any song to play");
@@ -465,48 +486,65 @@ std::optional<model::Song> Player::SelectSong(const Command& command) {
 
       LOG("Start playing playlist=", playlist);
       curr_playlist_ = std::move(playlist);
-      curr_index_ = 0;
+      order_.resize(curr_playlist_->songs.size());
+      std::iota(order_.begin(), order_.end(), 0);
+      curr_position_ = 0;
+      shuffled_ = false;
     } break;
 
+    case Command::Identifier::PlayNext:
+      // Current song has finished, so play it again
+      if (curr_playlist_ && repeat_ == model::RepeatMode::One) break;
+      [[fallthrough]];
+
     case Command::Identifier::SkipToNext: {
-      if (!CanSkip(command)) {
+      if (!CanSkip(Command::SkipToNext())) {
         // No need to keep this anymore, so reset it
         if (curr_playlist_) LOG("Clearing playlist, as it does not contain any other song");
         curr_playlist_.reset();
         return std::nullopt;
       }
 
-      ++curr_index_;
+      // Wrap around (when last song from playlist is reached, repeat mode is set to all songs)
+      curr_position_ = (curr_position_ + 1) % order_.size();
     } break;
 
     case Command::Identifier::SkipToPrevious: {
       if (!CanSkip(command)) return std::nullopt;
 
       // On first song, simply play it again
-      if (curr_index_ > 0) --curr_index_;
+      if (curr_position_ > 0) --curr_position_;
     } break;
 
     default:
       return std::nullopt;
   }
 
-  LOG("Select song from playlist at position=", curr_index_);
-  model::Song song = curr_playlist_->songs[curr_index_];
-  song.playlist = curr_playlist_->name;
+  // Shuffle next songs, if enabled
+  ApplyShuffle();
+
+  std::size_t index = order_[curr_position_];
+  LOG("Select song from playlist at position=", curr_position_, " (index=", index, ")");
+
+  model::Song song = curr_playlist_->songs[index];
+  if (!curr_playlist_->name.empty()) song.playlist = curr_playlist_->name;
 
   return song;
 }
 
 /* ********************************************************************************************** */
 
-bool Player::CanSkip(const Command& command) const {
+bool Player::CanSkip(const Command& command) {
   if (!curr_playlist_) return false;
+
+  // Shuffle may have been enabled/disabled in the meantime
+  ApplyShuffle();
 
   // Previous is always possible (on first song, it is played again)
   if (command == Command::Identifier::SkipToPrevious) return true;
 
   return command == Command::Identifier::SkipToNext &&
-         curr_index_ + 1 < curr_playlist_->songs.size();
+         (curr_position_ + 1 < order_.size() || repeat_ == model::RepeatMode::All);
 }
 
 /* ********************************************************************************************** */
@@ -657,6 +695,20 @@ void Player::SkipToNext() {
 void Player::SkipToPrevious() {
   LOG("Add command to queue: \"SkipToPrevious\"");
   media_control_.Push(Command::SkipToPrevious());
+}
+
+/* ********************************************************************************************** */
+
+void Player::SetRepeatMode(model::RepeatMode mode) {
+  LOG("Set repeat mode=", mode);
+  repeat_ = mode;
+}
+
+/* ********************************************************************************************** */
+
+void Player::SetShuffle(bool enabled) {
+  LOG("Set shuffle=", enabled);
+  shuffle_ = enabled;
 }
 
 /* ********************************************************************************************** */
