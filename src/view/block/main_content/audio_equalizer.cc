@@ -41,7 +41,7 @@ ftxui::Element AudioEqualizer::Render() {
   auto build = [this](bool compact) {
     ftxui::Elements elements;
 
-    // TODO: constexpr these values
+    // Picker surrounded by fillers, then each bar followed by a filler
     elements.reserve(3 + (2 * bars_.size()));
 
     elements.push_back(ftxui::filler());

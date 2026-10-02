@@ -11,6 +11,7 @@
 
 #include "util/file_handler.h"
 #include "view/base/block.h"
+#include "view/element/style.h"
 #include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
@@ -25,7 +26,7 @@ namespace interface {
  * @brief Component to display a set of tabs and their respective content in the sidebar
  */
 class Sidebar : public Block {
-  static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
+  static constexpr int kMaxColumns = kLeftColumnWidth;  //!< Maximum columns for Component
 
  public:
   /**

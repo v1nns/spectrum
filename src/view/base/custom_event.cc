@@ -21,7 +21,6 @@ struct ContentVisitor {
   void operator()(const std::filesystem::path& p) const { out << std::quoted(p.c_str()); }
   void operator()(const std::vector<double>&) const { out << std::quoted("{vector data...}"); }
   void operator()(const model::EqualizerPreset&) const {
-    // TODO: maybe implement detailed info here
     out << std::quoted("{audio filter data...}");
   }
   void operator()(const model::BarAnimation& a) const { out << a; }

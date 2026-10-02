@@ -49,7 +49,6 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   model::BlockIdentifier GetId() const { return id_; }
 
   //! Block size
-  // TODO: create a header with all size-related constants
   Size GetSize() const { return size_; }
 
   //! Set focus state

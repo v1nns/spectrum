@@ -13,6 +13,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "model/song.h"
 #include "view/base/block.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -20,9 +21,9 @@ namespace interface {
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
 class FileInfo : public Block {
-  static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
-  static constexpr int kMaxRows = 15;     //!< Maximum rows for Component
-  static constexpr int kFieldGap = 1;     //!< Minimum space between field name and its value
+  static constexpr int kMaxColumns = kLeftColumnWidth;  //!< Maximum columns for Component
+  static constexpr int kMaxRows = 15;                   //!< Maximum rows for Component
+  static constexpr int kFieldGap = 1;  //!< Minimum space between field name and its value
 
   static constexpr int kMaxSongLines = 8;  //!< Always remember to check song::to_string
 

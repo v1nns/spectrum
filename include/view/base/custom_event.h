@@ -35,7 +35,6 @@ struct CustomEvent {
   //! Identifier for all existing events
   enum class Identifier {
     // Events from audio thread to interface
-    // TODO: add a better documentation for each one
     ClearSongInfo = 50000,
     UpdateVolume = 50001,
     UpdateSongInfo = 50002,

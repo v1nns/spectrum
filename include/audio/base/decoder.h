@@ -63,7 +63,9 @@ class Decoder {
   virtual void ClearCache() = 0;
 
   /* ******************************************************************************************** */
-  //! Public API for Equalizer TODO: split into a new header along with FFmpeg class
+  //! Public API for audio processing (volume and equalizer)
+  //! P.S. while no song is playing, these are called directly from UI thread; otherwise, they are
+  //! queued as commands and called from audio thread
 
   /**
    * @brief Set volume on playback stream

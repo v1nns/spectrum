@@ -61,7 +61,7 @@ class BaseMenu : public Element {
   /* ******************************************************************************************** */
   //! Menu styling and callback definition
  protected:
-  //! Custom style for menu entry TODO: better organize this
+  //! Custom style for menu entry
   struct MenuEntryOption {
     ftxui::Decorator normal;
     ftxui::Decorator focused;

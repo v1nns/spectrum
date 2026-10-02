@@ -34,7 +34,6 @@ std::ostream& operator<<(std::ostream& out, const StreamInfo& s) {
 std::string to_string(const StreamInfo& arg) {
   std::ostringstream ss;
 
-  // TODO: think about this
   ss << arg;
 
   return std::move(ss).str();
