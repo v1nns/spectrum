@@ -63,13 +63,17 @@ bool FocusController::OnEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool FocusController::OnMouseEvent(ftxui::Event& event) {
-  // Iterate through all elements and pass event, if event is handled, update UI state
-  bool event_handled = std::any_of(elements_.begin(), elements_.end(), [&event](Element* element) {
-    if (!element) return false;
-    return element->OnMouseEvent(event);
-  });
+  // Iterate through all elements and pass event, if event is handled (e.g. clicked), focus it
+  for (int index = 0; index < static_cast<int>(elements_.size()); ++index) {
+    Element* element = elements_[static_cast<size_t>(index)];
 
-  return event_handled;
+    if (element && element->OnMouseEvent(event)) {
+      UpdateFocus(focus_index_, index);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /* ********************************************************************************************** */

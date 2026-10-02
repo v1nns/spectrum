@@ -163,6 +163,8 @@ class BaseMenu : public Element {
     LOG_T("Handle mouse wheel event=", is_wheel_up ? "Up" : "Down");
 
     int size = GetSize();
+    if (size == 0) return;
+
     int* selected = GetSelected();
     int* focused = GetFocused();
 

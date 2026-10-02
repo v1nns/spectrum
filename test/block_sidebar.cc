@@ -85,6 +85,9 @@ class SidebarTest : public ::BlockTest {
     return files->curr_playing_.has_value() || files->menu_->actual().highlighted_.has_value();
   }
 
+  //! Getter for files menu box from ListDirectory (only valid after rendering block)
+  ftxui::Box GetFilesMenuBox() { return GetListDirectory()->menu_->Box(); }
+
   //! Getter for current dir from ListDirectory
   auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->GetCurrentDir(); }
 
@@ -114,6 +117,12 @@ class SidebarTest : public ::BlockTest {
   bool IsPlaylistSongHighlighted() {
     return GetPlaylistViewer()->menu_->actual().highlighted_.has_value();
   }
+
+  //! Getter for playlists menu box from PlaylistViewer (only valid after rendering block)
+  ftxui::Box GetPlaylistsMenuBox() { return GetPlaylistViewer()->menu_->Box(); }
+
+  //! Check if there is an active entry in playlists menu from PlaylistViewer
+  bool HasActivePlaylistEntry() { return GetPlaylistViewer()->menu_->GetActiveEntry().has_value(); }
 
   //! Getter for Modify button state
   bool IsModifyButtonActive() { return GetPlaylistViewer()->btn_modify_->IsActive(); }
@@ -1211,6 +1220,43 @@ TEST_F(SidebarAudioCheckTest, PlayNextFileSkippingFilesWithoutAudioStream) {
   // Simulate player sending event to notify that song has ended
   derived->OnCustomEvent(interface::CustomEvent::UpdateSongState(
       model::Song::CurrentInformation{.state = model::Song::MediaState::Finished}));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, MouseWheelOnMenus) {
+  // Render block to calculate position of each element on screen
+  ftxui::Render(*screen, block->Render());
+  ftxui::Box box = GetFilesMenuBox();
+
+  auto wheel = [](ftxui::Mouse::Button button, const ftxui::Box& box) {
+    return ftxui::Event::Mouse("", ftxui::Mouse{.button = button,
+                                                .motion = ftxui::Mouse::Pressed,
+                                                .x = box.x_min + 1,
+                                                .y = box.y_min + 1});
+  };
+
+  // Scroll down twice and up once on files list (starting from "..")
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, box)));
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, box)));
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelUp, box)));
+
+  EXPECT_THAT(GetActiveFilename(), Eq("audio_lyric_finder.cc"));
+
+  // Scrolling on an empty list must not do anything
+  model::Playlists data{};
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  box = GetPlaylistsMenuBox();
+  block->OnEvent(wheel(ftxui::Mouse::WheelDown, box));
+  block->OnEvent(wheel(ftxui::Mouse::WheelUp, box));
+
+  EXPECT_FALSE(HasActivePlaylistEntry());
 }
 
 /* ********************************************************************************************** */

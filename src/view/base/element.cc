@@ -14,7 +14,11 @@ bool Element::OnEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool Element::OnMouseEvent(ftxui::Event& event) {
-  if (event.mouse().button != ftxui::Mouse::Left && event.mouse().button != ftxui::Mouse::None)
+  const auto button = event.mouse().button;
+
+  // Mouse wheel must also pass, otherwise it would never reach HandleWheel() below
+  if (button != ftxui::Mouse::Left && button != ftxui::Mouse::None &&
+      button != ftxui::Mouse::WheelUp && button != ftxui::Mouse::WheelDown)
     return false;
 
   if (!box_.Contain(event.mouse().x, event.mouse().y)) {

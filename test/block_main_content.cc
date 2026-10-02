@@ -22,6 +22,7 @@
 #include "model/bar_animation.h"
 #include "model/song.h"
 #include "view/block/main_content.h"
+#include "view/block/main_content/audio_equalizer.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/element/flash_message.h"
 
@@ -98,6 +99,22 @@ class MainContentTest : public ::BlockTest {
     // Return lyric finder mock
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
   }
+
+  //! Getter for AudioEqualizer tab item
+  auto GetEqualizer() -> interface::AudioEqualizer* {
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
+    return static_cast<interface::AudioEqualizer*>(
+        main_tab->tab_elem_[interface::MainContent::View::Equalizer].get());
+  }
+
+  //! Check if frequency bar (from AudioEqualizer) is focused
+  bool IsFrequencyBarFocused(int index) { return GetEqualizer()->bars_[index].IsFocused(); }
+
+  //! Getter for frequency bar gain (from AudioEqualizer)
+  double GetFrequencyBarGain(int index) { return GetEqualizer()->bars_[index].filter->gain; }
+
+  //! Getter for frequency bar box (from AudioEqualizer), only valid after rendering block
+  ftxui::Box GetFrequencyBarBox(int index) { return GetEqualizer()->bars_[index].Box(); }
 
   //! Render block until song lyrics are no longer being fetched (or timeout) and return screen
   std::string RenderUntilFetched() {
@@ -793,6 +810,66 @@ TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
   EXPECT_THAT(rendered, HasSubstr("32 Hz"));
   EXPECT_THAT(rendered, HasSubstr("16 kHz"));
   EXPECT_THAT(rendered, HasSubstr("0 dB"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ClickOnEqualizerFocusesBlockAndBand) {
+  // Show equalizer, then simulate another block taking focus
+  block->OnEvent(ftxui::Event::Character('2'));
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  // Render block to calculate position of each element on screen
+  ftxui::Render(*screen, block->Render());
+
+  constexpr int kBand = 1;
+  ftxui::Box box = GetFrequencyBarBox(kBand);
+  ASSERT_FALSE(IsFrequencyBarFocused(kBand));
+
+  // Clicking on equalizer must ask for focus, so keys go to it afterwards
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::MainContent)))));
+
+  ftxui::Mouse mouse{.button = ftxui::Mouse::Left,
+                     .motion = ftxui::Mouse::Released,
+                     .x = box.x_min,
+                     .y = box.y_min};
+
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Mouse("", mouse)));
+
+  // And clicked band is the one focused (instead of any band focused before)
+  EXPECT_TRUE(IsFrequencyBarFocused(kBand));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, MouseWheelOnEqualizerBand) {
+  // Show equalizer and render block to calculate position of each element on screen
+  block->OnEvent(ftxui::Event::Character('2'));
+  ftxui::Render(*screen, block->Render());
+
+  constexpr int kBand = 2;
+  ftxui::Box box = GetFrequencyBarBox(kBand);
+  double gain = GetFrequencyBarGain(kBand);
+
+  ftxui::Mouse mouse{.button = ftxui::Mouse::WheelUp,
+                     .motion = ftxui::Mouse::Pressed,
+                     .x = box.x_min,
+                     .y = box.y_min};
+
+  // Scroll up twice and down once
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Mouse("", mouse)));
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Mouse("", mouse)));
+
+  mouse.button = ftxui::Mouse::WheelDown;
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Mouse("", mouse)));
+
+  EXPECT_DOUBLE_EQ(GetFrequencyBarGain(kBand), gain + 1);
+  EXPECT_TRUE(IsFrequencyBarFocused(kBand));
 }
 
 /* ********************************************************************************************** */

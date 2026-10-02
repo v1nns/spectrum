@@ -22,6 +22,12 @@
 #include "view/element/tab.h"
 #include "view/element/util.h"
 
+#ifdef ENABLE_TESTS
+namespace {
+class MainContentTest;
+}
+#endif
+
 namespace interface {
 
 /**
@@ -510,6 +516,13 @@ class AudioEqualizer : public TabItem {
   FocusController focus_ctl_;  //!< Controller to manage focus in registered elements
   model::MusicGenre preset_name_ =
       model::MusicGenre(kModifiablePreset);  //!< Index name to current EQ settings
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::MainContentTest;
+#endif
 };
 
 }  // namespace interface

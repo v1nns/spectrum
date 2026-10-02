@@ -97,7 +97,9 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
   if (btn_reset_->OnMouseEvent(event)) return true;
 
   if (focus_ctl_.OnMouseEvent(event)) {
-    // TODO: Send event for setting focus on parent block (AskForFocus)
+    // Set focus on parent block, so keys go to equalizer after clicking on it
+    if (on_focus_) on_focus_();
+
     UpdateButtonState();
     return true;
   }
