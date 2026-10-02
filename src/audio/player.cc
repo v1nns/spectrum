@@ -199,20 +199,21 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       // Block thread until receives one of the informed commands
       bool keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop);
 
-      // TODO: NotifySongState for stop
-
       // Received command different from PauseOrResume
       if (auto command_after_wait = media_control_.Pop();
           !keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
         LOG("Audio handler received command to ", command_after_wait);
 
-        if (command_after_wait == Command::Identifier::Play) {
+        bool play_new_song = command_after_wait == Command::Identifier::Play;
+
+        // Stop current song (if interrupted by a new song, it must not be notified as finished)
+        media_control_.state = play_new_song ? State::Stop : TranslateCommand(command_after_wait);
+
+        if (play_new_song) {
           LOG("Re-adding command to play new song in the queue");
           media_control_.Push(command_after_wait);
         }
 
-        // Stop current song
-        media_control_.state = TranslateCommand(command_after_wait);
         playback_->Stop();
         return false;
       }
@@ -431,7 +432,6 @@ void Player::Play(const model::Playlist& playlist) {
 /* ********************************************************************************************** */
 
 void Player::PauseOrResume() {
-  // TODO: if state = idle, do not add to media_control?
   LOG("Add command to queue: ",
       std::quoted(media_control_.state == State::Play ? "Pause" : "Resume"));
   media_control_.Push(Command::PauseOrResume());
