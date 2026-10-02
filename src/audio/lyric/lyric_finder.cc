@@ -1,7 +1,11 @@
 #include "audio/lyric/lyric_finder.h"
 
+#include <algorithm>
+#include <cctype>
+#include <regex>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "model/application_error.h"
 
@@ -13,6 +17,7 @@
 #include "debug/dummy_parser.h"
 #endif
 
+#include "util/formatter.h"
 #include "util/logger.h"
 
 namespace lyric {
@@ -66,8 +71,61 @@ void LyricFinder::SetCancelCheck(const web::UrlFetcher::CancelCheck& check) {
 
 /* ********************************************************************************************** */
 
-SearchResult LyricFinder::Search(const std::string& artist, const std::string& title) {
-  LOG("Started fetching song by artist=", artist, " title=", title);
+std::string LyricFinder::CleanTitle(const std::string& artist, const std::string& title) {
+  // Words that are related to video, and not to song name
+  static const std::regex kVideoWords(
+      R"(\b(official|lyrics?|video|audio|visuali[sz]er|hd|4k|remaster(ed)?)\b)", std::regex::icase);
+
+  // Brackets with featured artists or video-related words, e.g. "(feat. X)" or "[Official Video]"
+  static const std::regex kBrackets(
+      R"(\s*[\(\[]\s*((feat|ft)\b\.?|)"
+      R"((featuring|official|lyrics?|video|audio|visuali[sz]er|hd|4k|remaster(ed)?)\b))"
+      R"([^\)\]]*[\)\]])",
+      std::regex::icase);
+
+  // Featured artists without brackets, e.g. "Song feat. X"
+  static const std::regex kFeaturing(R"(\s+(feat\.?|ft\.|featuring)\s.*$)", std::regex::icase);
+
+  auto lowercase = [](std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::tolower(c); });
+    return s;
+  };
+
+  const std::string lower_artist = lowercase(artist);
+  std::string first_section;
+  std::string cleaned;
+
+  // Split into sections by "|" and keep the first one that is about the song itself
+  std::string::size_type start = 0;
+  while (start <= title.size()) {
+    std::string::size_type end = title.find('|', start);
+    if (end == std::string::npos) end = title.size();
+
+    std::string section = std::regex_replace(title.substr(start, end - start), kBrackets, "");
+    section = util::trim(std::regex_replace(section, kFeaturing, ""));
+    start = end + 1;
+
+    if (section.empty()) continue;
+    if (first_section.empty()) first_section = section;
+
+    bool has_artist =
+        !lower_artist.empty() && lowercase(section).find(lower_artist) != std::string::npos;
+
+    if (!has_artist && !std::regex_search(section, kVideoWords)) {
+      cleaned = section;
+      break;
+    }
+  }
+
+  // Every section was discarded, so use at least the first one
+  return cleaned.empty() ? first_section : cleaned;
+}
+
+/* ********************************************************************************************** */
+
+SearchResult LyricFinder::Search(const std::string& artist, const std::string& raw_title) {
+  const std::string title = CleanTitle(artist, raw_title);
+  LOG("Started fetching song by artist=", artist, " title=", title, " (from ", raw_title, ")");
   std::string buffer;
   bool fetched_any = false;
 

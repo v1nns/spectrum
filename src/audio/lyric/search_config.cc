@@ -1,6 +1,8 @@
 #include "audio/lyric/search_config.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <regex>
 
 #include "util/logger.h"
@@ -22,14 +24,28 @@ Config SearchConfig::Create() {
 /*                                             Google                                             */
 /* ---------------------------------------------------------------------------------------------- */
 
-std::string Google::FormatSearchUrl(const std::string &artist, const std::string &name) const {
-  std::string raw_url = url_ + artist + "+" + name;
-  return std::regex_replace(raw_url, std::regex(" "), "+");
+std::string Google::FormatSearchUrl(const std::string& artist, const std::string& name) const {
+  std::string formatted_url = url_;
+
+  // Encode search terms as URL query (otherwise characters like "&" or "#" would break it)
+  for (unsigned char c : artist + " " + name) {
+    if (std::isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~') {
+      formatted_url += static_cast<char>(c);
+    } else if (c == ' ') {
+      formatted_url += '+';
+    } else {
+      char encoded[4];
+      std::snprintf(encoded, sizeof(encoded), "%%%02X", c);
+      formatted_url += encoded;
+    }
+  }
+
+  return formatted_url;
 }
 
 /* ********************************************************************************************** */
 
-model::SongLyric Google::FormatLyrics(const model::SongLyric &raw) const {
+model::SongLyric Google::FormatLyrics(const model::SongLyric& raw) const {
   std::string::size_type pos = 0;
   std::string::size_type prev = 0;
   model::SongLyric lyric;
@@ -39,7 +55,7 @@ model::SongLyric Google::FormatLyrics(const model::SongLyric &raw) const {
     return lyric;
   }
 
-  const auto &content = raw.front();
+  const auto& content = raw.front();
 
   // Split into paragraphs
   while ((pos = content.find("\n\n", prev)) != std::string::npos) {
@@ -56,27 +72,28 @@ model::SongLyric Google::FormatLyrics(const model::SongLyric &raw) const {
 /*                                            AZLyrics                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-std::string AZLyrics::FormatSearchUrl(const std::string &artist, const std::string &name) const {
-  std::string formatted_url = url_ + artist + "/" + name + ".html";
+std::string AZLyrics::FormatSearchUrl(const std::string& artist, const std::string& name) const {
+  // AZLyrics URL uses only lowercase letters and digits from artist and song name
+  auto format = [](const std::string& input) {
+    std::string output;
 
-  // Transform string into lowercase
-  std::transform(formatted_url.begin(), formatted_url.end(), formatted_url.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+    for (unsigned char c : input) {
+      if (std::isalnum(c)) output += static_cast<char>(std::tolower(c));
+    }
 
-  // Erase whitespaces
-  formatted_url.erase(std::remove_if(formatted_url.begin(), formatted_url.end(), ::isspace),
-                      formatted_url.end());
+    return output;
+  };
 
-  return formatted_url;
+  return url_ + format(artist) + "/" + format(name) + ".html";
 }
 
 /* ********************************************************************************************** */
 
-model::SongLyric AZLyrics::FormatLyrics(const model::SongLyric &raw) const {
+model::SongLyric AZLyrics::FormatLyrics(const model::SongLyric& raw) const {
   model::SongLyric lyric;
   std::string paragraph;
 
-  for (const auto &line : raw) {
+  for (const auto& line : raw) {
     // first line
     if (line == "\r\n") continue;
 

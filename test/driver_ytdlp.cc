@@ -24,6 +24,14 @@ class YtDlpWrapperTest : public ::testing::Test {
     return selected ? selected->at("format_id").get<std::string>() : "";
   }
 
+  //! Fill song with artist and title from the given video title and metadata
+  static model::Song FillArtistAndTitle(const std::string& title, const std::string& metadata) {
+    model::Song song;
+    driver::YtDlpWrapper::FillArtistAndTitle(
+        title, nlohmann::json::parse(metadata, nullptr, /*allow_exceptions=*/false), song);
+    return song;
+  }
+
   //! Fill song with streaming information from the given entry
   void FillStreamInfo(const nlohmann::json& entry, model::Song& song) {
     wrapper.FillStreamInfo(entry, /*duration=*/212, song);
@@ -101,6 +109,55 @@ TEST_F(YtDlpWrapperTest, FillStreamInfoWithMissingFields) {
   EXPECT_THAT(song.stream_info->streaming_url, StrEq("https://stream"));
   EXPECT_THAT(song.stream_info->base_url, StrEq("https://youtu.be/dQw4w9WgXcQ"));
   EXPECT_THAT(song.stream_info->http_header.size(), Eq(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ArtistFromVideoTitle) {
+  auto song =
+      FillArtistAndTitle("Clipse - So Be It (Official Music Video)",
+                         R"({"artist": null, "uploader": "Clipse TV", "channel": "Clipse"})");
+
+  // Artist from video title has priority over metadata
+  EXPECT_THAT(song.artist, StrEq("Clipse"));
+  EXPECT_THAT(song.title, StrEq("So Be It (Official Music Video)"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ArtistFromMetadataWhenVideoTitleHasNone) {
+  const std::string title{"SO BE IT | Elevation Worship (feat. Tiffany Hudson & Chris Brown)"};
+
+  // Based on metadata from a real video (it has no artist)
+  auto song = FillArtistAndTitle(
+      title,
+      R"({"artist": null, "uploader": "Elevation Worship", "channel": "Elevation Worship"})");
+
+  EXPECT_THAT(song.artist, StrEq("Elevation Worship"));
+  EXPECT_THAT(song.title, StrEq(title));
+
+  // Artist field has priority over uploader and channel
+  song = FillArtistAndTitle(title, R"({"artist": "Elevation", "uploader": "Elevation Worship"})");
+  EXPECT_THAT(song.artist, StrEq("Elevation"));
+
+  // Skip fields that are empty, have unexpected type, or contain only non-ASCII characters
+  song = FillArtistAndTitle(
+      title, R"({"artist": ["Elevation"], "uploader": " \u30a8 ", "channel": "Worship"})");
+  EXPECT_THAT(song.artist, StrEq("Worship"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, NoArtistWithoutMetadata) {
+  auto song =
+      FillArtistAndTitle("so be it", R"({"artist": null, "uploader": "", "channel": null})");
+  EXPECT_THAT(song.artist, IsEmpty());
+  EXPECT_THAT(song.title, StrEq("so be it"));
+
+  // Invalid JSON (e.g. missing variable from python snippet)
+  song = FillArtistAndTitle("so be it", "");
+  EXPECT_THAT(song.artist, IsEmpty());
+  EXPECT_THAT(song.title, StrEq("so be it"));
 }
 
 }  // namespace

@@ -96,6 +96,19 @@ class LyricFinder {
   void SetCancelCheck(const web::UrlFetcher::CancelCheck& check);
 
   /* ******************************************************************************************** */
+  //! Internal methods
+ private:
+  /**
+   * @brief Remove from song title everything that is not part of song name, which usually comes
+   * from video titles: sections split by "|" containing the artist or video-related words, and
+   * featured artists or video-related words, e.g. "(feat. X)" or "[Official Video]"
+   * @param artist Artist name
+   * @param title Song title
+   * @return Song title to use in search
+   */
+  static std::string CleanTitle(const std::string& artist, const std::string& title);
+
+  /* ******************************************************************************************** */
   //! Variables
  private:
   Config engines_ = SearchConfig::Create();   //!< Search engine settings

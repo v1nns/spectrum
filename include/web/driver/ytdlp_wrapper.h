@@ -34,6 +34,9 @@ class YtDlpWrapper : public web::StreamFetcher {
   //! Variable name used in python snippet that contains title information
   static constexpr std::string_view kAudioTitle = "title";
 
+  //! Variable name used in python snippet that contains metadata used as fallback for artist
+  static constexpr std::string_view kAudioMetadata = "metadata";
+
   //! Variable name used in python snippet that contains duration information
   static constexpr std::string_view kAudioDuration = "duration";
 
@@ -73,6 +76,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
     if len(filtered):
       result = True
       title = parsed["title"]
+      metadata = json.dumps({key: parsed.get(key) for key in ("artist", "uploader", "channel")})
       duration = parsed["duration"]
       streams = json.dumps(filtered))";
 
@@ -110,6 +114,16 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
   /* ******************************************************************************************** */
   //! Internal methods
  private:
+  /**
+   * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title
+   * does not contain an artist, use (in this order) artist, uploader or channel from metadata
+   * @param title Video title
+   * @param metadata JSON parsed metadata from video
+   * @param song Song information
+   */
+  static void FillArtistAndTitle(const std::string &title, const nlohmann::json &metadata,
+                                 model::Song &song);
+
   /**
    * @brief Fill streaming information inside Song structure with content from parsed JSON
    * @param entry JSON parsed entry

@@ -60,6 +60,11 @@ class LyricFinderTest : public ::testing::Test {
   //! Get number of search engines
   size_t GetNumberOfEngines() { return finder->engines_.size(); }
 
+  //! Clean song title to use in search
+  static std::string CleanTitle(const std::string& artist, const std::string& title) {
+    return lyric::LyricFinder::CleanTitle(artist, title);
+  }
+
  protected:
   LyricFinder finder;  //!< Song lyrics finder
 };
@@ -335,6 +340,70 @@ TEST_F(LyricFinderTest, CancelSearchBeforeFetching) {
   auto result = finder->Search("Artist", "Title");
 
   EXPECT_TRUE(result.lyrics.empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SearchWithEncodedUrls) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  // Based on a real video title, which has no artist in it
+  std::string artist{"Elevation Worship"};
+  std::string title{"SO BE IT | Elevation Worship (feat. Tiffany Hudson & Chris Brown)"};
+
+  // Clean title is used, and special characters do not break URLs
+  EXPECT_CALL(*fetcher,
+              Fetch(StrEq("https://www.google.com/search?q=lyric+Elevation+Worship+SO+BE+IT"), _));
+  EXPECT_CALL(*fetcher,
+              Fetch(StrEq("https://www.azlyrics.com/lyrics/elevationworship/sobeit.html"), _));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(2);
+
+  finder->Search(artist, title);
+
+  // Characters reserved in URL query must be encoded
+  EXPECT_CALL(
+      *fetcher,
+      Fetch(StrEq("https://www.google.com/search?q=lyric+Simon+%26+Garfunkel+Cecilia%3F"), _));
+  EXPECT_CALL(*fetcher,
+              Fetch(StrEq("https://www.azlyrics.com/lyrics/simongarfunkel/cecilia.html"), _));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(2);
+
+  finder->Search("Simon & Garfunkel", "Cecilia?");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, CleanTitleFromVideo) {
+  const std::string artist{"Elevation Worship"};
+
+  // Sections with artist or video-related words are discarded
+  EXPECT_THAT(
+      CleanTitle(artist, "SO BE IT | Elevation Worship (feat. Tiffany Hudson & Chris Brown)"),
+      StrEq("SO BE IT"));
+  EXPECT_THAT(CleanTitle(artist, "SO BE IT | Official Lyric Video | Elevation Worship"),
+              StrEq("SO BE IT"));
+  EXPECT_THAT(CleanTitle(artist, "Elevation Worship | SO BE IT"), StrEq("SO BE IT"));
+
+  // Featured artists and video-related words in brackets are removed
+  EXPECT_THAT(CleanTitle("Clipse", "So Be It (Official Music Video)"), StrEq("So Be It"));
+  EXPECT_THAT(CleanTitle("Artist", "Song [Lyrics] (ft. Someone)"), StrEq("Song"));
+  EXPECT_THAT(CleanTitle("Artist", "Song feat. Someone Else"), StrEq("Song"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, CleanTitleKeepsSongName) {
+  // Nothing to clean
+  EXPECT_THAT(CleanTitle("Powfu", "abandoned house"), StrEq("abandoned house"));
+  EXPECT_THAT(CleanTitle("", "abandoned house"), StrEq("abandoned house"));
+
+  // Brackets not related to video are kept
+  EXPECT_THAT(CleanTitle("Artist", "Song (Reprise)"), StrEq("Song (Reprise)"));
+
+  // Song name containing video-related words or artist name is kept when it is the only section
+  EXPECT_THAT(CleanTitle("Lana Del Rey", "Video Games"), StrEq("Video Games"));
+  EXPECT_THAT(CleanTitle("Metallica", "Metallica | Official Video"), StrEq("Metallica"));
 }
 
 }  // namespace

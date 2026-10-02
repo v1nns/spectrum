@@ -1,6 +1,7 @@
 #include "web/driver/ytdlp_wrapper.h"
 
 #include <cstdint>
+#include <iomanip>
 #include <regex>
 #include <string>
 #include <tuple>
@@ -72,6 +73,7 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
 
   // Get extracted info from URL
   std::string title = python_.GetString(kAudioTitle);
+  std::string raw_metadata = python_.GetString(kAudioMetadata);
   uint32_t duration = python_.GetLong(kAudioDuration);
   std::string raw_streams = python_.GetString(kStreamInfo.data());
 
@@ -90,12 +92,33 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
     return error::kUnknownError;
   }
 
-  ParseSongTitle(title, song.artist, song.title);
+  nlohmann::json metadata =
+      nlohmann::json::parse(raw_metadata, nullptr, /*allow_exceptions=*/false);
+
+  FillArtistAndTitle(title, metadata, song);
 
   FillStreamInfo(*entry, duration, song);
 
   LOG("Parsed stream info=", *song.stream_info);
   return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+void YtDlpWrapper::FillArtistAndTitle(const std::string& title, const nlohmann::json& metadata,
+                                      model::Song& song) {
+  ParseSongTitle(title, song.artist, song.title);
+  if (!song.artist.empty() || !metadata.is_object()) return;
+
+  // Video title has no artist, so use the first valid one from metadata
+  for (const char* key : {"artist", "uploader", "channel"}) {
+    if (std::string artist = util::trim(util::filter_ascii(GetOr<std::string>(metadata, key, "")));
+        !artist.empty()) {
+      LOG("Using ", key, " as artist=", std::quoted(artist));
+      song.artist = artist;
+      return;
+    }
+  }
 }
 
 /* ********************************************************************************************** */
