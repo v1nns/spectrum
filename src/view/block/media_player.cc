@@ -69,7 +69,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       auto disp = GetDispatcher();
 
       LOG("Handle on_click event on Skip to Previous Song button");
-      auto event = interface::CustomEvent::SkipToPreviousSong();
+      auto event = CreateSkipEvent(/*next=*/false);
       disp->SendEvent(event);
 
       // Send event to set focus on this block
@@ -85,7 +85,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       auto disp = GetDispatcher();
 
       LOG("Handle on_click event on Skip to Next Song button");
-      auto event = interface::CustomEvent::SkipToNextSong();
+      auto event = CreateSkipEvent(/*next=*/true);
       disp->SendEvent(event);
 
       // Send event to set focus on this block
@@ -203,6 +203,16 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
   if (HandleSeekEvent(event)) return true;
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent MediaPlayer::CreateSkipEvent(bool next) const {
+  if (song_.playlist.has_value()) {
+    return next ? CustomEvent::SkipToNextPlaylistSong() : CustomEvent::SkipToPreviousPlaylistSong();
+  }
+
+  return next ? CustomEvent::SkipToNextSong() : CustomEvent::SkipToPreviousSong();
 }
 
 /* ********************************************************************************************** */
@@ -333,7 +343,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     LOG("Handle key to skip to previous song");
     auto dispatcher = GetDispatcher();
 
-    auto event_skip = interface::CustomEvent::SkipToPreviousSong();
+    auto event_skip = CreateSkipEvent(/*next=*/false);
     dispatcher->SendEvent(event_skip);
 
     btn_play_->ResetState();
@@ -345,7 +355,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     LOG("Handle key to skip to next song");
     auto dispatcher = GetDispatcher();
 
-    auto event_skip = interface::CustomEvent::SkipToNextSong();
+    auto event_skip = CreateSkipEvent(/*next=*/true);
     dispatcher->SendEvent(event_skip);
 
     btn_play_->ResetState();

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "model/audio_filter.h"
+#include "model/playlist.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -31,6 +32,8 @@ struct Command {
     SetVolume = 8006,
     UpdateAudioFilters = 8007,
     Exit = 8008,
+    SkipToNext = 8009,
+    SkipToPrevious = 8010,
   };
 
   //! Overloaded operators
@@ -52,6 +55,7 @@ struct Command {
   //! Possible commands to be handled by audio player
   static Command None();
   static Command Play(const model::Song& song);
+  static Command Play(const model::Playlist& playlist);
   static Command PauseOrResume();
   static Command Stop();
   static Command SeekForward(int offset);
@@ -59,10 +63,12 @@ struct Command {
   static Command SetVolume(const model::Volume& value);
   static Command UpdateAudioFilters(const model::EqualizerPreset& filters);
   static Command Exit();
+  static Command SkipToNext();
+  static Command SkipToPrevious();
 
   //! Possible types for content
-  using Content =
-      std::variant<std::monostate, model::Song, int, model::Volume, model::EqualizerPreset>;
+  using Content = std::variant<std::monostate, model::Song, int, model::Volume,
+                               model::EqualizerPreset, model::Playlist>;
 
   //! Getter for command identifier
   Identifier GetId() const { return id; }

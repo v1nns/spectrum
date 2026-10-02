@@ -4,8 +4,10 @@
 #include <gtest/gtest-test-part.h>
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "audio/player.h"
 #include "general/sync_testing.h"
@@ -21,6 +23,8 @@
 namespace {
 
 using ::testing::_;
+using ::testing::AllOf;
+using ::testing::AnyNumber;
 using ::testing::AtMost;
 using ::testing::Eq;
 using ::testing::Field;
@@ -90,6 +94,66 @@ class PlayerTest : public ::testing::Test {
 
   //! Run audio loop (same one executed as a thread in the real-life)
   void RunAudioLoop() { audio_player->AudioHandler(); }
+
+  //! Check if player still has a playlist to play songs from
+  bool HasPlaylist() const { return audio_player->curr_playlist_.has_value(); }
+
+  //! Start playing (single file or playlist) and check that skip commands are ignored, as there is
+  //! no song to skip to (song keeps playing until client asks to exit)
+  void CheckSkipIsIgnored(const std::function<void(audio::AudioControl&)>& play,
+                          const std::string& filepath, const std::vector<bool>& skip_to_next) {
+    auto player = [&](TestSyncer& syncer) {
+      auto decoder = GetDecoder();
+
+      EXPECT_CALL(*GetPlayback(), Prepare()).WillOnce(Return(error::kSuccess));
+      EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+
+      // Song is opened only once
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, filepath)))
+          .WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+            callback(0, 0, 0, position);
+
+            syncer.NotifyStep(2);
+            syncer.WaitForStep(3);
+
+            // Each skip command is ignored, so song keeps playing
+            for (size_t i = 0; i < skip_to_next.size(); ++i) {
+              EXPECT_TRUE(callback(0, 0, 0, position));
+            }
+
+            syncer.NotifyStep(4);
+            syncer.WaitForStep(5);
+
+            // Exit
+            EXPECT_FALSE(callback(0, 0, 0, position));
+            return error::kSuccess;
+          }));
+
+      // Notify that expectations are set, and run audio loop
+      syncer.NotifyStep(1);
+      RunAudioLoop();
+    };
+
+    auto client = [&](TestSyncer& syncer) {
+      auto player_ctl = GetAudioControl();
+      syncer.WaitForStep(1);
+      play(*player_ctl);
+
+      syncer.WaitForStep(2);
+      for (bool next : skip_to_next) next ? player_ctl->SkipToNext() : player_ctl->SkipToPrevious();
+      syncer.NotifyStep(3);
+
+      syncer.WaitForStep(4);
+      player_ctl->Exit();
+      syncer.NotifyStep(5);
+    };
+
+    testing::RunAsyncTest({player, client});
+  }
 
  protected:
   Player audio_player;    //!< Audio player responsible for playing songs
@@ -1818,6 +1882,255 @@ TEST_F(PlayerTest, KeepPlayingPlaylistWhenFailedSongsAreNotInRow) {
 
     // Wait for Player to play all songs before client asking to exit
     syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, SkipToNextAndPreviousInPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Skippy",
+      .songs =
+          {
+              model::Song{.filepath = "skippy 1.mp3"},
+              model::Song{.filepath = "skippy 2.mp3"},
+              model::Song{.filepath = "skippy 3.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*GetPlayback(), Prepare()).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+
+    // Songs are skipped (not finished), so player never plays next song by itself
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}))
+        .Times(0);
+
+    InSequence seq;
+
+    // Play song from playlist, notify client and wait for its command (to skip song or exit)
+    auto expect_song = [&](int index, int step) {
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[index].filepath)))
+          .WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*notifier, NotifySongInformation(AllOf(
+                                 Field(&model::Song::filepath, playlist.songs[index].filepath),
+                                 Field(&model::Song::playlist, Eq(playlist.name)))));
+
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([&, step](int dummy, audio::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+            callback(0, 0, 0, position);
+
+            syncer.NotifyStep(step);
+            syncer.WaitForStep(step + 1);
+
+            // Command from client stops this song
+            EXPECT_FALSE(callback(0, 0, 0, position));
+            return error::kSuccess;
+          }));
+    };
+
+    expect_song(0, 2);  // Start playing first song
+    expect_song(1, 4);  // Skip to next
+    expect_song(0, 6);  // Skip to previous
+    expect_song(0, 8);  // Skip to previous on first song plays it again
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->SkipToNext();
+    syncer.NotifyStep(3);
+
+    syncer.WaitForStep(4);
+    player_ctl->SkipToPrevious();
+    syncer.NotifyStep(5);
+
+    syncer.WaitForStep(6);
+    player_ctl->SkipToPrevious();
+    syncer.NotifyStep(7);
+
+    syncer.WaitForStep(8);
+    player_ctl->Exit();
+    syncer.NotifyStep(9);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, SkipToNextWhilePausedInPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Paused",
+      .songs =
+          {
+              model::Song{.filepath = "paused 1.mp3"},
+              model::Song{.filepath = "paused 2.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*GetPlayback(), Prepare()).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*GetPlayback(), Pause());
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}))
+        .Times(0);
+
+    InSequence seq;
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Song is paused, and then skipped while paused
+          EXPECT_FALSE(callback(0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          syncer.NotifyStep(4);
+          syncer.WaitForStep(5);
+
+          // Exit
+          EXPECT_FALSE(callback(0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->PauseOrResume();
+    player_ctl->SkipToNext();
+    syncer.NotifyStep(3);
+
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+    syncer.NotifyStep(5);
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, SkipIsIgnoredForSingleFile) {
+  CheckSkipIsIgnored([](audio::AudioControl& player) { player.Play("single.mp3"); }, "single.mp3",
+                     {/*skip_to_next=*/true, /*skip_to_next=*/false});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, SkipToNextIsIgnoredOnLastSongFromPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Lonely",
+      .songs = {model::Song{.filepath = "lonely.mp3"}},
+  };
+
+  CheckSkipIsIgnored([&](audio::AudioControl& player) { player.Play(playlist); }, "lonely.mp3",
+                     {/*skip_to_next=*/true});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StopClearsPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Stopped",
+      .songs =
+          {
+              model::Song{.filepath = "stopped 1.mp3"},
+              model::Song{.filepath = "stopped 2.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*GetPlayback(), Prepare()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Stop
+          EXPECT_FALSE(callback(0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    // Next song must not be played after user stops playing
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath))).Times(0);
+
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      EXPECT_FALSE(HasPlaylist());
+      syncer.NotifyStep(4);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Stop();
+    syncer.NotifyStep(3);
+
+    syncer.WaitForStep(4);
     player_ctl->Exit();
   };
 

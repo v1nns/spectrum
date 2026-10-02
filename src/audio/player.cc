@@ -131,6 +131,12 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   media_control_.Reset();
   curr_song_.reset();
 
+  // Song was stopped to skip to another one from playlist
+  if (pending_skip_.has_value()) {
+    media_control_.Push(*pending_skip_);
+    pending_skip_.reset();
+  }
+
   auto media_notifier = notifier_.lock();
   if (!media_notifier) return;
 
@@ -145,7 +151,9 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
     // Warning is not shown in a dialog (whose closing would play next song), so keep playing
     if (error::ApplicationError::GetLevel(result) == error::Level::Warning) {
       // But do not try every remaining song when they keep failing (e.g. no network to stream them)
-      if (curr_playlist_ && !curr_playlist_->IsEmpty() && ++failed_songs_ >= kMaxFailedSongs) {
+      bool has_next_song = CanSkip(Command::SkipToNext());
+
+      if (has_next_song && ++failed_songs_ >= kMaxFailedSongs) {
         LOG("Stop playlist, as ", failed_songs_.load(), " songs failed in a row");
         curr_playlist_.reset();
         failed_songs_ = 0;
@@ -167,8 +175,8 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   // Clear any song information from UI
   media_notifier->ClearSongInformation(!error_parsing);
 
-  // Check song queue
-  DequeueNextSongFromPlaylist();
+  // Play next song only if this one has finished (otherwise, it was stopped or replaced by user)
+  if (notify_finished) DequeueNextSongFromPlaylist();
 }
 
 /* ********************************************************************************************** */
@@ -210,23 +218,41 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
         });
       }
 
-      // Block thread until receives one of the informed commands
-      bool keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop);
+      // Block thread until receives one of the informed commands (ignoring skip commands when there
+      // is no song to skip to)
+      bool keep_executing = false;
+      Command command_after_wait = Command::None();
+
+      do {
+        keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop,
+                                                Cmd::SkipToNext, Cmd::SkipToPrevious);
+        command_after_wait = media_control_.Pop();
+      } while (
+          keep_executing &&
+          (command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious) &&
+          !CanSkip(command_after_wait));
 
       // Received command different from PauseOrResume
-      if (auto command_after_wait = media_control_.Pop();
-          !keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
+      if (!keep_executing || command_after_wait != Cmd::PauseOrResume) {
         LOG("Audio handler received command to ", command_after_wait);
 
-        bool play_new_song = command_after_wait == Command::Identifier::Play;
+        bool play_new_song = command_after_wait == Cmd::Play ||
+                             command_after_wait == Cmd::SkipToNext ||
+                             command_after_wait == Cmd::SkipToPrevious;
 
         // Stop current song (if interrupted by a new song, it must not be notified as finished)
         media_control_.state = play_new_song ? State::Stop : TranslateCommand(command_after_wait);
 
-        if (play_new_song) {
+        if (command_after_wait == Cmd::Play) {
           LOG("Re-adding command to play new song in the queue");
           media_control_.Push(command_after_wait);
+        } else if (play_new_song) {
+          // Skip request selects the song to play after stopping this one
+          pending_skip_ = command_after_wait;
         }
+
+        // User stopped playing, so there is no next song to play
+        if (command_after_wait == Cmd::Stop) curr_playlist_.reset();
 
         playback_->Stop();
         return false;
@@ -237,11 +263,31 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       playback_->Prepare();
     } break;
 
+    case Command::Identifier::SkipToNext:
+    case Command::Identifier::SkipToPrevious: {
+      if (!CanSkip(command)) {
+        LOG("Audio handler received command to ", command, ", but there is no song to skip to");
+        break;
+      }
+
+      LOG("Audio handler received command to ", command);
+      // Skip request selects the song to play after stopping this one
+      pending_skip_ = command;
+
+      // Stop current song
+      media_control_.state = State::Stop;
+      playback_->Stop();
+      return false;
+    } break;
+
     case Command::Identifier::Stop:
     case Command::Identifier::Exit: {
       LOG("Audio handler received command to ", command);
       media_control_.state = TranslateCommand(command);
       playback_->Stop();
+
+      // User stopped playing, so there is no next song to play
+      if (command == Command::Identifier::Stop) curr_playlist_.reset();
       return false;
     } break;
 
@@ -325,14 +371,17 @@ void Player::AudioHandler() {
   LOG("Start audio handler thread");
   fetcher_->Init();
 
-  // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Command::Identifier::Play)) {
-    // Get command from queue and update internal media state
-    auto command = media_control_.Pop();
-    media_control_.state = TranslateCommand(command);
+  using Cmd = Command::Identifier;
 
-    // Get filepath from command and initialize current song
-    curr_song_ = std::make_unique<model::Song>(command.GetContent<model::Song>());
+  // Block this thread until UI informs us a song to play
+  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious)) {
+    // Get command from queue and select song to play (if any)
+    auto song = SelectSong(media_control_.Pop());
+    if (!song.has_value()) continue;
+
+    // Update internal media state and initialize current song
+    media_control_.state = State::Play;
+    curr_song_ = std::make_unique<model::Song>(std::move(*song));
     error::Code result = error::kSuccess;
     LOG("Audio handler received new song to play=", *curr_song_);
 
@@ -353,9 +402,6 @@ void Player::AudioHandler() {
     {
       // Otherwise, it is a supported audio extension, send detailed audio information to UI
       if (auto media_notifier = notifier_.lock(); media_notifier) {
-        // Update internal playlist name
-        if (curr_playlist_) curr_song_->playlist = curr_playlist_->name;
-
         // Notify interface about new song
         media_notifier->NotifySongInformation(*curr_song_);
       }
@@ -394,17 +440,73 @@ void Player::AudioHandler() {
 void Player::DequeueNextSongFromPlaylist() {
   if (!curr_playlist_) return;
 
-  if (!curr_playlist_->IsEmpty()) {
-    LOG("Popping next song from internal playlist cache, count=", curr_playlist_->songs.size());
-    model::Song next_song = curr_playlist_->PopFront();
+  // Song is selected only when command is handled (or playlist is cleared, if there is no next
+  // song)
+  media_control_.Push(Command::SkipToNext());
+}
 
-    // Add directly to command queue
-    media_control_.Push(Command::Play(next_song));
-  } else {
-    // No need to keep this anymore, so reset it
-    LOG("Clearing internal cache, playlist does not contain any song");
-    curr_playlist_.reset();
+/* ********************************************************************************************** */
+
+std::optional<model::Song> Player::SelectSong(const Command& command) {
+  switch (command.GetId()) {
+    case Command::Identifier::Play: {
+      if (std::holds_alternative<model::Song>(command.content)) {
+        // Single song, so there is no playlist anymore
+        curr_playlist_.reset();
+        return command.GetContent<model::Song>();
+      }
+
+      auto playlist = command.GetContent<model::Playlist>();
+
+      if (playlist.IsEmpty()) {
+        ERROR("Received playlist without any song to play");
+        return std::nullopt;
+      }
+
+      LOG("Start playing playlist=", playlist);
+      curr_playlist_ = std::move(playlist);
+      curr_index_ = 0;
+    } break;
+
+    case Command::Identifier::SkipToNext: {
+      if (!CanSkip(command)) {
+        // No need to keep this anymore, so reset it
+        if (curr_playlist_) LOG("Clearing playlist, as it does not contain any other song");
+        curr_playlist_.reset();
+        return std::nullopt;
+      }
+
+      ++curr_index_;
+    } break;
+
+    case Command::Identifier::SkipToPrevious: {
+      if (!CanSkip(command)) return std::nullopt;
+
+      // On first song, simply play it again
+      if (curr_index_ > 0) --curr_index_;
+    } break;
+
+    default:
+      return std::nullopt;
   }
+
+  LOG("Select song from playlist at position=", curr_index_);
+  model::Song song = curr_playlist_->songs[curr_index_];
+  song.playlist = curr_playlist_->name;
+
+  return song;
+}
+
+/* ********************************************************************************************** */
+
+bool Player::CanSkip(const Command& command) const {
+  if (!curr_playlist_) return false;
+
+  // Previous is always possible (on first song, it is played again)
+  if (command == Command::Identifier::SkipToPrevious) return true;
+
+  return command == Command::Identifier::SkipToNext &&
+         curr_index_ + 1 < curr_playlist_->songs.size();
 }
 
 /* ********************************************************************************************** */
@@ -420,31 +522,14 @@ void Player::Play(const std::filesystem::path& filepath) {
   LOG("Add command to queue: \"Play\" (filepath=", std::quoted(filepath.string()), ")");
   media_control_.Push(Command::Play(model::Song{.filepath = filepath}));
   failed_songs_ = 0;
-
-  // Reset song queue
-  if (curr_playlist_) {
-    LOG("Clearing internal cache");
-    curr_playlist_.reset();
-  }
 }
 
 /* ********************************************************************************************** */
 
 void Player::Play(const model::Playlist& playlist) {
   LOG("Add command to queue: \"Play\" (playlist=", playlist, ")");
-  bool already_playing = curr_playlist_.has_value();
-
-  // Update internal song queue
-  curr_playlist_ = playlist;
+  media_control_.Push(Command::Play(playlist));
   failed_songs_ = 0;
-
-  if (!already_playing) {
-    // Enqueue first song
-    DequeueNextSongFromPlaylist();
-  } else {
-    // Add directly to command queue
-    media_control_.Push(Command::Stop());
-  }
 }
 
 /* ********************************************************************************************** */
@@ -460,9 +545,6 @@ void Player::PauseOrResume() {
 void Player::Stop() {
   LOG("Add command to queue: Stop");
   media_control_.Push(Command::Stop());
-
-  // Clear playlist
-  if (curr_playlist_.has_value()) curr_playlist_.reset();
 }
 
 /* ********************************************************************************************** */
@@ -559,10 +641,22 @@ void Player::DequeueNextSong() {
     return;
   }
 
-  LOG("Attempt to dequeue next song from playlist");
+  LOG("Add command to queue: \"SkipToNext\" (to dequeue next song from playlist)");
+  media_control_.Push(Command::SkipToNext());
+}
 
-  // Check song queue
-  DequeueNextSongFromPlaylist();
+/* ********************************************************************************************** */
+
+void Player::SkipToNext() {
+  LOG("Add command to queue: \"SkipToNext\"");
+  media_control_.Push(Command::SkipToNext());
+}
+
+/* ********************************************************************************************** */
+
+void Player::SkipToPrevious() {
+  LOG("Add command to queue: \"SkipToPrevious\"");
+  media_control_.Push(Command::SkipToPrevious());
 }
 
 /* ********************************************************************************************** */

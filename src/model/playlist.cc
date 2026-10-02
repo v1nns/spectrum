@@ -20,15 +20,6 @@ bool operator!=(const Playlist& lhs, const Playlist& rhs) { return !(lhs == rhs)
 
 /* ********************************************************************************************** */
 
-Song Playlist::PopFront() {
-  auto song = songs.front();
-  songs.pop_front();
-
-  return song;
-}
-
-/* ********************************************************************************************** */
-
 void PrintTo(const Playlist& p, std::ostream* os) {
   *os << "{id:" << p.index << ", playlist:" << std::quoted(p.name);
 

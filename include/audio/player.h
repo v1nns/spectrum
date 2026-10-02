@@ -58,6 +58,8 @@ class AudioControl {
   virtual void SeekBackwardPosition(int value) = 0;
   virtual void ApplyAudioFilters(const model::EqualizerPreset& filters) = 0;
   virtual void DequeueNextSong() = 0;
+  virtual void SkipToNext() = 0;
+  virtual void SkipToPrevious() = 0;
   virtual void Exit() = 0;
 };
 
@@ -139,9 +141,23 @@ class Player : public AudioControl {
   void AudioHandler();
 
   /**
-   * @brief After a song finishes, check if got a next one to play from playlist
+   * @brief After a song finishes, play next song from playlist (when available)
    */
   void DequeueNextSongFromPlaylist();
+
+  /**
+   * @brief Select song to play based on the given command, updating playlist and its position
+   * @param command Play (song or playlist) or skip (to next or previous song from playlist)
+   * @return Song to play (or nothing, e.g. when playlist has no next song)
+   */
+  std::optional<model::Song> SelectSong(const Command& command);
+
+  /**
+   * @brief Check if there is a song to skip to (only songs from playlist can be skipped)
+   * @param command Skip command (to next or previous song)
+   * @return True if command can be executed, False if not
+   */
+  bool CanSkip(const Command& command) const;
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -210,6 +226,16 @@ class Player : public AudioControl {
    * @brief Inform audio loop to dequeue next song from playlist (when available)
    */
   void DequeueNextSong() override;
+
+  /**
+   * @brief Inform audio loop to play next song from playlist (ignored on last song)
+   */
+  void SkipToNext() override;
+
+  /**
+   * @brief Inform audio loop to play previous song from playlist (on first song, play it again)
+   */
+  void SkipToPrevious() override;
 
   /**
    * @brief Exit from Audio loop
@@ -385,9 +411,15 @@ class Player : public AudioControl {
 
   MediaControlSynced media_control_;  // Controls the media (play, pause/resume and stop)
 
-  std::unique_ptr<model::Song> curr_song_;        //!< Current song playing
-  std::optional<model::Playlist> curr_playlist_;  //!< Queue of songs (origined from playlist)
-  std::atomic<int> failed_songs_ = 0;             //!< Songs from playlist that failed in a row
+  std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
+  //! Queue of songs from playlist and position of current song in it (only used by audio thread)
+  std::optional<model::Playlist> curr_playlist_;
+  std::size_t curr_index_ = 0;
+
+  //! Skip command to handle after current song stops (as media control is reset when song stops)
+  std::optional<Command> pending_skip_;
+
+  std::atomic<int> failed_songs_ = 0;  //!< Songs from playlist that failed in a row
 
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 

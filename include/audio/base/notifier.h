@@ -94,6 +94,16 @@ class Notifier {
    * @brief Notify Audio Player about error dialog closed by user
    */
   virtual void NotifyErrorDialogClosed() = 0;
+
+  /**
+   * @brief Notify Audio Player to play next song from playlist
+   */
+  virtual void SkipToNextSong() = 0;
+
+  /**
+   * @brief Notify Audio Player to play previous song from playlist
+   */
+  virtual void SkipToPreviousSong() = 0;
 };
 
 }  // namespace audio

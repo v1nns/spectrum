@@ -87,6 +87,10 @@ class MediaPlayer : public Block {
    */
   bool HandleSeekEvent(const ftxui::Event& event) const;
 
+  //! Create event to skip song (handled by audio player for songs from playlist, otherwise by
+  //! files tab, which selects next/previous file from directory)
+  CustomEvent CreateSkipEvent(bool next) const;
+
   //! Utility to check media state
   bool IsPlaying() const {
     return song_.curr_info.state == model::Song::MediaState::Play ||

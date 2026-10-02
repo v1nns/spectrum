@@ -118,6 +118,14 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "NotifyDialogClosed";
       break;
 
+    case CustomEvent::Identifier::SkipToNextPlaylistSong:
+      out << "SkipToNextPlaylistSong";
+      break;
+
+    case CustomEvent::Identifier::SkipToPreviousPlaylistSong:
+      out << "SkipToPreviousPlaylistSong";
+      break;
+
     case CustomEvent::Identifier::Refresh:
       out << "Refresh";
       break;
@@ -361,6 +369,24 @@ CustomEvent CustomEvent::NotifyDialogClosed() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::NotifyDialogClosed,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SkipToNextPlaylistSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SkipToNextPlaylistSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SkipToPreviousPlaylistSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SkipToPreviousPlaylistSong,
   };
 }
 

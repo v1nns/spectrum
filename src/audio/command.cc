@@ -32,6 +32,12 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
     case Command::Identifier::Exit:
       out << "Exit";
       break;
+    case Command::Identifier::SkipToNext:
+      out << "SkipToNext";
+      break;
+    case Command::Identifier::SkipToPrevious:
+      out << "SkipToPrevious";
+      break;
   }
 
   return out;
@@ -104,6 +110,15 @@ Command Command::Play(const model::Song& song) {
 
 /* ********************************************************************************************** */
 
+Command Command::Play(const model::Playlist& playlist) {
+  return Command{
+      .id = Identifier::Play,
+      .content = playlist,
+  };
+}
+
+/* ********************************************************************************************** */
+
 // Static
 Command Command::PauseOrResume() {
   return Command{
@@ -166,6 +181,22 @@ Command Command::UpdateAudioFilters(const model::EqualizerPreset& filters) {
 Command Command::Exit() {
   return Command{
       .id = Identifier::Exit,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::SkipToNext() {
+  return Command{
+      .id = Identifier::SkipToNext,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::SkipToPrevious() {
+  return Command{
+      .id = Identifier::SkipToPrevious,
   };
 }
 

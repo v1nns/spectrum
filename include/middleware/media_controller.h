@@ -166,6 +166,16 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void NotifyErrorDialogClosed() override;
 
+  /**
+   * @brief Notify Audio Player to play next song from playlist
+   */
+  void SkipToNextSong() override;
+
+  /**
+   * @brief Notify Audio Player to play previous song from playlist
+   */
+  void SkipToPreviousSong() override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

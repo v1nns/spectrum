@@ -848,4 +848,29 @@ TEST_F(MediaPlayerTest, ShowWarning) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, SkipSongFromPlaylist) {
+  model::Song audio{
+      .filepath = "/another/custom/path/to/music.mp3",
+      .playlist = "Mix",
+      .duration = 213,
+  };
+
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+  Process(interface::CustomEvent::UpdateSongState(
+      model::Song::CurrentInformation{.state = model::Song::MediaState::Play, .position = 83}));
+
+  // Song comes from a playlist, so audio player must handle skip events (instead of files tab)
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToNextPlaylistSong)));
+  block->OnEvent(ftxui::Event::Character('>'));
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SkipToPreviousPlaylistSong)));
+  block->OnEvent(ftxui::Event::Character('<'));
+}
+
 }  // namespace

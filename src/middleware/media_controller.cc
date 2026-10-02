@@ -298,6 +298,24 @@ void MediaController::NotifyErrorDialogClosed() {
 
 /* ********************************************************************************************** */
 
+void MediaController::SkipToNextSong() {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SkipToNext();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SkipToPreviousSong() {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SkipToPrevious();
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimation);
 

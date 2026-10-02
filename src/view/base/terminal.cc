@@ -514,6 +514,14 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
       media_ctl->NotifyErrorDialogClosed();
     } break;
 
+    case CustomEvent::Identifier::SkipToNextPlaylistSong: {
+      media_ctl->SkipToNextSong();
+    } break;
+
+    case CustomEvent::Identifier::SkipToPreviousPlaylistSong: {
+      media_ctl->SkipToPreviousSong();
+    } break;
+
     default:
       event_handled = false;
       break;
