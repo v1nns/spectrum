@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 #define INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 
+#include <chrono>
 #include <memory>
 
 #include "ftxui/dom/elements.hpp"
@@ -13,6 +14,7 @@
 #include "model/volume.h"
 #include "view/base/block.h"
 #include "view/element/button.h"
+#include "view/element/flash_message.h"
 
 namespace interface {
 
@@ -21,6 +23,9 @@ namespace interface {
  */
 class MediaPlayer : public Block {
   static constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
+
+  //! Time that a warning stays visible
+  static constexpr std::chrono::milliseconds kWarningDuration{4000};
 
  public:
   /**
@@ -101,6 +106,8 @@ class MediaPlayer : public Block {
 
   ftxui::Box duration_box_;           //!< Box for song duration component (gauge)
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused
+
+  FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)
 };
 
 }  // namespace interface

@@ -820,4 +820,32 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
   EXPECT_THAT(rendered, StrEq(expected));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, ShowWarning) {
+  // Warning is shown between media buttons and song duration, without changing anything else
+  auto event = interface::CustomEvent::ShowWarning("File not supported: broken.mp3");
+  Process(event);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                              │
+│                               ╭──────╮╭──────╮╭──────╮╭──────╮                               │
+│                               │ ⣶ ⣠⡆ ││  ⣦⡀  ││ ⣶⣶⣶⣶ ││ ⢰⣄ ⣶ │                               │
+│                               │ ⣿⢾⣿⡇ ││  ⣿⣿⠆ ││ ⣿⣿⣿⣿ ││ ⢸⣿⡷⣿ │                               │
+│                               │ ⠿ ⠙⠇ ││  ⠟⠁  ││ ⠿⠿⠿⠿ ││ ⠸⠋ ⠿ │                               │
+│                               ╰──────╯╰──────╯╰──────╯╰──────╯              Volume: 100%     │
+│                                File not supported: broken.mp3                                │
+│                                                                                              │
+│     --:--                                                                          --:--     │
+│                                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
 }  // namespace

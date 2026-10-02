@@ -15,6 +15,7 @@ struct ContentVisitor {
   void operator()(const std::monostate&) const { out << std::quoted("empty"); }
   void operator()(int i) const { out << i; }
   void operator()(bool b) const { out << (b ? "true" : "false"); }
+  void operator()(const std::string& s) const { out << std::quoted(s); }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
@@ -187,6 +188,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::Exit:
       out << "Exit";
+      break;
+
+    case CustomEvent::Identifier::ShowWarning:
+      out << "ShowWarning";
       break;
   }
   return out;
@@ -524,6 +529,16 @@ CustomEvent CustomEvent::Exit() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::Exit,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ShowWarning(const std::string& message) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowWarning,
+      .content = message,
   };
 }
 

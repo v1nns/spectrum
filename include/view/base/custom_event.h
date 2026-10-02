@@ -73,6 +73,7 @@ struct CustomEvent {
     SavePlaylistsToFile = 70015,
     ShowQuestionDialog = 70016,
     Exit = 70017,
+    ShowWarning = 70018,
   };
 
   //! Overloaded operators
@@ -123,13 +124,14 @@ struct CustomEvent {
   static CustomEvent ShowQuestionDialog(const model::QuestionData& data);
 
   static CustomEvent Exit();
+  static CustomEvent ShowWarning(const std::string& message);
 
   //! Possible types for content
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
-                   model::PlaylistOperation, model::QuestionData, bool>;
+                   model::PlaylistOperation, model::QuestionData, bool, std::string>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

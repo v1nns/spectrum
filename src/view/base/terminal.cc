@@ -621,7 +621,10 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 
 void Terminal::SendEvent(const CustomEvent& event) {
   sender_->Send(event);
-  cb_send_event_(ftxui::Event::Custom);  // force a refresh
+
+  // Callback is registered only after UI is created, so any event sent before it (e.g. warning
+  // while listing initial directory) is handled when callback gets registered
+  if (cb_send_event_) cb_send_event_(ftxui::Event::Custom);  // force a refresh
 }
 
 /* ********************************************************************************************** */
@@ -638,11 +641,16 @@ void Terminal::SetApplicationError(error::Code id, const std::string& detail) {
   // Get error message
   std::string message{error::ApplicationError::GetMessage(id)};
 
-  // Log error and show it on dialog
   ERROR(message, " detail=", std::quoted(detail));
-  error_dialog_->SetErrorMessage(message, detail);
-
   last_error_ = id;
+
+  // Warning is shown briefly by media player, without interrupting user
+  if (error::ApplicationError::GetLevel(id) == error::Level::Warning) {
+    SendEvent(CustomEvent::ShowWarning(detail.empty() ? message : message + ": " + detail));
+    return;
+  }
+
+  error_dialog_->SetErrorMessage(message, detail);
 }
 
 /* ********************************************************************************************** */

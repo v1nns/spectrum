@@ -60,7 +60,7 @@ void YtDlpWrapper::Finish() { python_.Finish(); }
 error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   if (!song.stream_info.has_value() || song.stream_info->base_url.empty()) {
     ERROR("Song does not contain any URL to extract information");
-    return error::kUnknownError;
+    return error::kStreamFetchFailed;
   }
 
   std::string program = std::regex_replace(kExtractInfo.data(), std::regex("###"),
@@ -68,7 +68,7 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
 
   if (bool result = python_.Run(program); !result || !python_.GetBool(kStreamFound)) {
     ERROR("Could not fetch streaming format from URL=", song.stream_info->base_url);
-    return error::kUnknownError;
+    return error::kStreamFetchFailed;
   }
 
   // Get extracted info from URL
@@ -82,14 +82,14 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
 
   if (streams.empty()) {
     ERROR("Song has no valid streaming format");
-    return error::kUnknownError;
+    return error::kStreamFetchFailed;
   }
 
   const nlohmann::json* entry = SelectStream(streams);
 
   if (!entry) {
     ERROR("Song has no streaming format with URL");
-    return error::kUnknownError;
+    return error::kStreamFetchFailed;
   }
 
   nlohmann::json metadata =

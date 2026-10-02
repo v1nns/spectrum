@@ -66,6 +66,7 @@ class AudioControl {
  */
 class Player : public AudioControl {
   static constexpr int kNumberChannels = 2;  //!< Decoded audio is always stereo
+  static constexpr int kMaxFailedSongs = 3;  //!< Songs from playlist that may fail in a row
 
  private:
   /**
@@ -386,6 +387,7 @@ class Player : public AudioControl {
 
   std::unique_ptr<model::Song> curr_song_;        //!< Current song playing
   std::optional<model::Playlist> curr_playlist_;  //!< Queue of songs (origined from playlist)
+  std::atomic<int> failed_songs_ = 0;             //!< Songs from playlist that failed in a row
 
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 

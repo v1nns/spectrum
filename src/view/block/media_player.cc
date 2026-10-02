@@ -17,7 +17,14 @@ namespace interface {
 
 MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Block{dispatcher, model::BlockIdentifier::MediaPlayer,
-            interface::Size{.width = 0, .height = kMaxRows}} {
+            interface::Size{.width = 0, .height = kMaxRows}},
+      warning_{[this] {
+                 // Warning has expired, so UI must be refreshed to remove it from screen
+                 if (auto disp = GetDispatcher(); disp) {
+                   disp->SendEvent(CustomEvent::Refresh());
+                 }
+               },
+               kWarningDuration} {
   btn_play_ = Button::make_button_play([this]() {
     LOG("Handle on_click event on Play button");
     auto disp = GetDispatcher();
@@ -133,6 +140,13 @@ ftxui::Element MediaPlayer::Render() {
   // margin based on volume string length
   auto dummy_margin = ftxui::text(std::string(vol_info.size(), ' '));
 
+  // Warning (if any) uses the empty line between media buttons and song duration
+  ftxui::Element warning = ftxui::text("");
+  if (auto message = warning_.GetText(); message.has_value()) {
+    warning =
+        ftxui::text(*message) | ftxui::bold | ftxui::color(ftxui::Color::Yellow) | ftxui::center;
+  }
+
   ftxui::Element content = ftxui::vbox({
       ftxui::hbox({
           margin,
@@ -149,7 +163,11 @@ ftxui::Element MediaPlayer::Render() {
           }),
           margin,
       }),
-      ftxui::text(""),
+      ftxui::hbox({
+          margin,
+          warning | ftxui::xflex_grow,
+          margin,
+      }),
       ftxui::hbox({
           margin,
           bar_duration,
@@ -190,6 +208,13 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
+  if (event == CustomEvent::Identifier::ShowWarning) {
+    LOG("Received warning to show");
+    warning_.Show(event.GetContent<std::string>());
+
+    return true;
+  }
+
   if (event == CustomEvent::Identifier::UpdateVolume) {
     LOG("Received new volume information from player");
     volume_ = event.GetContent<model::Volume>();

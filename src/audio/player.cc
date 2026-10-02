@@ -141,6 +141,20 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
     // In case of error, notify about it
     media_notifier->NotifyError(result, filename);
+
+    // Warning is not shown in a dialog (whose closing would play next song), so keep playing
+    if (error::ApplicationError::GetLevel(result) == error::Level::Warning) {
+      // But do not try every remaining song when they keep failing (e.g. no network to stream them)
+      if (curr_playlist_ && !curr_playlist_->IsEmpty() && ++failed_songs_ >= kMaxFailedSongs) {
+        LOG("Stop playlist, as ", failed_songs_.load(), " songs failed in a row");
+        curr_playlist_.reset();
+        failed_songs_ = 0;
+        media_notifier->NotifyError(error::kTooManyFailedSongs, "");
+      } else {
+        DequeueNextSongFromPlaylist();
+      }
+    }
+
     return;
   }
 
@@ -334,6 +348,8 @@ void Player::AudioHandler() {
       continue;  // we don't wanna keep in this loop anymore, so wait for next song!
     }
 
+    failed_songs_ = 0;
+
     {
       // Otherwise, it is a supported audio extension, send detailed audio information to UI
       if (auto media_notifier = notifier_.lock(); media_notifier) {
@@ -403,6 +419,7 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 void Player::Play(const std::filesystem::path& filepath) {
   LOG("Add command to queue: \"Play\" (filepath=", std::quoted(filepath.string()), ")");
   media_control_.Push(Command::Play(model::Song{.filepath = filepath}));
+  failed_songs_ = 0;
 
   // Reset song queue
   if (curr_playlist_) {
@@ -419,6 +436,7 @@ void Player::Play(const model::Playlist& playlist) {
 
   // Update internal song queue
   curr_playlist_ = playlist;
+  failed_songs_ = 0;
 
   if (!already_playing) {
     // Enqueue first song
