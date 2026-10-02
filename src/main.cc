@@ -3,8 +3,10 @@
  * \brief Main function
  */
 #include <cstdlib>
+#include <filesystem>
 #include <iomanip>
 #include <string>
+#include <system_error>
 
 #include "audio/player.h"
 #include "ftxui/component/screen_interactive.hpp"
@@ -44,7 +46,7 @@ bool parse(int argc, char** argv, Settings& options) {
         Argument{
             .name = "log",
             .choices = {"-l", "--log"},
-            .description = "Enable logging to specified path",
+            .description = "Log to specified path (default: ~/.cache/spectrum/spectrum.log)",
         },
         Argument{
             .name = "directory",
@@ -63,12 +65,19 @@ bool parse(int argc, char** argv, Settings& options) {
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
     ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
 
-    // Check if contains filepath for logging
+    // Check if contains filepath for logging (otherwise, use default path)
     if (auto& logging_path = parsed_args["log"]; logging_path) {
-      // Enable logging to specified path
       options.log_path = logging_path->get_string();
-      util::Logger::GetInstance().Configure(options.log_path);
+    } else if (util::FileHandler file_handler; !file_handler.GetHome().empty()) {
+      options.log_path = file_handler.GetLogPath();
+
+      std::error_code error;
+      std::filesystem::create_directories(std::filesystem::path{options.log_path}.parent_path(),
+                                          error);
     }
+
+    // Enable logging (log file is renamed when it gets too big, keeping only the previous one)
+    if (!options.log_path.empty()) util::Logger::GetInstance().Configure(options.log_path);
 
     // Check if contains flag for verbose logging
     if (auto& verbose = parsed_args["verbose"]; verbose) {

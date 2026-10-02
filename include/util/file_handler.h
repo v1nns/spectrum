@@ -61,6 +61,12 @@ class FileHandler {
   std::string GetSettingsPath() const;
 
   /**
+   * @brief Get full path for log file (used when no other path is given)
+   * @return Filepath
+   */
+  std::string GetLogPath() const;
+
+  /**
    * @brief List all files from the given directory path
    * @param dir_path Full path to directory
    * @param parsed_files[out] Existing files in the given directory path

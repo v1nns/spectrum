@@ -126,6 +126,12 @@ std::string FileHandler::GetSettingsPath() const {
 
 /* ********************************************************************************************** */
 
+std::string FileHandler::GetLogPath() const {
+  return std::string{GetHome() + "/.cache/spectrum/spectrum.log"};
+}
+
+/* ********************************************************************************************** */
+
 bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed_files) {
   Files tmp;
 

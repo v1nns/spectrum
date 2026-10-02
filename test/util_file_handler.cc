@@ -10,6 +10,7 @@
 
 #include "general/utils.h"
 #include "util/file_handler.h"
+#include "util/sink.h"
 
 namespace {
 
@@ -193,6 +194,71 @@ TEST_F(FileHandlerTest, SaveSettingsKeepsOtherSettings) {
   settings = model::Settings{};
   ASSERT_TRUE(handler.ParseSettings(settings));
   EXPECT_FALSE(settings.volume.has_value());
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with FileSink class (using a temporary directory for log files)
+ */
+class FileSinkTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    dir = std::filesystem::temp_directory_path() / "spectrum_sink_test";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    path = (dir / "spectrum.log").string();
+  }
+
+  void TearDown() override { std::filesystem::remove_all(dir); }
+
+  //! Write content to the given file
+  static void WriteFile(const std::string& filepath, const std::string& content) {
+    std::ofstream(filepath) << content;
+  }
+
+  //! Read content from the given file (empty if it does not exist)
+  static std::string ReadFile(const std::string& filepath) {
+    std::ifstream in(filepath);
+    return std::string(std::istreambuf_iterator<char>(in), {});
+  }
+
+  //! Write a message to log file using a sink with the given maximum size
+  void Log(const std::string& message, std::uintmax_t max_size) const {
+    util::FileSink sink(path, max_size);
+    sink.OpenStream();
+    sink << message;
+  }
+
+  static constexpr std::uintmax_t kMaxSize = 100;  //!< Maximum size for log file in tests
+
+  std::filesystem::path dir;  //!< Temporary directory
+  std::string path;           //!< Log file path
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(FileSinkTest, AppendWhileBelowMaximumSize) {
+  WriteFile(path, "old\n");
+
+  Log("new\n", kMaxSize);
+
+  EXPECT_THAT(ReadFile(path), StrEq("old\nnew\n"));
+  EXPECT_FALSE(std::filesystem::exists(path + ".1"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileSinkTest, RotateWhenMaximumSizeIsReached) {
+  const std::string old_content(kMaxSize, 'x');
+  WriteFile(path, old_content);
+  WriteFile(path + ".1", "oldest\n");
+
+  Log("new\n", kMaxSize);
+
+  // Previous log file replaces the oldest one, and a new log file is started
+  EXPECT_THAT(ReadFile(path + ".1"), StrEq(old_content));
+  EXPECT_THAT(ReadFile(path), StrEq("new\n"));
 }
 
 }  // namespace
