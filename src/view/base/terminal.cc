@@ -6,6 +6,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/ffmpeg.h"
@@ -107,6 +108,13 @@ void Terminal::Exit() const {
 
 void Terminal::RegisterPlayerNotifier(const std::shared_ptr<audio::Notifier>& notifier) {
   notifier_ = notifier;
+  notifier_registered_ = true;
+
+  // Now that audio thread can be reached, handle events sent to it before
+  for (const auto& event : std::exchange(pending_audio_events_, {})) {
+    LOG("Handle event sent to audio thread before it was registered, event=", event);
+    HandleEventFromInterfaceToAudioThread(event);
+  }
 }
 
 /* ********************************************************************************************** */
@@ -449,6 +457,14 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
   bool event_handled = true;
 
   auto media_ctl = notifier_.lock();
+
+  // Application is still starting, so keep it until audio thread can be reached
+  if (!media_ctl && !notifier_registered_) {
+    LOG("Media controller not registered yet, keep event to audio thread=", event);
+    pending_audio_events_.push_back(event);
+    return event_handled;
+  }
+
   if (!media_ctl) {
     // This happens while application is exiting, so there is no audio thread to handle it anymore
     ERROR("Cannot lock media controller, event to audio thread will be discarded, event=", event);

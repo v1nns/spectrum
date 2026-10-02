@@ -296,24 +296,34 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
     return false;
   }
 
-  auto visualizer = parsed.is_object() ? parsed.find("visualizer") : parsed.end();
-  if (visualizer == parsed.end() || !visualizer->is_object()) {
-    ERROR("Settings file does not contain visualizer settings, file=", std::quoted(file_path));
+  if (!parsed.is_object()) {
+    ERROR("Settings file does not contain an object, file=", std::quoted(file_path));
+    internal::BackupFile(file_path);
     return false;
   }
 
-  // Animation is saved by its identifier, so check it is a known one
-  if (auto animation = visualizer->find("animation");
-      animation != visualizer->end() && animation->is_number_integer()) {
-    if (int value = animation->get<int>();
-        value >= model::BarAnimation::HorizontalMirror && value < model::BarAnimation::LAST) {
-      settings.animation = static_cast<model::BarAnimation>(value);
+  if (auto visualizer = parsed.find("visualizer");
+      visualizer != parsed.end() && visualizer->is_object()) {
+    // Animation is saved by its identifier, so check it is a known one
+    if (auto animation = visualizer->find("animation");
+        animation != visualizer->end() && animation->is_number_integer()) {
+      if (int value = animation->get<int>();
+          value >= model::BarAnimation::HorizontalMirror && value < model::BarAnimation::LAST) {
+        settings.animation = static_cast<model::BarAnimation>(value);
+      }
+    }
+
+    if (auto bar_width = visualizer->find("bar_width");
+        bar_width != visualizer->end() && bar_width->is_number_integer()) {
+      settings.bar_width = bar_width->get<int>();
     }
   }
 
-  if (auto bar_width = visualizer->find("bar_width");
-      bar_width != visualizer->end() && bar_width->is_number_integer()) {
-    settings.bar_width = bar_width->get<int>();
+  if (auto player = parsed.find("player"); player != parsed.end() && player->is_object()) {
+    if (auto volume = player->find("volume");
+        volume != player->end() && volume->is_number_integer()) {
+      if (int value = volume->get<int>(); value >= 0 && value <= 100) settings.volume = value;
+    }
   }
 
   LOG("Parsed settings from file=", std::quoted(file_path));
@@ -323,14 +333,26 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
 /* ********************************************************************************************** */
 
 bool FileHandler::SaveSettings(const model::Settings& settings) {
-  nlohmann::json visualizer = nlohmann::json::object();
-  if (settings.animation) visualizer["animation"] = static_cast<int>(*settings.animation);
-  if (settings.bar_width) visualizer["bar_width"] = *settings.bar_width;
-
-  nlohmann::json json_data;
-  json_data["visualizer"] = visualizer;
-
   std::filesystem::path filepath{GetSettingsPath()};
+
+  // Settings are saved by different parts of the interface, so keep the ones not being saved now
+  nlohmann::json json_data = nlohmann::json::object();
+
+  if (std::ifstream in(filepath); in.is_open()) {
+    nlohmann::json parsed = nlohmann::json::parse(in, nullptr, /*allow_exceptions=*/false);
+    if (parsed.is_object()) json_data = std::move(parsed);
+  }
+
+  auto section = [&json_data](const char* name) -> nlohmann::json& {
+    if (!json_data[name].is_object()) json_data[name] = nlohmann::json::object();
+    return json_data[name];
+  };
+
+  if (settings.animation)
+    section("visualizer")["animation"] = static_cast<int>(*settings.animation);
+  if (settings.bar_width) section("visualizer")["bar_width"] = *settings.bar_width;
+  if (settings.volume) section("player")["volume"] = *settings.volume;
+
   std::error_code error;
 
   // Check that parent directory exists

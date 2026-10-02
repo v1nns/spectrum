@@ -1,5 +1,6 @@
 #include "view/block/media_player.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <sstream>
 #include <utility>
@@ -15,7 +16,8 @@ namespace interface {
 
 /* ********************************************************************************************** */
 
-MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
+MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
+                         const std::shared_ptr<util::FileHandler>& file_handler)
     : Block{dispatcher, model::BlockIdentifier::MediaPlayer,
             interface::Size{.width = 0, .height = kMaxRows}},
       warning_{[this] {
@@ -24,7 +26,17 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
                    disp->SendEvent(CustomEvent::Refresh());
                  }
                },
-               kWarningDuration} {
+               kWarningDuration},
+      file_handler_{file_handler != nullptr ? file_handler
+                                            : std::make_shared<util::FileHandler>()} {
+  // Restore volume from last run, and let audio player know about it
+  if (model::Settings settings; file_handler_->ParseSettings(settings) && settings.volume) {
+    volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
+    LOG("Restored volume=", volume_);
+
+    if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
+  }
+
   btn_play_ = Button::make_button_play([this]() {
     LOG("Handle on_click event on Play button");
     auto disp = GetDispatcher();
@@ -405,6 +417,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
       auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
       dispatcher->SendEvent(event_volume);
 
+      SaveVolume();
       return true;
     }
   }
@@ -421,6 +434,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
       auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
       dispatcher->SendEvent(event_volume);
 
+      SaveVolume();
       return true;
     }
   }
@@ -468,6 +482,14 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+void MediaPlayer::SaveVolume() const {
+  // Mute state is not saved, only the volume level
+  const int level = static_cast<int>(std::round(volume_.GetLevel() * 100));
+  if (!file_handler_->SaveSettings(model::Settings{.volume = level})) ERROR("Cannot save volume");
 }
 
 }  // namespace interface

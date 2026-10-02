@@ -60,6 +60,9 @@ struct Volume {
   // Get mute state
   bool IsMuted() const { return muted; }
 
+  // Get volume level, even when muted (from 0.f to 1.f)
+  float GetLevel() const { return percentage; }
+
   // Convenient conversion to int
   explicit operator int() const { return !muted ? static_cast<int>(round(percentage * 100)) : 0; }
 

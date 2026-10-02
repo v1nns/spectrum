@@ -1,16 +1,26 @@
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 
 #include "general/block.h"
 #include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
+#include "mock/file_handler_mock.h"
 #include "view/block/media_player.h"
 
 namespace {
 
+using ::testing::_;
 using ::testing::AllOf;
+using ::testing::AnyNumber;
+using ::testing::DoAll;
 using ::testing::Field;
+using ::testing::HasSubstr;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::NiceMock;
+using ::testing::Optional;
+using ::testing::Return;
+using ::testing::SetArgReferee;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -26,13 +36,17 @@ class MediaPlayerTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create MediaPlayer block
-    block = ftxui::Make<interface::MediaPlayer>(dispatcher);
+    // Create MediaPlayer block (using a mock to not load/save settings from user's home)
+    block = ftxui::Make<interface::MediaPlayer>(dispatcher, file_handler);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
   }
+
+  //! Load/save settings (by default, there are no settings saved)
+  std::shared_ptr<NiceMock<FileHandlerMock>> file_handler =
+      std::make_shared<NiceMock<FileHandlerMock>>();
 };
 
 /* ********************************************************************************************** */
@@ -896,6 +910,36 @@ TEST_F(MediaPlayerTest, ChangeRepeatModeAndShuffle) {
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, RestoreAndSaveVolume) {
+  // Volume from last run is restored, and sent to audio player
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.volume = 40}), Return(true)));
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::SetAudioVolume),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::Volume>(model::Volume{0.4F})))));
+
+  auto restored = ftxui::Make<interface::MediaPlayer>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(restored)->SetFocused(true);
+
+  ftxui::Render(*screen, restored->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("Volume:  40%"));
+
+  // Changing volume saves it
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(45))))
+      .WillOnce(Return(true));
+  restored->OnEvent(ftxui::Event::Character('+'));
+
+  // But mute state is not saved
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+  restored->OnEvent(ftxui::Event::Character('m'));
 }
 
 }  // namespace

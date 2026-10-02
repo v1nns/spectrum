@@ -13,6 +13,7 @@
 #include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/element/button.h"
 #include "view/element/flash_message.h"
@@ -32,8 +33,10 @@ class MediaPlayer : public Block {
   /**
    * @brief Construct a new Audio Player object
    * @param dispatcher Block event dispatcher
+   * @param file_handler Utility handler to load/save volume (if null, a new one is created)
    */
-  explicit MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
+                       const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the Audio Player object
@@ -81,6 +84,9 @@ class MediaPlayer : public Block {
    */
   bool HandleVolumeEvent(const ftxui::Event& event);
 
+  //! Save current volume level, so it is restored on next run
+  void SaveVolume() const;
+
   /**
    * @brief Handle event for seek position in song
    * @param event Received event from screen
@@ -115,6 +121,8 @@ class MediaPlayer : public Block {
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused
 
   FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)
+
+  std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save volume
 };
 
 }  // namespace interface

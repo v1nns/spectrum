@@ -90,7 +90,7 @@ class FileHandler {
   virtual bool ParseSettings(model::Settings& settings);
 
   /**
-   * @brief Save settings to file
+   * @brief Save settings to file (only the ones filled, keeping the others already saved in file)
    * @param settings Settings to save
    * @return true if file was saved, otherwise false
    */

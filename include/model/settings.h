@@ -18,6 +18,7 @@ namespace model {
 struct Settings {
   std::optional<BarAnimation> animation;  //!< Spectrum visualizer animation
   std::optional<int> bar_width;           //!< Spectrum visualizer bar width
+  std::optional<int> volume;              //!< Player volume (percentage, from 0 to 100)
 };
 
 }  // namespace model

@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/receiver.hpp"
@@ -252,7 +253,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
   //! Variables
 
-  std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
+  std::weak_ptr<audio::Notifier> notifier_;  //!< Audio notifier for events from UI
+
+  //! Events to audio thread sent before audio notifier is registered (e.g. volume restored by
+  //! media player while it is being created), handled once it gets registered
+  std::vector<CustomEvent> pending_audio_events_;
+  bool notifier_registered_ = false;  //!< Audio notifier was registered (it may be gone already)
   error::Code last_error_ = error::kSuccess;  //!< Last application error
 
   std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages

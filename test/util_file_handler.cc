@@ -174,4 +174,25 @@ TEST_F(FileHandlerTest, ParseInvalidSettings) {
   EXPECT_TRUE(std::filesystem::exists(handler.GetSettingsPath() + ".bak"));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveSettingsKeepsOtherSettings) {
+  // Visualizer and volume are saved separately (by different blocks)
+  ASSERT_TRUE(handler.SaveSettings(
+      model::Settings{.animation = model::BarAnimation::Mono, .bar_width = 1}));
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.volume = 35}));
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.animation, model::BarAnimation::Mono);
+  EXPECT_EQ(settings.bar_width, 1);
+  EXPECT_EQ(settings.volume, 35);
+
+  // Volume out of range is not filled
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.volume = 150}));
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.volume.has_value());
+}
+
 }  // namespace
