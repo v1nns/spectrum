@@ -70,6 +70,10 @@ bool parse(int argc, char** argv, Settings& options) {
       options.verbose_logging = verbose->get_bool();
     }
 
+    // Detailed steps are only logged with verbose logging
+    util::Logger::GetInstance().SetLevel(options.verbose_logging ? util::LogLevel::Debug
+                                                                 : util::LogLevel::Info);
+
     // Check if contains dirpath for initial file listing
     if (auto& initial_path = parsed_args["directory"]; initial_path) {
       options.initial_dir = initial_path->get_string();

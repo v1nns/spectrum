@@ -126,7 +126,8 @@ model::Playlist ListDirectory::CreateQueue(const util::File& file) {
 
   auto add_to_queue = [&queue](const util::File& entry) {
     std::error_code error;
-    if (!std::filesystem::is_directory(entry, error) && internal::FileMenu::HasMediaExtension(entry)) {
+    if (!std::filesystem::is_directory(entry, error) &&
+        internal::FileMenu::HasMediaExtension(entry)) {
       queue.songs.push_back(model::Song{.filepath = entry});
     }
   };
@@ -145,7 +146,7 @@ bool ListDirectory::SendFileSelection(const util::File& file) {
 
   // Do not send it to audio thread, otherwise current song would be stopped for nothing
   if (contains_audio_cb_ && !contains_audio_cb_(file)) {
-    ERROR("Selected file does not contain an audio stream, file=", file);
+    WARN("Selected file does not contain an audio stream, file=", file);
     dispatcher->SetApplicationError(error::kFileNotSupported, file.filename().string());
     return true;
   }

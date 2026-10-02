@@ -60,7 +60,7 @@ void Block::AskForFocus() const {
 std::shared_ptr<EventDispatcher> Block::GetDispatcher() const {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) {
-    ERROR("Cannot lock event dispatcher");
+    WARN("Cannot lock event dispatcher");
     throw std::runtime_error("Cannot lock event dispatcher");
   }
 

@@ -52,7 +52,7 @@ error::Code CURLWrapper::Fetch(const std::string &url, std::string &output) {
     if (result == CURLE_ABORTED_BY_CALLBACK) {
       LOG("Canceled fetching content from URL=", url);
     } else {
-      ERROR("Failed to execute cURL, error=", std::string(err_buffer.begin(), err_buffer.end()));
+      WARN("Failed to execute cURL, error=", std::string(err_buffer.begin(), err_buffer.end()));
     }
 
     return error::kUnknownError;

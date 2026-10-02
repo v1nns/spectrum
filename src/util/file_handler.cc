@@ -184,7 +184,7 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
   for (auto& [_, playlist] : parsed["playlists"].items()) {
     if (!playlist.is_object() || !playlist.contains("name") || !playlist.contains("songs") ||
         !playlist["name"].is_string() || !playlist["songs"].is_array()) {
-      ERROR("Skipping playlist with missing or invalid name/songs, playlist=", playlist.dump());
+      WARN("Skipping playlist with missing or invalid name/songs, playlist=", playlist.dump());
       skipped = true;
       continue;
     }
@@ -199,8 +199,8 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
       try {
         internal::ParseSong(song, filepaths, entry);
       } catch (const nlohmann::json::exception& e) {
-        ERROR("Skipping invalid song=", song.dump(), " from playlist=", std::quoted(entry.name),
-              ", error=", e.what());
+        WARN("Skipping invalid song=", song.dump(), " from playlist=", std::quoted(entry.name),
+             ", error=", e.what());
         skipped = true;
       }
     }
@@ -211,7 +211,7 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
   if (skipped) internal::BackupFile(file_path);
 
-  LOG("Parsed ", tmp.size(), " playlists");
+  INFO("Parsed ", tmp.size(), " playlists");
   playlists = std::move(tmp);
   return true;
 }

@@ -8,6 +8,8 @@
 
 #include <cxxabi.h>
 
+#include <atomic>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -20,6 +22,14 @@
 #include "util/sink.h"
 
 namespace util {
+
+//! Log level, from the most detailed to the most severe
+enum class LogLevel : std::uint8_t {
+  Debug,    //!< Detailed steps, only useful when debugging (enabled with verbose logging)
+  Info,     //!< Meaningful actions and state changes
+  Warning,  //!< Unexpected situation that does not stop the application from working
+  Error,    //!< Operation that failed
+};
 
 /**
  * @brief Responsible for message logging (thread-safe) to a defined output stream
@@ -73,21 +83,32 @@ class Logger {
   void Configure();
 
   /**
+   * @brief Set minimum level of messages to log (by default, debug messages are not logged)
+   * @param level Minimum log level
+   */
+  void SetLevel(LogLevel level) { level_ = level; }
+
+  //! Check if messages with the given level are logged
+  bool IsEnabled(LogLevel level) const { return sink_ && level >= level_; }
+
+  /**
    * @brief Concatenate all arguments into a single string and write it to output stream
    * @tparam ...Args Splitted arguments
+   * @param level Message level
    * @param filename Current file name
    * @param line Current line number
    * @param ...args Arguments to build log message
    */
   template <typename... Args>
-  inline void Log(const char* filename, int line, Args&&... args) {
-    // Do nothing if sink is not configured
-    if (!sink_) return;
+  inline void Log(LogLevel level, const char* filename, int line, Args&&... args) {
+    // Do nothing if sink is not configured or level is not enabled (before building message)
+    if (!IsEnabled(level)) return;
 
     // Build log message and write it to output stream
     std::ostringstream ss;
 
     ss << "[" << std::hex << std::this_thread::get_id() << std::dec << "] ";
+    ss << "[" << GetLevelName(level) << "] ";
     ss << "[" << filename << ":" << line << "] ";
     (ss << ... << std::forward<Args>(args)) << "\n";
 
@@ -104,11 +125,28 @@ class Logger {
    */
   void Write(const std::string& message, bool add_timestamp = true);
 
+  //! Get level name (with fixed width, to keep log columns aligned)
+  static const char* GetLevelName(LogLevel level) {
+    switch (level) {
+      case LogLevel::Debug:
+        return "DEBUG";
+      case LogLevel::Info:
+        return "INFO ";
+      case LogLevel::Warning:
+        return "WARN ";
+      case LogLevel::Error:
+        break;
+    }
+
+    return "ERROR";
+  }
+
   /* ******************************************************************************************** */
   //! Variables
 
-  std::mutex mutex_;            //!< Control access for internal resources
-  std::unique_ptr<Sink> sink_;  //!< Sink to stream output message
+  std::mutex mutex_;                              //!< Control access for internal resources
+  std::unique_ptr<Sink> sink_;                    //!< Sink to stream output message
+  std::atomic<LogLevel> level_ = LogLevel::Info;  //!< Minimum level of messages to log
 };
 
 /* ********************************************************************************************** */
@@ -128,19 +166,29 @@ std::string get_timestamp();
 //! Parse pre-processing macro to get only filename instead of absolute path from source file
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-//! Macro to log messages (this was the only way found to append "filename:line" in the output)
-#define LOG(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
+//! Macro to log messages with the given level (the only way found to append "filename:line")
+#define LOG_LEVEL(level, ...) \
+  util::Logger::GetInstance().Log(level, __FILENAME__, __LINE__, __VA_ARGS__)
 
-//! Macro to log messages based on condition
+//! Macro to log detailed steps (only logged with verbose logging)
+#define LOG(...) LOG_LEVEL(util::LogLevel::Debug, __VA_ARGS__)
+
+//! Macro to log detailed steps based on condition
 #define LOG_IF(condition, ...) \
-  if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, __VA_ARGS__)
+  if (condition) LOG(__VA_ARGS__)
+
+//! Macro to log meaningful actions and state changes
+#define INFO(...) LOG_LEVEL(util::LogLevel::Info, __VA_ARGS__)
+
+//! Macro to log unexpected situations that do not stop the application from working
+#define WARN(...) LOG_LEVEL(util::LogLevel::Warning, __VA_ARGS__)
 
 //! Macro to log error messages
-#define ERROR(...) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+#define ERROR(...) LOG_LEVEL(util::LogLevel::Error, __VA_ARGS__)
 
 //! Macro to log error messages based on condition
 #define ERROR_IF(condition, ...) \
-  if (condition) util::Logger::GetInstance().Log(__FILENAME__, __LINE__, "ERROR: ", __VA_ARGS__)
+  if (condition) ERROR(__VA_ARGS__)
 
 /* ---------------------------------------------------------------------------------------------- */
 /*                                        TEMPLATE FRIENDLY                                       */

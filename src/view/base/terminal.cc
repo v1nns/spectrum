@@ -98,7 +98,7 @@ void Terminal::Init(const std::string& initial_path) {
 /* ********************************************************************************************** */
 
 void Terminal::Exit() const {
-  LOG("Exit from terminal");
+  INFO("Exit from terminal");
 
   // Trigger exit callback
   if (cb_exit_) cb_exit_();
@@ -467,7 +467,7 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
 
   if (!media_ctl) {
     // This happens while application is exiting, so there is no audio thread to handle it anymore
-    ERROR("Cannot lock media controller, event to audio thread will be discarded, event=", event);
+    WARN("Cannot lock media controller, event to audio thread will be discarded, event=", event);
     return !event_handled;
   }
 
@@ -673,15 +673,16 @@ void Terminal::SetApplicationError(error::Code id, const std::string& detail) {
   // Get error message
   std::string message{error::ApplicationError::GetMessage(id)};
 
-  ERROR(message, " detail=", std::quoted(detail));
   last_error_ = id;
 
   // Warning is shown briefly by media player, without interrupting user
   if (error::ApplicationError::GetLevel(id) == error::Level::Warning) {
+    WARN(message, " detail=", std::quoted(detail));
     SendEvent(CustomEvent::ShowWarning(detail.empty() ? message : message + ": " + detail));
     return;
   }
 
+  ERROR(message, " detail=", std::quoted(detail));
   error_dialog_->SetErrorMessage(message, detail);
 }
 

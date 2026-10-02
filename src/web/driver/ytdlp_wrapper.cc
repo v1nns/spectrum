@@ -171,7 +171,7 @@ const nlohmann::json* YtDlpWrapper::SelectStream(const nlohmann::json& streams) 
     if (!selected || rank(entry) > rank(*selected)) selected = &entry;
   }
 
-  if (selected) LOG("Selected stream format=", GetOr<std::string>(*selected, "format", ""));
+  if (selected) INFO("Selected stream format=", GetOr<std::string>(*selected, "format", ""));
 
   return selected;
 }

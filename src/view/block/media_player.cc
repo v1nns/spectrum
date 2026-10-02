@@ -32,7 +32,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
   // Restore volume from last run, and let audio player know about it
   if (model::Settings settings; file_handler_->ParseSettings(settings) && settings.volume) {
     volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
-    LOG("Restored volume=", volume_);
+    INFO("Restored volume=", volume_);
 
     if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
   }

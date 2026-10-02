@@ -473,7 +473,7 @@ std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() con
   // Do not throw if it fails: this happens while application is exiting (after interface is
   // destroyed), so caller simply skips its notification
   auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) ERROR("Cannot lock event dispatcher");
+  if (!dispatcher) WARN("Cannot lock event dispatcher");
 
   return dispatcher;
 }
@@ -483,7 +483,7 @@ std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() con
 std::shared_ptr<audio::AudioControl> MediaController::GetPlayer() const {
   // Same as dispatcher, this happens while application is exiting, so caller skips its command
   auto player = player_ctl_.lock();
-  if (!player) ERROR("Cannot lock audio player, command will be discarded");
+  if (!player) WARN("Cannot lock audio player, command will be discarded");
 
   return player;
 }

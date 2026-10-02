@@ -156,7 +156,7 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
       bool has_next_song = CanSkip(Command::SkipToNext());
 
       if (has_next_song && ++failed_songs_ >= kMaxFailedSongs) {
-        LOG("Stop playlist, as ", failed_songs_.load(), " songs failed in a row");
+        WARN("Stop playlist, as ", failed_songs_.load(), " songs failed in a row");
         curr_playlist_.reset();
         failed_songs_ = 0;
         media_notifier->NotifyError(error::kTooManyFailedSongs, "");
@@ -208,7 +208,7 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
     } break;
 
     case Command::Identifier::PauseOrResume: {
-      LOG("Audio handler received command to pause song");
+      INFO("Audio handler received command to pause song");
       media_control_.state = TranslateCommand(command);
       playback_->Pause();
 
@@ -237,7 +237,7 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
 
       // Received command different from PauseOrResume
       if (!keep_executing || command_after_wait != Cmd::PauseOrResume) {
-        LOG("Audio handler received command to ", command_after_wait);
+        INFO("Audio handler received command to ", command_after_wait);
 
         bool play_new_song = command_after_wait == Cmd::Play ||
                              command_after_wait == Cmd::SkipToNext ||
@@ -261,7 +261,7 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
         return false;
       }
 
-      LOG("Audio handler received command to resume song");
+      INFO("Audio handler received command to resume song");
       media_control_.state = State::Play;
       playback_->Prepare();
     } break;
@@ -273,7 +273,7 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
         break;
       }
 
-      LOG("Audio handler received command to ", command);
+      INFO("Audio handler received command to ", command);
       // Skip request selects the song to play after stopping this one
       pending_skip_ = command;
 
@@ -285,7 +285,7 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
 
     case Command::Identifier::Stop:
     case Command::Identifier::Exit: {
-      LOG("Audio handler received command to ", command);
+      INFO("Audio handler received command to ", command);
       media_control_.state = TranslateCommand(command);
       playback_->Stop();
 
@@ -401,6 +401,7 @@ void Player::AudioHandler() {
     }
 
     failed_songs_ = 0;
+    INFO("Playing song=", *curr_song_);
 
     {
       // Otherwise, it is a supported audio extension, send detailed audio information to UI
@@ -484,7 +485,7 @@ std::optional<model::Song> Player::SelectSong(const Command& command) {
         return std::nullopt;
       }
 
-      LOG("Start playing playlist=", playlist);
+      INFO("Start playing playlist=", playlist);
       curr_playlist_ = std::move(playlist);
       order_.resize(curr_playlist_->songs.size());
       std::iota(order_.begin(), order_.end(), 0);
@@ -588,7 +589,7 @@ void Player::Stop() {
 /* ********************************************************************************************** */
 
 void Player::SetAudioVolume(const model::Volume& value) {
-  LOG("Set audio volume with value=", value);
+  INFO("Set audio volume with value=", value);
 
   // Set volume direcly or add new command to audio queue, based on current media state
   switch (media_control_.state) {
@@ -700,14 +701,14 @@ void Player::SkipToPrevious() {
 /* ********************************************************************************************** */
 
 void Player::SetRepeatMode(model::RepeatMode mode) {
-  LOG("Set repeat mode=", mode);
+  INFO("Set repeat mode=", mode);
   repeat_ = mode;
 }
 
 /* ********************************************************************************************** */
 
 void Player::SetShuffle(bool enabled) {
-  LOG("Set shuffle=", enabled);
+  INFO("Set shuffle=", enabled);
   shuffle_ = enabled;
 }
 

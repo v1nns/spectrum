@@ -42,8 +42,8 @@ SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
       gauge_width_ = *settings.bar_width;
     }
 
-    LOG("Restored visualizer settings, animation=", model::GetAnimationName(curr_anim_),
-        " bar width=", gauge_width_);
+    INFO("Restored visualizer settings, animation=", model::GetAnimationName(curr_anim_),
+         " bar width=", gauge_width_);
   }
 }
 
@@ -238,7 +238,7 @@ bool SpectrumVisualizer::OnPickerEvent(const ftxui::Event& event) {
 
   // Keep selected animation
   if (event == Keybind::Return || event == keybinding::Visualizer::ChangeAnimation) {
-    LOG("Selected animation=", model::GetAnimationName(curr_anim_));
+    INFO("Selected animation=", model::GetAnimationName(curr_anim_));
     picker_previous_.reset();
     SaveSettings();
     return true;

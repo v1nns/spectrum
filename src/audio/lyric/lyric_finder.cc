@@ -139,7 +139,7 @@ SearchResult LyricFinder::Search(const std::string& artist, const std::string& r
     // Fetch content from search engine
     if (auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title), buffer);
         result != error::kSuccess) {
-      ERROR("Failed to fetch URL content, error code=", result);
+      WARN("Failed to fetch URL content, error code=", result);
       continue;
     }
 
@@ -148,7 +148,7 @@ SearchResult LyricFinder::Search(const std::string& artist, const std::string& r
     // Web scrap content to search for lyric
     if (model::SongLyric raw = parser_->Parse(buffer, engine->xpath()); !raw.empty()) {
       if (model::SongLyric formatted = engine->FormatLyrics(raw); !formatted.empty()) {
-        LOG("Found lyrics using search engine=", *engine);
+        INFO("Found lyrics using search engine=", *engine);
         return SearchResult{.status = SearchResult::Status::Found, .lyrics = std::move(formatted)};
       }
     }

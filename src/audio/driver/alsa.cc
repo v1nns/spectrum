@@ -78,7 +78,7 @@ error::Code Alsa::CreatePlaybackStream() {
   for (auto &device : devices_name) {
     LOG("Creating playback stream on device: ", std::quoted(device));
     if (snd_pcm_open(&pcm_handle, device.c_str(), SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-      ERROR("Cannot open playback stream on device: ", std::quoted(device));
+      WARN("Cannot open playback stream on device: ", std::quoted(device));
       continue;
     }
     LOG("Created playback stream on device: ", std::quoted(device));

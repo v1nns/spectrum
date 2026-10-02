@@ -14,17 +14,31 @@
 namespace driver {
 
 static void log_callback(void*, int level, const char* fmt, va_list vargs) {
+  // Custom callback receives messages from every level, so filter them here
+  if (level > av_log_get_level()) return;
+
+  // Map FFmpeg level to application level
+  const util::LogLevel log_level = level <= AV_LOG_ERROR     ? util::LogLevel::Error
+                                   : level <= AV_LOG_WARNING ? util::LogLevel::Warning
+                                                             : util::LogLevel::Debug;
+
+  if (!util::Logger::GetInstance().IsEnabled(log_level)) return;
+
   va_list ap_copy;
   va_copy(ap_copy, vargs);
-
-  size_t len = vsnprintf(0, 0, fmt, ap_copy);
+  int len = vsnprintf(nullptr, 0, fmt, ap_copy);
   va_end(ap_copy);
 
-  std::string message("", len + 1);  // need space for NUL
-  vsnprintf(&message[0], len + 1, fmt, vargs);
+  if (len <= 0) return;
 
-  message.resize(len - 1);  // remove the NUL + \n
-  LOG("[LOG_CALLBACK] LEVEL:", level, " MESSAGE:", message);
+  std::string message(static_cast<std::size_t>(len) + 1, '\0');  // need space for NUL
+  vsnprintf(message.data(), message.size(), fmt, vargs);
+  message.resize(static_cast<std::size_t>(len));
+
+  // Messages usually end with a line break, which is already added by logger
+  while (!message.empty() && (message.back() == '\n' || message.back() == '\r')) message.pop_back();
+
+  LOG_LEVEL(log_level, "[ffmpeg] ", message);
 }
 
 /* ********************************************************************************************** */
@@ -38,12 +52,9 @@ FFmpeg::FFmpeg(bool verbose) {
   av_channel_layout_default(ch_layout_.get(), 2);
 #endif
 
-  if (verbose) {
-    av_log_set_level(AV_LOG_WARNING);
-    av_log_set_callback(log_callback);
-  } else {
-    av_log_set_level(AV_LOG_QUIET);
-  }
+  // Warnings and errors from FFmpeg are always logged (and everything else with verbose logging)
+  av_log_set_level(verbose ? AV_LOG_VERBOSE : AV_LOG_WARNING);
+  av_log_set_callback(log_callback);
 }
 
 /* ********************************************************************************************** */

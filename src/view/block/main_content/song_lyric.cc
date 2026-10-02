@@ -138,7 +138,7 @@ void SongLyric::StartFetching() {
   focused_ = 0;
 
   if (!HasSearchTerms()) {
-    ERROR("Missing artist or title, song lyrics will not be fetched");
+    INFO("Missing artist or title, song lyrics will not be fetched");
     return;
   }
 
@@ -236,7 +236,7 @@ void SongLyric::ParseSearchTerms() {
 
   // Streamed song does not have a filename, its information comes only from its title
   if (audio_info_.stream_info.has_value()) {
-    ERROR("Streamed song title does not contain artist and title");
+    LOG("Streamed song title does not contain artist and title");
     return;
   }
 
@@ -249,7 +249,7 @@ void SongLyric::ParseSearchTerms() {
   // If contains more than one hiphen, should not fetch at all
   if (const std::string::difference_type n = std::count(filename.begin(), filename.end(), '-');
       n > 1) {
-    ERROR("Contains more than one hiphen on filename, song lyrics will not be fetched");
+    LOG("Contains more than one hiphen on filename, song lyrics will not be fetched");
     return;
   }
 
@@ -258,7 +258,7 @@ void SongLyric::ParseSearchTerms() {
 
   // If filename is not in the expected format ("dummy - song.mp3"), should not fetch song
   if (pos == std::string::npos) {
-    ERROR("Filename does not contain a supported pattern");
+    LOG("Filename does not contain a supported pattern");
     return;
   }
 
@@ -270,7 +270,7 @@ void SongLyric::ParseSearchTerms() {
 
   // Both must be filled, otherwise search is not possible
   if (!HasSearchTerms()) {
-    ERROR("Failed to parse artist and title");
+    LOG("Failed to parse artist and title");
     artist_.clear();
     title_.clear();
   }
