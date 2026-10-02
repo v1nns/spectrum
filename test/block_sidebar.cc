@@ -79,6 +79,12 @@ class SidebarTest : public ::BlockTest {
     return GetListDirectory()->curr_playing_.value();
   }
 
+  //! Check if some file is highlighted (as playing) in ListDirectory
+  bool IsFileHighlighted() {
+    auto files = GetListDirectory();
+    return files->curr_playing_.has_value() || files->menu_->actual().highlighted_.has_value();
+  }
+
   //! Getter for current dir from ListDirectory
   auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->GetCurrentDir(); }
 
@@ -102,6 +108,11 @@ class SidebarTest : public ::BlockTest {
     auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
     return reinterpret_cast<interface::PlaylistViewer*>(
         sidebar->tab_elem_[interface::Sidebar::View::Playlist].get());
+  }
+
+  //! Check if some song is highlighted (as playing) in PlaylistViewer
+  bool IsPlaylistSongHighlighted() {
+    return GetPlaylistViewer()->menu_->actual().highlighted_.has_value();
   }
 
   //! Getter for Modify button state
@@ -509,6 +520,50 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, ClearSongInfoOnAllTabs) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
+  model::Playlists data{{model::Playlist{
+      .index = 0,
+      .name = "Chill mix",
+      .songs = {model::Song{.filepath = file}},
+  }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  auto update_song = interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = file, .playlist = "Chill mix"});
+  auto clear_song = interface::CustomEvent::ClearSongInfo();
+
+  // Load playlists, then show files tab again
+  block->OnEvent(ftxui::Event::F2);
+  block->OnEvent(ftxui::Event::F1);
+
+  // Song from playlist is highlighted on both tabs
+  sidebar->OnCustomEvent(update_song);
+  ASSERT_TRUE(IsFileHighlighted());
+  ASSERT_TRUE(IsPlaylistSongHighlighted());
+
+  // Song stops while files tab is active: playlist tab must not keep highlighting it
+  sidebar->OnCustomEvent(clear_song);
+  EXPECT_FALSE(IsFileHighlighted());
+  EXPECT_FALSE(IsPlaylistSongHighlighted());
+
+  // Same thing while playlist tab is active: files tab must not keep highlighting it
+  block->OnEvent(ftxui::Event::F2);
+  sidebar->OnCustomEvent(update_song);
+  ASSERT_TRUE(IsFileHighlighted());
+  ASSERT_TRUE(IsPlaylistSongHighlighted());
+
+  sidebar->OnCustomEvent(clear_song);
+  EXPECT_FALSE(IsFileHighlighted());
+  EXPECT_FALSE(IsPlaylistSongHighlighted());
 }
 
 /* ********************************************************************************************** */

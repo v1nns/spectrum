@@ -173,8 +173,6 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     menu_->ResetHighlight();
-
-    // TODO: force to clear highlight always, even when tab_item is not active
   }
 
   // Receive modified playlist from dialog

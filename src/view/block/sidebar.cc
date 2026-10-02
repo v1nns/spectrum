@@ -90,8 +90,10 @@ bool Sidebar::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool Sidebar::OnCustomEvent(const CustomEvent& event) {
-  // Process this event for all tab items
-  if (event == CustomEvent::Identifier::UpdateSongInfo) {
+  // Process these events for all tab items, so the one not active also highlights the song playing
+  // (or stops highlighting it)
+  if (event == CustomEvent::Identifier::UpdateSongInfo ||
+      event == CustomEvent::Identifier::ClearSongInfo) {
     for (const auto& [id, item] : tab_elem_.items()) item->OnCustomEvent(event);
     return false;
   }
