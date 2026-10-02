@@ -100,7 +100,8 @@ TEST_F(FileHandlerTest, SkipOnlyInvalidEntries) {
     "not a playlist",
     {"name": "Wrong songs", "songs": "not a list"},
     {"name": "Good", "songs": [
-      {"path": ")" + song_path.string() + R"("},
+      {"path": ")" + song_path.string() +
+                     R"("},
       {"path": 7},
       {"url": 5},
       {"url": "https://youtu.be/aaaaaaaaaaa", "title": 3},
@@ -120,8 +121,7 @@ TEST_F(FileHandlerTest, SkipOnlyInvalidEntries) {
   ASSERT_THAT(playlists[0].songs, SizeIs(2));
   EXPECT_THAT(playlists[0].songs[0].filepath, Eq(song_path));
   ASSERT_TRUE(playlists[0].songs[1].stream_info.has_value());
-  EXPECT_THAT(playlists[0].songs[1].stream_info->base_url,
-              StrEq("https://youtu.be/dQw4w9WgXcQ"));
+  EXPECT_THAT(playlists[0].songs[1].stream_info->base_url, StrEq("https://youtu.be/dQw4w9WgXcQ"));
   EXPECT_THAT(playlists[0].songs[1].title, StrEq("Never gonna"));
 }
 
@@ -136,6 +136,42 @@ TEST_F(FileHandlerTest, NoBackupForValidFile) {
   EXPECT_THAT(playlists, SizeIs(1));
 
   EXPECT_FALSE(std::filesystem::exists(handler.GetPlaylistsPath() + ".bak"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveAndParseSettings) {
+  // Nothing saved yet
+  model::Settings settings;
+  EXPECT_FALSE(handler.ParseSettings(settings));
+
+  ASSERT_TRUE(handler.SaveSettings(
+      model::Settings{.animation = model::BarAnimation::SpectrumLine, .bar_width = 3}));
+
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.animation, model::BarAnimation::SpectrumLine);
+  EXPECT_EQ(settings.bar_width, 3);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, ParseInvalidSettings) {
+  std::filesystem::create_directories(
+      std::filesystem::path{handler.GetSettingsPath()}.parent_path());
+
+  // Unknown animation and value with unexpected type are not filled
+  std::ofstream(handler.GetSettingsPath())
+      << R"({"visualizer": {"animation": 12345, "bar_width": "wide"}})";
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.animation.has_value());
+  EXPECT_FALSE(settings.bar_width.has_value());
+
+  // Malformed file is kept as backup
+  std::ofstream(handler.GetSettingsPath()) << R"({"visualizer": )";
+  EXPECT_FALSE(handler.ParseSettings(settings));
+  EXPECT_TRUE(std::filesystem::exists(handler.GetSettingsPath() + ".bak"));
 }
 
 }  // namespace

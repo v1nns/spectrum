@@ -12,13 +12,15 @@
 
 namespace interface {
 
-MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher)
+MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
+                         const std::shared_ptr<util::FileHandler>& file_handler)
     : Block{dispatcher, model::BlockIdentifier::MainContent,
             interface::Size{.width = 0, .height = 0}},
       tab_elem_{} {
   // Create all tabs (keeping a direct reference to visualizer, used to show fullscreen hint)
   auto visualizer = std::make_unique<SpectrumVisualizer>(
-      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusVisualizer);
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusVisualizer,
+      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
 
   visualizer_ = visualizer.get();
   tab_elem_[View::Visualizer] = std::move(visualizer);

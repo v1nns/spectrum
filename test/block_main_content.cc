@@ -18,6 +18,7 @@
 #include "general/block.h"
 #include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
+#include "mock/file_handler_mock.h"
 #include "mock/lyric_finder_mock.h"
 #include "model/bar_animation.h"
 #include "model/song.h"
@@ -31,13 +32,16 @@ namespace {
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::AnyNumber;
+using ::testing::DoAll;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
+using ::testing::NiceMock;
 using ::testing::Not;
 using ::testing::Optional;
 using ::testing::Return;
+using ::testing::SetArgReferee;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -63,8 +67,8 @@ class MainContentTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create MainContent block
-    block = ftxui::Make<interface::MainContent>(dispatcher);
+    // Create MainContent block (using a mock to not load/save settings from user's home)
+    block = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
@@ -98,6 +102,15 @@ class MainContentTest : public ::BlockTest {
 
     // Return lyric finder mock
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
+  }
+
+  //! Select animation using picker: open it, move selection until animation and keep it
+  void SelectAnimation(model::BarAnimation animation) {
+    block->OnEvent(ftxui::Event::Character('a'));
+    for (int i = model::BarAnimation::HorizontalMirror; i < animation; i++) {
+      block->OnEvent(ftxui::Event::Character('j'));
+    }
+    block->OnEvent(ftxui::Event::Return);
   }
 
   //! Getter for AudioEqualizer tab item
@@ -139,6 +152,10 @@ class MainContentTest : public ::BlockTest {
   }
 
   static constexpr int kNumberBars = 30;  //!< Number of bars for visualizer tab view
+
+  //! Load/save settings (by default, there are no settings saved)
+  std::shared_ptr<NiceMock<FileHandlerMock>> file_handler =
+      std::make_shared<NiceMock<FileHandlerMock>>();
 };
 
 /* ********************************************************************************************** */
@@ -217,10 +234,7 @@ TEST_F(MainContentTest, AnimationMonoUsesAverageFromChannels) {
 
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 
-  constexpr int kPresses = model::BarAnimation::Mono - model::BarAnimation::HorizontalMirror;
-  for (int i = 0; i < kPresses; i++) {
-    block->OnEvent(ftxui::Event::Character('a'));
-  }
+  SelectAnimation(model::BarAnimation::Mono);
 
   Process(interface::CustomEvent::DrawAudioSpectrum(values));
 
@@ -255,12 +269,8 @@ TEST_F(MainContentTest, AnimationSpectrumLine) {
   // Ignore any event sent while changing animation
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 
-  // Change animation until reaching the expected one
-  constexpr int kPresses =
-      model::BarAnimation::SpectrumLine - model::BarAnimation::HorizontalMirror;
-  for (int i = 0; i < kPresses; i++) {
-    block->OnEvent(ftxui::Event::Character('a'));
-  }
+  // Select animation using picker
+  SelectAnimation(model::BarAnimation::SpectrumLine);
 
   Process(interface::CustomEvent::DrawAudioSpectrum(values));
 
@@ -269,7 +279,7 @@ TEST_F(MainContentTest, AnimationSpectrumLine) {
 
   const std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                                                                                         Line│
+│                                                                                             │
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -300,12 +310,8 @@ TEST_F(MainContentTest, AnimationSpectrumLineMirror) {
   // Ignore any event sent while changing animation
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 
-  // Change animation until reaching the expected one
-  constexpr int kPresses =
-      model::BarAnimation::SpectrumLineMirror - model::BarAnimation::HorizontalMirror;
-  for (int i = 0; i < kPresses; i++) {
-    block->OnEvent(ftxui::Event::Character('a'));
-  }
+  // Select animation using picker
+  SelectAnimation(model::BarAnimation::SpectrumLineMirror);
 
   Process(interface::CustomEvent::DrawAudioSpectrum(values));
 
@@ -314,7 +320,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineMirror) {
 
   const std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                   ⣀⣀                                                           Line (mirror)│
+│                   ⣀⣀                                                                        │
 │               ⣀⡤⠖⠋⠁⠈⠙⠲⢤⣀                                                                    │
 │            ⢀⡤⠞⠁        ⠈⠳⢤⡀                                 ⢀⣀⣀⣀⣀                           │
 │          ⣠⠴⠋              ⠙⠦⣄                          ⢀⣠⠖⠚⠉⠉   ⠈⠉⠙⠒⠦⣄                      │
@@ -345,12 +351,8 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
   // Ignore any event sent while changing animation
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 
-  // Change animation until reaching the expected one
-  constexpr int kPresses =
-      model::BarAnimation::SpectrumLineFilled - model::BarAnimation::HorizontalMirror;
-  for (int i = 0; i < kPresses; i++) {
-    block->OnEvent(ftxui::Event::Character('a'));
-  }
+  // Select animation using picker
+  SelectAnimation(model::BarAnimation::SpectrumLineFilled);
 
   Process(interface::CustomEvent::DrawAudioSpectrum(values));
 
@@ -359,7 +361,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
 
   const std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                                                                                Line (filled)│
+│                                                                                             │
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -379,24 +381,114 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
 
 /* ********************************************************************************************** */
 
-TEST_F(MainContentTest, ChangeAnimationWrapsAround) {
+TEST_F(MainContentTest, PickAnimationWithPreview) {
+  // Opening picker does not change animation
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::ChangeBarAnimation)))
+      .Times(0);
+  block->OnEvent(ftxui::Event::Character('a'));
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+│╭ animation ─────────────────────╮                                                           │
+││▶ Horizontal mirror             │                                                           │
+││  Vertical mirror               │                                                           │
+││  Mono                          │                                                           │
+││  Horizontal mirror (no space)  │                                                           │
+││  Vertical mirror (no space)    │                                                           │
+││  Mono (no space)               │                                                           │
+││  Line                          │                                                           │
+││  Line (mirror)                 │                                                           │
+││  Line (filled)                 │                                                           │
+││  Line (filled mirror)          │                                                           │
+│╰────────────────────────────────╯                                                           │
+│                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // There is nothing above first animation
+  block->OnEvent(ftxui::Event::Character('k'));
+
+  // Moving selection changes animation right away
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(
+                  Field(&interface::CustomEvent::id,
+                        interface::CustomEvent::Identifier::ChangeBarAnimation),
+                  Field(&interface::CustomEvent::content,
+                        VariantWith<model::BarAnimation>(model::BarAnimation::VerticalMirror)))));
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Vertical mirror"));
+
+  // Keeping it closes picker and saves it
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(
+                  Field(&model::Settings::animation, Optional(model::BarAnimation::VerticalMirror)),
+                  Field(&model::Settings::bar_width, Optional(2)))))
+      .WillOnce(Return(true));
+  block->OnEvent(ftxui::Event::Return);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("▶")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
 
-  // Go through all animations, until the last one
-  constexpr int kPresses = model::BarAnimation::LAST - model::BarAnimation::HorizontalMirror - 1;
-  for (int i = 0; i < kPresses; i++) {
-    block->OnEvent(ftxui::Event::Character('a'));
-  }
+  block->OnEvent(ftxui::Event::Character('a'));
+  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::ArrowDown);
 
-  // After the last animation, it goes back to the first one
+  // Going back restores animation from before opening picker
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(
                   Field(&interface::CustomEvent::id,
                         interface::CustomEvent::Identifier::ChangeBarAnimation),
                   Field(&interface::CustomEvent::content,
                         VariantWith<model::BarAnimation>(model::BarAnimation::HorizontalMirror)))));
+  block->OnEvent(ftxui::Event::Escape);
 
-  block->OnEvent(ftxui::Event::Character('a'));
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("▶")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
+  // Saved settings are restored when block is created (invalid bar width is ignored)
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillOnce(DoAll(
+          SetArgReferee<0>(model::Settings{.animation = model::BarAnimation::Mono, .bar_width = 3}),
+          Return(true)))
+      .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.bar_width = 99}), Return(true)));
+
+  auto restored = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  auto main_content = std::static_pointer_cast<interface::MainContent>(restored);
+  main_content->SetFocused(true);
+  EXPECT_EQ(main_content->GetBarWidth(), 3);
+
+  restored->OnEvent(ftxui::Event::Character('a'));
+  ftxui::Render(*screen, restored->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Mono"));
+
+  auto invalid = std::static_pointer_cast<interface::MainContent>(
+      ftxui::Make<interface::MainContent>(dispatcher, file_handler));
+  EXPECT_EQ(invalid->GetBarWidth(), 2);
+
+  // Changing bar width saves it
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::bar_width, Optional(3))))
+      .WillOnce(Return(true));
+  block->OnEvent(ftxui::Event::Character('.'));
 }
 
 /* ********************************************************************************************** */
@@ -412,12 +504,8 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilledMirror) {
   // Ignore any event sent while changing animation
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 
-  // Change animation until reaching the expected one
-  constexpr int kPresses =
-      model::BarAnimation::SpectrumLineFilledMirror - model::BarAnimation::HorizontalMirror;
-  for (int i = 0; i < kPresses; i++) {
-    block->OnEvent(ftxui::Event::Character('a'));
-  }
+  // Select animation using picker
+  SelectAnimation(model::BarAnimation::SpectrumLineFilledMirror);
 
   Process(interface::CustomEvent::DrawAudioSpectrum(values));
 
@@ -426,7 +514,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilledMirror) {
 
   const std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                   ▄▖                                                    Line (filled mirror)│
+│                   ▄▖                                                                        │
 │               ▄▄█████▙▄▖                                                                    │
 │            ▗▄███████████▙▄                                  ▗▄▄▄▖                           │
 │          ▄▟████████████████▄▖                          ▗▄███████████▄▖                      │
@@ -455,7 +543,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
       0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55,
   };
 
-  // Expect block to send an event to terminal when 'a' is pressed
+  // Expect block to send an event to terminal when animation is selected
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(
                   Field(&interface::CustomEvent::id,
@@ -463,7 +551,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
                   Field(&interface::CustomEvent::content,
                         VariantWith<model::BarAnimation>(model::BarAnimation::VerticalMirror)))));
 
-  block->OnEvent(ftxui::Event::Character('a'));
+  SelectAnimation(model::BarAnimation::VerticalMirror);
 
   auto event_bars = interface::CustomEvent::DrawAudioSpectrum(values);
   Process(event_bars);
@@ -475,7 +563,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁     Vertical mirror│
+│                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁                    │
 │                                                  ▂▂ ▄▄ ▇▇ ██ ██ ██ ██ ██ ▇▇ ▄▄ ▂▂           │
 │                                         ▃▃ ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▅▅ ▃▃  │
 │           ▄▄ ██ ▄▄                ▄▄ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
@@ -504,7 +592,7 @@ TEST_F(MainContentTest, AnimationMono) {
       0.4, 0.45, 0.5, 0.6, 0.7, 0.8, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3,  0.2, 0.1,
   };
 
-  // Expect block to send an event to terminal for each time that 'a' is pressed
+  // Expect block to send an event to terminal for each animation selected in picker
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(
                   Field(&interface::CustomEvent::id,
@@ -518,8 +606,7 @@ TEST_F(MainContentTest, AnimationMono) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<model::BarAnimation>(model::BarAnimation::Mono)))));
 
-  block->OnEvent(ftxui::Event::Character('a'));
-  block->OnEvent(ftxui::Event::Character('a'));
+  SelectAnimation(model::BarAnimation::Mono);
 
   // Send event to fill internal data to use it later for rendering animation
   auto event_bars = interface::CustomEvent::DrawAudioSpectrum(values);
@@ -531,7 +618,7 @@ TEST_F(MainContentTest, AnimationMono) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│                                                                                         Mono│
+│                                                                                             │
 │                                                                 ▆▆                          │
 │                                                              ▄▄ ██ ▄▄                       │
 │                                                           ▁▁ ██ ██ ██ ▁▁                    │
@@ -2271,8 +2358,8 @@ class MockMainContentTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create MainContent block
-    block = ftxui::Make<MainContentMock>(dispatcher);
+    // Create MainContent block (using a mock to not load/save settings from user's home)
+    block = ftxui::Make<MainContentMock>(dispatcher, std::make_shared<NiceMock<FileHandlerMock>>());
   }
 
   //! Getter for mock

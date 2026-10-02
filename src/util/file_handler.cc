@@ -120,6 +120,12 @@ std::string FileHandler::GetPlaylistsPath() const {
 
 /* ********************************************************************************************** */
 
+std::string FileHandler::GetSettingsPath() const {
+  return std::string{GetHome() + "/.cache/spectrum/settings.json"};
+}
+
+/* ********************************************************************************************** */
+
 bool FileHandler::ListFiles(const std::filesystem::path& dir_path, Files& parsed_files) {
   Files tmp;
 
@@ -258,6 +264,85 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
 
   if (!out.is_open()) {
     ERROR("Cannot open file for writing playlists");
+    return false;
+  }
+
+  // Pretty print JSON data with indentation of 2 spaces
+  out << std::setw(2) << json_data;
+
+  if (out.fail()) {
+    ERROR("Failed to write JSON");
+    return false;
+  }
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::ParseSettings(model::Settings& settings) {
+  std::string file_path{GetSettingsPath()};
+
+  if (!std::filesystem::exists(file_path)) return false;
+
+  nlohmann::json parsed;
+
+  try {
+    std::ifstream json(file_path);
+    parsed = nlohmann::json::parse(json);
+  } catch (const nlohmann::json::exception& e) {
+    ERROR("Cannot parse settings file=", std::quoted(file_path), ", error=", e.what());
+    internal::BackupFile(file_path);
+    return false;
+  }
+
+  auto visualizer = parsed.is_object() ? parsed.find("visualizer") : parsed.end();
+  if (visualizer == parsed.end() || !visualizer->is_object()) {
+    ERROR("Settings file does not contain visualizer settings, file=", std::quoted(file_path));
+    return false;
+  }
+
+  // Animation is saved by its identifier, so check it is a known one
+  if (auto animation = visualizer->find("animation");
+      animation != visualizer->end() && animation->is_number_integer()) {
+    if (int value = animation->get<int>();
+        value >= model::BarAnimation::HorizontalMirror && value < model::BarAnimation::LAST) {
+      settings.animation = static_cast<model::BarAnimation>(value);
+    }
+  }
+
+  if (auto bar_width = visualizer->find("bar_width");
+      bar_width != visualizer->end() && bar_width->is_number_integer()) {
+    settings.bar_width = bar_width->get<int>();
+  }
+
+  LOG("Parsed settings from file=", std::quoted(file_path));
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::SaveSettings(const model::Settings& settings) {
+  nlohmann::json visualizer = nlohmann::json::object();
+  if (settings.animation) visualizer["animation"] = static_cast<int>(*settings.animation);
+  if (settings.bar_width) visualizer["bar_width"] = *settings.bar_width;
+
+  nlohmann::json json_data;
+  json_data["visualizer"] = visualizer;
+
+  std::filesystem::path filepath{GetSettingsPath()};
+  std::error_code error;
+
+  // Check that parent directory exists
+  if (!CreateDirectory(filepath.parent_path(), error)) {
+    ERROR("Cannot create parent directory for settings file, error=", error);
+    return false;
+  }
+
+  std::ofstream out(filepath.string());
+
+  if (!out.is_open()) {
+    ERROR("Cannot open file for writing settings");
     return false;
   }
 

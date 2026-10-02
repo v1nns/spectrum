@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "model/playlist.h"
+#include "model/settings.h"
 
 namespace util {
 
@@ -54,6 +55,12 @@ class FileHandler {
   std::string GetPlaylistsPath() const;
 
   /**
+   * @brief Get full path for settings file
+   * @return Filepath
+   */
+  std::string GetSettingsPath() const;
+
+  /**
    * @brief List all files from the given directory path
    * @param dir_path Full path to directory
    * @param parsed_files[out] Existing files in the given directory path
@@ -74,6 +81,20 @@ class FileHandler {
    * @return true if JSON was saved succesfully, false otherwise
    */
   virtual bool SavePlaylists(const model::Playlists& playlists);
+
+  /**
+   * @brief Parse settings from file (invalid or missing values are not filled)
+   * @param settings Settings parsed from file
+   * @return true if file was parsed, otherwise false
+   */
+  virtual bool ParseSettings(model::Settings& settings);
+
+  /**
+   * @brief Save settings to file
+   * @param settings Settings to save
+   * @return true if file was saved, otherwise false
+   */
+  virtual bool SaveSettings(const model::Settings& settings);
 
   /* ******************************************************************************************** */
   //! Internal operations

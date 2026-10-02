@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/element/tab.h"
 
@@ -29,8 +30,10 @@ class MainContent : public Block {
   /**
    * @brief Construct a new MainContent object
    * @param dispatcher Block event dispatcher
+   * @param file_handler Utility handler to manage any file operation (e.g. save settings)
    */
-  explicit MainContent(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
+                       const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the MainContent object

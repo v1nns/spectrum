@@ -130,7 +130,8 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
        "visualizer",
        {
            {ToString(keybinding::MainContent::FocusVisualizer), "Show visualizer"},
-           {ToString(keybinding::Visualizer::ChangeAnimation), "Change animation"},
+           {ToString(keybinding::Visualizer::ChangeAnimation),
+            "Choose animation (↑/↓ preview, Return keep, Escape cancel)"},
            {ToString(keybinding::Visualizer::ToggleFullscreen), "Toggle fullscreen"},
            {Join(keybinding::Visualizer::DecreaseBarWidth,
                  keybinding::Visualizer::IncreaseBarWidth),

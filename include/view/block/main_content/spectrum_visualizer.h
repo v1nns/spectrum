@@ -9,11 +9,14 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 #include "ftxui/dom/canvas.hpp"
 #include "model/bar_animation.h"
+#include "util/file_handler.h"
 #include "view/element/flash_message.h"
 #include "view/element/tab.h"
 
@@ -62,10 +65,12 @@ class SpectrumVisualizer : public TabItem {
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
    * @param keybinding Keybinding to set item as active
+   * @param file_handler Utility handler to load/save visualizer settings
    */
   explicit SpectrumVisualizer(const model::BlockIdentifier& id,
                               const std::shared_ptr<EventDispatcher>& dispatcher,
-                              const FocusCallback& on_focus, const keybinding::Key& keybinding);
+                              const FocusCallback& on_focus, const keybinding::Key& keybinding,
+                              const std::shared_ptr<util::FileHandler>& file_handler);
 
   /**
    * @brief Destroy the SpectrumVisualizer object
@@ -111,6 +116,16 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   // Private methods
  private:
+  //! Animation picker (shown over visualizer, changing animation while selection moves)
+  bool OnPickerEvent(const ftxui::Event& event);
+  ftxui::Element RenderPicker() const;
+
+  //! Change current animation and notify terminal (to recalculate number of bars)
+  void SetAnimation(model::BarAnimation animation);
+
+  //! Save current animation and bar width, so they are restored on next run
+  void SaveSettings() const;
+
   //! Utility to create UI gauge
   void CreateGauge(double value, ftxui::Direction direction, ftxui::Elements& elements,
                    bool space = true) const;
@@ -156,6 +171,11 @@ class SpectrumVisualizer : public TabItem {
   int gauge_width_ = kGaugeDefaultWidth;  //!< Current audio bar width
 
   FlashMessage message_;  //!< Brief feedback shown over visualizer (e.g. animation name)
+
+  std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save visualizer settings
+
+  //! While picker is open, it contains the animation from before opening it (to restore it)
+  std::optional<model::BarAnimation> picker_previous_;
 };
 
 }  // namespace interface
