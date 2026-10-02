@@ -43,6 +43,7 @@ static constexpr Code kPlaybackFailed = 51;
 //! FFMPEG driver errors
 static constexpr Code kDecodeFileFailed = 70;
 static constexpr Code kSeekFrameFailed = 71;
+static constexpr Code kEqualizerFailed = 72;
 
 /* ********************************************************************************************** */
 
@@ -55,7 +56,7 @@ class ApplicationError {
   using Message = std::pair<Code, std::string_view>;
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 14> kErrorMap{{
+  static constexpr std::array<Message, 15> kErrorMap{{
       {kTerminalInitialization, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, "No support to change colors"},
       {kAccessDirFailed, "Cannot access directory"},
@@ -70,6 +71,7 @@ class ApplicationError {
       {kPlaybackFailed, "Cannot play audio on output device (was it disconnected?)"},
       {kDecodeFileFailed, "Cannot decode song"},
       {kSeekFrameFailed, "Cannot seek frame in song"},
+      {kEqualizerFailed, "Cannot apply equalizer settings"},
       {kUnknownError, "Unknown error used for almost everything during development =)"},
   }};
 

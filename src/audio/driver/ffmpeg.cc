@@ -650,8 +650,14 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
 
       // UI sent event to update audio filters with new parameters, so it is necessary to reset it
       if (shared_context_.reset_filters) {
-        shared_context_.err_code = ConfigureFilters();
         shared_context_.reset_filters = false;
+
+        // Old filtergraph was already released, so there is nothing left to process this frame
+        if (ConfigureFilters() != error::kSuccess) {
+          ERROR("Cannot reconfigure filtergraph with updated audio filters");
+          shared_context_.err_code = error::kEqualizerFailed;
+          break;
+        }
       }
 
       // Pass decoded frame to be processed by filtergraph. And in case of error while processing
@@ -730,7 +736,7 @@ error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset& filters) {
   for (const auto& filter : filters) {
     if (filter.frequency == 0 || filter.Q == 0) {
       ERROR("Zeroed filter is not permitted");
-      return error::kUnknownError;
+      return error::kEqualizerFailed;
     }
 
     std::string name{filter.GetName()};

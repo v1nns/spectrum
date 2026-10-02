@@ -1338,6 +1338,105 @@ TEST_F(PlayerTest, ErrorDecodingSongFromPlaylistPlayNextAndExit) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, ErrorUpdatingAudioFiltersKeepsPlayingPlaylist) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Lofi mix",
+      .songs =
+          {
+              model::Song{.filepath = "lofi 1.mp3"},
+              model::Song{.filepath = "lofi 2.mp3"},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[0].filepath)))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[1].filepath)))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(2);
+    EXPECT_CALL(*playback, Prepare()).Times(2).WillRepeatedly(Return(error::kSuccess));
+
+    // Decoding first song: audio filters are updated (and fail) in the middle of it
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 1;
+          callback(0, 0, 0, position);
+
+          // Wait for client to ask for audio filters update
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Command to update audio filters is handled here (and it fails)
+          position++;
+          callback(0, 0, 0, position);
+
+          // Wait for client to close error dialog (which asks to dequeue next song)
+          syncer.WaitForStep(5);
+
+          // Current song must keep playing
+          position++;
+          EXPECT_TRUE(callback(0, 0, 0, position));
+
+          return error::kSuccess;
+        }))
+        .WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(3);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(3);
+
+    EXPECT_CALL(*decoder, UpdateFilters(_)).WillOnce(Return(error::kEqualizerFailed));
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kEqualizerFailed), StrEq("")))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+
+    EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::state,
+                                                 model::Song::MediaState::Play)))
+        .Times(3);
+
+    // Both songs finish normally
+    EXPECT_CALL(*decoder, ClearCache()).Times(2);
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}))
+        .Times(2);
+    EXPECT_CALL(*notifier, ClearSongInformation(true))
+        .WillOnce(Return())
+        .WillOnce(Invoke([&] { syncer.NotifyStep(6); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(playlist);
+
+    // Update audio filters while first song is playing
+    syncer.WaitForStep(2);
+    player_ctl->ApplyAudioFilters(model::AudioFilter::CreatePresets()["Custom"]);
+    syncer.NotifyStep(3);
+
+    // Error dialog is closed by user, but song did not stop, so next one must not be dequeued
+    syncer.WaitForStep(4);
+    player_ctl->DequeueNextSong();
+    syncer.NotifyStep(5);
+
+    // Wait for both songs to finish before client asks to exit
+    syncer.WaitForStep(6);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, PlaySongFilesFromPlaylist) {
   model::Playlist playlist = model::Playlist{
       .index = 0,

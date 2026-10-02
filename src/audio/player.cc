@@ -259,8 +259,14 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
     case Command::Identifier::UpdateAudioFilters: {
       model::EqualizerPreset value = command.GetContent<model::EqualizerPreset>();
       LOG("Audio handler received command to update audio filters");
-      // TODO: handle error...
-      decoder_->UpdateFilters(value);
+
+      // Song keeps playing with previous filters, but let user know about it
+      if (auto result = decoder_->UpdateFilters(value); result != error::kSuccess) {
+        ERROR("Cannot update audio filters, error=", result);
+        if (auto media_notifier = notifier_.lock(); media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
+      }
     } break;
 
     default:
@@ -529,6 +535,12 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void Player::DequeueNextSong() {
+  // Error may not have stopped current song (e.g. failed to update audio filters), so keep it
+  if (media_control_.state != State::Idle) {
+    LOG("Song is still playing, do not dequeue next song from playlist");
+    return;
+  }
+
   LOG("Attempt to dequeue next song from playlist");
 
   // Check song queue
