@@ -272,8 +272,10 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
                                     VariantWith<model::Song::CurrentInformation>(info)))));
   notifier->NotifySongState(info);
 
-  // TODO: what should be done on this one?
-  //   notifier->SendAudioRaw();
+  // Raw audio is only buffered for the analysis thread (not running here), so nothing must be sent
+  // to UI. Analysis itself is covered by the tests running the analysis loop
+  std::vector<int16_t> buffer(16, 1);
+  notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
 
   error::Code error = error::kUnknownError;
   EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error), StrEq("song.mp3")));
@@ -463,6 +465,81 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
   testing::RunAsyncTest({analysis, client});
 }
 
-// TODO: test for regain animation
+TEST_F(MediaControllerTest, AnalysisAndRegainAnimation) {
+  int sample_size = 16;
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(sample_size));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
+
+    // Player must only be resumed after animation, when UI sends ResumeSong back without animation
+    EXPECT_CALL(*GetAudioControl(), PauseOrResume()).Times(0);
+
+    std::vector<double> result(kNumberBars, 1);
+
+    InSequence seq;
+
+    // Create expectation to analyze data and send its result back to UI
+    EXPECT_CALL(*analyzer, Execute(_, Eq(sample_size), _))
+        .WillOnce(Invoke([&](double* input, int size, double* output) {
+          // Just copy input to output
+          std::copy(input, input + kNumberBars, output);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                      interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                Field(&interface::CustomEvent::content,
+                                      VariantWith<std::vector<double>>(ElementsAreArray(result))))))
+        .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(2); }));
+
+    // Each step of Regain Animation increases bars by 1/20 of last analyzed values
+    constexpr int kSteps = 20;
+    for (double i = 1; i <= kSteps; i++) {
+      std::vector<double> bars;
+      for (const auto& value : result) bars.push_back(value * (i / kSteps));
+
+      EXPECT_CALL(*dispatcher,
+                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                        interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                  Field(&interface::CustomEvent::content,
+                                        VariantWith<std::vector<double>>(ElementsAreArray(bars))))));
+    }
+
+    // After animation, ask UI to resume song (without running animation again)
+    EXPECT_CALL(*dispatcher, SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                                   interface::CustomEvent::Identifier::ResumeSong),
+                                             Field(&interface::CustomEvent::content,
+                                                   VariantWith<bool>(false)))))
+        .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(3); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetInterfaceNotifier();
+
+    // Regain Animation is based on last analyzed data, so send some raw data first
+    syncer.WaitForStep(1);
+    std::vector<int16_t> buffer(sample_size, 1);
+    notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+    // Ask to resume song with animation
+    syncer.WaitForStep(2);
+    GetPlayerNotifier()->Resume(/*run_animation=*/true);
+
+    // Wait for Analysis to finish before exiting from controller
+    syncer.WaitForStep(3);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+}
 
 }  // namespace
