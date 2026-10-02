@@ -1,6 +1,7 @@
 #include "view/element/text_animation.h"
 
 #include "ftxui/screen/string.hpp"
+#include "util/logger.h"
 
 namespace interface {
 
@@ -17,6 +18,7 @@ void TextAnimation::Start(const std::string& entry) {
   enabled = true;
 
   thread = std::thread([this] {
+    util::Logger::SetThreadName("animation");
     using namespace std::chrono_literals;
     std::unique_lock lock(mutex);
 

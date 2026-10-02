@@ -214,6 +214,20 @@ endif()
 add_executable(spectrum)
 target_sources(spectrum PRIVATE main.cc)
 target_link_libraries(spectrum PRIVATE spectrum_lib)
+
+# Version written to log (from git, when available)
+execute_process(
+  COMMAND git describe --tags --always --dirty
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE SPECTRUM_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET)
+
+if(NOT SPECTRUM_VERSION)
+  set(SPECTRUM_VERSION "unknown")
+endif()
+
+target_compile_definitions(spectrum PRIVATE SPECTRUM_VERSION="${SPECTRUM_VERSION}")
 target_compile_options(
   spectrum
   PRIVATE -Wall

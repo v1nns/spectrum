@@ -81,7 +81,7 @@ error::Code Alsa::CreatePlaybackStream() {
       WARN("Cannot open playback stream on device: ", std::quoted(device));
       continue;
     }
-    LOG("Created playback stream on device: ", std::quoted(device));
+    INFO("Created playback stream on device: ", std::quoted(device));
 
     device_name = device;
     break;

@@ -371,6 +371,7 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
 /* ********************************************************************************************** */
 
 void Player::AudioHandler() {
+  util::Logger::SetThreadName("audio");
   LOG("Start audio handler thread");
   fetcher_->Init();
 
@@ -386,7 +387,10 @@ void Player::AudioHandler() {
     media_control_.state = State::Play;
     curr_song_ = std::make_unique<model::Song>(std::move(*song));
     error::Code result = error::kSuccess;
-    LOG("Audio handler received new song to play=", *curr_song_);
+    // Song information is only filled after opening it, so just let user know where it comes from
+    LOG("Audio handler received new song to play from ", curr_song_->stream_info
+                                                             ? curr_song_->stream_info->base_url
+                                                             : curr_song_->filepath.string());
 
     // Get streaming information if song contains a valid URL
     if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
@@ -401,7 +405,9 @@ void Player::AudioHandler() {
     }
 
     failed_songs_ = 0;
-    INFO("Playing song=", *curr_song_);
+    // Full path is logged only here (other messages refer to its filename)
+    INFO("Playing song=", *curr_song_,
+         curr_song_->stream_info ? "" : " path=" + curr_song_->filepath.string());
 
     {
       // Otherwise, it is a supported audio extension, send detailed audio information to UI

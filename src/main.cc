@@ -3,12 +3,15 @@
  * \brief Main function
  */
 #include <cstdlib>
+#include <iomanip>
 #include <string>
 
 #include "audio/player.h"
 #include "ftxui/component/screen_interactive.hpp"
+#include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
 #include "util/arg_parser.h"
+#include "util/file_handler.h"
 #include "util/logger.h"
 #include "view/base/terminal.h"
 
@@ -16,6 +19,7 @@
  * @brief A structure containing all available options to configure using command-line arguments
  */
 struct Settings {
+  std::string log_path = "";     //!< Path to log file (empty if logging is disabled)
   std::string initial_dir = "";  //!< Initial directory to list in "files" block
   bool verbose_logging = false;  //!< Enable verbose log messages
 };
@@ -62,7 +66,8 @@ bool parse(int argc, char** argv, Settings& options) {
     // Check if contains filepath for logging
     if (auto& logging_path = parsed_args["log"]; logging_path) {
       // Enable logging to specified path
-      util::Logger::GetInstance().Configure(logging_path->get_string());
+      options.log_path = logging_path->get_string();
+      util::Logger::GetInstance().Configure(options.log_path);
     }
 
     // Check if contains flag for verbose logging
@@ -96,6 +101,18 @@ int main(int argc, char** argv) {
   if (!parse(argc, argv, options)) {
     return EXIT_SUCCESS;
   }
+
+  // Write some information useful to understand any issue reported from this log
+  util::Logger::SetThreadName("ui");
+  util::FileHandler file_handler;
+  const auto terminal_size = ftxui::Terminal::Size();
+
+  INFO("Starting spectrum version=", SPECTRUM_VERSION);
+  INFO("Options: log=", std::quoted(options.log_path), " verbose=", options.verbose_logging,
+       " directory=", std::quoted(options.initial_dir));
+  INFO("Files: playlists=", std::quoted(file_handler.GetPlaylistsPath()),
+       " settings=", std::quoted(file_handler.GetSettingsPath()));
+  INFO("Terminal size=", terminal_size.dimx, "x", terminal_size.dimy);
 
   // Create and initialize a new player
   auto player = audio::Player::Create(options.verbose_logging);

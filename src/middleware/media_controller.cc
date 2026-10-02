@@ -114,6 +114,7 @@ void MediaController::Exit() {
 /* ********************************************************************************************** */
 
 void MediaController::AnalysisHandler() {
+  util::Logger::SetThreadName("analysis");
   LOG("Start analysis handler thread");
 
   std::vector<double> input, output, previous;

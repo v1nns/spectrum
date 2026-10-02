@@ -79,10 +79,10 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
   out << "{index:" << (s.index ? *s.index : -1);
   out << ", filename:"
       << std::quoted((s.filepath.has_filename() ? s.filepath.filename().c_str() : "<none>"));
-  out << ", artist:" << std::quoted(artist) << " title:" << std::quoted(title);
+  out << ", artist:" << std::quoted(artist) << ", title:" << std::quoted(title);
   out << ", playlist:" << std::quoted((s.playlist ? *s.playlist : "<none>"));
   out << ", duration:" << s.duration;
-  out << ", sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate;
+  out << ", sample_rate:" << s.sample_rate << ", bit_rate:" << s.bit_rate;
   out << ", bit_depth:" << s.bit_depth;
   out << ", streaming_info:" << (s.stream_info ? to_string(*s.stream_info) : "{}") << "}";
   return out;

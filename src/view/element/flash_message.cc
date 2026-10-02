@@ -7,6 +7,8 @@
 #include <thread>
 #include <utility>
 
+#include "util/logger.h"
+
 namespace interface {
 
 FlashMessage::FlashMessage(Callback on_expire, std::chrono::milliseconds duration)
@@ -65,6 +67,7 @@ std::optional<std::string> FlashMessage::GetText() const {
 /* ********************************************************************************************** */
 
 void FlashMessage::Run() {
+  util::Logger::SetThreadName("message");
   std::unique_lock lock(mutex_);
 
   while (!exit_) {

@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -35,7 +36,8 @@ enum class LogLevel : std::uint8_t {
  * @brief Responsible for message logging (thread-safe) to a defined output stream
  */
 class Logger {
-  static constexpr int kHeaderColumns = 41;  //!< Number of columns to write on log initialization
+  static constexpr int kHeaderColumns = 41;   //!< Number of columns to write on log initialization
+  static constexpr int kThreadNameWidth = 9;  //!< Width for thread name (to keep columns aligned)
 
  protected:
   /**
@@ -92,6 +94,12 @@ class Logger {
   bool IsEnabled(LogLevel level) const { return sink_ && level >= level_; }
 
   /**
+   * @brief Set name for the calling thread, shown in its log messages instead of thread id
+   * @param name Thread name (e.g. "audio")
+   */
+  static void SetThreadName(const std::string& name) { GetThreadName() = name; }
+
+  /**
    * @brief Concatenate all arguments into a single string and write it to output stream
    * @tparam ...Args Splitted arguments
    * @param level Message level
@@ -107,7 +115,12 @@ class Logger {
     // Build log message and write it to output stream
     std::ostringstream ss;
 
-    ss << "[" << std::hex << std::this_thread::get_id() << std::dec << "] ";
+    if (const auto& name = GetThreadName(); !name.empty()) {
+      ss << "[" << std::left << std::setw(kThreadNameWidth) << name << std::right << "] ";
+    } else {
+      ss << "[" << std::hex << std::this_thread::get_id() << std::dec << "] ";
+    }
+
     ss << "[" << GetLevelName(level) << "] ";
     ss << "[" << filename << ":" << line << "] ";
     (ss << ... << std::forward<Args>(args)) << "\n";
@@ -124,6 +137,12 @@ class Logger {
    * @param add_timestamp Control flag to insert a timestamp as preffix
    */
   void Write(const std::string& message, bool add_timestamp = true);
+
+  //! Name for the calling thread (empty if not set)
+  static std::string& GetThreadName() {
+    thread_local std::string name;
+    return name;
+  }
 
   //! Get level name (with fixed width, to keep log columns aligned)
   static const char* GetLevelName(LogLevel level) {

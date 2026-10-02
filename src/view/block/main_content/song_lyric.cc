@@ -180,6 +180,7 @@ void SongLyric::ConsumeSearchResult() {
 /* ********************************************************************************************** */
 
 void SongLyric::FetchLoop() {
+  util::Logger::SetThreadName("lyrics");
   std::unique_lock lock(mutex_);
 
   while (true) {

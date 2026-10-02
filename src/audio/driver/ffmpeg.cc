@@ -45,6 +45,7 @@ static void log_callback(void*, int level, const char* fmt, va_list vargs) {
 
 FFmpeg::FFmpeg(bool verbose) {
   LOG("Initialize FFmpeg with verbose logging=", verbose);
+  INFO("FFmpeg version=", av_version_info());
 
 #if LIBAVUTIL_VERSION_MAJOR > 56
   ch_layout_.reset(new AVChannelLayout{});
