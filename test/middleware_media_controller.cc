@@ -503,18 +503,19 @@ TEST_F(MediaControllerTest, AnalysisAndRegainAnimation) {
       std::vector<double> bars;
       for (const auto& value : result) bars.push_back(value * (i / kSteps));
 
-      EXPECT_CALL(*dispatcher,
-                  SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                        interface::CustomEvent::Identifier::DrawAudioSpectrum),
-                                  Field(&interface::CustomEvent::content,
-                                        VariantWith<std::vector<double>>(ElementsAreArray(bars))))));
+      EXPECT_CALL(
+          *dispatcher,
+          SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                          Field(&interface::CustomEvent::content,
+                                VariantWith<std::vector<double>>(ElementsAreArray(bars))))));
     }
 
     // After animation, ask UI to resume song (without running animation again)
-    EXPECT_CALL(*dispatcher, SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                                   interface::CustomEvent::Identifier::ResumeSong),
-                                             Field(&interface::CustomEvent::content,
-                                                   VariantWith<bool>(false)))))
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                      interface::CustomEvent::Identifier::ResumeSong),
+                                Field(&interface::CustomEvent::content, VariantWith<bool>(false)))))
         .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(3); }));
 
     // Notify that expectations are set, and run audio loop

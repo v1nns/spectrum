@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "view/base/dialog.h"
+#include "view/element/text_input.h"
 
 namespace interface {
 
@@ -26,6 +27,7 @@ class HelpDialog : public Dialog {
   static constexpr int kHeaderLines = 2;       //!< Lines used by title (and margin below it)
   static constexpr int kFooterLines = 2;       //!< Lines used by scroll hint (and margin above it)
   static constexpr int kKeysColumnWidth = 20;  //!< Width for column with keybindings
+  static constexpr int kSearchWidth = 20;      //!< Width for text input used to search
 
  public:
   //! Sections from help, each one describing keybindings for a part of the interface
@@ -54,7 +56,7 @@ class HelpDialog : public Dialog {
   ~HelpDialog() override = default;
 
   /**
-   * @brief Show help, scrolled to the given section
+   * @brief Show help, scrolled to the given section (any previous search is cleared)
    * @param section Section to show first (e.g. related to the focused block)
    */
   void Show(Section section);
@@ -110,6 +112,27 @@ class HelpDialog : public Dialog {
   static ftxui::Element RenderLine(const Line& line);
 
   /**
+   * @brief Handle keyboard event while search is enabled
+   * @param event Received event
+   * @return true if event was handled, otherwise false
+   */
+  bool OnSearchEvent(const ftxui::Event& event);
+
+  /**
+   * @brief Filter content with text from search: show only entries containing it (in keybindings
+   * or description), and every entry from sections whose title contains it
+   */
+  void Filter();
+
+  /**
+   * @brief Disable search and show all content again
+   */
+  void ResetSearch();
+
+  //! Get content to show (filtered while search is enabled)
+  const std::vector<Line>& GetLines() const { return searching_ ? filtered_lines_ : lines_; }
+
+  /**
    * @brief Scroll content, keeping it within limits
    * @param offset Number of lines to scroll (negative values scroll up)
    */
@@ -124,6 +147,11 @@ class HelpDialog : public Dialog {
   std::vector<Line> lines_ = CreateContent();  //!< Help content
   int first_line_ = 0;                         //!< First line visible
   mutable int visible_lines_ = 1;              //!< Lines visible (updated when rendered)
+
+  TextInput search_input_;            //!< Text to search in help content
+  std::vector<Line> filtered_lines_;  //!< Content matching text from search
+  bool searching_ = false;            //!< Search is enabled (content is filtered)
+  bool typing_ = false;               //!< User is typing text to search
 };
 
 }  // namespace interface

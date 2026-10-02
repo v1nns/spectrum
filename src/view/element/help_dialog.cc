@@ -38,6 +38,8 @@ HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
 /* ********************************************************************************************** */
 
 void HelpDialog::Show(Section section) {
+  ResetSearch();
+
   // Find title from the given section and use it as first line
   auto title = std::find_if(lines_.begin(), lines_.end(), [section](const Line& line) {
     return line.type == Line::Type::Title && line.section == section;
@@ -225,22 +227,49 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
   const int height = CalculateSize(curr_size).dimy;
   visible_lines_ = std::max(1, height - kBorderSize - kHeaderLines - kFooterLines);
 
+  const auto& lines = GetLines();
   const int first = std::clamp(first_line_, 0, GetMaxFirstLine());
-  const int last = std::min(first + visible_lines_, static_cast<int>(lines_.size()));
+  const int last = std::min(first + visible_lines_, static_cast<int>(lines.size()));
 
   ftxui::Elements content;
   content.reserve(visible_lines_);
 
   for (int i = first; i < last; i++) {
-    content.push_back(RenderLine(lines_.at(i)));
+    content.push_back(RenderLine(lines.at(i)));
   }
 
-  // Let user know where they are and how to scroll
-  const std::string position = std::to_string(first + 1) + "-" + std::to_string(last) + " of " +
-                               std::to_string(lines_.size());
+  // Let user know that search did not match anything
+  if (lines.empty())
+    content.push_back(ftxui::text("No matches") | ftxui::color(ftxui::Color::Black));
 
-  const std::string hint =
-      "↑/↓ PgUp/PgDn: scroll  " + ToString(keybinding::Navigation::Escape) + ": close";
+  // Let user know where they are and how to scroll (or search)
+  const std::string position = lines.empty()
+                                   ? "0 of 0"
+                                   : std::to_string(first + 1) + "-" + std::to_string(last) +
+                                         " of " + std::to_string(lines.size());
+
+  const std::string escape = ToString(keybinding::Navigation::Escape);
+  const std::string search = ToString(keybinding::Navigation::EnableSearch);
+
+  std::string hint;
+  if (typing_) {
+    hint = ToString(keybinding::Navigation::Return) + ": done  " + escape + ": clear";
+  } else if (searching_) {
+    hint = "↑/↓: scroll  " + search + ": edit search  " + escape + ": clear";
+  } else {
+    hint = "↑/↓ PgUp/PgDn: scroll  " + search + ": search  " + escape + ": close";
+  }
+
+  ftxui::Element status = ftxui::text(position) | ftxui::color(ftxui::Color::Black);
+
+  if (searching_) {
+    status = ftxui::hbox({
+        ftxui::text("Search: ") | ftxui::color(ftxui::Color::Black) | ftxui::bold,
+        search_input_.Render(kSearchWidth, typing_),
+        ftxui::text("  "),
+        status,
+    });
+  }
 
   constexpr int kMargin = 3;  //!< Lateral margin for content
 
@@ -254,7 +283,7 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
       ftxui::text(""),
       ftxui::hbox({
           ftxui::text(std::string(kMargin, ' ')),
-          ftxui::text(position) | ftxui::color(ftxui::Color::Black),
+          status,
           ftxui::filler(),
           ftxui::text(hint) | ftxui::color(ftxui::Color::Black),
           ftxui::text(std::string(kMargin, ' ')),
@@ -266,6 +295,8 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
 
 bool HelpDialog::OnEventImpl(const ftxui::Event& event) {
   using Keybind = keybinding::Navigation;
+
+  if (OnSearchEvent(event)) return true;
 
   if (event == Keybind::Return) {
     Close();
@@ -330,7 +361,87 @@ void HelpDialog::Scroll(int offset) {
 /* ********************************************************************************************** */
 
 int HelpDialog::GetMaxFirstLine() const {
-  return std::max(0, static_cast<int>(lines_.size()) - visible_lines_);
+  return std::max(0, static_cast<int>(GetLines().size()) - visible_lines_);
+}
+
+/* ********************************************************************************************** */
+
+bool HelpDialog::OnSearchEvent(const ftxui::Event& event) {
+  using Keybind = keybinding::Navigation;
+
+  // Start (or go back to) typing text to search
+  if (!typing_ && event == Keybind::EnableSearch) {
+    searching_ = true;
+    typing_ = true;
+    Filter();
+    return true;
+  }
+
+  if (!searching_) return false;
+
+  // Clear search, showing all content again (and only then, dialog can be closed)
+  if (event == Keybind::Escape) {
+    ResetSearch();
+    return true;
+  }
+
+  if (!typing_) return false;
+
+  // Stop typing, but keep content filtered (so it can be scrolled with any keybinding)
+  if (event == Keybind::Return) {
+    typing_ = false;
+    return true;
+  }
+
+  // Any other key changes text to search (except for the ones to scroll, handled by caller)
+  if (search_input_.OnEvent(event)) {
+    Filter();
+    return true;
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+void HelpDialog::Filter() {
+  const std::string& text = search_input_.GetText();
+  filtered_lines_.clear();
+  first_line_ = 0;
+
+  // Content is split into sections: a title, its entries and an empty line
+  for (auto title = lines_.begin(); title != lines_.end();) {
+    auto next_title = std::find_if(std::next(title), lines_.end(),
+                                   [](const Line& line) { return line.type == Line::Type::Title; });
+
+    const bool title_matches = util::contains(title->text, text);
+    std::vector<Line> entries;
+
+    for (auto entry = std::next(title); entry != next_title; ++entry) {
+      if (entry->type == Line::Type::Entry && (title_matches || util::contains(entry->keys, text) ||
+                                               util::contains(entry->text, text))) {
+        entries.push_back(*entry);
+      }
+    }
+
+    if (!entries.empty()) {
+      filtered_lines_.push_back(*title);
+      filtered_lines_.insert(filtered_lines_.end(), entries.begin(), entries.end());
+      filtered_lines_.push_back(Line{.type = Line::Type::Blank, .section = title->section});
+    }
+
+    title = next_title;
+  }
+}
+
+/* ********************************************************************************************** */
+
+void HelpDialog::ResetSearch() {
+  searching_ = false;
+  typing_ = false;
+  search_input_.Clear();
+  filtered_lines_.clear();
+  first_line_ = 0;
 }
 
 }  // namespace interface

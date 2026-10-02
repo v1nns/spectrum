@@ -2015,4 +2015,69 @@ TEST_F(HelpDialogTest, ContainsAllKeybindings) {
   EXPECT_THAT(content, HasSubstr("Go to previous/next page"));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, SearchKeybindings) {
+  help_dialog->Show(interface::HelpDialog::Section::General);
+
+  // Typed text is used to search (even keys that would scroll or close dialog)
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  utils::QueueCharacterEvents(*dialog, "Shuffle");
+
+  std::string rendered = Render();
+  EXPECT_TRUE(dialog->IsVisible());
+  EXPECT_THAT(rendered, HasSubstr("Search:"));
+  EXPECT_THAT(rendered, HasSubstr("Toggle shuffle"));
+  EXPECT_THAT(rendered, HasSubstr("player"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Seek forward")));
+  EXPECT_THAT(rendered, Not(HasSubstr("general")));
+
+  // Section title matching the search shows all of its entries
+  dialog->OnEvent(ftxui::Event::Escape);
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  utils::QueueCharacterEvents(*dialog, "equalizer");
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("Cycle presets (picker closed)"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Toggle shuffle")));
+
+  // Nothing matching
+  utils::QueueCharacterEvents(*dialog, "qqq");
+  EXPECT_THAT(Render(), HasSubstr("No matches"));
+  EXPECT_TRUE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ClearSearchBeforeClosing) {
+  help_dialog->Show(interface::HelpDialog::Section::General);
+
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  utils::QueueCharacterEvents(*dialog, "volume");
+
+  // Stop typing, content keeps filtered
+  dialog->OnEvent(ftxui::Event::Return);
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("edit search"));
+  EXPECT_THAT(rendered, HasSubstr("Increase/decrease volume"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Seek forward")));
+
+  // First escape clears search (showing all content again), second one closes dialog
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_TRUE(dialog->IsVisible());
+  EXPECT_THAT(Render(), Not(HasSubstr("Search:")));
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_FALSE(dialog->IsVisible());
+
+  // Opening it again does not keep any previous search
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  utils::QueueCharacterEvents(*dialog, "volume");
+  help_dialog->Show(interface::HelpDialog::Section::Player);
+
+  EXPECT_THAT(Render(), Not(HasSubstr("Search:")));
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("player"));
+}
+
 }  // namespace
