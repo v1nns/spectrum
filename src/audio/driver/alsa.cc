@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include <array>
+#include <cerrno>
 #include <iomanip>
 #include <vector>
 
@@ -178,7 +179,12 @@ error::Code Alsa::AudioCallback(void *buffer, int size) {
   auto result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
   if (result >= 0) return error::kSuccess;
 
-  ERROR("Cannot write buffer to playback stream, error=", snd_strerror(result));
+  if (result == -EPIPE) {
+    // Underrun: samples were not written in time (e.g. waiting for network), so song stuttered
+    WARN("Playback underrun, audio device ran out of samples to play (audible gap)");
+  } else {
+    ERROR("Cannot write buffer to playback stream, error=", snd_strerror(result));
+  }
 
   // Attempt to recover from error (e.g. overrun/underrun or suspended device)
   if (int recovered = snd_pcm_recover(playback_handle_.get(), result, 1); recovered < 0) {
