@@ -17,10 +17,7 @@ std::ostream& operator<<(std::ostream& out, const TabItem& item) {
 }
 
 Button::Style TabItem::kTabButtonStyle = Button::Style{
-    .normal = GetTheme().block.tab.normal,
-    .focused = GetTheme().block.tab.focused,
-    .selected = GetTheme().block.tab.selected,
-
+    .colors = [] { return GetTheme().block.tab; },
     .delimiters = Button::Delimiters{" ", " "},
 };
 

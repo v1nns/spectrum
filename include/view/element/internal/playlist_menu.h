@@ -143,6 +143,9 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   /* ******************************************************************************************** */
   //! Utils
 
+  //! Update style for menu entries with colors from current theme (called before rendering)
+  void UpdateStyleImpl();
+
   //! Create UI element for a single entry (playlist and song have different styles)
   ftxui::Element CreateEntry(int index, const std::string& text, bool is_highlighted,
                              bool is_playlist, const std::string& suffix = "");
@@ -163,20 +166,7 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 
-  //!< Style for each element inside this component
-  EntryStyles styles_ = EntryStyles{
-      .prefix = ftxui::color(GetTheme().menu.prefix),
-      .playlist =
-          EntryStyles::State{
-              .normal = Colored(GetTheme().menu.playlist, /*bold=*/true),
-              .playing = Colored(GetTheme().menu.playlist_playing, /*bold=*/true),
-          },
-      .song =
-          EntryStyles::State{
-              .normal = Colored(GetTheme().menu.song),
-              .playing = Colored(GetTheme().menu.song_playing),
-          },
-  };
+  EntryStyles styles_;  //!< Style for each element inside this component (updated on render)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

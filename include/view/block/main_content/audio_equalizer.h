@@ -116,23 +116,7 @@ class AudioEqualizer : public TabItem {
     static constexpr int kKiloHertz = 1000;       //!< Used to format frequency in compact mode
 
     //! Style for frequency bar
-    struct BarStyle {
-      ftxui::Color background;
-      ftxui::Color foreground;
-    };
-
-    //!< Color styles
-    BarStyle style_normal =
-        BarStyle{.background = GetTheme().equalizer.bar.background,
-                 .foreground = GetTheme().equalizer.bar.foreground};  //!< Normal mode
-
-    BarStyle style_hovered =
-        BarStyle{.background = GetTheme().equalizer.bar_hovered.background,
-                 .foreground = GetTheme().equalizer.bar_hovered.foreground};  //!< On hover state
-
-    BarStyle style_focused =
-        BarStyle{.background = GetTheme().equalizer.bar_focused.background,
-                 .foreground = GetTheme().equalizer.bar_focused.foreground};  //!< On focus state
+    using BarStyle = Theme::State;
 
     model::AudioFilter* filter;  //!< Audio frequency filters for equalization
 
@@ -165,9 +149,10 @@ class AudioEqualizer : public TabItem {
 
       // Get gain value and choose style
       float gain = filter->GetGainAsPercentage();
+      const auto& theme = GetTheme().equalizer;
       const BarStyle* style;
 
-      style = IsFocused() ? &style_focused : IsHovered() ? &style_hovered : &style_normal;
+      style = IsFocused() ? &theme.bar_focused : IsHovered() ? &theme.bar_hovered : &theme.bar;
 
       return ftxui::vbox({
           // title

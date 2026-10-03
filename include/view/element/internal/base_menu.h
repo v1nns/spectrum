@@ -119,7 +119,12 @@ class BaseMenu : public Element {
    * @brief Renders the element
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() override { return actual().RenderImpl(); };
+  ftxui::Element Render() override {
+    // Read colors from theme on every render, as it may have changed
+    actual().UpdateStyleImpl();
+
+    return actual().RenderImpl();
+  };
 
   /**
    * @brief Handles an event from keyboard

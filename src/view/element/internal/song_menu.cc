@@ -11,6 +11,18 @@ SongMenu::SongMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
 
 /* ********************************************************************************************** */
 
+void SongMenu::UpdateStyleImpl() {
+  const auto& theme = GetTheme();
+
+  style_ = Style{
+      .prefix = ftxui::color(theme.menu.prefix),
+      .tag = ftxui::color(theme.dialog.menu_tag) | ftxui::bold,
+      .entry = Colored(theme.dialog.menu_song),
+  };
+}
+
+/* ********************************************************************************************** */
+
 ftxui::Element SongMenu::RenderImpl() {
   using ftxui::EQUAL;
   using ftxui::WIDTH;

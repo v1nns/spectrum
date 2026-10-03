@@ -42,11 +42,13 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
   const auto [width, height] = CalculateSize(curr_size);
 
   // Create border decorator style
-  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, GetTheme().dialog.border);
+  const auto& theme = GetTheme().dialog;
+  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, theme.border);
 
   // Create dialog decorator style
   auto decorator = ftxui::size(HEIGHT, EQUAL, height) | ftxui::size(WIDTH, EQUAL, width) |
-                   ftxui::bgcolor(style_.background) | ftxui::color(style_.foreground);
+                   ftxui::bgcolor(theme.*style_.background) |
+                   ftxui::color(theme.*style_.foreground);
 
   // Keep an empty margin around dialog border, otherwise it would be merged with the borders
   // from blocks behind it (as both are drawn using box characters)

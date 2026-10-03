@@ -134,7 +134,8 @@ class GraphicButton : public Button {
 
     auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
 
-    const auto& border_color = !focused_ ? style_.normal.border : style_.focused.border;
+    const Style::Colors colors = GetColors();
+    const auto& border_color = !focused_ ? colors.normal.border : colors.focused.border;
 
     return button | ftxui::color(border_color);
   }
@@ -170,7 +171,7 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
       auto [b_x, b_y] = Point{9, 6};
       auto [c_x, c_y] = Point{3, 11};
 
-      const auto& color = style_.normal.foreground;
+      const auto color = GetColors().normal.foreground;
 
       for (int i = 1; i < 6; ++i) {
         play.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, color);
@@ -190,7 +191,7 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
       auto [h_x, h_y] = Point{2, 10};
       int space = 6;
 
-      const auto& color = style_.normal.foreground;
+      const auto color = GetColors().normal.foreground;
 
       for (int i = 0; i < 2; ++i) {
         pause.DrawPointLine(g_x + i, g_y, h_x + i, h_y, color);
@@ -201,12 +202,16 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
     }
   };
 
-  const auto& theme = GetTheme().player;
-
   auto style = Style{
-      .normal = Style::State{.foreground = theme.play, .border = theme.button_border},
+      .colors =
+          [] {
+            const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = theme.button_border_focused},
+            return Style::Colors{
+                .normal = Style::State{.foreground = theme.play, .border = theme.button_border},
+                .focused = Style::State{.border = theme.button_border_focused},
+            };
+          },
   };
 
   return std::make_shared<Play>(style, on_click);
@@ -222,23 +227,24 @@ std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
     ftxui::Canvas Draw() const override {
       // stop
       ftxui::Canvas stop(kWidth, kHeight);
+      const auto color = GetColors().normal.foreground;
 
-      for (int i = 1; i < 11; ++i) stop.DrawPointLine(2, i, 9, i, style_.normal.foreground);
+      for (int i = 1; i < 11; ++i) stop.DrawPointLine(2, i, 9, i, color);
 
       return stop;
     }
   };
 
-  const auto& theme = GetTheme().player;
-
   auto style = Style{
-      .normal =
-          Style::State{
-              .foreground = theme.stop,
-              .border = theme.button_border,
-          },
+      .colors =
+          [] {
+            const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = theme.button_border_focused},
+            return Style::Colors{
+                .normal = Style::State{.foreground = theme.stop, .border = theme.button_border},
+                .focused = Style::State{.border = theme.button_border_focused},
+            };
+          },
   };
 
   return std::make_shared<Stop>(style, on_click);
@@ -259,7 +265,7 @@ std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_cli
       auto [b_x, b_y] = Point{3, 5};
       auto [c_x, c_y] = Point{8, 10};
 
-      const auto& color = style_.normal.foreground;
+      const auto color = GetColors().normal.foreground;
 
       for (int i = 0; i < 6; ++i) {
         skip_next.DrawPointLine(a_x - i, a_y + i, b_x + i, b_y, color);
@@ -277,12 +283,16 @@ std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_cli
     }
   };
 
-  const auto& theme = GetTheme().player;
-
   auto style = Style{
-      .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
+      .colors =
+          [] {
+            const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = theme.button_border_focused},
+            return Style::Colors{
+                .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
+                .focused = Style::State{.border = theme.button_border_focused},
+            };
+          },
   };
 
   return std::make_shared<SkipPrevious>(style, on_click);
@@ -302,7 +312,7 @@ std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) 
       auto [b_x, b_y] = Point{8, 6};
       auto [c_x, c_y] = Point{2, 11};
 
-      const auto& color = style_.normal.foreground;
+      const auto color = GetColors().normal.foreground;
 
       for (int i = 1; i < 6; ++i) {
         skip_next.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, color);
@@ -320,12 +330,16 @@ std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) 
     }
   };
 
-  const auto& theme = GetTheme().player;
-
   auto style = Style{
-      .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
+      .colors =
+          [] {
+            const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = theme.button_border_focused},
+            return Style::Colors{
+                .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
+                .focused = Style::State{.border = theme.button_border_focused},
+            };
+          },
   };
 
   return std::make_shared<SkipNext>(style, on_click);
@@ -349,15 +363,17 @@ std::shared_ptr<Button> Button::make_button_for_window(const std::string& conten
 
       content |= (parent_focused_ || focused_) ? ftxui::bold : ftxui::nothing;
 
+      const Style::Colors colors = GetColors();
+
       ftxui::Decorator style;
       bool invert = focused_;
 
       if (focused_) {
-        style = Apply(selected_ ? style_.selected : style_.focused, invert);
+        style = Apply(selected_ ? colors.selected : colors.focused, invert);
       } else if (parent_focused_) {
-        style = Apply(selected_ ? style_.selected : style_.normal, invert);
+        style = Apply(selected_ ? colors.selected : colors.normal, invert);
       } else {
-        style = selected_ ? ApplyReverse(style_.normal) : Apply(style_.normal);
+        style = selected_ ? ApplyReverse(colors.normal) : Apply(colors.normal);
       }
 
       return ftxui::hbox({left, content, right}) | style | ftxui::reflect(box_);
@@ -426,7 +442,7 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
       ftxui::Element after(ftxui::text(content_.substr(*index_to_highlight_ + 1)));
 
       ftxui::Decorator color =
-          enabled_ && !pressed_ ? ftxui::color(style_.highlight.foreground) : ftxui::nothing;
+          enabled_ && !pressed_ ? ftxui::color(GetColors().highlight.foreground) : ftxui::nothing;
 
       return ftxui::hbox({before, letter | ftxui::bold | ftxui::underlined | color, after});
     }

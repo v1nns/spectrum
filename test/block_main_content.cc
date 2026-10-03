@@ -2507,4 +2507,42 @@ TEST_F(FlashMessageTest, DestroyWhileVisible) {
   EXPECT_EQ(expired, 0);
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto window_button = utils::MarkerColor(1);
+  const auto bar = utils::MarkerColor(2);
+  const auto button = utils::MarkerColor(3);
+  const auto all = {window_button, bar, button};
+
+  // Show audio equalizer and keep mouse over exit button (last one on block border), as window
+  // buttons have no color in normal state
+  block->OnEvent(ftxui::Event::Character('2'));
+  ftxui::Render(*screen, block->Render());
+
+  const std::string border = utils::FilterAnsiCommands(screen->ToString());
+  const auto exit_button =
+      static_cast<int>(ftxui::string_width(border.substr(1, border.find("[X]"))));
+
+  ftxui::Mouse mouse{
+      .button = ftxui::Mouse::None, .motion = ftxui::Mouse::Released, .x = exit_button, .y = 0};
+  block->OnEvent(ftxui::Event::Mouse("", mouse));
+
+  // Block was created with default theme
+  ftxui::Render(*screen, block->Render());
+  for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
+
+  // Replace theme, the same block must use new colors on next render
+  interface::Theme theme;
+  theme.block.window_button = utils::AllButtonStates(window_button);
+  theme.equalizer.bar = interface::Theme::State{.foreground = bar, .background = bar};
+  theme.equalizer.button = utils::AllButtonStates(button);
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, block->Render());
+  for (const auto& color : all) EXPECT_TRUE(utils::HasColor(*screen, color));
+}
+
 }  // namespace

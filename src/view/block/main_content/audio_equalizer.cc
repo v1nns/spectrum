@@ -115,17 +115,9 @@ bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 /* ********************************************************************************************** */
 
 void AudioEqualizer::CreateButtons() {
-  const auto& theme = GetTheme().equalizer.button;
-
   auto style = Button::Style{
-      .normal = theme.normal,
-      .focused = theme.focused,
-      .pressed = theme.pressed,
-      .disabled = theme.disabled,
-      .highlight = theme.highlight,
-
+      .colors = [] { return GetTheme().equalizer.button; },
       .width = 15,
-
   };
 
   btn_apply_ = Button::make_button(

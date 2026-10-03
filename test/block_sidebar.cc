@@ -2464,4 +2464,57 @@ TEST(TextAnimationTest, MoveWholeCharacterOnEachStep) {
   animation.Stop();
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto tab = utils::MarkerColor(1);
+  const auto directory = utils::MarkerColor(2);
+  const auto file = utils::MarkerColor(3);
+  const auto button = utils::MarkerColor(4);
+  const auto playlist = utils::MarkerColor(5);
+  const auto all = {tab, directory, file, button, playlist};
+
+  model::Playlists data{{model::Playlist{
+      .index = 0,
+      .name = "Chill mix",
+      .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
+  }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  // Block was created with default theme
+  ftxui::Render(*screen, block->Render());
+  for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
+
+  // Replace theme, the same block must use new colors on next render
+  interface::Theme theme;
+  theme.block.tab = utils::AllButtonStates(tab);
+  theme.menu.directory = directory;
+  theme.menu.file = file;
+  theme.sidebar.button = utils::AllButtonStates(button);
+  theme.menu.playlist = playlist;
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_TRUE(utils::HasColor(*screen, tab));
+  EXPECT_TRUE(utils::HasColor(*screen, directory));
+  EXPECT_TRUE(utils::HasColor(*screen, file));
+
+  // Same thing for playlist viewer
+  block->OnEvent(ftxui::Event::F2);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_TRUE(utils::HasColor(*screen, button));
+  EXPECT_TRUE(utils::HasColor(*screen, playlist));
+
+  // And default theme can be set again
+  interface::SetTheme(interface::Theme{});
+
+  ftxui::Render(*screen, block->Render());
+  for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
+}
+
 }  // namespace

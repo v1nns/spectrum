@@ -2399,4 +2399,114 @@ TEST_F(HelpDialogTest, ClearSearchBeforeClosing) {
   EXPECT_THAT(GetFirstContentLine(), HasSubstr("player"));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto background = utils::MarkerColor(1);
+  const auto file = utils::MarkerColor(2);
+  const auto song = utils::MarkerColor(3);
+  const auto tab = utils::MarkerColor(4);
+  const auto button = utils::MarkerColor(5);
+  const auto all = {background, file, song, tab, button};
+
+  GetPlaylistDialog()->Open(model::PlaylistOperation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{},
+  });
+
+  // Add first file to playlist
+  EXPECT_CALL(contains_audio_cb, Call).WillRepeatedly(Return(true));
+  utils::QueueCharacterEvents(*dialog, "j ");
+
+  // Dialog was created with default theme
+  ftxui::Render(*screen, dialog->Render(size));
+  for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
+
+  // Replace theme, the same dialog must use new colors on next render
+  interface::Theme theme;
+  theme.dialog.background = background;
+  theme.dialog.menu_file = file;
+  theme.dialog.menu_song = song;
+  theme.dialog.tab = utils::AllButtonStates(tab);
+  theme.dialog.button = utils::AllButtonStates(button);
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  for (const auto& color : all) EXPECT_TRUE(utils::HasColor(*screen, color));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ErrorDialogTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto background = utils::MarkerColor(1);
+
+  GetErrorDialog()->SetErrorMessage("Cannot decode song", "");
+
+  // Dialog was created with default theme
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_FALSE(utils::HasColor(*screen, background));
+
+  // Replace theme, the same dialog must use new colors on next render (only the one for errors)
+  interface::Theme theme;
+  theme.dialog.background_error = background;
+  theme.dialog.background = utils::MarkerColor(2);
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_TRUE(utils::HasColor(*screen, background));
+  EXPECT_FALSE(utils::HasColor(*screen, theme.dialog.background));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(QuestionDialogTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto background = utils::MarkerColor(1);
+  const auto button = utils::MarkerColor(2);
+
+  Ask();
+
+  // Dialog was created with default theme
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_FALSE(utils::HasColor(*screen, background));
+  EXPECT_FALSE(utils::HasColor(*screen, button));
+
+  // Replace theme, the same dialog must use new colors on next render
+  interface::Theme theme;
+  theme.dialog.background = background;
+  theme.dialog.answer = utils::AllButtonStates(button);
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_TRUE(utils::HasColor(*screen, background));
+  EXPECT_TRUE(utils::HasColor(*screen, button));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto background = utils::MarkerColor(1);
+
+  help_dialog->Show(interface::HelpDialog::Section::Equalizer);
+
+  // Dialog was created with default theme
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_FALSE(utils::HasColor(*screen, background));
+
+  // Replace theme, the same dialog must use new colors on next render
+  interface::Theme theme;
+  theme.dialog.background = background;
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_TRUE(utils::HasColor(*screen, background));
+}
+
 }  // namespace

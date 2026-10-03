@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_ELEMENT_BUTTON_H_
 #define INCLUDE_VIEW_ELEMENT_BUTTON_H_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -33,14 +34,10 @@ class Button {
    */
   struct Style {
     using State = Theme::State;  //!< Colors for a single state (foreground, background, border)
+    using Colors = Theme::ButtonStates;  //!< Colors for all states
 
-    State normal;    //!< Colors for normal state
-    State focused;   //!< Colors for focused state
-    State selected;  //!< Colors for selected state
-    State pressed;   //!< Colors for pressed state
-    State disabled;  //!< Colors for disabled state
-
-    State highlight;  //!< Colors for highlighted state (used mainly to highligh a single letter)
+    //! Get colors from theme, called on every render (so a theme change is applied to button)
+    std::function<Colors()> colors;
 
     int height;  //!< Fixed height for button
     int width;   //!< Fixed width for button
@@ -83,23 +80,33 @@ class Button {
    * @brief Determine colors based on current button state
    * @return ftxui::Decorator Style decorator
    */
-  inline const Style::State& GetStateColors() const {
+  inline Style::State GetStateColors() const {
+    const Style::Colors colors = GetColors();
+
     if (!enabled_) {
-      return style_.disabled;
+      return colors.disabled;
     }
 
     if (focused_) {
       if (pressed_)
-        return style_.pressed;
+        return colors.pressed;
       else
-        return style_.focused;
+        return colors.focused;
     }
 
     if (selected_) {
-      return style_.selected;
+      return colors.selected;
     }
 
-    return style_.normal;
+    return colors.normal;
+  }
+
+  /**
+   * @brief Get colors for all button states from current theme
+   * @return Colors for all states
+   */
+  inline Style::Colors GetColors() const {
+    return style_.colors ? style_.colors() : Style::Colors{};
   }
 
   /**

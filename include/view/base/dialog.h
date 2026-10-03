@@ -9,6 +9,7 @@
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "view/base/event_dispatcher.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -27,10 +28,10 @@ class Dialog {
     int max_line = 0;    //!< Maximum value of lines
   };
 
-  //! Style for each part of the dialog
+  //! Style for each part of the dialog (as colors from theme, which are read on every render)
   struct Style {
-    ftxui::Color background;
-    ftxui::Color foreground;
+    ftxui::Color Theme::Dialog::* background;
+    ftxui::Color Theme::Dialog::* foreground;
   };
 
   /**

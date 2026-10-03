@@ -42,8 +42,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
                                const PlaylistFetchCallback& fetch_playlist_cb)
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
-             Style{.background = GetTheme().dialog.background,
-                   .foreground = GetTheme().dialog.foreground}),
+             Style{.background = &Theme::Dialog::background,
+                   .foreground = &Theme::Dialog::foreground}),
       base_path_(),
       stream_available_cb_(stream_available_cb),
       fetch_playlist_cb_(fetch_playlist_cb),
@@ -403,14 +403,8 @@ void PlaylistDialog::OnClose() {
 
 void PlaylistDialog::CreateButtons() {
   // Style for save button
-  const auto& theme = GetTheme().dialog;
-
   auto style = Button::Style{
-      .normal = theme.button.normal,
-      .focused = theme.button.focused,
-      .pressed = theme.button.pressed,
-      .disabled = theme.button.disabled,
-
+      .colors = [] { return GetTheme().dialog.button; },
       .width = 16,
   };
 
@@ -441,10 +435,7 @@ void PlaylistDialog::CreateButtons() {
 
   // Style for tab buttons (on the left pane border)
   auto tab_style = Button::Style{
-      .normal = theme.tab.normal,
-      .focused = theme.tab.focused,
-      .selected = theme.tab.selected,
-
+      .colors = [] { return GetTheme().dialog.tab; },
       .delimiters = Button::Delimiters{" ", " "},
   };
 

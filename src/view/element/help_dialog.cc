@@ -34,8 +34,8 @@ HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
                   .min_column = kMaxColumns,
                   .min_line = kMinLines,
                   .max_line = kMaxLines},
-             Style{.background = GetTheme().dialog.background,
-                   .foreground = GetTheme().dialog.foreground}) {}
+             Style{.background = &Theme::Dialog::background,
+                   .foreground = &Theme::Dialog::foreground}) {}
 
 /* ********************************************************************************************** */
 

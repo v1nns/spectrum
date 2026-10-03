@@ -942,4 +942,28 @@ TEST_F(MediaPlayerTest, RestoreAndSaveVolume) {
   restored->OnEvent(ftxui::Event::Character('m'));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto play = utils::MarkerColor(1);
+  const auto border = utils::MarkerColor(2);
+
+  // Block was created with default theme
+  ftxui::Render(*screen, block->Render());
+  EXPECT_FALSE(utils::HasColor(*screen, play));
+  EXPECT_FALSE(utils::HasColor(*screen, border));
+
+  // Replace theme, the same block must use new colors on next render
+  interface::Theme theme;
+  theme.player.play = play;
+  theme.player.button_border = border;
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_TRUE(utils::HasColor(*screen, play));
+  EXPECT_TRUE(utils::HasColor(*screen, border));
+}
+
 }  // namespace

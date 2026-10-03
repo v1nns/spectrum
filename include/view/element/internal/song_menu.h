@@ -108,6 +108,9 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Getter for active entry (focused/selected)
   std::optional<model::Song> GetActiveEntryImpl() const;
 
+  //! Update style for menu entries with colors from current theme (called before rendering)
+  void UpdateStyleImpl();
+
   //! Get text to display for the given entry
   static std::string GetEntryText(const model::Song& entry);
 
@@ -124,12 +127,7 @@ class SongMenu : public BaseMenu<SongMenu> {
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 
-  //!< Style for each element inside this component
-  Style style_ = Style{
-      .prefix = ftxui::color(GetTheme().menu.prefix),
-      .tag = ftxui::color(GetTheme().dialog.menu_tag) | ftxui::bold,
-      .entry = Colored(GetTheme().dialog.menu_song),
-  };
+  Style style_;  //!< Style for each element inside this component (updated on render)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

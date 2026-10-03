@@ -13,12 +13,7 @@
 namespace interface {
 
 Button::Style PlaylistViewer::kButtonStyle = Button::Style{
-    .normal = GetTheme().sidebar.button.normal,
-    .focused = GetTheme().sidebar.button.focused,
-    .pressed = GetTheme().sidebar.button.pressed,
-    .disabled = GetTheme().sidebar.button.disabled,
-    .highlight = GetTheme().sidebar.button.highlight,
-
+    .colors = [] { return GetTheme().sidebar.button; },
     .delimiters = Button::Delimiters(" ", " "),
 };
 

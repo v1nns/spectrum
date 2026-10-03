@@ -258,14 +258,29 @@ struct Theme {
   Dialog dialog;  //!< Colors for dialogs
 };
 
-/**
- * @brief Get theme with all colors to use in UI
- * @return Theme
- */
-inline const Theme& GetTheme() {
-  static const Theme theme;
+namespace internal {
+
+//! Storage for theme currently in use (do not use it directly, check functions below)
+inline Theme& CurrentTheme() {
+  static Theme theme;
   return theme;
 }
+
+}  // namespace internal
+
+/**
+ * @brief Get theme with all colors to use in UI
+ * @note Colors must be read when rendering (and not kept by elements), as theme may be replaced
+ * @return Theme
+ */
+inline const Theme& GetTheme() { return internal::CurrentTheme(); }
+
+/**
+ * @brief Replace theme used by UI, new colors are applied on the next render
+ * @note Must be called only from UI thread (the same one that renders), as there is no locking
+ * @param theme New theme
+ */
+inline void SetTheme(const Theme& theme) { internal::CurrentTheme() = theme; }
 
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_STYLE_H_

@@ -54,10 +54,24 @@ FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::shared_ptr<util::FileHandler>& file_handler,
                    const TextAnimation::Callback& force_refresh, const Callback& on_click,
                    const menu::Style& style, const std::string& optional_path)
-    : BaseMenu(dispatcher, force_refresh), file_handler_{file_handler}, on_click_{on_click} {
+    : BaseMenu(dispatcher, force_refresh),
+      file_handler_{file_handler},
+      on_click_{on_click},
+      menu_style_{style} {
+  auto filepath = ComposeDirectoryPath(optional_path);
+
+  if (bool parsed = RefreshList(filepath); !optional_path.empty() && !parsed) {
+    // If we can't list files from current path, then everything is gone
+    RefreshList(std::filesystem::current_path());
+  }
+}
+
+/* ********************************************************************************************** */
+
+void FileMenu::UpdateStyleImpl() {
   const auto& theme = GetTheme();
 
-  switch (style) {
+  switch (menu_style_) {
     case menu::Style::Default:
       style_ = Style{
           .prefix = ftxui::color(theme.menu.prefix),
@@ -84,13 +98,6 @@ FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
       .selected = style_.file.selected | ftxui::dim,
       .selected_focused = style_.file.selected_focused | ftxui::dim,
   };
-
-  auto filepath = ComposeDirectoryPath(optional_path);
-
-  if (bool parsed = RefreshList(filepath); !optional_path.empty() && !parsed) {
-    // If we can't list files from current path, then everything is gone
-    RefreshList(std::filesystem::current_path());
-  }
 }
 
 /* ********************************************************************************************** */

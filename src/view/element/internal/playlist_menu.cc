@@ -50,6 +50,26 @@ model::Playlists PlaylistMenu::GetEntries() const {
 
 /* ********************************************************************************************** */
 
+void PlaylistMenu::UpdateStyleImpl() {
+  const auto& theme = GetTheme().menu;
+
+  styles_ = EntryStyles{
+      .prefix = ftxui::color(theme.prefix),
+      .playlist =
+          EntryStyles::State{
+              .normal = Colored(theme.playlist, /*bold=*/true),
+              .playing = Colored(theme.playlist_playing, /*bold=*/true),
+          },
+      .song =
+          EntryStyles::State{
+              .normal = Colored(theme.song),
+              .playing = Colored(theme.song_playing),
+          },
+  };
+}
+
+/* ********************************************************************************************** */
+
 ftxui::Element PlaylistMenu::RenderImpl() {
   ftxui::Elements menu_entries;
   menu_entries.reserve(GetSize() + 1);  // Entries size + filler element

@@ -88,6 +88,9 @@ class FileMenu : public BaseMenu<FileMenu> {
   //! While on search mode, filter all entries to keep only those matching the given text
   void FilterEntriesBy(const std::string& text);
 
+  //! Update style for menu entries with colors from current theme (called before rendering)
+  void UpdateStyleImpl();
+
   //! Get style for entry based on its state and type (playing, directory, media or other file)
   [[nodiscard]] const MenuEntryOption& GetEntryStyle(const util::File& entry,
                                                      bool is_highlighted) const;
@@ -168,7 +171,8 @@ class FileMenu : public BaseMenu<FileMenu> {
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 
-  Style style_;  //!< Style for each element inside this component
+  menu::Style menu_style_;  //!< Theme alternative to use in this component
+  Style style_;             //!< Style for each element inside this component (updated on render)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

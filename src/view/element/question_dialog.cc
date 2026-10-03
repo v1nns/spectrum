@@ -9,18 +9,11 @@ namespace interface {
 
 QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
-             Style{.background = GetTheme().dialog.background,
-                   .foreground = GetTheme().dialog.foreground}) {
-  const auto& theme = GetTheme().dialog.answer;
-
+             Style{.background = &Theme::Dialog::background,
+                   .foreground = &Theme::Dialog::foreground}) {
   auto style = Button::Style{
-      .normal = theme.normal,
-      .focused = theme.focused,
-      // Button activated by Return key
-      .selected = theme.selected,
-      .pressed = theme.pressed,
-      .highlight = theme.highlight,
-
+      // Selected state is used by button activated by Return key
+      .colors = [] { return GetTheme().dialog.answer; },
       .delimiters = Button::Delimiters(" ", " "),
   };
 
