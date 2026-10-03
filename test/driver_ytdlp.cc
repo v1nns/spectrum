@@ -220,11 +220,14 @@ TEST_F(YtDlpWrapperTest, IdentifyPlaylistUrl) {
   EXPECT_TRUE(util::IsYoutubePlaylistUrl("https://www.youtube.com/playlist?list=PLabc-123_x"));
   EXPECT_TRUE(util::IsYoutubePlaylistUrl("youtube.com/playlist?list=PLabc"));
 
-  // Single video (even if it belongs to a playlist or mix)
-  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
-  EXPECT_FALSE(util::IsYoutubePlaylistUrl(
+  // Video that belongs to a playlist (or mix) imports the whole playlist
+  EXPECT_TRUE(util::IsYoutubePlaylistUrl(
       "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1"));
-  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://youtu.be/dQw4w9WgXcQ?list=PLabc"));
+  EXPECT_TRUE(util::IsYoutubePlaylistUrl("https://youtu.be/dQw4w9WgXcQ?list=PLabc"));
+
+  // Single video
+  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://youtu.be/dQw4w9WgXcQ?t=42"));
 
   // Not from YouTube
   EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://example.com/playlist?list=PLabc"));

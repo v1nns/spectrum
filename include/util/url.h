@@ -22,16 +22,14 @@ inline bool IsYoutubeUrl(const std::string& url) {
 }
 
 /**
- * @brief Check if URL is from a YouTube playlist, and not from a single video (even if the video
- * belongs to a playlist, e.g. "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=...")
+ * @brief Check if URL is from a YouTube playlist, including URL from a video that belongs to a
+ * playlist (e.g. "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=...")
  * @param url URL to check
  * @return true if URL points to a YouTube playlist, false otherwise
  */
 inline bool IsYoutubePlaylistUrl(const std::string& url) {
   static const std::regex playlist(R"([?&]list=[\w-]+)");
-  static const std::regex video(R"((?:youtu\.be/|[?&]v=|/shorts/)[\w-]{11})");
-
-  return IsYoutubeUrl(url) && std::regex_search(url, playlist) && !std::regex_search(url, video);
+  return IsYoutubeUrl(url) && std::regex_search(url, playlist);
 }
 
 /**
