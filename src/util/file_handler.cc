@@ -64,8 +64,8 @@ static void ParseSong(const nlohmann::json& song, std::set<std::filesystem::path
   } else if (song.contains("url") && util::IsYoutubeUrl(song["url"])) {
     // Song from URL
     playlist.songs.emplace_back(model::Song{
-        .artist = song.contains("artist") ? util::filter_ascii(song["artist"]) : "",
-        .title = song.contains("title") ? util::filter_ascii(song["title"]) : "",
+        .artist = song.contains("artist") ? util::filter_emoji(song["artist"]) : "",
+        .title = song.contains("title") ? util::filter_emoji(song["title"]) : "",
         .stream_info =
             model::StreamInfo{
                 .base_url = song["url"],

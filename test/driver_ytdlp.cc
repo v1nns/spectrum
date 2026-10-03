@@ -154,10 +154,49 @@ TEST_F(YtDlpWrapperTest, ArtistFromMetadataWhenVideoTitleHasNone) {
   song = FillArtistAndTitle(title, R"({"artist": "Elevation", "uploader": "Elevation Worship"})");
   EXPECT_THAT(song.artist, StrEq("Elevation"));
 
-  // Skip fields that are empty, have unexpected type, or contain only non-ASCII characters
+  // Skip fields that are empty, have unexpected type, or contain only emojis
   song = FillArtistAndTitle(
-      title, R"({"artist": ["Elevation"], "uploader": " \u30a8 ", "channel": "Worship"})");
+      title, R"({"artist": ["Elevation"], "uploader": " \ud83c\udfb5 ", "channel": "Worship"})");
   EXPECT_THAT(song.artist, StrEq("Worship"));
+
+  // Characters out of ASCII are kept
+  song = FillArtistAndTitle(title, R"({"artist": null, "uploader": " \u30a8 "})");
+  EXPECT_THAT(song.artist, StrEq("\u30a8"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, KeepNonAsciiTitleWithoutEmoji) {
+  // Based on metadata from a real video (title has only cyrillic characters), plus an emoji
+  const std::string title{"меланхолия"};
+  auto song = FillArtistAndTitle(title + " \U0001F3B5",
+                                 R"({"artist": "vecher 1998", "uploader": "vecher 1998 - Topic"})");
+
+  EXPECT_THAT(song.artist, StrEq("vecher 1998"));
+  EXPECT_THAT(song.title, StrEq(title));
+
+  // Invalid UTF-8 bytes are removed
+  song = FillArtistAndTitle("caf\xC3\xA9 \xFF\xC3", "");
+  EXPECT_THAT(song.title, StrEq("caf\u00e9"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ParseInfoReplacesArtistFromPlaylistEntry) {
+  const std::string info = R"json({
+    "title": "меланхолия",
+    "artist": "vecher 1998", "uploader": "vecher 1998 - Topic",
+    "formats": [{"format_id": "251", "url": "https://best", "protocol": "https",
+                 "resolution": "audio only"}]
+  })json";
+
+  // Playlist entry does not contain artist, so uploader was used when it was imported
+  model::Song song{.artist = "vecher 1998 - Topic",
+                   .stream_info = model::StreamInfo{.base_url = "https://youtu.be/84vL55y8fog"}};
+  ASSERT_EQ(ParseInfo(info, song), error::kSuccess);
+
+  EXPECT_THAT(song.artist, StrEq("vecher 1998"));
+  EXPECT_THAT(song.title, StrEq("меланхолия"));
 }
 
 /* ********************************************************************************************** */

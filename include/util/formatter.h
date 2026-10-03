@@ -159,33 +159,82 @@ inline bool contains(std::string_view string, std::string_view substring) {
 
 /**
  * @brief Check if given character is an emoji
- * @param wc Wide character
+ * @param wc Unicode code point
  * @return True if character is an emoji, false otherwise
  */
-inline bool is_emoji(const wchar_t& wc) {
+inline bool is_emoji(const char32_t& wc) {
   // Common emoji Unicode ranges
   return (wc >= 0x1F600 && wc <= 0x1F64F) ||  // Emoticons
          (wc >= 0x1F300 && wc <= 0x1F5FF) ||  // Symbols & Pictographs
          (wc >= 0x1F680 && wc <= 0x1F6FF) ||  // Transport & Map Symbols
-         (wc >= 0x1F1E0 && wc <= 0x1F1FF);    // Flags
+         (wc >= 0x1F1E0 && wc <= 0x1F1FF) ||  // Flags
+         (wc >= 0x1F900 && wc <= 0x1FAFF) ||  // Supplemental Symbols & Pictographs (and extended)
+         (wc >= 0x2600 && wc <= 0x27BF) ||    // Miscellaneous Symbols & Dingbats
+         wc == 0xFE0F || wc == 0x200D;        // Emoji variation selector & zero width joiner
 }
 
 /**
- * @brief Filter string for only ASCII characters and non-emoji
- * @param s Raw string
+ * @brief Filter UTF-8 string to remove emojis (and any invalid byte sequence), keeping all the
+ * other characters (e.g. accented letters, cyrillic, kanji)
+ * @param s Raw string (encoded as UTF-8)
  * @return Formatted string
  */
-inline std::string filter_ascii(const std::string& s) {
-  // Convert std::string to std::wstring for proper Unicode handling
-  std::wstring ws(s.begin(), s.end());
+inline std::string filter_emoji(const std::string& s) {
+  static constexpr unsigned char kAsciiLimit = 0x80;        //!< First byte value out of ASCII
+  static constexpr unsigned char kContinuationMask = 0xC0;  //!< Bits identifying continuation byte
+  static constexpr unsigned char kContinuationTag = 0x80;   //!< Expected value for those bits
+  static constexpr unsigned char kContinuationData = 0x3F;  //!< Bits with data in continuation byte
+  static constexpr int kContinuationBits = 6;               //!< Data bits in continuation byte
 
-  // Remove emojis using std::remove_if and std::string::erase
-  ws.erase(std::remove_if(ws.begin(), ws.end(),
-                          [](const wchar_t& c) { return !isascii(c) || is_emoji(c); }),
-           ws.end());
+  //! Sequence length based on leading byte, as {mask, expected value, data bits, length}
+  struct Leading {
+    unsigned char mask, tag, data;
+    size_t length;
+  };
 
-  // Convert back to std::string (if needed, consider encoding)
-  return std::string{ws.begin(), ws.end()};
+  static constexpr std::array<Leading, 3> kLeading{{
+      {0xE0, 0xC0, 0x1F, 2},
+      {0xF0, 0xE0, 0x0F, 3},
+      {0xF8, 0xF0, 0x07, 4},
+  }};
+
+  std::string filtered;
+  filtered.reserve(s.size());
+
+  for (size_t i = 0; i < s.size();) {
+    const auto first = static_cast<unsigned char>(s[i]);
+
+    // ASCII character, there is nothing to decode
+    if (first < kAsciiLimit) {
+      filtered.push_back(s[i++]);
+      continue;
+    }
+
+    auto leading = std::find_if(kLeading.begin(), kLeading.end(),
+                                [first](const Leading& l) { return (first & l.mask) == l.tag; });
+
+    // Decode code point from multibyte sequence
+    bool valid = leading != kLeading.end() && i + leading->length <= s.size();
+    char32_t code_point = valid ? static_cast<char32_t>(first & leading->data) : 0;
+
+    for (size_t j = 1; valid && j < leading->length; j++) {
+      const auto next = static_cast<unsigned char>(s[i + j]);
+      valid = (next & kContinuationMask) == kContinuationTag;
+      code_point =
+          (code_point << kContinuationBits) | static_cast<char32_t>(next & kContinuationData);
+    }
+
+    // Skip invalid byte and try to decode again from the next one
+    if (!valid) {
+      i++;
+      continue;
+    }
+
+    if (!is_emoji(code_point)) filtered.append(s, i, leading->length);
+    i += leading->length;
+  }
+
+  return filtered;
 }
 
 }  // namespace util

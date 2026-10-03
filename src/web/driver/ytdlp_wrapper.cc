@@ -32,7 +32,7 @@ T GetOr(const nlohmann::json& entry, const char* key, const T& fallback) {
 //! Split the given input string into artist + title
 static void ParseSongTitle(const std::string& input, std::string& artist, std::string& title) {
   static constexpr std::string_view kDelimiter = "-";
-  std::string filtered = util::filter_ascii(input);
+  std::string filtered = util::filter_emoji(input);
 
   // Find the occurrences of the delimiter in the input string
   size_t first_pos = filtered.find(kDelimiter);
@@ -209,6 +209,9 @@ error::Code YtDlpWrapper::ParseInfo(const nlohmann::json& info, model::Song& son
     return error::kStreamFetchFailed;
   }
 
+  // Song may already have an artist guessed from playlist entry (e.g. uploader, as it does not
+  // contain any artist), so discard it to use the one from detailed information
+  song.artist.clear();
   FillArtistAndTitle(GetOr<std::string>(info, "title", ""), info, song);
 
   // Duration may be a floating point number (in seconds)
@@ -227,7 +230,7 @@ void YtDlpWrapper::FillArtistAndTitle(const std::string& title, const nlohmann::
 
   // Video title has no artist, so use the first valid one from metadata
   for (const char* key : {"artist", "uploader", "channel"}) {
-    if (std::string artist = util::trim(util::filter_ascii(GetOr<std::string>(metadata, key, "")));
+    if (std::string artist = util::trim(util::filter_emoji(GetOr<std::string>(metadata, key, "")));
         !artist.empty()) {
       LOG("Using ", key, " as artist=", std::quoted(artist));
       song.artist = artist;
