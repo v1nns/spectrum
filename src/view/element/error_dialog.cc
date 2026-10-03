@@ -5,12 +5,14 @@
 
 #include "ftxui/dom/elements.hpp"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
 ErrorDialog::ErrorDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
-             Style{.background = ftxui::Color::DarkRedBis, .foreground = ftxui::Color::Grey93}) {}
+             Style{.background = GetTheme().dialog.background_error,
+                   .foreground = GetTheme().dialog.foreground}) {}
 
 /* ********************************************************************************************** */
 

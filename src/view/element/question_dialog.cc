@@ -3,38 +3,23 @@
 #include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
 QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
-             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {
+             Style{.background = GetTheme().dialog.background,
+                   .foreground = GetTheme().dialog.foreground}) {
+  const auto& theme = GetTheme().dialog.answer;
+
   auto style = Button::Style{
-      .normal =
-          Button::Style::State{
-              .foreground = ftxui::Color::Black,
-              .background = ftxui::Color::SteelBlue1,
-          },
-      .focused =
-          Button::Style::State{
-              .foreground = ftxui::Color::Black,
-              .background = ftxui::Color::LightSkyBlue1,
-          },
+      .normal = theme.normal,
+      .focused = theme.focused,
       // Button activated by Return key
-      .selected =
-          Button::Style::State{
-              .foreground = ftxui::Color::Black,
-              .background = ftxui::Color::Grey93,
-          },
-      .pressed =
-          Button::Style::State{
-              .foreground = ftxui::Color::SkyBlue1,
-              .background = ftxui::Color::Blue1,
-          },
-      .highlight =
-          Button::Style::State{
-              .foreground = ftxui::Color::DarkRed,
-          },
+      .selected = theme.selected,
+      .pressed = theme.pressed,
+      .highlight = theme.highlight,
 
       .delimiters = Button::Delimiters(" ", " "),
   };
@@ -91,7 +76,7 @@ ftxui::Element QuestionDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   return ftxui::vbox({
       ftxui::text(""),
       ftxui::paragraph(content_->question) | ftxui::center | ftxui::bold |
-          ftxui::color(ftxui::Color::Black),
+          ftxui::color(GetTheme().dialog.text),
       ftxui::text(""),
       ftxui::hbox(btn_yes_->Render(), ftxui::text("  "), btn_no_->Render()) | ftxui::flex |
           ftxui::center | ftxui::bold,

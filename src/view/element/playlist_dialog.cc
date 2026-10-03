@@ -15,6 +15,7 @@
 #include "model/playlist_operation.h"
 #include "util/formatter.h"
 #include "util/url.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -41,7 +42,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
                                const PlaylistFetchCallback& fetch_playlist_cb)
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
-             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
+             Style{.background = GetTheme().dialog.background,
+                   .foreground = GetTheme().dialog.foreground}),
       base_path_(),
       stream_available_cb_(stream_available_cb),
       fetch_playlist_cb_(fetch_playlist_cb),
@@ -229,13 +231,14 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   int message_width = ftxui::string_width(message);
 
   constexpr auto focus_decorator = [](bool is_focused) {
-    return is_focused ? ftxui::color(ftxui::Color::LightSkyBlue1)
-                      : ftxui::color(ftxui::Color::Grey11);
+    return is_focused ? ftxui::color(GetTheme().dialog.pane_border_focused)
+                      : ftxui::color(GetTheme().dialog.pane_border);
   };
 
   return ftxui::vbox({
              ftxui::text(" "),
-             ftxui::text(title) | ftxui::color(ftxui::Color::Black) | ftxui::center | ftxui::bold,
+             ftxui::text(title) | ftxui::color(GetTheme().dialog.text) | ftxui::center |
+                 ftxui::bold,
              ftxui::text(" "),
 
              ftxui::hbox({
@@ -400,34 +403,13 @@ void PlaylistDialog::OnClose() {
 
 void PlaylistDialog::CreateButtons() {
   // Style for save button
+  const auto& theme = GetTheme().dialog;
+
   auto style = Button::Style{
-      .normal =
-          Button::Style::State{
-              .foreground = ftxui::Color::Black,
-              .background = ftxui::Color::SkyBlue3,
-              .border = ftxui::Color::GrayDark,
-          },
-
-      .focused =
-          Button::Style::State{
-              .foreground = ftxui::Color::LightSkyBlue1,
-              .background = ftxui::Color::DeepSkyBlue4Ter,
-              .border = ftxui::Color::LightSkyBlue1,
-          },
-
-      .pressed =
-          Button::Style::State{
-              .foreground = ftxui::Color::SteelBlue3,
-              .background = ftxui::Color::LightSteelBlue3,
-              .border = ftxui::Color::SteelBlue3,
-          },
-
-      .disabled =
-          Button::Style::State{
-              .foreground = ftxui::Color::Grey35,
-              .background = ftxui::Color::SteelBlue,
-              .border = ftxui::Color::GrayDark,
-          },
+      .normal = theme.button.normal,
+      .focused = theme.button.focused,
+      .pressed = theme.button.pressed,
+      .disabled = theme.button.disabled,
 
       .width = 16,
   };
@@ -459,23 +441,9 @@ void PlaylistDialog::CreateButtons() {
 
   // Style for tab buttons (on the left pane border)
   auto tab_style = Button::Style{
-      .normal =
-          Button::Style::State{
-              .foreground = ftxui::Color::Grey11,
-              .background = ftxui::Color::SteelBlue,
-          },
-
-      .focused =
-          Button::Style::State{
-              .foreground = ftxui::Color::Grey11,
-              .background = ftxui::Color::LightSkyBlue1,
-          },
-
-      .selected =
-          Button::Style::State{
-              .foreground = ftxui::Color::Grey11,
-              .background = ftxui::Color::LightSkyBlue1,
-          },
+      .normal = theme.tab.normal,
+      .focused = theme.tab.focused,
+      .selected = theme.tab.selected,
 
       .delimiters = Button::Delimiters{" ", " "},
   };
@@ -601,7 +569,7 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
 
   ftxui::Element title =
       rename_.editing ? rename_.input.Render(title_columns, true, std::string(kNamePlaceholder))
-                      : ftxui::text(name) | ftxui::color(ftxui::Color::Grey11) |
+                      : ftxui::text(name) | ftxui::color(GetTheme().dialog.pane_title) |
                             ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, title_columns);
 
   return ftxui::hbox({
@@ -609,7 +577,7 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
       title,
       ftxui::text(" "),
       ftxui::filler(),
-      ftxui::text(hint) | ftxui::color(ftxui::Color::Grey82),
+      ftxui::text(hint) | ftxui::color(GetTheme().dialog.hint),
   });
 }
 
@@ -618,7 +586,7 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
 std::pair<std::string, ftxui::Decorator> PlaylistDialog::GetSaveMessage() const {
   // Error from last attempt to rename playlist
   if (rename_.editing && rename_.error.has_value()) {
-    return {"✗ " + *rename_.error, ftxui::color(ftxui::Color::MistyRose1) | ftxui::bold};
+    return {"✗ " + *rename_.error, ftxui::color(GetTheme().dialog.error) | ftxui::bold};
   }
 
   // Confirmation after saving playlist
@@ -628,7 +596,7 @@ std::pair<std::string, ftxui::Decorator> PlaylistDialog::GetSaveMessage() const 
 
   // Reason why playlist cannot be saved yet
   if (!rename_.editing && modified_playlist_.has_value() && !btn_save_->IsActive()) {
-    auto style = ftxui::color(ftxui::Color::Grey82);
+    auto style = ftxui::color(GetTheme().dialog.hint);
 
     if (modified_playlist_->IsEmpty()) return {"Add a song to save", style};
 

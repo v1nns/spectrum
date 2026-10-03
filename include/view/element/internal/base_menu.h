@@ -19,6 +19,7 @@
 #include "view/base/element.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 #include "view/element/text_animation.h"
 #include "view/element/util.h"
 
@@ -500,7 +501,7 @@ class BaseMenu : public Element {
     ftxui::InputOption opt{.cursor_position = search_params_->position};
 
     return ftxui::hbox({
-        ftxui::text("Search:") | ftxui::color(ftxui::Color::White),
+        ftxui::text("Search:") | ftxui::color(GetTheme().menu.search),
         ftxui::Input(search_params_->text_to_search, " ", &opt)->Render() | ftxui::flex,
     });
   }

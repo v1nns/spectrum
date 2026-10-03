@@ -6,6 +6,7 @@
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -28,7 +29,7 @@ ftxui::Element UrlInput::Render() {
                   ftxui::text(util::EventToString(Keybind::Return) + ": add"),
                   ftxui::text(util::EventToString(Keybind::Escape) + ": clear"),
               }) |
-              ftxui::color(ftxui::Color::Grey82);
+              ftxui::color(GetTheme().dialog.hint);
 
   ftxui::Element feedback = ftxui::text("");
 
@@ -36,14 +37,14 @@ ftxui::Element UrlInput::Render() {
     switch (feedback_->status) {
       case Result::Status::Accepted:
         feedback = ftxui::text("✓ " + feedback_->message) |
-                   ftxui::color(ftxui::Color::DarkSeaGreen2Bis) | ftxui::bold;
+                   ftxui::color(GetTheme().dialog.success) | ftxui::bold;
         break;
       case Result::Status::Rejected:
-        feedback = ftxui::text("✗ " + feedback_->message) | ftxui::color(ftxui::Color::MistyRose1) |
+        feedback = ftxui::text("✗ " + feedback_->message) | ftxui::color(GetTheme().dialog.error) |
                    ftxui::bold;
         break;
       case Result::Status::Pending:
-        feedback = ftxui::text("… " + feedback_->message) | ftxui::color(ftxui::Color::Grey82);
+        feedback = ftxui::text("… " + feedback_->message) | ftxui::color(GetTheme().dialog.hint);
         break;
     }
   }
@@ -52,7 +53,7 @@ ftxui::Element UrlInput::Render() {
 
   auto content = ftxui::vbox({
       ftxui::text(""),
-      ftxui::text(label_) | ftxui::color(ftxui::Color::Grey93),
+      ftxui::text(label_) | ftxui::color(GetTheme().dialog.label),
       ftxui::text(""),
       input_.Render(max_columns_ - 2 * kPadding, IsFocused()),
       ftxui::text(""),

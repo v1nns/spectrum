@@ -2,6 +2,7 @@
 
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -25,22 +26,23 @@ void Block::SetFocused(bool focused) {
 ftxui::Decorator Block::GetTitleDecorator() const {
   using ftxui::bgcolor;
   using ftxui::bold;
-  using ftxui::Color;
   using ftxui::color;
 
-  return focused_ ? bgcolor(Color::SteelBlue3) | color(Color::LightSteelBlue1) | bold
-                  : bgcolor(Color::GrayDark) | color(Color::GrayLight);
+  const auto& theme = GetTheme().block;
+  const auto& title = focused_ ? theme.title_focused : theme.title;
+
+  ftxui::Decorator decorator = bgcolor(title.background) | color(title.foreground);
+  return focused_ ? decorator | bold : decorator;
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Decorator Block::GetBorderDecorator() const {
   using ftxui::bgcolor;
-  using ftxui::Color;
   using ftxui::color;
   using ftxui::nothing;
 
-  return focused_ ? color(Color::SteelBlue3) : nothing;
+  return focused_ ? color(GetTheme().block.border_focused) : nothing;
 }
 
 /* ********************************************************************************************** */

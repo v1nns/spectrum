@@ -3,6 +3,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -41,7 +42,7 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
   const auto [width, height] = CalculateSize(curr_size);
 
   // Create border decorator style
-  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, ftxui::Color::Grey85);
+  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, GetTheme().dialog.border);
 
   // Create dialog decorator style
   auto decorator = ftxui::size(HEIGHT, EQUAL, height) | ftxui::size(WIDTH, EQUAL, width) |

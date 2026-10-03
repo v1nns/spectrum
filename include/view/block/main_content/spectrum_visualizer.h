@@ -34,22 +34,6 @@ class SpectrumVisualizer : public TabItem {
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
 
-  //! Color stop from gradient used to draw spectrum (position goes from 0.0 to 1.0)
-  struct ColorStop {
-    float position;
-    uint8_t red;
-    uint8_t green;
-    uint8_t blue;
-  };
-
-  //! Gradient from the lowest to the highest part of spectrum
-  static constexpr std::array<ColorStop, 4> kGradient{{
-      {0.0F, 95, 135, 215},
-      {0.3F, 115, 155, 215},
-      {0.6F, 155, 188, 235},
-      {0.8F, 185, 208, 252},
-  }};
-
   //! Possible styles for animations drawing spectrum as a line
   enum class LineStyle : uint8_t {
     Plain,         //!< Single line (average from both channels)

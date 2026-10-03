@@ -14,6 +14,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "model/song.h"
 #include "view/element/internal/base_menu.h"
+#include "view/element/style.h"
 #include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
@@ -125,9 +126,9 @@ class SongMenu : public BaseMenu<SongMenu> {
 
   //!< Style for each element inside this component
   Style style_ = Style{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .tag = ftxui::color(ftxui::Color::LightPink1) | ftxui::bold,
-      .entry = Colored(ftxui::Color::Grey11),
+      .prefix = ftxui::color(GetTheme().menu.prefix),
+      .tag = ftxui::color(GetTheme().dialog.menu_tag) | ftxui::bold,
+      .entry = Colored(GetTheme().dialog.menu_song),
   };
 
   /* ******************************************************************************************** */

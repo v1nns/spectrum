@@ -15,6 +15,7 @@
 #include "util/logger.h"
 #include "view/base/custom_event.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 #include "view/element/tab.h"
 
 namespace interface {
@@ -106,7 +107,7 @@ ftxui::Element SpectrumVisualizer::Render() {
         ftxui::vbox({
             ftxui::hbox({
                 ftxui::filler(),
-                ftxui::text(*message) | ftxui::bold | ftxui::color(ftxui::Color::White),
+                ftxui::text(*message) | ftxui::bold | ftxui::color(GetTheme().visualizer.text),
             }),
             ftxui::filler(),
         }),
@@ -135,9 +136,9 @@ ftxui::Element SpectrumVisualizer::RenderPicker() const {
     const std::string name{model::GetAnimationName(animation)};
 
     auto entry = ftxui::text((selected ? "▶ " : "  ") + name + " ");
-    entries.push_back(selected
-                          ? entry | ftxui::bold | ftxui::color(ftxui::Color::White) | ftxui::focus
-                          : entry | ftxui::dim);
+    entries.push_back(selected ? entry | ftxui::bold | ftxui::color(GetTheme().visualizer.text) |
+                                     ftxui::focus
+                               : entry | ftxui::dim);
   }
 
   // Frame keeps selected entry visible when there is not enough space for all of them (otherwise,
@@ -317,7 +318,7 @@ void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
   using ftxui::gaugeDirection;
   constexpr auto color = [](const ftxui::Direction& dir) {
     auto gradient = ftxui::LinearGradient().Angle(dir == ftxui::Direction::Up ? 270 : 90);
-    for (const auto& stop : kGradient) {
+    for (const auto& stop : GetTheme().visualizer.gradient) {
       gradient.Stop(ftxui::Color(stop.red, stop.green, stop.blue), stop.position);
     }
 
@@ -608,17 +609,18 @@ void SpectrumVisualizer::FillBlocks(ftxui::Canvas& canvas, const VerticalRun& ru
 /* ********************************************************************************************** */
 
 ftxui::Color SpectrumVisualizer::GetGradientColor(double position) {
+  const auto& gradient = GetTheme().visualizer.gradient;
   const double clamped = std::clamp(position, 0.0, 1.0);
 
   // Before first stop, there is nothing to interpolate
-  if (clamped <= kGradient.front().position) {
-    const auto& stop = kGradient.front();
+  if (clamped <= gradient.front().position) {
+    const auto& stop = gradient.front();
     return {stop.red, stop.green, stop.blue};
   }
 
-  for (size_t i = 1; i < kGradient.size(); i++) {
-    const auto& start = kGradient.at(i - 1);
-    const auto& end = kGradient.at(i);
+  for (size_t i = 1; i < gradient.size(); i++) {
+    const auto& start = gradient.at(i - 1);
+    const auto& end = gradient.at(i);
 
     if (clamped <= end.position) {
       const double t = (clamped - start.position) / (end.position - start.position);
@@ -631,7 +633,7 @@ ftxui::Color SpectrumVisualizer::GetGradientColor(double position) {
   }
 
   // After last stop, there is nothing to interpolate
-  const auto& stop = kGradient.back();
+  const auto& stop = gradient.back();
   return {stop.red, stop.green, stop.blue};
 }
 

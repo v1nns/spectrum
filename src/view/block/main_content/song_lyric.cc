@@ -14,6 +14,7 @@
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -40,7 +41,7 @@ SongLyric::~SongLyric() {
 
 ftxui::Element SongLyric::Render() {
   ftxui::Element content;
-  ftxui::Decorator style = ftxui::color(ftxui::Color::White) | ftxui::bold | ftxui::center;
+  ftxui::Decorator style = ftxui::color(GetTheme().lyric.text) | ftxui::bold | ftxui::center;
 
   if (audio_info_.IsEmpty()) {
     return ftxui::text("No song playing...") | style;
@@ -281,7 +282,7 @@ void SongLyric::ParseSearchTerms() {
 
 ftxui::Element SongLyric::DrawFailure() const {
   auto line = [](const std::string& content) {
-    return ftxui::text(content) | ftxui::color(ftxui::Color::White) | ftxui::hcenter;
+    return ftxui::text(content) | ftxui::color(GetTheme().lyric.text) | ftxui::hcenter;
   };
 
   const std::string retry_hint = util::EventToString(keybinding::Lyric::Retry) + ": retry search";
@@ -370,7 +371,7 @@ ftxui::Element SongLyric::DrawSongLyrics(const model::SongLyric& lyrics) const {
   for (const auto& line : lines) {
     formatted_lines.push_back(ftxui::hbox({
         ftxui::filler(),
-        line | ftxui::size(WIDTH, EQUAL, max_length) | ftxui::color(ftxui::Color::White),
+        line | ftxui::size(WIDTH, EQUAL, max_length) | ftxui::color(GetTheme().lyric.text),
         ftxui::filler(),
     }));
   }

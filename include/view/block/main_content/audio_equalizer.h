@@ -19,6 +19,7 @@
 #include "view/base/keybinding.h"
 #include "view/element/button.h"
 #include "view/element/focus_controller.h"
+#include "view/element/style.h"
 #include "view/element/tab.h"
 #include "view/element/util.h"
 
@@ -121,14 +122,17 @@ class AudioEqualizer : public TabItem {
     };
 
     //!< Color styles
-    BarStyle style_normal = BarStyle{.background = ftxui::Color::LightSteelBlue3,
-                                     .foreground = ftxui::Color::SteelBlue3};  //!< Normal mode
+    BarStyle style_normal =
+        BarStyle{.background = GetTheme().equalizer.bar.background,
+                 .foreground = GetTheme().equalizer.bar.foreground};  //!< Normal mode
 
-    BarStyle style_hovered = BarStyle{.background = ftxui::Color::LightSteelBlue1,
-                                      .foreground = ftxui::Color::SlateBlue1};  //!< On hover state
+    BarStyle style_hovered =
+        BarStyle{.background = GetTheme().equalizer.bar_hovered.background,
+                 .foreground = GetTheme().equalizer.bar_hovered.foreground};  //!< On hover state
 
-    BarStyle style_focused = BarStyle{.background = ftxui::Color::LightSteelBlue3,
-                                      .foreground = ftxui::Color::RedLight};  //!< On focus state
+    BarStyle style_focused =
+        BarStyle{.background = GetTheme().equalizer.bar_focused.background,
+                 .foreground = GetTheme().equalizer.bar_focused.foreground};  //!< On focus state
 
     model::AudioFilter* filter;  //!< Audio frequency filters for equalization
 
@@ -169,7 +173,7 @@ class AudioEqualizer : public TabItem {
           // title
           empty_line(),
           ftxui::text(compact ? GetCompactFrequency() : filter->GetFrequency()) |
-              ftxui::color(ftxui::Color::White) | ftxui::hcenter,
+              ftxui::color(GetTheme().equalizer.text) | ftxui::hcenter,
           empty_line(),
 
           // frequency gauge
@@ -178,7 +182,7 @@ class AudioEqualizer : public TabItem {
           // gain input
           empty_line(),
           ftxui::text(compact ? GetCompactGain() : filter->GetGain()) |
-              ftxui::color(ftxui::Color::White) | ftxui::inverted | ftxui::hcenter |
+              ftxui::color(GetTheme().equalizer.text) | ftxui::inverted | ftxui::hcenter |
               ftxui::size(WIDTH, EQUAL, compact ? kCompactGainLength : kMaxGainLength),
           empty_line(),
       });
@@ -346,7 +350,7 @@ class AudioEqualizer : public TabItem {
                  content | ftxui::center | ftxui::border | ftxui::reflect(Box()),
                  ftxui::filler(),
              }) |
-             ftxui::color(ftxui::Color::White);
+             ftxui::color(GetTheme().equalizer.text);
     }
 
    private:

@@ -7,6 +7,7 @@
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/style.h"
 #include "view/element/util.h"
 
 namespace interface {
@@ -31,8 +32,8 @@ ftxui::Element FileInfo::Render() {
   lines.reserve(audio_info_.size());
 
   // Choose a different color for when there is no current song (paused song still has its info)
-  ftxui::Color::Palette256 color =
-      has_song_info_ ? ftxui::Color::LightSteelBlue1 : ftxui::Color::LightSteelBlue3;
+  const auto& theme = GetTheme().file_info;
+  const ftxui::Color& color = has_song_info_ ? theme.value : theme.value_empty;
 
   for (const auto& [field, value] : audio_info_) {
     // Calculate maximum width for text value (keeping a gap between field and value)
@@ -40,12 +41,12 @@ ftxui::Element FileInfo::Render() {
 
     // Create element
     ftxui::Element item = ftxui::hbox({
-        ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::SteelBlue1),
+        ftxui::text(field) | ftxui::bold | ftxui::color(theme.field),
         ftxui::filler(),
         // Long values are cut with an ellipsis (instead of animated), as the full filename is
         // already animated in files list when selected
         ftxui::text(ellipsize(value, width)) | ftxui::align_right |
-            ftxui::size(WIDTH, LESS_THAN, width) | ftxui::color(ftxui::Color(color)),
+            ftxui::size(WIDTH, LESS_THAN, width) | ftxui::color(color),
     });
 
     lines.push_back(item);

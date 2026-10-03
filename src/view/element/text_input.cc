@@ -6,6 +6,7 @@
 
 #include "ftxui/screen/string.hpp"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -82,7 +83,9 @@ bool TextInput::OnEvent(const ftxui::Event& event) {
 
 ftxui::Element TextInput::Render(int width, bool show_cursor,
                                  const std::string& placeholder) const {
-  auto field = ftxui::bgcolor(ftxui::Color::Grey11) | ftxui::color(ftxui::Color::Grey93) |
+  const auto& theme = GetTheme().dialog;
+
+  auto field = ftxui::bgcolor(theme.input.background) | ftxui::color(theme.input.foreground) |
                ftxui::size(ftxui::WIDTH, ftxui::EQUAL, width);
 
   auto cursor = [show_cursor](const std::string& glyph) {
@@ -100,7 +103,7 @@ ftxui::Element TextInput::Render(int width, bool show_cursor,
 
     return ftxui::hbox({
                show_cursor ? cursor(" ") : ftxui::emptyElement(),
-               ftxui::text(placeholder) | ftxui::color(ftxui::Color::Grey50),
+               ftxui::text(placeholder) | ftxui::color(theme.input_placeholder),
                padding(cursor_width + ftxui::string_width(placeholder)),
            }) |
            field;

@@ -9,6 +9,7 @@
 #include "view/block/main_content/audio_equalizer.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/block/main_content/spectrum_visualizer.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -191,16 +192,8 @@ bool MainContent::OnMouseEvent(ftxui::Event event) {
 
 void MainContent::CreateButtons() {
   const auto button_style = Button::Style{
-      .focused =
-          Button::Style::State{
-              .foreground = ftxui::Color::GrayLight,
-              .background = ftxui::Color::GrayDark,
-          },
-      .pressed =
-          Button::Style::State{
-              .foreground = ftxui::Color::GrayLight,
-              .background = ftxui::Color::GrayDark,
-          },
+      .focused = GetTheme().block.window_button.focused,
+      .pressed = GetTheme().block.window_button.pressed,
       .delimiters = Button::Delimiters{"[", "]"},
   };
 

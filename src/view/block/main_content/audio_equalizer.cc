@@ -5,6 +5,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 #include "view/element/util.h"
 
 namespace interface {
@@ -114,29 +115,14 @@ bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 /* ********************************************************************************************** */
 
 void AudioEqualizer::CreateButtons() {
-  auto style = Button::Style{
-      .normal =
-          Button::Style::State{
-              .foreground = ftxui::Color::White,
-              .border = ftxui::Color::White,
-          },
-      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
-      .pressed =
-          Button::Style::State{
-              .foreground = ftxui::Color::SteelBlue3,
-              .background = ftxui::Color::LightSteelBlue3,
-              .border = ftxui::Color::SteelBlue3,
-          },
-      .disabled =
-          Button::Style::State{
-              .foreground = ftxui::Color::GrayDark,
-              .border = ftxui::Color::GrayDark,
-          },
+  const auto& theme = GetTheme().equalizer.button;
 
-      .highlight =
-          Button::Style::State{
-              .foreground = ftxui::Color::IndianRed,
-          },
+  auto style = Button::Style{
+      .normal = theme.normal,
+      .focused = theme.focused,
+      .pressed = theme.pressed,
+      .disabled = theme.disabled,
+      .highlight = theme.highlight,
 
       .width = 15,
 

@@ -15,6 +15,7 @@
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 namespace internal {
@@ -54,22 +55,24 @@ FileMenu::FileMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const TextAnimation::Callback& force_refresh, const Callback& on_click,
                    const menu::Style& style, const std::string& optional_path)
     : BaseMenu(dispatcher, force_refresh), file_handler_{file_handler}, on_click_{on_click} {
+  const auto& theme = GetTheme();
+
   switch (style) {
     case menu::Style::Default:
       style_ = Style{
-          .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-          .directory = Colored(ftxui::Color::Green),
-          .file = Colored(ftxui::Color::White),
-          .playing = Colored(ftxui::Color::SteelBlue1),
+          .prefix = ftxui::color(theme.menu.prefix),
+          .directory = Colored(theme.menu.directory),
+          .file = Colored(theme.menu.file),
+          .playing = Colored(theme.menu.file_playing),
       };
       break;
 
     case menu::Style::Alternative:
       style_ = Style{
-          .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-          .directory = Colored(ftxui::Color::DarkSeaGreen2Bis),
-          .file = Colored(ftxui::Color::Grey11),
-          .playing = Colored(ftxui::Color::SteelBlue1),
+          .prefix = ftxui::color(theme.menu.prefix),
+          .directory = Colored(theme.dialog.menu_directory),
+          .file = Colored(theme.dialog.menu_file),
+          .playing = Colored(theme.dialog.menu_file_playing),
       };
       break;
   }
@@ -151,7 +154,7 @@ ftxui::Element FileMenu::RenderImpl() {
   }
 
   return ftxui::vbox({
-             ftxui::text(GetTitle()) | ftxui::color(ftxui::Color::White) | ftxui::bold,
+             ftxui::text(GetTitle()) | ftxui::color(GetTheme().menu.title) | ftxui::bold,
              ftxui::vbox(content) | ftxui::flex,
          }) |
          ftxui::flex;

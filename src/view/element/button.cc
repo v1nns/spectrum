@@ -1,5 +1,7 @@
 #include "view/element/button.h"
 
+#include "view/element/style.h"
+
 namespace interface {
 
 Button::Button(const Style& style, Callback on_click, bool active)
@@ -199,11 +201,12 @@ std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
     }
   };
 
-  auto style = Style{
-      .normal =
-          Style::State{.foreground = ftxui::Color::SpringGreen2, .border = ftxui::Color::GrayDark},
+  const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
+  auto style = Style{
+      .normal = Style::State{.foreground = theme.play, .border = theme.button_border},
+
+      .focused = Style::State{.border = theme.button_border_focused},
   };
 
   return std::make_shared<Play>(style, on_click);
@@ -226,14 +229,16 @@ std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
     }
   };
 
+  const auto& theme = GetTheme().player;
+
   auto style = Style{
       .normal =
           Style::State{
-              .foreground = ftxui::Color::Red,
-              .border = ftxui::Color::GrayDark,
+              .foreground = theme.stop,
+              .border = theme.button_border,
           },
 
-      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
+      .focused = Style::State{.border = theme.button_border_focused},
   };
 
   return std::make_shared<Stop>(style, on_click);
@@ -272,11 +277,12 @@ std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_cli
     }
   };
 
-  auto style = Style{
-      .normal =
-          Style::State{.foreground = ftxui::Color::SteelBlue, .border = ftxui::Color::GrayDark},
+  const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
+  auto style = Style{
+      .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
+
+      .focused = Style::State{.border = theme.button_border_focused},
   };
 
   return std::make_shared<SkipPrevious>(style, on_click);
@@ -314,11 +320,12 @@ std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) 
     }
   };
 
-  auto style = Style{
-      .normal =
-          Style::State{.foreground = ftxui::Color::SteelBlue, .border = ftxui::Color::GrayDark},
+  const auto& theme = GetTheme().player;
 
-      .focused = Style::State{.border = ftxui::Color::SteelBlue3},
+  auto style = Style{
+      .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
+
+      .focused = Style::State{.border = theme.button_border_focused},
   };
 
   return std::make_shared<SkipNext>(style, on_click);

@@ -13,6 +13,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "model/playlist.h"
 #include "view/element/internal/base_menu.h"
+#include "view/element/style.h"
 #include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
@@ -164,16 +165,16 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 
   //!< Style for each element inside this component
   EntryStyles styles_ = EntryStyles{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
+      .prefix = ftxui::color(GetTheme().menu.prefix),
       .playlist =
           EntryStyles::State{
-              .normal = Colored(ftxui::Color::SteelBlue1, /*bold=*/true),
-              .playing = Colored(ftxui::Color::PaleGreen1, /*bold=*/true),
+              .normal = Colored(GetTheme().menu.playlist, /*bold=*/true),
+              .playing = Colored(GetTheme().menu.playlist_playing, /*bold=*/true),
           },
       .song =
           EntryStyles::State{
-              .normal = Colored(ftxui::Color::White),
-              .playing = Colored(ftxui::Color::SteelBlue1Bis),
+              .normal = Colored(GetTheme().menu.song),
+              .playing = Colored(GetTheme().menu.song_playing),
           },
   };
 

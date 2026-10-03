@@ -10,6 +10,7 @@
 #include "util/formatter.h"
 #include "view/base/dialog.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -33,7 +34,8 @@ HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
                   .min_column = kMaxColumns,
                   .min_line = kMinLines,
                   .max_line = kMaxLines},
-             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}) {}
+             Style{.background = GetTheme().dialog.background,
+                   .foreground = GetTheme().dialog.foreground}) {}
 
 /* ********************************************************************************************** */
 
@@ -208,13 +210,13 @@ ftxui::Element HelpDialog::RenderLine(const Line& line) {
 
   switch (line.type) {
     case Line::Type::Title:
-      return ftxui::text(line.text) | ftxui::color(ftxui::Color::Black) | ftxui::bold;
+      return ftxui::text(line.text) | ftxui::color(GetTheme().dialog.text) | ftxui::bold;
 
     case Line::Type::Entry:
       return ftxui::hbox({
-          ftxui::text(line.keys) | ftxui::color(ftxui::Color::PaleTurquoise1) | ftxui::bold |
+          ftxui::text(line.keys) | ftxui::color(GetTheme().dialog.keybinding) | ftxui::bold |
               ftxui::size(WIDTH, EQUAL, kKeysColumnWidth),
-          ftxui::text(line.text) | ftxui::color(ftxui::Color::Black),
+          ftxui::text(line.text) | ftxui::color(GetTheme().dialog.text),
       });
 
     case Line::Type::Blank:
@@ -243,7 +245,7 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
 
   // Let user know that search did not match anything
   if (lines.empty())
-    content.push_back(ftxui::text("No matches") | ftxui::color(ftxui::Color::Black));
+    content.push_back(ftxui::text("No matches") | ftxui::color(GetTheme().dialog.text));
 
   // Let user know where they are and how to scroll (or search)
   const std::string position = lines.empty()
@@ -263,11 +265,11 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
     hint = "↑/↓ PgUp/PgDn: scroll  " + search + ": search  " + escape + ": close";
   }
 
-  ftxui::Element status = ftxui::text(position) | ftxui::color(ftxui::Color::Black);
+  ftxui::Element status = ftxui::text(position) | ftxui::color(GetTheme().dialog.text);
 
   if (searching_) {
     status = ftxui::hbox({
-        ftxui::text("Search: ") | ftxui::color(ftxui::Color::Black) | ftxui::bold,
+        ftxui::text("Search: ") | ftxui::color(GetTheme().dialog.text) | ftxui::bold,
         search_input_.Render(kSearchWidth, typing_),
         ftxui::text("  "),
         status,
@@ -277,7 +279,7 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
   constexpr int kMargin = 3;  //!< Lateral margin for content
 
   return ftxui::vbox({
-      ftxui::text("Help") | ftxui::color(ftxui::Color::Black) | ftxui::bold | ftxui::center,
+      ftxui::text("Help") | ftxui::color(GetTheme().dialog.text) | ftxui::bold | ftxui::center,
       ftxui::text(""),
       ftxui::hbox({
           ftxui::text(std::string(kMargin, ' ')),
@@ -288,7 +290,7 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
           ftxui::text(std::string(kMargin, ' ')),
           status,
           ftxui::filler(),
-          ftxui::text(hint) | ftxui::color(ftxui::Color::Black),
+          ftxui::text(hint) | ftxui::color(GetTheme().dialog.text),
           ftxui::text(std::string(kMargin, ' ')),
       }),
   });

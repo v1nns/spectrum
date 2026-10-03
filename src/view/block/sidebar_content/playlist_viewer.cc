@@ -8,35 +8,16 @@
 #include "model/question_data.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
 Button::Style PlaylistViewer::kButtonStyle = Button::Style{
-    .normal =
-        Button::Style::State{
-            .foreground = ftxui::Color::Grey11,
-            .background = ftxui::Color::SteelBlue1,
-        },
-    .focused =
-        Button::Style::State{
-            .foreground = ftxui::Color::DeepSkyBlue4Ter,
-            .background = ftxui::Color::LightSkyBlue1,
-        },
-    .pressed =
-        Button::Style::State{
-            .foreground = ftxui::Color::SkyBlue1,
-            .background = ftxui::Color::Blue1,
-        },
-    .disabled =
-        Button::Style::State{
-            .foreground = ftxui::Color::Grey35,
-            .background = ftxui::Color::SteelBlue,
-        },
-    .highlight =
-        Button::Style::State{
-            .foreground = ftxui::Color::DeepPink4Bis,
-            .background = ftxui::Color(),
-        },
+    .normal = GetTheme().sidebar.button.normal,
+    .focused = GetTheme().sidebar.button.focused,
+    .pressed = GetTheme().sidebar.button.pressed,
+    .disabled = GetTheme().sidebar.button.disabled,
+    .highlight = GetTheme().sidebar.button.highlight,
 
     .delimiters = Button::Delimiters(" ", " "),
 };

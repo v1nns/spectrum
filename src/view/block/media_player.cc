@@ -11,6 +11,7 @@
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -125,10 +126,11 @@ ftxui::Element MediaPlayer::Render() {
   }
 
   // Bar to display song duration
+  const auto& theme = GetTheme().player;
+  const auto& bar_colors = is_duration_focused_ ? theme.duration_focused : theme.duration;
+
   ftxui::Decorator bar_style =
-      is_duration_focused_
-          ? ftxui::bgcolor(ftxui::Color::LightSteelBlue1) | ftxui::color(ftxui::Color::RedLight)
-          : ftxui::bgcolor(ftxui::Color::LightSteelBlue3) | ftxui::color(ftxui::Color::SteelBlue3);
+      ftxui::bgcolor(bar_colors.background) | ftxui::color(bar_colors.foreground);
 
   ftxui::Element bar_duration =
       ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) | bar_style;
@@ -141,17 +143,17 @@ ftxui::Element MediaPlayer::Render() {
   // Current volume element
   ftxui::Element volume = ftxui::text(vol_info);
   if (!volume_.IsMuted())
-    volume |= ftxui::color(ftxui::Color::White);
+    volume |= ftxui::color(theme.text);
   else
-    volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
+    volume |= ftxui::dim | ftxui::color(theme.volume_muted);
 
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(5, ' '));
 
   // Repeat and shuffle modes (dimmed when disabled), on the left side to keep media buttons
   // centered on screen (same width as volume information)
-  auto mode = [](const std::string& text, bool enabled) {
-    return ftxui::text(text) | (enabled ? ftxui::color(ftxui::Color::White) : ftxui::dim);
+  auto mode = [&theme](const std::string& text, bool enabled) {
+    return ftxui::text(text) | (enabled ? ftxui::color(theme.text) : ftxui::dim);
   };
 
   ftxui::Element modes = ftxui::vbox({
@@ -165,8 +167,7 @@ ftxui::Element MediaPlayer::Render() {
   // Warning (if any) uses the empty line between media buttons and song duration
   ftxui::Element warning = ftxui::text("");
   if (auto message = warning_.GetText(); message.has_value()) {
-    warning =
-        ftxui::text(*message) | ftxui::bold | ftxui::color(ftxui::Color::Yellow) | ftxui::center;
+    warning = ftxui::text(*message) | ftxui::bold | ftxui::color(theme.warning) | ftxui::center;
   }
 
   ftxui::Element content = ftxui::vbox({
@@ -197,9 +198,9 @@ ftxui::Element MediaPlayer::Render() {
       }),
       ftxui::hbox({
           margin,
-          ftxui::text(curr_time) | ftxui::bold | ftxui::color(ftxui::Color::White),
+          ftxui::text(curr_time) | ftxui::bold | ftxui::color(theme.text),
           ftxui::filler(),
-          ftxui::text(total_time) | ftxui::bold | ftxui::color(ftxui::Color::White),
+          ftxui::text(total_time) | ftxui::bold | ftxui::color(theme.text),
           margin,
       }),
   });

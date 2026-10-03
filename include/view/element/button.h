@@ -13,6 +13,7 @@
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -31,11 +32,7 @@ class Button {
    * implementation for more info)
    */
   struct Style {
-    struct State {
-      ftxui::Color foreground;  //!< Color for button foreground
-      ftxui::Color background;  //!< Color for button background
-      ftxui::Color border;      //!< Color for border
-    };
+    using State = Theme::State;  //!< Colors for a single state (foreground, background, border)
 
     State normal;    //!< Colors for normal state
     State focused;   //!< Colors for focused state
