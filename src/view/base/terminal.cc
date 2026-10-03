@@ -82,6 +82,14 @@ void Terminal::Init(const std::string& initial_path) {
       driver::DummyStreamFetcher::IsAvailable;
 #endif
 
+  // Callback to import songs from playlist URL (it also depends on an external program)
+  const PlaylistDialog::PlaylistFetchCallback fetch_playlist_cb =
+#ifndef SPECTRUM_DEBUG
+      driver::YtDlpWrapper::ExtractPlaylist;
+#else
+      driver::DummyStreamFetcher::ExtractPlaylist;
+#endif
+
   // Create blocks
   auto sidebar = std::make_shared<Sidebar>(dispatcher, initial_path, nullptr, contains_audio_cb);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
@@ -102,7 +110,7 @@ void Terminal::Init(const std::string& initial_path) {
   error_dialog_ = std::make_unique<ErrorDialog>(dispatcher);
   help_dialog_ = std::make_unique<HelpDialog>(dispatcher);
   playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher, contains_audio_cb, initial_path,
-                                                      stream_available_cb);
+                                                      stream_available_cb, fetch_playlist_cb);
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 }
 

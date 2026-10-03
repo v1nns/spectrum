@@ -71,6 +71,77 @@ bool YtDlpWrapper::IsAvailable() { return util::FindExecutable(std::string{kProg
 
 /* ********************************************************************************************** */
 
+error::Code YtDlpWrapper::ExtractPlaylist(const std::string& url, std::vector<model::Song>& songs,
+                                          const std::atomic<bool>* cancel) {
+  auto program = util::FindExecutable(std::string{kProgram});
+
+  if (!program) {
+    WARN("Cannot find ", kProgram, " in PATH to extract playlist from URL=", url);
+    return error::kStreamFetcherNotFound;
+  }
+
+  // Only list entries from playlist (much faster than extracting information from every song)
+  INFO("Extract songs from playlist URL=", url);
+  auto result = util::RunProcess(
+      {program->string(), "--flat-playlist", "--dump-single-json", "--no-warnings", "--", url},
+      kTimeout, cancel);
+
+  if (!result || result->exit_code != 0) {
+    if (result && result->canceled) {
+      LOG("Canceled extracting playlist from URL=", url);
+    } else {
+      ERROR("Could not extract playlist from URL=", url,
+            result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
+                   : ", program could not be started");
+    }
+
+    return error::kStreamFetchFailed;
+  }
+
+  nlohmann::json info = nlohmann::json::parse(result->output, nullptr, /*allow_exceptions=*/false);
+  return ParsePlaylist(info, songs);
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::ParsePlaylist(const nlohmann::json& info,
+                                        std::vector<model::Song>& songs) {
+  auto entries = info.is_object() ? info.find("entries") : info.end();
+
+  if (entries == info.end() || !entries->is_array()) {
+    ERROR("Could not parse playlist extracted from URL");
+    return error::kStreamFetchFailed;
+  }
+
+  std::vector<model::Song> parsed;
+  int skipped = 0;
+
+  for (const auto& entry : *entries) {
+    const std::string id = entry.is_object() ? GetOr<std::string>(entry, "id", "") : "";
+    const std::string title = entry.is_object() ? GetOr<std::string>(entry, "title", "") : "";
+
+    // Deleted and private videos are still listed, but they cannot be played
+    if (id.empty() || title == "[Deleted video]" || title == "[Private video]") {
+      skipped++;
+      continue;
+    }
+
+    model::Song song{.stream_info =
+                         model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=" + id}};
+    FillArtistAndTitle(title, entry, song);
+
+    parsed.push_back(std::move(song));
+  }
+
+  INFO("Parsed playlist=", std::quoted(GetOr<std::string>(info, "title", "")),
+       " with songs=", parsed.size(), " skipped=", skipped);
+
+  songs = std::move(parsed);
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
 void YtDlpWrapper::Finish() {
   // Nothing to clean up, as program is only executed while extracting information
 }

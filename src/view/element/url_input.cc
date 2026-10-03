@@ -33,11 +33,19 @@ ftxui::Element UrlInput::Render() {
   ftxui::Element feedback = ftxui::text("");
 
   if (feedback_.has_value()) {
-    feedback =
-        feedback_->accepted
-            ? ftxui::text("✓ " + feedback_->message) | ftxui::color(ftxui::Color::DarkSeaGreen2Bis)
-            : ftxui::text("✗ " + feedback_->message) | ftxui::color(ftxui::Color::MistyRose1);
-    feedback |= ftxui::bold;
+    switch (feedback_->status) {
+      case Result::Status::Accepted:
+        feedback = ftxui::text("✓ " + feedback_->message) |
+                   ftxui::color(ftxui::Color::DarkSeaGreen2Bis) | ftxui::bold;
+        break;
+      case Result::Status::Rejected:
+        feedback = ftxui::text("✗ " + feedback_->message) | ftxui::color(ftxui::Color::MistyRose1) |
+                   ftxui::bold;
+        break;
+      case Result::Status::Pending:
+        feedback = ftxui::text("… " + feedback_->message) | ftxui::color(ftxui::Color::Grey82);
+        break;
+    }
   }
 
   auto padding = ftxui::text(std::string(kPadding, ' '));
@@ -98,16 +106,19 @@ void UrlInput::Submit() {
   if (input_.IsEmpty()) return;
 
   LOG("Submit URL=", std::quoted(input_.GetText()));
-  auto error = on_submit_(input_.GetText());
+  SetResult(on_submit_(input_.GetText()));
+}
 
-  if (error.has_value()) {
-    // Keep text, so user can fix it
-    feedback_ = Feedback{.accepted = false, .message = *error};
-    return;
-  }
+/* ********************************************************************************************** */
+
+void UrlInput::SetResult(const Result& result) {
+  feedback_ = result;
+
+  // Rejected or pending URL keeps text (so user can fix it, or see what is being handled)
+  if (result.status != Result::Status::Accepted) return;
 
   input_.Clear();
-  feedback_ = Feedback{.accepted = true, .message = success_};
+  if (feedback_->message.empty()) feedback_->message = success_;
 }
 
 }  // namespace interface

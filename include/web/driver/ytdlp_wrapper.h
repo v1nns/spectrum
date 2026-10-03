@@ -6,10 +6,12 @@
 #ifndef INCLUDE_WEB_DRIVER_YTDLP_WRAPPER_H_
 #define INCLUDE_WEB_DRIVER_YTDLP_WRAPPER_H_
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "model/application_error.h"
 #include "model/song.h"
@@ -73,6 +75,17 @@ class YtDlpWrapper : public web::StreamFetcher {
    */
   static bool IsAvailable();
 
+  /**
+   * @brief Extract list of songs from the given YouTube playlist URL (only their URL and title,
+   * the rest is extracted when each song is played)
+   * @param url YouTube playlist URL
+   * @param songs List of songs from playlist (out)
+   * @param cancel Flag to cancel extraction while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code ExtractPlaylist(const std::string &url, std::vector<model::Song> &songs,
+                                     const std::atomic<bool> *cancel = nullptr);
+
   /* ******************************************************************************************** */
   //! Internal methods
  private:
@@ -84,6 +97,15 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @return Error code from operation (when there is no audio stream to play, for example)
    */
   error::Code ParseInfo(const nlohmann::json &info, model::Song &song);
+
+  /**
+   * @brief Fill list of songs with entries from playlist extracted by yt-dlp (skipping entries that
+   * cannot be played, like deleted or private videos)
+   * @param info JSON parsed output from yt-dlp (using flat playlist)
+   * @param songs List of songs (out)
+   * @return Error code from operation (when output does not contain a playlist, for example)
+   */
+  static error::Code ParsePlaylist(const nlohmann::json &info, std::vector<model::Song> &songs);
 
   /**
    * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title

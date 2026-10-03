@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdlib>
@@ -62,7 +63,11 @@ std::optional<std::filesystem::path> FindExecutable(const std::string& name) {
 /* ********************************************************************************************** */
 
 std::optional<ProcessResult> RunProcess(const std::vector<std::string>& args,
-                                        std::chrono::milliseconds timeout) {
+                                        std::chrono::milliseconds timeout,
+                                        const std::atomic<bool>* cancel) {
+  // While waiting for program, check from time to time if it was canceled
+  static constexpr std::chrono::milliseconds kCancelCheckInterval{100};
+
   if (args.empty()) return std::nullopt;
 
   // Pipes to read standard output and error from program
@@ -118,6 +123,14 @@ std::optional<ProcessResult> RunProcess(const std::vector<std::string>& args,
       kill(pid, SIGKILL);
       break;
     }
+
+    if (cancel && *cancel) {
+      result.canceled = true;
+      kill(pid, SIGKILL);
+      break;
+    }
+
+    if (cancel) remaining = std::min(remaining, kCancelCheckInterval);
 
     if (poll(fds.data(), fds.size(), static_cast<int>(remaining.count())) < 0) {
       if (errno == EINTR) continue;

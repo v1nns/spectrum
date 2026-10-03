@@ -6,15 +6,21 @@
 #ifndef INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 #define INCLUDE_VIEW_ELEMENT_PLAYLIST_DIALOG_H_
 
+#include <atomic>
 #include <chrono>
 #include <ftxui/component/component_base.hpp>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string_view>
+#include <thread>
 #include <utility>
+#include <vector>
 
 #include "ftxui/component/screen_interactive.hpp"
+#include "model/application_error.h"
 #include "model/playlist_operation.h"
+#include "model/song.h"
 #include "util/file_handler.h"
 #include "view/base/dialog.h"
 #include "view/base/event_dispatcher.h"
@@ -55,6 +61,10 @@ class PlaylistDialog : public Dialog {
   };
 
  public:
+  //! Callback to extract list of songs from a playlist URL (cancel flag is set to stop extraction)
+  using PlaylistFetchCallback = std::function<error::Code(
+      const std::string& url, std::vector<model::Song>& songs, const std::atomic<bool>* cancel)>;
+
   /**
    * @brief Construct a new PlaylistDialog object
    * @param dispatcher Event dispatcher
@@ -62,16 +72,19 @@ class PlaylistDialog : public Dialog {
    * @param optional_path List files from custom path instead of the current one
    * @param stream_available_cb Callback function to check if songs can be added from URL (if not
    * informed, it is always possible)
+   * @param fetch_playlist_cb Callback function to extract songs from a playlist URL (if not
+   * informed, playlist URL cannot be imported)
    */
   PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                  const std::function<bool(const util::File& file)>& contains_audio_cb,
                  const std::string& optional_path = "",
-                 const std::function<bool()>& stream_available_cb = nullptr);
+                 const std::function<bool()>& stream_available_cb = nullptr,
+                 const PlaylistFetchCallback& fetch_playlist_cb = nullptr);
 
   /**
    * @brief Destroy PlaylistDialog object
    */
-  virtual ~PlaylistDialog() = default;
+  ~PlaylistDialog() override;
 
   /**
    * @brief Set dialog as visible
@@ -170,12 +183,46 @@ class PlaylistDialog : public Dialog {
   //! Check if songs can be added from URL
   bool IsStreamAvailable() const { return !stream_available_cb_ || stream_available_cb_(); }
 
+  /**
+   * @brief Handle URL submitted by user: add a single song, or start importing songs from playlist
+   * @param url YouTube URL
+   * @return Result from URL (pending while playlist is being imported)
+   */
+  UrlInput::Result SubmitUrl(const std::string& url);
+
+  /**
+   * @brief Start importing songs from playlist URL in another thread (as it may take a while)
+   * @param url YouTube playlist URL
+   */
+  void StartImport(const std::string& url);
+
+  /**
+   * @brief Add songs imported from playlist to modified playlist (if import has finished)
+   */
+  void FinishImport();
+
+  /**
+   * @brief Cancel playlist import (if running) and discard its result
+   */
+  void StopImport();
+
   /* ******************************************************************************************** */
   //! Variables
 
   std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
 
   std::function<bool()> stream_available_cb_;  //!< Check if songs can be added from URL
+  PlaylistFetchCallback fetch_playlist_cb_;    //!< Extract songs from playlist URL
+
+  //! State for importing songs from playlist URL (running in another thread)
+  struct Import {
+    std::thread thread;                //!< Thread running extraction
+    std::atomic<bool> cancel = false;  //!< Flag to cancel extraction
+    std::mutex mutex;                  //!< Control access to result
+    std::optional<std::pair<error::Code, std::vector<model::Song>>> result;  //!< Extracted songs
+  };
+
+  Import import_;  //!< Playlist import state
 
   //!< Operation to execute + playlist to be modified
   model::PlaylistOperation curr_operation_ =

@@ -1,6 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -8,6 +9,7 @@
 #include <iterator>
 #include <optional>
 #include <string>
+#include <thread>
 
 #include "general/utils.h"
 #include "util/file_handler.h"
@@ -297,6 +299,29 @@ TEST(ProcessTest, KillProcessAfterTimeout) {
   ASSERT_TRUE(result.has_value());
   EXPECT_TRUE(result->timed_out);
   EXPECT_NE(result->exit_code, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST(ProcessTest, KillProcessWhenCanceled) {
+  std::atomic<bool> cancel = false;
+
+  // Cancel while program is still running
+  std::thread canceler([&cancel] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    cancel = true;
+  });
+
+  const auto start = std::chrono::steady_clock::now();
+  auto result = util::RunProcess({"sh", "-c", "sleep 5"}, std::chrono::seconds(5), &cancel);
+  const auto elapsed = std::chrono::steady_clock::now() - start;
+
+  canceler.join();
+
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(result->canceled);
+  EXPECT_FALSE(result->timed_out);
+  EXPECT_LT(elapsed, std::chrono::seconds(2));
 }
 
 }  // namespace

@@ -2,9 +2,14 @@
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
+#include <future>
 #include <memory>
 #include <sstream>
+#include <thread>
+#include <vector>
 
 #include "ftxui/dom/node.hpp"
 #include "ftxui/screen/screen.hpp"
@@ -977,6 +982,132 @@ TEST_F(PlaylistDialogTest, CannotAddUrlWithoutYtDlp) {
 )";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ImportSongsFromYoutubePlaylist) {
+  const std::string playlist_url{"https://www.youtube.com/playlist?list=PLabcdefghijklmnop"};
+
+  // Playlist extraction is blocked until test releases it, so pending state can be checked
+  std::promise<void> release;
+  std::shared_future<void> released = release.get_future().share();
+
+  auto fetch = [&](const std::string& url, std::vector<model::Song>& songs,
+                   const std::atomic<bool>*) {
+    EXPECT_THAT(url, StrEq(playlist_url));
+    released.wait();
+
+    auto song = [](const std::string& title, const std::string& id) {
+      return model::Song{
+          .title = title,
+          .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=" + id}};
+    };
+
+    songs = {song("First song", "aaaaaaaaaaa"), song("Second song", "bbbbbbbbbbb"),
+             song("Already added", "dQw4w9WgXcQ")};
+    return error::kSuccess;
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch);
+
+  // Import finishes in another thread, which asks for a refresh to add songs to playlist
+  std::promise<void> refreshed;
+  std::atomic<bool> notified = false;
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::Refresh)))
+      .WillRepeatedly(Invoke([&](const interface::CustomEvent&) {
+        if (!notified.exchange(true)) refreshed.set_value();
+      }));
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  // Add a single song first
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  // Then import a whole playlist
+  utils::QueueCharacterEvents(*dialog, playlist_url);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("… Importing playlist"));
+
+  // Another URL cannot be submitted while importing
+  utils::QueueCharacterEvents(*dialog, "x");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ Already importing"));
+
+  release.set_value();
+  ASSERT_EQ(refreshed.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  // Refresh is received by dialog as an event (from terminal)
+  dialog->OnEvent(ftxui::Event::Custom);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+  EXPECT_THAT(rendered, HasSubstr("✓ Added 2 songs, 1 skipped"));
+  EXPECT_THAT(rendered, HasSubstr("First song"));
+  EXPECT_THAT(rendered, HasSubstr("Second song"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, CancelPlaylistImportWhenClosingDialog) {
+  std::promise<void> started;
+  std::atomic<bool> canceled = false;
+
+  // Extraction runs until it gets canceled
+  auto fetch = [&](const std::string&, std::vector<model::Song>&, const std::atomic<bool>* cancel) {
+    started.set_value();
+    while (!*cancel) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+    canceled = true;
+    return error::kStreamFetchFailed;
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch);
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "https://www.youtube.com/playlist?list=PLabcdefghijklmnop");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ASSERT_EQ(started.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
+
+  // Closing dialog cancels import (and waits for it)
+  dialog->Close();
+  EXPECT_TRUE(canceled);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, CannotImportPlaylistWithoutYtDlp) {
+  MockFunction<error::Code(const std::string&, std::vector<model::Song>&, const std::atomic<bool>*)>
+      fetch;
+  EXPECT_CALL(fetch, Call).Times(0);
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, [] { return false; },
+      fetch.AsStdFunction());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "https://www.youtube.com/playlist?list=PLabcdefghijklmnop");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ yt-dlp not found"));
 }
 
 /* ********************************************************************************************** */

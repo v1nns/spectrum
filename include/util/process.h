@@ -6,6 +6,7 @@
 #ifndef INCLUDE_UTIL_PROCESS_H_
 #define INCLUDE_UTIL_PROCESS_H_
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <optional>
@@ -20,6 +21,7 @@ namespace util {
 struct ProcessResult {
   int exit_code = -1;      //!< Exit code (-1 if program did not exit normally, e.g. killed)
   bool timed_out = false;  //!< Program took longer than allowed and was killed
+  bool canceled = false;   //!< Program was killed because owner canceled it
   std::string output;      //!< Content written to standard output
   std::string error;       //!< Content written to standard error
 };
@@ -35,10 +37,12 @@ std::optional<std::filesystem::path> FindExecutable(const std::string& name);
  * @brief Run an external program and wait until it finishes (killing it after timeout)
  * @param args Program name (searched in PATH) followed by its arguments
  * @param timeout Maximum time to wait for program to finish
+ * @param cancel Flag checked while waiting, when set program is killed (optional)
  * @return Result from program (or nothing, if it could not be started)
  */
 std::optional<ProcessResult> RunProcess(const std::vector<std::string>& args,
-                                        std::chrono::milliseconds timeout);
+                                        std::chrono::milliseconds timeout,
+                                        const std::atomic<bool>* cancel = nullptr);
 
 }  // namespace util
 #endif  // INCLUDE_UTIL_PROCESS_H_

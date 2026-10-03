@@ -37,12 +37,14 @@ std::string Trim(const std::string& text) {
 PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                                const std::function<bool(const util::File& file)>& contains_audio_cb,
                                const std::string& optional_path,
-                               const std::function<bool()>& stream_available_cb)
+                               const std::function<bool()>& stream_available_cb,
+                               const PlaylistFetchCallback& fetch_playlist_cb)
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
       base_path_(),
       stream_available_cb_(stream_available_cb),
+      fetch_playlist_cb_(fetch_playlist_cb),
       menu_files_(menu::CreateFileMenu(
           dispatcher, std::make_shared<util::FileHandler>(),
 
@@ -127,8 +129,9 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
                  }
                },
                kMessageDuration} {
-  url_input_ = std::make_unique<UrlInput>(std::string{kUrlLabel}, "Added to playlist",
-                                          [this](const std::string& url) { return AddUrl(url); });
+  url_input_ =
+      std::make_unique<UrlInput>(std::string{kUrlLabel}, "Added to playlist",
+                                 [this](const std::string& url) { return SubmitUrl(url); });
 
   CreateButtons();
 
@@ -139,6 +142,10 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
   // Set default path to list files from
   base_path_ = menu_files_->actual().GetCurrentDir();
 }
+
+/* ********************************************************************************************** */
+
+PlaylistDialog::~PlaylistDialog() { StopImport(); }
 
 /* ********************************************************************************************** */
 
@@ -275,6 +282,9 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
+  // Playlist import finishes in another thread, which asks for a refresh (received as an event)
+  FinishImport();
+
   // Text input should handle first, as it takes all characters
   if (url_input_->IsFocused() && url_input_->OnEvent(event)) return true;
 
@@ -374,6 +384,7 @@ void PlaylistDialog::OnOpen() {
 /* ********************************************************************************************** */
 
 void PlaylistDialog::OnClose() {
+  StopImport();
   modified_playlist_.reset();
   rename_.editing = false;
   rename_.error.reset();
@@ -681,6 +692,119 @@ void PlaylistDialog::UpdateButtonState() {
   } else {
     btn_save_->Disable();
   }
+}
+
+/* ********************************************************************************************** */
+
+UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& url) {
+  using Status = UrlInput::Result::Status;
+
+  if (!util::IsYoutubePlaylistUrl(url)) {
+    auto error = AddUrl(url);
+    return error ? UrlInput::Result{Status::Rejected, *error}
+                 : UrlInput::Result{Status::Accepted, ""};
+  }
+
+  if (!modified_playlist_.has_value()) return {Status::Rejected, "No playlist to add songs to"};
+  if (!fetch_playlist_cb_) return {Status::Rejected, "Cannot import playlist"};
+  if (!IsStreamAvailable()) return {Status::Rejected, "yt-dlp not found"};
+
+  if (import_.thread.joinable()) return {Status::Rejected, "Already importing"};
+
+  StartImport(url);
+  return {Status::Pending, "Importing playlist"};
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::StartImport(const std::string& url) {
+  LOG("Start importing songs from playlist URL=", std::quoted(url));
+  import_.cancel = false;
+
+  import_.thread = std::thread([this, url] {
+    util::Logger::SetThreadName("import");
+
+    std::vector<model::Song> songs;
+    error::Code result = fetch_playlist_cb_(url, songs, &import_.cancel);
+
+    if (import_.cancel) return;
+
+    {
+      std::scoped_lock lock{import_.mutex};
+      import_.result = std::make_pair(result, std::move(songs));
+    }
+
+    // Ask for a refresh, so result is added to playlist right away
+    if (auto dispatcher = GetDispatcher(); dispatcher) {
+      dispatcher->SendEvent(interface::CustomEvent::Refresh());
+    }
+  });
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::FinishImport() {
+  std::optional<std::pair<error::Code, std::vector<model::Song>>> result;
+
+  {
+    std::scoped_lock lock{import_.mutex};
+    if (!import_.result.has_value()) return;
+    result.swap(import_.result);
+  }
+
+  // Thread has already finished its job
+  if (import_.thread.joinable()) import_.thread.join();
+
+  auto& [code, songs] = *result;
+  using Status = UrlInput::Result::Status;
+
+  if (code != error::kSuccess || !modified_playlist_.has_value()) {
+    url_input_->SetResult({Status::Rejected, code == error::kStreamFetcherNotFound
+                                                 ? "yt-dlp not found"
+                                                 : "Cannot import playlist"});
+    return;
+  }
+
+  int added = 0;
+  int skipped = 0;
+
+  for (auto& song : songs) {
+    bool duplicated =
+        std::any_of(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
+                    [&song](const model::Song& other) { return other.Compare(song); });
+
+    if (duplicated) {
+      skipped++;
+      continue;
+    }
+
+    song.index = static_cast<int>(modified_playlist_->songs.size());
+    modified_playlist_->songs.emplace_back(song);
+    menu_playlist_->Emplace(song);
+    added++;
+  }
+
+  LOG("Imported songs from playlist, added=", added, " skipped=", skipped);
+  UpdateButtonState();
+
+  std::string message = "Added " + std::to_string(added) + (added == 1 ? " song" : " songs");
+  if (skipped > 0) message += ", " + std::to_string(skipped) + " skipped";
+
+  url_input_->SetResult({added > 0 ? Status::Accepted : Status::Rejected,
+                         added > 0 ? message : "No new songs to add"});
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::StopImport() {
+  if (!import_.thread.joinable()) return;
+
+  LOG("Stop importing songs from playlist");
+  import_.cancel = true;
+  import_.thread.join();
+
+  std::scoped_lock lock{import_.mutex};
+  import_.result.reset();
 }
 
 }  // namespace interface

@@ -2,9 +2,11 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <vector>
 
 #include "model/song.h"
 #include "nlohmann/json.hpp"
+#include "util/url.h"
 #include "web/driver/ytdlp_wrapper.h"
 
 namespace {
@@ -36,6 +38,12 @@ class YtDlpWrapperTest : public ::testing::Test {
   error::Code ParseInfo(const std::string& info, model::Song& song) {
     return wrapper.ParseInfo(nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false),
                              song);
+  }
+
+  //! Parse playlist extracted by yt-dlp (as JSON) into list of songs
+  static error::Code ParsePlaylist(const std::string& info, std::vector<model::Song>& songs) {
+    return driver::YtDlpWrapper::ParsePlaylist(
+        nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false), songs);
   }
 
   //! Fill song with streaming information from the given entry
@@ -204,6 +212,54 @@ TEST_F(YtDlpWrapperTest, ParseInfoWithoutAudioStream) {
 
   // Invalid output
   EXPECT_EQ(ParseInfo("ERROR: Unsupported URL", song), error::kStreamFetchFailed);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, IdentifyPlaylistUrl) {
+  EXPECT_TRUE(util::IsYoutubePlaylistUrl("https://www.youtube.com/playlist?list=PLabc-123_x"));
+  EXPECT_TRUE(util::IsYoutubePlaylistUrl("youtube.com/playlist?list=PLabc"));
+
+  // Single video (even if it belongs to a playlist or mix)
+  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+  EXPECT_FALSE(util::IsYoutubePlaylistUrl(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1"));
+  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://youtu.be/dQw4w9WgXcQ?list=PLabc"));
+
+  // Not from YouTube
+  EXPECT_FALSE(util::IsYoutubePlaylistUrl("https://example.com/playlist?list=PLabc"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ParsePlaylistFromYtDlp) {
+  // Based on output from "yt-dlp --flat-playlist --dump-single-json" (only relevant fields)
+  const std::string info = R"json({
+    "_type": "playlist", "title": "Worship",
+    "entries": [
+      {"id": "edZVnKxKEUU", "title": "SO BE IT | Elevation Worship", "channel": "Elevation Worship"},
+      {"id": "URlPXepBZdo", "title": "Clipse - So Be It (Official Music Video)"},
+      {"id": "xxxxxxxxxxx", "title": "[Deleted video]"},
+      {"id": "yyyyyyyyyyy", "title": "[Private video]"},
+      {"title": "No identifier"}
+    ]
+  })json";
+
+  std::vector<model::Song> songs;
+  ASSERT_EQ(ParsePlaylist(info, songs), error::kSuccess);
+  ASSERT_THAT(songs.size(), Eq(2));
+
+  ASSERT_TRUE(songs[0].stream_info.has_value());
+  EXPECT_THAT(songs[0].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=edZVnKxKEUU"));
+  EXPECT_THAT(songs[0].artist, StrEq("Elevation Worship"));
+  EXPECT_THAT(songs[0].title, StrEq("SO BE IT | Elevation Worship"));
+
+  EXPECT_THAT(songs[1].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=URlPXepBZdo"));
+  EXPECT_THAT(songs[1].artist, StrEq("Clipse"));
+  EXPECT_THAT(songs[1].title, StrEq("So Be It (Official Music Video)"));
+
+  // Output that does not contain a playlist
+  EXPECT_EQ(ParsePlaylist(R"({"title": "Single video"})", songs), error::kStreamFetchFailed);
 }
 
 }  // namespace
