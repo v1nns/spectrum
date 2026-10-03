@@ -5,6 +5,7 @@
 #include <gtest/gtest-test-part.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <memory>
 
 #include "audio/lyric/lyric_finder.h"
@@ -60,6 +61,12 @@ class LyricFinderTest : public ::testing::Test {
   //! Get number of search engines
   size_t GetNumberOfEngines() { return finder->engines_.size(); }
 
+  //! Get number of search engines that web scrap HTML (the only ones using the parser)
+  size_t GetNumberOfHtmlEngines() {
+    return std::count_if(finder->engines_.begin(), finder->engines_.end(),
+                         [](const lyric::Engine& engine) { return !engine->xpath().empty(); });
+  }
+
   //! Clean song title to use in search
   static std::string CleanTitle(const std::string& artist, const std::string& title) {
     return lyric::LyricFinder::CleanTitle(artist, title);
@@ -74,11 +81,10 @@ class LyricFinderTest : public ::testing::Test {
 TEST_F(LyricFinderTest, SearchWithEmptyResult) {
   auto fetcher = GetFetcher();
   auto parser = GetParser();
-  auto number_engines = GetNumberOfEngines();
 
   // Setup expectations
-  EXPECT_CALL(*fetcher, Fetch(_, _)).Times(number_engines);
-  EXPECT_CALL(*parser, Parse(_, _)).Times(number_engines);
+  EXPECT_CALL(*fetcher, Fetch(_, _)).Times(GetNumberOfEngines());
+  EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
 
   std::string artist{"Powfu"};
   std::string title{"abandoned house"};
@@ -86,68 +92,6 @@ TEST_F(LyricFinderTest, SearchWithEmptyResult) {
   auto result = finder->Search(artist, title);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
   EXPECT_THAT(result.lyrics, Eq(model::SongLyric{}));
-}
-
-/* ********************************************************************************************** */
-
-TEST_F(LyricFinderTest, SearchWithResultUsingGoogle) {
-  auto fetcher = GetFetcher();
-  auto parser = GetParser();
-
-  const model::SongLyric raw{
-      "A person who thinks all the time\n"
-      "Has nothing to think about except thoughts\n"
-      "So, he loses touch with reality\n"
-      "And lives in a world of illusions\n\n"
-
-      "By thoughts, I mean specifically, chatter in the skull\n"
-      "Perpetual and compulsive repetition of words\n"
-      "Of reckoning and calculating\n"
-      "I'm not saying that thinking is bad\n"
-      "Like everything else, It's useful in moderation\n"
-      "A good servant, but a bad master\n\n"
-
-      "And all so-called civilized peoples\n"
-      "Have increasingly become crazy and self-destructive\n"
-      "Because, through excessive thinking\n"
-      "They have lost touch with reality\n"
-      "That's to say\n"
-      "We confuse signs\n"
-      "With the real world\n",
-  };
-
-  // Setup expectations
-  EXPECT_CALL(*fetcher, Fetch(_, _)).Times(1).WillOnce(Return(error::kSuccess));
-  EXPECT_CALL(*parser, Parse(_, _)).Times(1).WillOnce(Return(raw));
-
-  std::string artist{"INZO"};
-  std::string title{"Overthinker"};
-
-  const model::SongLyric expected{
-      "A person who thinks all the time\n"
-      "Has nothing to think about except thoughts\n"
-      "So, he loses touch with reality\n"
-      "And lives in a world of illusions\n",
-
-      "By thoughts, I mean specifically, chatter in the skull\n"
-      "Perpetual and compulsive repetition of words\n"
-      "Of reckoning and calculating\n"
-      "I'm not saying that thinking is bad\n"
-      "Like everything else, It's useful in moderation\n"
-      "A good servant, but a bad master\n",
-
-      "And all so-called civilized peoples\n"
-      "Have increasingly become crazy and self-destructive\n"
-      "Because, through excessive thinking\n"
-      "They have lost touch with reality\n"
-      "That's to say\n"
-      "We confuse signs\n"
-      "With the real world\n",
-  };
-
-  auto result = finder->Search(artist, title);
-  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
-  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
 
 /* ********************************************************************************************** */
@@ -198,7 +142,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
   // Setup expectations
   EXPECT_CALL(*fetcher, Fetch(_, _))
       .Times(2)
-      .WillOnce(Return(error::kUnknownError))
+      .WillOnce(Return(error::kUrlNotFound))
       .WillOnce(Return(error::kSuccess));
 
   EXPECT_CALL(*parser, Parse(_, _)).Times(1).WillOnce(Return(raw));
@@ -250,12 +194,107 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
 
 /* ********************************************************************************************** */
 
+TEST_F(LyricFinderTest, SearchWithResultUsingLRCLIB) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  const std::string content{
+      R"({"id":985235,"trackName":"Overthinker","artistName":"INZO","instrumental":false,)"
+      R"("plainLyrics":"A person who thinks all the time\nHas nothing to think about except )"
+      R"(thoughts\n\nSo, he loses touch with reality\nAnd lives in a world of illusions",)"
+      R"("syncedLyrics":null})"};
+
+  // Setup expectations (content is JSON, so there is nothing to web scrap)
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(1)
+      .WillOnce(DoAll(SetArgReferee<1>(content), Return(error::kSuccess)));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  const model::SongLyric expected{
+      "A person who thinks all the time\n"
+      "Has nothing to think about except thoughts\n",
+
+      "So, he loses touch with reality\n"
+      "And lives in a world of illusions\n",
+  };
+
+  auto result = finder->Search("INZO", "Overthinker");
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SearchWithoutLyricsUsingLRCLIB) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  // Instrumental song has no lyrics
+  const std::string content{
+      R"({"id":1,"trackName":"Song","artistName":"Artist","instrumental":true,)"
+      R"("plainLyrics":null,"syncedLyrics":null})"};
+
+  // Setup expectations, other search engines are used instead
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillOnce(DoAll(SetArgReferee<1>(content), Return(error::kSuccess)))
+      .WillRepeatedly(Return(error::kSuccess));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
+
+  auto result = finder->Search("Artist", "Song");
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+  EXPECT_TRUE(result.lyrics.empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SongNotFoundOnAnyEngine) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  // Search engines were reached, so this is not a failure to fetch
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly(Return(error::kUrlNotFound));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  auto result = finder->Search("Artist", "Song");
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+  EXPECT_TRUE(result.lyrics.empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, ContentIsNotSharedBetweenEngines) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  const std::string content{"<html></html>"};
+
+  // Real fetcher appends content to output, instead of replacing it
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly([&content](const std::string&, std::string& output) {
+        output += content;
+        return error::kSuccess;
+      });
+
+  // Each search engine must parse only its own content
+  EXPECT_CALL(*parser, Parse(StrEq(content), _)).Times(GetNumberOfHtmlEngines());
+
+  finder->Search("Artist", "Song");
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(LyricFinderTest, ErrorOnFetch) {
   auto fetcher = GetFetcher();
   auto parser = GetParser();
 
   // Setup expectations
-  EXPECT_CALL(*fetcher, Fetch(_, _)).Times(2).WillRepeatedly(Return(error::kUnknownError));
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly(Return(error::kUnknownError));
   EXPECT_CALL(*parser, Parse(_, _)).Times(0);
 
   std::string artist{"Funkin' Sound Team"};
@@ -275,8 +314,12 @@ TEST_F(LyricFinderTest, ErrorOnParse) {
   auto parser = GetParser();
 
   // Setup expectations
-  EXPECT_CALL(*fetcher, Fetch(_, _)).Times(2).WillRepeatedly(Return(error::kSuccess));
-  EXPECT_CALL(*parser, Parse(_, _)).Times(2).WillRepeatedly(Return(model::SongLyric{}));
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly(Return(error::kSuccess));
+  EXPECT_CALL(*parser, Parse(_, _))
+      .Times(GetNumberOfHtmlEngines())
+      .WillRepeatedly(Return(model::SongLyric{}));
 
   std::string artist{"Kaiser Chiefs"};
   std::string title{"Ruby"};
@@ -310,11 +353,11 @@ TEST_F(LyricFinderTest, ErrorOnFormattingLyrics) {
 
   // Setup expectations
   EXPECT_CALL(*fetcher, Fetch(_, _))
-      .Times(2)
+      .Times(GetNumberOfEngines())
       .WillRepeatedly(DoAll(SetArgReferee<1>(raw), Return(error::kSuccess)));
 
   EXPECT_CALL(*parser, Parse(StrEq(raw), _))
-      .Times(2)
+      .Times(GetNumberOfHtmlEngines())
       .WillRepeatedly(Return(model::SongLyric{"\r\n", "\n"}));
 
   std::string artist{"Bombay Bicycle Club"};
@@ -354,22 +397,59 @@ TEST_F(LyricFinderTest, SearchWithEncodedUrls) {
 
   // Clean title is used, and special characters do not break URLs
   EXPECT_CALL(*fetcher,
-              Fetch(StrEq("https://www.google.com/search?q=lyric+Elevation+Worship+SO+BE+IT"), _));
+              Fetch(StrEq("https://lrclib.net/api/get?artist_name=Elevation+Worship"
+                          "&track_name=SO+BE+IT"),
+                    _));
   EXPECT_CALL(*fetcher,
               Fetch(StrEq("https://www.azlyrics.com/lyrics/elevationworship/sobeit.html"), _));
-  EXPECT_CALL(*parser, Parse(_, _)).Times(2);
+  EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
 
   finder->Search(artist, title);
 
   // Characters reserved in URL query must be encoded
-  EXPECT_CALL(
-      *fetcher,
-      Fetch(StrEq("https://www.google.com/search?q=lyric+Simon+%26+Garfunkel+Cecilia%3F"), _));
+  EXPECT_CALL(*fetcher,
+              Fetch(StrEq("https://lrclib.net/api/get?artist_name=Simon+%26+Garfunkel"
+                          "&track_name=Cecilia%3F"),
+                    _));
   EXPECT_CALL(*fetcher,
               Fetch(StrEq("https://www.azlyrics.com/lyrics/simongarfunkel/cecilia.html"), _));
-  EXPECT_CALL(*parser, Parse(_, _)).Times(2);
+  EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
 
   finder->Search("Simon & Garfunkel", "Cecilia?");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SearchWithArtistNameUsingAZLyrics) {
+  auto fetcher = GetFetcher();
+  const std::string base_url{"https://www.azlyrics.com/lyrics/"};
+
+  // Other search engines are not relevant here
+  EXPECT_CALL(*fetcher, Fetch(_, _)).WillRepeatedly(Return(error::kUrlNotFound));
+
+  // Article in the beginning of artist name is removed
+  EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "beatles/yesterday.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "theoryofadeadman/badgirlfriend.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "the/thisisthenight.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+
+  finder->Search("The Beatles", "Yesterday");
+  finder->Search("Theory of a Deadman", "Bad Girlfriend");
+  finder->Search("The The", "This Is the Night");
+
+  // Accented letters are replaced by plain ones, any other symbol is discarded
+  EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "motorhead/aceofspades.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "sigurros/hoppipolla.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "titas/epitafio.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+
+  finder->Search("Motörhead", "Ace of Spades");
+  finder->Search("Sigur Rós", "Hoppípolla");
+  finder->Search("TITÃS", "Epitáfio €");
 }
 
 /* ********************************************************************************************** */

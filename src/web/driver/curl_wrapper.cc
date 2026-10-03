@@ -33,7 +33,8 @@ error::Code CURLWrapper::Fetch(const std::string &url, std::string &output) {
   }
 
   // Set header configuration for accept type and user agent
-  curl_easy_setopt(curl.get(), CURLOPT_ACCEPT_ENCODING, kAcceptType.data());
+  CURLHeaderGuard headers(curl_slist_append(nullptr, kAcceptType.data()), &curl_slist_free_all);
+  curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, headers.get());
   curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, kUserAgent.data());
 
   // Configure buffer to write error message
@@ -55,6 +56,20 @@ error::Code CURLWrapper::Fetch(const std::string &url, std::string &output) {
       WARN("Failed to execute cURL, error=", std::string(err_buffer.begin(), err_buffer.end()));
     }
 
+    return error::kUnknownError;
+  }
+
+  // Request was executed, but server may have replied with an error
+  long http_code = 0;
+  curl_easy_getinfo(curl.get(), CURLINFO_RESPONSE_CODE, &http_code);
+
+  if (http_code == kHttpNotFound) {
+    LOG("Content not found in URL=", url);
+    return error::kUrlNotFound;
+  }
+
+  if (http_code < kHttpSuccessFirst || http_code > kHttpSuccessLast) {
+    WARN("Server replied with HTTP status=", http_code, " for URL=", url);
     return error::kUnknownError;
   }
 

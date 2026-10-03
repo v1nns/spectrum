@@ -126,7 +126,6 @@ std::string LyricFinder::CleanTitle(const std::string& artist, const std::string
 SearchResult LyricFinder::Search(const std::string& artist, const std::string& raw_title) {
   const std::string title = CleanTitle(artist, raw_title);
   LOG("Started fetching song by artist=", artist, " title=", title, " (from ", raw_title, ")");
-  std::string buffer;
   bool fetched_any = false;
 
   for (const auto& engine : engines_) {
@@ -136,17 +135,28 @@ SearchResult LyricFinder::Search(const std::string& artist, const std::string& r
       return SearchResult{.status = SearchResult::Status::FetchFailed};
     }
 
+    // Fetcher appends to buffer, so each search engine must have its own
+    std::string buffer;
+
     // Fetch content from search engine
-    if (auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title), buffer);
-        result != error::kSuccess) {
+    auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title), buffer);
+
+    // Search engine was reached, it just does not have this song
+    if (result == error::kUrlNotFound) {
+      LOG("Song not found using search engine=", *engine);
+      fetched_any = true;
+      continue;
+    }
+
+    if (result != error::kSuccess) {
       WARN("Failed to fetch URL content, error code=", result);
       continue;
     }
 
     fetched_any = true;
 
-    // Web scrap content to search for lyric
-    if (model::SongLyric raw = parser_->Parse(buffer, engine->xpath()); !raw.empty()) {
+    // Extract content to search for lyric
+    if (model::SongLyric raw = engine->ExtractLyrics(buffer, *parser_); !raw.empty()) {
       if (model::SongLyric formatted = engine->FormatLyrics(raw); !formatted.empty()) {
         INFO("Found lyrics using search engine=", *engine);
         return SearchResult{.status = SearchResult::Status::Found, .lyrics = std::move(formatted)};

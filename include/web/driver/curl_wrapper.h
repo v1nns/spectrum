@@ -29,11 +29,15 @@ class CURLWrapper : public web::UrlFetcher {
   // The User-Agent request header is a characteristic string that lets servers and network peers
   // identify the application, operating system, vendor and version of the requesting user agent.
   static constexpr std::string_view kUserAgent =
-      "User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.17 (KHTML, like Gecko) "
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.17 (KHTML, like Gecko) "
       "Chrome/24.0.1312.70 Safari/537.17";
 
   static constexpr long kConnectTimeout = 10;  //!< Maximum time to connect (in seconds)
   static constexpr long kTimeout = 20;         //!< Maximum time for whole request (in seconds)
+
+  static constexpr long kHttpSuccessFirst = 200;  //!< First HTTP status code meaning success
+  static constexpr long kHttpSuccessLast = 299;   //!< Last HTTP status code meaning success
+  static constexpr long kHttpNotFound = 404;      //!< HTTP status code for content not found
 
  public:
   /**
@@ -62,6 +66,9 @@ class CURLWrapper : public web::UrlFetcher {
 
   //! Smart pointer to manage CURL resource
   using CURLGuard = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>;
+
+  //! Smart pointer to manage list of HTTP headers
+  using CURLHeaderGuard = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
 };
 
 }  // namespace driver

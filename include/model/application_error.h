@@ -52,6 +52,9 @@ static constexpr Code kTooManyFailedSongs = 80;
 static constexpr Code kStreamFetchFailed = 90;
 static constexpr Code kStreamFetcherNotFound = 91;
 
+//! Web errors
+static constexpr Code kUrlNotFound = 95;
+
 //! How error is presented to user
 enum class Level : std::uint8_t {
   Critical,  //!< Shown in a dialog, user must close it to continue
@@ -73,7 +76,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 18> kErrorMap{{
+  static constexpr std::array<Message, 19> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -93,6 +96,7 @@ class ApplicationError {
       {kTooManyFailedSongs, Level::Critical, "Several songs failed in a row, playlist was stopped"},
       {kStreamFetchFailed, Level::Warning, "Cannot fetch song from URL"},
       {kStreamFetcherNotFound, Level::Warning, "Cannot play song from URL, yt-dlp was not found"},
+      {kUrlNotFound, Level::Warning, "Content not found in URL"},
       {kUnknownError, Level::Critical,
        "Unknown error used for almost everything during development =)"},
   }};

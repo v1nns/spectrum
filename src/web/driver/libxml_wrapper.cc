@@ -12,6 +12,13 @@ model::SongLyric LIBXMLWrapper::Parse(const std::string &data, const std::string
 
   // Encapsulate raw libxml document in a libxml++ wrapper
   xmlNode *r = xmlDocGetRootElement(doc.get());
+
+  // Empty content has no root element, and libxml++ wrapper throws when created without a node
+  if (!r) {
+    WARN("Failed to scrap content, HTML document is empty");
+    return model::SongLyric{};
+  }
+
   auto root = std::make_unique<xmlpp::Element>(r);
 
   // Create structure to fill with lyrics
