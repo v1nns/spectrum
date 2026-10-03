@@ -310,7 +310,8 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
       return true;
     }
 
-    if (event == keybinding::Navigation::Space) {
+    if (event == keybinding::Navigation::Space || event == keybinding::Playlist::RemoveSong ||
+        event == keybinding::Navigation::Delete) {
       LOG("Handle key to remove file from playlist");
       menu_playlist_->OnClick();
       return true;
@@ -558,13 +559,20 @@ void PlaylistDialog::FinishRename(bool keep_name) {
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
-  // Hint for the next possible action on playlist name
-  std::string hint;
+  // Hints for the next possible actions on playlist (from the most to the least detailed one)
+  std::vector<std::string> hints;
 
   if (rename_.editing) {
-    hint = "[" + util::EventToString(keybinding::Navigation::Escape) + ":cancel]";
+    hints.push_back("[" + util::EventToString(keybinding::Navigation::Escape) + ":cancel]");
   } else if (menu_playlist_->IsFocused()) {
-    hint = "[" + util::EventToString(keybinding::Playlist::Rename) + ":rename]";
+    std::string rename = util::EventToString(keybinding::Playlist::Rename) + ":rename";
+
+    if (modified_playlist_.has_value() && !modified_playlist_->IsEmpty()) {
+      hints.push_back("[" + rename + " " + util::EventToString(keybinding::Playlist::RemoveSong) +
+                      ":remove]");
+    }
+
+    hints.push_back("[" + rename + "]");
   }
 
   std::string name = modified_playlist_.has_value() ? modified_playlist_->name : "";
@@ -572,17 +580,23 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
 
   // Border is split into: corner, space, title, space, line (at least one column), hint, corner
   static constexpr int kFixedColumns = 4;
-  int hint_columns = hint.empty() ? 0 : static_cast<int>(hint.size()) + 1;
-  int title_columns = max_columns - kFixedColumns - hint_columns;
+  int title_columns = max_columns - kFixedColumns;
 
   // Prefer to show title instead of hint, when there is not enough space for both (while not
   // editing, the whole name should fit)
   int required =
       rename_.editing ? kMinTitleColumns : std::max(kMinTitleColumns, ftxui::string_width(name));
 
-  if (title_columns < required) {
-    title_columns += hint_columns;
-    hint.clear();
+  // Use the first hint that fits along with title
+  std::string hint;
+
+  for (const auto& candidate : hints) {
+    int hint_columns = static_cast<int>(candidate.size()) + 1;
+    if (title_columns - hint_columns < required) continue;
+
+    title_columns -= hint_columns;
+    hint = candidate;
+    break;
   }
 
   ftxui::Element title =

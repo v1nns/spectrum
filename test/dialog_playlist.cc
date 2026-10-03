@@ -29,6 +29,7 @@
 
 namespace {
 
+using ::testing::AllOf;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
@@ -1923,6 +1924,136 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, RemoveSongsWithDedicatedKeys) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Melodic House",
+                                         .songs =
+                                             {
+                                                 model::Song{.filepath = "Crazy hit.mp3"},
+                                                 model::Song{.filepath = "Crazy frog.mp3"},
+                                                 model::Song{.filepath = "Crazy love.mp3"},
+                                             },
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Dedicated keys do nothing while files menu is focused
+  dialog->OnEvent(interface::keybinding::Playlist::RemoveSong);
+  dialog->OnEvent(interface::keybinding::Navigation::Delete);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("Crazy hit.mp3"));
+  EXPECT_THAT(rendered, HasSubstr("Crazy frog.mp3"));
+  EXPECT_THAT(rendered, HasSubstr("Crazy love.mp3"));
+
+  // Focus playlist menu, remove first song, then the one after the next
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(interface::keybinding::Playlist::RemoveSong);
+  dialog->OnEvent(interface::keybinding::Navigation::Down);
+  dialog->OnEvent(interface::keybinding::Navigation::Delete);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  rendered = GetRenderedScreen();
+
+  EXPECT_THAT(rendered, Not(HasSubstr("Crazy hit.mp3")));
+  EXPECT_THAT(rendered, HasSubstr("Crazy frog.mp3"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Crazy love.mp3")));
+
+  // Setup expectation for event to save playlist without removed songs
+  model::Playlist expected_playlist{
+      .index = 0,
+      .name = "Melodic House",
+      .songs = {model::Song{.index = 1, .filepath = "Crazy frog.mp3"}},
+  };
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::SavePlaylistsToFile),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::Playlist>(expected_playlist)))));
+
+  dialog->OnEvent(interface::keybinding::Playlist::Save);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, TypeRemoveKeyWhileSearchingOrRenaming) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Mix",
+                                         .songs = {model::Song{.filepath = "dance.mp3"}},
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Focus playlist menu and search for song using a text with the key to remove song
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(interface::keybinding::Navigation::EnableSearch);
+  dialog->OnEvent(interface::keybinding::Playlist::RemoveSong);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("dance.mp3"));
+
+  // Leave search mode, and type the same key while renaming playlist
+  dialog->OnEvent(ftxui::Event::Escape);
+  dialog->OnEvent(interface::keybinding::Playlist::Rename);
+  dialog->OnEvent(interface::keybinding::Playlist::RemoveSong);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("Mixd"));
+  EXPECT_THAT(rendered, HasSubstr("dance.mp3"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ShowRemoveHintWhenThereIsEnoughSpace) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Mix",
+                                         .songs = {model::Song{.filepath = "dance.mp3"}},
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+  dialog->OnEvent(ftxui::Event::Tab);
+
+  // Not enough columns on pane border for both hints, so only the one to rename is shown
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("[r:rename]"));
+  EXPECT_THAT(rendered, Not(HasSubstr("d:remove")));
+
+  // Use a wider screen
+  ftxui::Dimensions wide{.dimx = 180, .dimy = size.dimy};
+  screen = std::make_unique<ftxui::Screen>(wide.dimx, wide.dimy);
+
+  ftxui::Render(*screen, dialog->Render(wide));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("[r:rename d:remove]"));
+
+  // After removing the only song, there is nothing else to remove
+  dialog->OnEvent(interface::keybinding::Playlist::RemoveSong);
+
+  screen->Clear();
+  ftxui::Render(*screen, dialog->Render(wide));
+  rendered = GetRenderedScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("[r:rename]"));
+  EXPECT_THAT(rendered, Not(HasSubstr("d:remove")));
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with ErrorDialog class
  */
@@ -2198,6 +2329,7 @@ TEST_F(HelpDialogTest, ContainsAllKeybindings) {
   // Some keybindings that were missing in the past
   EXPECT_THAT(content, HasSubstr("Decrease/increase bar width"));
   EXPECT_THAT(content, HasSubstr("Rename playlist"));
+  EXPECT_THAT(content, HasSubstr("Remove song from playlist"));
   EXPECT_THAT(content, HasSubstr("Save playlist"));
   EXPECT_THAT(content, HasSubstr("Go to previous/next page"));
 }

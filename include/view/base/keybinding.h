@@ -151,6 +151,7 @@ struct Playlist {
 
   static Key Rename;
   static Key Save;
+  static Key RemoveSong;
 
   static Key ShowFiles;
   static Key ShowYoutube;
