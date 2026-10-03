@@ -28,17 +28,7 @@ if(NOT SPECTRUM_DEBUG)
   # libxml2 (used directly by libxml_wrapper, and only a private dependency of libxml++)
   pkg_search_module(LIBXML2 REQUIRED IMPORTED_TARGET libxml-2.0)
 
-  # embedded python
-  pkg_search_module(PYTHON3 REQUIRED IMPORTED_TARGET python3)
-  pkg_search_module(PYTHON3EMBED REQUIRED IMPORTED_TARGET python3-embed)
-
-  # Check for yt-dlp presence
-  find_program(YTDLP_EXECUTABLE NAMES yt-dlp)
-  if(NOT YTDLP_EXECUTABLE)
-    message(FATAL_ERROR "yt-dlp not found. Please install it!")
-  else()
-    message(STATUS "Found yt-dlp: ${YTDLP_EXECUTABLE}")
-  endif()
+  # yt-dlp is optional: it is only run (when found in PATH) to play songs from YouTube URL
 endif()
 
 if(NOT DISABLE_POPULATE)
@@ -135,6 +125,7 @@ target_sources(
           util/arg_parser.cc
           util/file_handler.cc
           util/logger.cc
+          util/process.cc
           util/sink.cc)
 
 target_include_directories(
@@ -177,9 +168,7 @@ if(NOT SPECTRUM_DEBUG)
            ${SWRESAMPLE_INCLUDE_DIRS}
            ${FFTW_INCLUDE_DIRS}
            ${CURL_INCLUDE_DIRS}
-           ${LIBXML_INCLUDE_DIRS}
-           ${PYTHON3_INCLUDE_DIRS}
-           ${PYTHON3EMBED_INCLUDE_DIRS})
+           ${LIBXML_INCLUDE_DIRS})
 
   target_link_libraries(
     spectrum_lib
@@ -197,10 +186,7 @@ if(NOT SPECTRUM_DEBUG)
     INTERFACE PkgConfig::CURL
     PRIVATE
     INTERFACE PkgConfig::LIBXML
-    INTERFACE PkgConfig::LIBXML2
-    PRIVATE
-    INTERFACE PkgConfig::PYTHON3
-    INTERFACE PkgConfig::PYTHON3EMBED)
+    INTERFACE PkgConfig::LIBXML2)
 
   if(ENABLE_TESTS)
     message(STATUS "Enabling additional compile definitions for tests...")

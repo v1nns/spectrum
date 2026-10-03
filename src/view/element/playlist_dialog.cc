@@ -36,11 +36,13 @@ std::string Trim(const std::string& text) {
 
 PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                                const std::function<bool(const util::File& file)>& contains_audio_cb,
-                               const std::string& optional_path)
+                               const std::string& optional_path,
+                               const std::function<bool()>& stream_available_cb)
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
       base_path_(),
+      stream_available_cb_(stream_available_cb),
       menu_files_(menu::CreateFileMenu(
           dispatcher, std::make_shared<util::FileHandler>(),
 
@@ -98,11 +100,10 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
               return false;
             }
 
-            auto it =
-                std::find_if(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
-                             [active](const model::Song& s) {
-                               return s.index == active->index && s.Compare(*active);
-                             });
+            auto it = std::find_if(modified_playlist_->songs.begin(),
+                                   modified_playlist_->songs.end(), [active](const model::Song& s) {
+                                     return s.index == active->index && s.Compare(*active);
+                                   });
 
             bool found = it != modified_playlist_->songs.end();
 
@@ -126,7 +127,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
                  }
                },
                kMessageDuration} {
-  url_input_ = std::make_unique<UrlInput>("Paste a YouTube URL:", "Added to playlist",
+  url_input_ = std::make_unique<UrlInput>(std::string{kUrlLabel}, "Added to playlist",
                                           [this](const std::string& url) { return AddUrl(url); });
 
   CreateButtons();
@@ -628,6 +629,11 @@ void PlaylistDialog::ShowSource(Source source) {
 
   source_ = source;
 
+  // Let user know when songs cannot be added from URL (before typing anything)
+  if (source == Source::Youtube) {
+    url_input_->SetLabel(IsStreamAvailable() ? std::string{kUrlLabel} : std::string{kNoUrlLabel});
+  }
+
   // Update tab buttons
   bool show_files = source == Source::Files;
   show_files ? btn_files_->Select() : btn_files_->Unselect();
@@ -640,6 +646,8 @@ std::optional<std::string> PlaylistDialog::AddUrl(const std::string& url) {
   if (!modified_playlist_.has_value()) return "No playlist to add song to";
 
   if (!util::IsYoutubeUrl(url)) return "Not a YouTube URL";
+
+  if (!IsStreamAvailable()) return "yt-dlp not found";
 
   model::Song new_song{
       .index = static_cast<int>(modified_playlist_->songs.size()),

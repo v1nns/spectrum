@@ -59,6 +59,8 @@ sudo apt install build-essential libasound2-dev libavcodec-dev \
      libavfilter-dev libavformat-dev libfftw3-dev libswresample-dev \
      libcurl4-openssl-dev libxml++2.6-dev
 
+# Optional: install yt-dlp to play songs from YouTube (only needed at runtime, found in PATH)
+
 # Clone repository
 git clone https://github.com/v1nns/spectrum.git
 cd spectrum

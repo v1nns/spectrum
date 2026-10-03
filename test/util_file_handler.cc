@@ -1,6 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -10,6 +11,7 @@
 
 #include "general/utils.h"
 #include "util/file_handler.h"
+#include "util/process.h"
 #include "util/sink.h"
 
 namespace {
@@ -259,6 +261,42 @@ TEST_F(FileSinkTest, RotateWhenMaximumSizeIsReached) {
   // Previous log file replaces the oldest one, and a new log file is started
   EXPECT_THAT(ReadFile(path + ".1"), StrEq(old_content));
   EXPECT_THAT(ReadFile(path), StrEq("new\n"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(ProcessTest, FindExecutable) {
+  auto shell = util::FindExecutable("sh");
+  ASSERT_TRUE(shell.has_value());
+  EXPECT_EQ(shell->filename(), "sh");
+
+  EXPECT_FALSE(util::FindExecutable("spectrum-program-that-does-not-exist").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST(ProcessTest, RunProcessAndCaptureOutput) {
+  constexpr std::chrono::seconds kTimeout{5};
+
+  auto result = util::RunProcess({"sh", "-c", "echo out; echo err >&2; exit 3"}, kTimeout);
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(result->exit_code, 3);
+  EXPECT_FALSE(result->timed_out);
+  EXPECT_THAT(result->output, StrEq("out\n"));
+  EXPECT_THAT(result->error, StrEq("err\n"));
+
+  // Program that cannot be started
+  EXPECT_FALSE(util::RunProcess({"spectrum-program-that-does-not-exist"}, kTimeout).has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST(ProcessTest, KillProcessAfterTimeout) {
+  auto result = util::RunProcess({"sh", "-c", "sleep 5"}, std::chrono::milliseconds{100});
+
+  ASSERT_TRUE(result.has_value());
+  EXPECT_TRUE(result->timed_out);
+  EXPECT_NE(result->exit_code, 0);
 }
 
 }  // namespace

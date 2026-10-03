@@ -925,6 +925,62 @@ TEST_F(PlaylistDialogTest, AddYoutubeUrlAndSave) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, CannotAddUrlWithoutYtDlp) {
+  // Songs from URL depend on yt-dlp, which is not available
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, [] { return false; });
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  // Label tells user what is missing, and URL is not added to playlist
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+
+  std::string expected = R"(
+╔════════════════════════════════════════════════════════════════════════════╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
+║      │                              ││                              │      ║
+║      │ yt-dlp not installed         ││                              │      ║
+║      │                              ││                              │      ║
+║      │ ube.com/watch?v=dQw4w9WgXcQ  ││                              │      ║
+║      │                              ││                              │      ║
+║      │ Return: add                  ││                              │      ║
+║      │ Escape: clear                ││                              │      ║
+║      │                              ││                              │      ║
+║      │ ✗ yt-dlp not found           ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │ Add a song to save           ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, RejectInvalidAndDuplicatedUrl) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,

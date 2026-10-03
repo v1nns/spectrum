@@ -67,6 +67,12 @@ class UrlInput : public Element {
   void SetMaxColumns(int max_columns) { max_columns_ = max_columns; }
 
   /**
+   * @brief Set text displayed above input
+   * @param label Label text
+   */
+  void SetLabel(const std::string& label) { label_ = label; }
+
+  /**
    * @brief Clear typed text and feedback message
    */
   void Clear();

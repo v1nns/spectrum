@@ -32,6 +32,12 @@ class YtDlpWrapperTest : public ::testing::Test {
     return song;
   }
 
+  //! Parse information extracted by yt-dlp (as JSON) into song
+  error::Code ParseInfo(const std::string& info, model::Song& song) {
+    return wrapper.ParseInfo(nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false),
+                             song);
+  }
+
   //! Fill song with streaming information from the given entry
   void FillStreamInfo(const nlohmann::json& entry, model::Song& song) {
     wrapper.FillStreamInfo(entry, /*duration=*/212, song);
@@ -158,6 +164,46 @@ TEST_F(YtDlpWrapperTest, NoArtistWithoutMetadata) {
   song = FillArtistAndTitle("so be it", "");
   EXPECT_THAT(song.artist, IsEmpty());
   EXPECT_THAT(song.title, StrEq("so be it"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ParseInfoFromYtDlp) {
+  // Based on output from "yt-dlp --dump-single-json" (only relevant fields)
+  const std::string info = R"json({
+    "title": "Clipse - So Be It (Official Music Video)", "duration": 212.6, "uploader": "Clipse",
+    "formats": [
+      {"format_id": "18", "url": "https://video", "protocol": "https", "resolution": "640x360"},
+      {"format_id": "139", "url": "https://low", "protocol": "https", "resolution": "audio only",
+       "quality": 2, "abr": 48.8, "acodec": "mp4a.40.5"},
+      {"format_id": "251", "url": "https://best", "protocol": "https", "resolution": "audio only",
+       "quality": 3, "abr": 128.9, "acodec": "opus", "audio_channels": 2}
+    ]
+  })json";
+
+  model::Song song{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/URlPXepBZdo"}};
+  ASSERT_EQ(ParseInfo(info, song), error::kSuccess);
+
+  EXPECT_THAT(song.artist, StrEq("Clipse"));
+  EXPECT_THAT(song.title, StrEq("So Be It (Official Music Video)"));
+  EXPECT_THAT(song.duration, Eq(212));
+  ASSERT_TRUE(song.stream_info.has_value());
+  EXPECT_THAT(song.stream_info->streaming_url, StrEq("https://best"));
+  EXPECT_THAT(song.stream_info->codec, StrEq("opus"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ParseInfoWithoutAudioStream) {
+  model::Song song{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/URlPXepBZdo"}};
+
+  // Only video formats
+  EXPECT_EQ(
+      ParseInfo(R"({"title": "Video", "formats": [{"url": "u", "resolution": "640x360"}]})", song),
+      error::kStreamFetchFailed);
+
+  // Invalid output
+  EXPECT_EQ(ParseInfo("ERROR: Unsupported URL", song), error::kStreamFetchFailed);
 }
 
 }  // namespace

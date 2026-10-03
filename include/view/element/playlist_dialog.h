@@ -36,6 +36,10 @@ class PlaylistDialog : public Dialog {
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
 
+  static constexpr std::string_view kUrlLabel = "Paste a YouTube URL:";  //!< Label for URL input
+  static constexpr std::string_view kNoUrlLabel =
+      "yt-dlp not installed";  //!< Label when URL cannot be added
+
   static constexpr int kSourcePane = 0;  //!< Focus index for pane with songs to add (files/URL)
 
   static constexpr std::string_view kUnnamed = "<unnamed>";  //!< Title for playlist without name
@@ -56,10 +60,13 @@ class PlaylistDialog : public Dialog {
    * @param dispatcher Event dispatcher
    * @param contains_audio_cb Callback function to check if given file contains audio stream
    * @param optional_path List files from custom path instead of the current one
+   * @param stream_available_cb Callback function to check if songs can be added from URL (if not
+   * informed, it is always possible)
    */
   PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                  const std::function<bool(const util::File& file)>& contains_audio_cb,
-                 const std::string& optional_path = "");
+                 const std::string& optional_path = "",
+                 const std::function<bool()>& stream_available_cb = nullptr);
 
   /**
    * @brief Destroy PlaylistDialog object
@@ -160,10 +167,15 @@ class PlaylistDialog : public Dialog {
    */
   std::optional<std::string> AddUrl(const std::string& url);
 
+  //! Check if songs can be added from URL
+  bool IsStreamAvailable() const { return !stream_available_cb_ || stream_available_cb_(); }
+
   /* ******************************************************************************************** */
   //! Variables
 
   std::filesystem::path base_path_;  //!< Default directory path to list files from in menu
+
+  std::function<bool()> stream_available_cb_;  //!< Check if songs can be added from URL
 
   //!< Operation to execute + playlist to be modified
   model::PlaylistOperation curr_operation_ =

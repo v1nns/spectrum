@@ -6,9 +6,10 @@
 #ifndef INCLUDE_WEB_DRIVER_YTDLP_WRAPPER_H_
 #define INCLUDE_WEB_DRIVER_YTDLP_WRAPPER_H_
 
-#include <Python.h>
-
+#include <chrono>
+#include <cstdint>
 #include <string>
+#include <string_view>
 
 #include "model/application_error.h"
 #include "model/song.h"
@@ -25,60 +26,15 @@ class YtDlpWrapperTest;
 namespace driver {
 
 /**
- * @brief Class to embed python to use yt-dlp and extract streaming information from the given URL
+ * @brief Class to run yt-dlp (as an external program, if available on PATH) and extract streaming
+ * information from the given URL
  */
 class YtDlpWrapper : public web::StreamFetcher {
-  //! Variable name used in python snippet that indicates if fetched successfully an stream
-  static constexpr std::string_view kStreamFound = "result";
+  //! Program used to extract information from URL (only searched in PATH)
+  static constexpr std::string_view kProgram = "yt-dlp";
 
-  //! Variable name used in python snippet that contains title information
-  static constexpr std::string_view kAudioTitle = "title";
-
-  //! Variable name used in python snippet that contains metadata used as fallback for artist
-  static constexpr std::string_view kAudioMetadata = "metadata";
-
-  //! Variable name used in python snippet that contains duration information
-  static constexpr std::string_view kAudioDuration = "duration";
-
-  //! Variable name used in python snippet that contains streaming information
-  static constexpr std::string_view kStreamInfo = "streams";
-
-  //! Python snippet used as wrapper to execute yt_dlp
-  static constexpr std::string_view kExtractInfo = R"(
-import json
-import yt_dlp
-
-URL = '###'
-
-class DummyLogger:
-    def debug(self, msg):
-        pass
-    def info(self, msg):
-        pass
-    def warning(self, msg):
-        pass
-    def error(self, msg):
-        pass
-
-ydl_opts = {
-    'logger': DummyLogger(),
-}
-
-result = False
-
-with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-    info = ydl.extract_info(URL, download=False)
-
-    parsed = json.loads(json.dumps(ydl.sanitize_info(info)))
-
-    filtered = list(filter(lambda x: (x.get('resolution') == 'audio only'), parsed["formats"]))
-
-    if len(filtered):
-      result = True
-      title = parsed["title"]
-      metadata = json.dumps({key: parsed.get(key) for key in ("artist", "uploader", "channel")})
-      duration = parsed["duration"]
-      streams = json.dumps(filtered))";
+  //! Maximum time to wait for program to extract information (it fetches content from network)
+  static constexpr std::chrono::seconds kTimeout{60};
 
  public:
   /**
@@ -111,9 +67,24 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
    */
   error::Code ExtractInfo(model::Song &song) override;
 
+  /**
+   * @brief Check if yt-dlp can be found (needed to extract information from URL)
+   * @return true if it is available in PATH, otherwise false
+   */
+  static bool IsAvailable();
+
   /* ******************************************************************************************** */
   //! Internal methods
  private:
+  /**
+   * @brief Fill song with information extracted by yt-dlp (title, duration and the best audio
+   * stream to play)
+   * @param info JSON parsed output from yt-dlp
+   * @param song Song information (out)
+   * @return Error code from operation (when there is no audio stream to play, for example)
+   */
+  error::Code ParseInfo(const nlohmann::json &info, model::Song &song);
+
   /**
    * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title
    * does not contain an artist, use (in this order) artist, uploader or channel from metadata
@@ -140,105 +111,6 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
    * @return Pointer to selected entry from list (or nullptr, if none of them has an URL)
    */
   static const nlohmann::json *SelectStream(const nlohmann::json &streams);
-
-  /**
-   * @brief A utility struct for embedding Python interpreter in C++ application.
-   * This class provides encapsulation of the Python C API for safer and more convenient
-   * usage. It handles initialization, cleanup, code execution and variable retrieval.
-   */
-  class PythonWrapper {
-   public:
-    //! Default constructor/destructor
-    PythonWrapper() = default;
-    ~PythonWrapper() = default;
-
-    //! Initialize embedded python and create main module
-    void Init() {
-      // NOTE: both Initialize and Finalize must be performed in the same thread, otherwise
-      // segmentation fault may occur
-      Py_Initialize();
-      main_module_ = PyImport_AddModule("__main__");
-      dict_ = PyModule_GetDict(main_module_);
-    }
-
-    //! Reset module and finalize python
-    void Finish() { Py_Finalize(); }
-
-    //! Execute code snippet and print any errors
-    bool Run(const std::string &snippet) {
-      processed_ = false;
-
-      if (PyObject *result = PyRun_String(snippet.c_str(), Py_file_input, dict_, dict_); !result) {
-        if (PyErr_Occurred()) {
-          // Fetch error info
-          PyObject *type, *value, *traceback;
-          PyErr_Fetch(&type, &value, &traceback);
-          PyErr_NormalizeException(&type, &value, &traceback);
-
-          // Convert exception value to string
-          PyObject *exception_str = PyObject_Str(value);
-          std::string_view error_message = PyUnicode_AsUTF8(exception_str);
-
-          ERROR("Python code snippet has throwed an exception=",
-                !error_message.empty() ? error_message : "<unknown>");
-
-          // Cleanup
-          Py_XDECREF(exception_str);
-          Py_XDECREF(type);
-          Py_XDECREF(value);
-          Py_XDECREF(traceback);
-        }
-      } else {
-        processed_ = true;
-      }
-
-      return processed_;
-    }
-
-    //! Get value as bool from given variable
-    bool GetBool(const std::string_view &variable) {
-      if (!processed_) return "";
-
-      if (PyObject *raw = PyDict_GetItemString(dict_, variable.data()); raw && PyBool_Check(raw)) {
-        return Py_IsTrue(raw);
-      }
-
-      return false;
-    }
-
-    //! Get value as string from given variable
-    std::string GetString(const std::string_view &variable) {
-      if (!processed_) return "";
-
-      if (PyObject *raw = PyDict_GetItemString(dict_, variable.data());
-          raw && PyUnicode_Check(raw)) {
-        return PyUnicode_AsUTF8(raw);
-      }
-
-      return "";
-    }
-
-    //! Get value as long from given variable
-    uint64_t GetLong(const std::string_view &variable) {
-      if (!processed_) return 0;
-
-      if (PyObject *raw = PyDict_GetItemString(dict_, variable.data()); raw && PyLong_Check(raw)) {
-        return PyLong_AsLong(raw);
-      }
-
-      return 0;
-    }
-
-   private:
-    bool processed_ = false;  //!< Control flag to check if operation has been executed successfully
-    PyObject *main_module_;   //!< Pointer to custom python module
-    PyObject *dict_;          //!< Pointer to dictionary containing all variables from python module
-  };
-
-  /* ******************************************************************************************** */
-  //! Variables
-
-  PythonWrapper python_;  //!< Wrapper to run python code
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

@@ -46,6 +46,12 @@ class DummyStreamFetcher : public web::StreamFetcher {
    * @return Error code from operation
    */
   error::Code ExtractInfo(model::Song &song) override { return error::kSuccess; }
+
+  /**
+   * @brief Check if stream fetcher is available
+   * @return Always true
+   */
+  static bool IsAvailable() { return true; }
 };
 
 }  // namespace driver

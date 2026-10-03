@@ -2,12 +2,13 @@
 
 #include <cstdint>
 #include <iomanip>
-#include <regex>
 #include <string>
 #include <tuple>
+#include <vector>
 
 #include "nlohmann/json.hpp"
 #include "util/formatter.h"
+#include "util/process.h"
 
 namespace driver {
 
@@ -49,11 +50,30 @@ static void ParseSongTitle(const std::string& input, std::string& artist, std::s
 
 /* ********************************************************************************************** */
 
-void YtDlpWrapper::Init() { python_.Init(); }
+void YtDlpWrapper::Init() {
+  // Let user know if YouTube support is available (and which version, as yt-dlp is often updated)
+  auto program = util::FindExecutable(std::string{kProgram});
+
+  if (!program) {
+    WARN("Cannot find ", kProgram, " in PATH, songs from URL cannot be played");
+    return;
+  }
+
+  auto result = util::RunProcess({program->string(), "--version"}, kTimeout);
+  std::string version = result && result->exit_code == 0 ? util::trim(result->output) : "unknown";
+
+  INFO("Found ", kProgram, "=", program->string(), " version=", version);
+}
 
 /* ********************************************************************************************** */
 
-void YtDlpWrapper::Finish() { python_.Finish(); }
+bool YtDlpWrapper::IsAvailable() { return util::FindExecutable(std::string{kProgram}).has_value(); }
+
+/* ********************************************************************************************** */
+
+void YtDlpWrapper::Finish() {
+  // Nothing to clean up, as program is only executed while extracting information
+}
 
 /* ********************************************************************************************** */
 
@@ -63,43 +83,67 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
     return error::kStreamFetchFailed;
   }
 
-  std::string program = std::regex_replace(kExtractInfo.data(), std::regex("###"),
-                                           song.stream_info->base_url.c_str());
+  // Search for it every time, so it can be installed while application is running
+  auto program = util::FindExecutable(std::string{kProgram});
 
-  if (bool result = python_.Run(program); !result || !python_.GetBool(kStreamFound)) {
-    ERROR("Could not fetch streaming format from URL=", song.stream_info->base_url);
+  if (!program) {
+    WARN("Cannot find ", kProgram,
+         " in PATH to extract information from URL=", song.stream_info->base_url);
+    return error::kStreamFetcherNotFound;
+  }
+
+  // Extract information as JSON (only for the given video, even if URL contains a playlist)
+  const std::string& url = song.stream_info->base_url;
+  auto result = util::RunProcess(
+      {program->string(), "--dump-single-json", "--no-playlist", "--no-warnings", "--", url},
+      kTimeout);
+
+  if (!result || result->exit_code != 0) {
+    ERROR("Could not fetch streaming format from URL=", url,
+          result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
+                 : ", program could not be started");
     return error::kStreamFetchFailed;
   }
 
-  // Get extracted info from URL
-  std::string title = python_.GetString(kAudioTitle);
-  std::string raw_metadata = python_.GetString(kAudioMetadata);
-  uint32_t duration = python_.GetLong(kAudioDuration);
-  std::string raw_streams = python_.GetString(kStreamInfo.data());
+  nlohmann::json info = nlohmann::json::parse(result->output, nullptr, /*allow_exceptions=*/false);
+  if (error::Code parsed = ParseInfo(info, song); parsed != error::kSuccess) return parsed;
 
-  // Parse into JSON
-  nlohmann::json streams = nlohmann::json::parse(raw_streams, nullptr, /*allow_exceptions=*/false);
+  LOG("Parsed stream info=", *song.stream_info);
+  return error::kSuccess;
+}
 
-  if (streams.empty()) {
-    ERROR("Song has no valid streaming format");
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::ParseInfo(const nlohmann::json& info, model::Song& song) {
+  if (!info.is_object()) {
+    ERROR("Could not parse information extracted from URL");
     return error::kStreamFetchFailed;
+  }
+
+  // Only audio streams are played
+  nlohmann::json streams = nlohmann::json::array();
+
+  if (auto formats = info.find("formats"); formats != info.end() && formats->is_array()) {
+    for (const auto& format : *formats) {
+      if (format.is_object() && GetOr<std::string>(format, "resolution", "") == "audio only") {
+        streams.push_back(format);
+      }
+    }
   }
 
   const nlohmann::json* entry = SelectStream(streams);
 
   if (!entry) {
-    ERROR("Song has no streaming format with URL");
+    ERROR("Song has no audio streaming format with URL");
     return error::kStreamFetchFailed;
   }
 
-  nlohmann::json metadata =
-      nlohmann::json::parse(raw_metadata, nullptr, /*allow_exceptions=*/false);
+  FillArtistAndTitle(GetOr<std::string>(info, "title", ""), info, song);
 
-  FillArtistAndTitle(title, metadata, song);
-
+  // Duration may be a floating point number (in seconds)
+  auto duration = static_cast<uint32_t>(GetOr<double>(info, "duration", 0));
   FillStreamInfo(*entry, duration, song);
 
-  LOG("Parsed stream info=", *song.stream_info);
   return error::kSuccess;
 }
 
