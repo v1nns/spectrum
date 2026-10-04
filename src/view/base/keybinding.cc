@@ -54,7 +54,7 @@ Key Dialog::No = Key::Character('n');
 
 Key General::ExitApplication = Key::Character('q');
 Key General::ShowHelper = Key::Special("\x1B[24~");  //! F12
-Key General::ChangeTheme = Key::Character('T');
+Key General::ChangeTheme = Key::Character('t');
 
 Key General::FocusSidebar = Key::Character('!');      //! Shift + 1
 Key General::FocusInfo = Key::Character('@');         //! Shift + 2
@@ -87,7 +87,7 @@ Key MediaPlayer::Mute = Key::Character('m');
 Key MediaPlayer::SeekForward = Key::Character('f');
 Key MediaPlayer::SeekBackward = Key::Character('b');
 
-Key MediaPlayer::ToggleRepeat = Key::Character('t');
+Key MediaPlayer::ToggleRepeat = Key::Character('R');
 Key MediaPlayer::ToggleShuffle = Key::Character('x');
 
 /* ----------------------------------------- Visualizer ----------------------------------------- */

@@ -884,7 +884,7 @@ TEST_F(MediaPlayerTest, ChangeRepeatModeAndShuffle) {
     }
   }
 
-  for (int i = 0; i < 4; ++i) block->OnEvent(ftxui::Event::Character('t'));
+  for (int i = 0; i < 4; ++i) block->OnEvent(ftxui::Event::Character('R'));
 
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,
