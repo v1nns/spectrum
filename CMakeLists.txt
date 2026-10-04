@@ -45,3 +45,42 @@ if(ENABLE_TESTS AND NOT SPECTRUM_DEBUG)
   add_definitions(-DENABLE_TESTS)
   add_subdirectory(test)
 endif()
+
+# Create package (.deb) containing only the executable, i.e. without files installed by FTXUI
+if(ENABLE_INSTALL)
+  # Version from git tag, when available (e.g. "v1.0.0" results in "1.0.0")
+  execute_process(
+    COMMAND git describe --tags --match "v[0-9]*"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE SPECTRUM_PACKAGE_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+
+  string(REGEX REPLACE "^v" "" SPECTRUM_PACKAGE_VERSION "${SPECTRUM_PACKAGE_VERSION}")
+
+  if(NOT SPECTRUM_PACKAGE_VERSION)
+    set(SPECTRUM_PACKAGE_VERSION "0.0.0")
+  endif()
+
+  set(CPACK_GENERATOR "DEB")
+  set(CPACK_PACKAGE_NAME "spectrum")
+  set(CPACK_PACKAGE_VERSION "${SPECTRUM_PACKAGE_VERSION}")
+  set(CPACK_PACKAGE_CONTACT "Vinicius Moura Longaray <vmouralongaray@gmail.com>")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+      "Simple and intuitive console-based music player with audio spectrum visualizer")
+  set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/v1nns/spectrum")
+  set(CPACK_STRIP_FILES ON)
+
+  # Pack a single component, using the package name without any suffix
+  set(CPACK_DEB_COMPONENT_INSTALL ON)
+  set(CPACK_COMPONENTS_ALL runtime)
+  set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
+
+  # Dependencies are found from shared libraries linked to executable, while yt-dlp is optional
+  set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+  set(CPACK_DEBIAN_PACKAGE_SECTION "sound")
+  set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+  set(CPACK_DEBIAN_PACKAGE_SUGGESTS "yt-dlp")
+
+  include(CPack)
+endif()
