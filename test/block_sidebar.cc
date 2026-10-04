@@ -1,9 +1,15 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
+#include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <memory>
+#include <thread>
+#include <vector>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/component_base.hpp"
@@ -15,9 +21,13 @@
 #include "gmock/gmock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/file_handler_mock.h"
+#include "model/application_error.h"
+#include "view/base/keybinding.h"
 #include "view/block/sidebar.h"
 #include "view/block/sidebar_content/list_directory.h"
 #include "view/block/sidebar_content/playlist_viewer.h"
+#include "view/element/text_animation.h"
+#include "view/element/util.h"
 
 namespace {
 
@@ -29,6 +39,7 @@ using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::InSequence;
 using ::testing::Invoke;
+using ::testing::Not;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::StrEq;
@@ -36,6 +47,17 @@ using ::testing::VariantWith;
 
 //! Create custom matcher to compare only filename from std::filesystem::path
 MATCHER_P(IsSameFilename, n, "") { return arg.filename() == n; }
+
+//! Create custom matcher to compare filenames from songs in queue sent to player
+MATCHER_P(IsQueueOf, filenames, "") {
+  std::vector<std::filesystem::path> queue;
+  for (const auto& song : arg.songs) queue.push_back(song.filepath.filename());
+
+  return queue == filenames;
+}
+
+//! List of filenames
+using Filenames = std::vector<std::filesystem::path>;
 
 /**
  * @brief Tests with Sidebar class
@@ -75,8 +97,23 @@ class SidebarTest : public ::BlockTest {
     return GetListDirectory()->curr_playing_.value();
   }
 
+  //! Check if some file is highlighted (as playing) in ListDirectory
+  bool IsFileHighlighted() {
+    auto files = GetListDirectory();
+    return files->curr_playing_.has_value() || files->menu_->actual().highlighted_.has_value();
+  }
+
+  //! Getter for files menu box from ListDirectory (only valid after rendering block)
+  ftxui::Box GetFilesMenuBox() { return GetListDirectory()->menu_->Box(); }
+
   //! Getter for current dir from ListDirectory
   auto GetCurrentDir() -> std::filesystem::path { return GetListDirectory()->GetCurrentDir(); }
+
+  //! Getter for filename from active entry in ListDirectory
+  auto GetActiveFilename() -> std::filesystem::path {
+    auto active = GetListDirectory()->menu_->GetActiveEntry();
+    return active.has_value() ? active->filename() : std::filesystem::path{};
+  }
 
   //! Hacky method to add new entry in files tab_item
   void EmplaceFile(const std::filesystem::path& entry) {
@@ -93,6 +130,20 @@ class SidebarTest : public ::BlockTest {
     return reinterpret_cast<interface::PlaylistViewer*>(
         sidebar->tab_elem_[interface::Sidebar::View::Playlist].get());
   }
+
+  //! Check if some song is highlighted (as playing) in PlaylistViewer
+  bool IsPlaylistSongHighlighted() {
+    return GetPlaylistViewer()->menu_->actual().highlighted_.has_value();
+  }
+
+  //! Getter for selected entry index in playlists menu from PlaylistViewer
+  int GetSelectedPlaylistEntry() { return *GetPlaylistViewer()->menu_->actual().GetSelected(); }
+
+  //! Getter for playlists menu box from PlaylistViewer (only valid after rendering block)
+  ftxui::Box GetPlaylistsMenuBox() { return GetPlaylistViewer()->menu_->Box(); }
+
+  //! Check if there is an active entry in playlists menu from PlaylistViewer
+  bool HasActivePlaylistEntry() { return GetPlaylistViewer()->menu_->GetActiveEntry().has_value(); }
 
   //! Getter for Modify button state
   bool IsModifyButtonActive() { return GetPlaylistViewer()->btn_modify_->IsActive(); }
@@ -119,7 +170,7 @@ class ListDirectoryCtorTest : public ::SidebarTest {
 
 TEST_F(ListDirectoryCtorTest, CreateWithBadInitialPath) {
   // Setup expectation
-  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed))).Times(0);
+  EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error::kAccessDirFailed), _)).Times(0);
 
   // Use bad path as base dir, block will notify an error about not being to access it
   std::string source_dir{"/path/that/does/not/exist"};
@@ -149,8 +200,8 @@ TEST_F(SidebarTest, InitialRender) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -182,8 +233,8 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -191,8 +242,66 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, RenderWithNarrowWidth) {
+  // Sidebar does not have enough room for its maximum columns, so entries must be truncated on
+  // the right side (and never horizontally scrolled, which used to hide the cursor prefix)
+  screen = std::make_unique<ftxui::Screen>(24, 8);
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ F1:files  F2:playlist╮
+│test                  │
+│  ..                  │
+│▶ audio_lyric_finder.c│
+│  audio_player.cc     │
+│  block_file_info.cc  │
+│  block_main_content.c│
+╰──────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NavigateWithAlternativeHomeEnd) {
+  // Sequences sent by tmux (and other terminals) for End and Home keys
+  auto end = interface::keybinding::Normalize(ftxui::Event::Special("\x1B[4~"));
+  auto home = interface::keybinding::Normalize(ftxui::Event::Special("\x1B[1~"));
+
+  EXPECT_EQ(end, ftxui::Event::End);
+  EXPECT_EQ(home, ftxui::Event::Home);
+
+  // Also check rxvt-style sequences
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::Special("\x1B[8~")), ftxui::Event::End);
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::Special("\x1B[7~")), ftxui::Event::Home);
+
+  // Other events must remain untouched
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::ArrowDown), ftxui::Event::ArrowDown);
+  EXPECT_EQ(interface::keybinding::Normalize(ftxui::Event::Character('4')),
+            ftxui::Event::Character('4'));
+
+  block->OnEvent(end);
+  block->OnEvent(home);
+  block->OnEvent(end);
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("▶ "));
+  EXPECT_THAT(rendered, Not(HasSubstr("▶ ..")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, NavigateToMockDir) {
   block->OnEvent(ftxui::Event::End);
+  block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Return);
 
@@ -213,8 +322,8 @@ TEST_F(SidebarTest, NavigateToMockDir) {
 │  interface_notifier_mock.h         │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
+│  stream_fetcher_mock.h             │
 │  url_fetcher_mock.h                │
-│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -247,7 +356,7 @@ TEST_F(SidebarTest, EnterOnSearchMode) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
-│  general                           │
+│  driver_ytdlp.cc                   │
 │Search:                             │
 ╰────────────────────────────────────╯)";
 
@@ -280,9 +389,9 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
-│  util_argparser.cc                 │
 │Search:e                            │
 ╰────────────────────────────────────╯)";
 
@@ -322,8 +431,8 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
 │  interface_notifier_mock.h         │
 │  lyric_finder_mock.h               │
 │  playback_mock.h                   │
+│  stream_fetcher_mock.h             │
 │  url_fetcher_mock.h                │
-│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -348,7 +457,7 @@ TEST_F(SidebarTest, NonExistentTextInSearchMode) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│                                    │
+│  No matches                        │
 │                                    │
 │                                    │
 │                                    │
@@ -397,8 +506,8 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -436,11 +545,83 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, ClearSongInfoOnAllTabs) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
+  model::Playlists data{{model::Playlist{
+      .index = 0,
+      .name = "Chill mix",
+      .songs = {model::Song{.filepath = file}},
+  }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  auto update_song = interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = file, .playlist = "Chill mix"});
+  auto clear_song = interface::CustomEvent::ClearSongInfo();
+
+  // Load playlists, then show files tab again
+  block->OnEvent(ftxui::Event::F2);
+  block->OnEvent(ftxui::Event::F1);
+
+  // Song from playlist is highlighted on both tabs
+  sidebar->OnCustomEvent(update_song);
+  ASSERT_TRUE(IsFileHighlighted());
+  ASSERT_TRUE(IsPlaylistSongHighlighted());
+
+  // Song stops while files tab is active: playlist tab must not keep highlighting it
+  sidebar->OnCustomEvent(clear_song);
+  EXPECT_FALSE(IsFileHighlighted());
+  EXPECT_FALSE(IsPlaylistSongHighlighted());
+
+  // Same thing while playlist tab is active: files tab must not keep highlighting it
+  block->OnEvent(ftxui::Event::F2);
+  sidebar->OnCustomEvent(update_song);
+  ASSERT_TRUE(IsFileHighlighted());
+  ASSERT_TRUE(IsPlaylistSongHighlighted());
+
+  sidebar->OnCustomEvent(clear_song);
+  EXPECT_FALSE(IsFileHighlighted());
+  EXPECT_FALSE(IsPlaylistSongHighlighted());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, HighlightSameSongListedTwiceInPlaylist) {
+  std::filesystem::path song_a{LISTDIR_PATH + std::string("/audio_player.cc")};
+  std::filesystem::path song_b{LISTDIR_PATH + std::string("/block_sidebar.cc")};
+  model::Playlists data{{model::Playlist{
+      .index = 0,
+      .name = "Repeated",
+      .songs = {model::Song{.filepath = song_a}, model::Song{.filepath = song_b},
+                model::Song{.filepath = song_a}},
+  }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  // Load playlists
+  block->OnEvent(ftxui::Event::F2);
+
+  // Player sends position of song in playlist, so the second entry for the same file is highlighted
+  // (menu entries: playlist name, then each song)
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.index = 2, .filepath = song_a, .playlist = "Repeated"}));
+
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 3);
 }
 
 /* ********************************************************************************************** */
@@ -454,10 +635,11 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
   // Setup expectation for file selection
   std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
   EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::NotifyFileSelection),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::filesystem::path>(file)))))
+              SendEvent(AllOf(
+                  Field(&interface::CustomEvent::id,
+                        interface::CustomEvent::Identifier::NotifyPlaylistSelection),
+                  Field(&interface::CustomEvent::content,
+                        VariantWith<model::Playlist>(IsQueueOf(Filenames{"audio_player.cc"}))))))
       .WillOnce(Invoke([&](const interface::CustomEvent&) {
         // As we don't have an instance of Terminal, process custom event directly
         auto derived = GetListDirectory();
@@ -493,8 +675,8 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -522,11 +704,118 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│spectrum                            │
-│▶ ..                                │)";
+│spectrum                            │)";
 
   // Instead of checking for the whole list, just check that changed the base directory
   EXPECT_THAT(rendered, HasSubstr(expected));
+
+  // And that the directory we came from is selected
+  EXPECT_THAT(rendered, HasSubstr("│▶ test "));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SelectPreviousDirectoryAfterGoingUp) {
+  // Enter "general" directory (found by search), then go back to parent directory using ".."
+  std::string typed{"/general"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  block->OnEvent(ftxui::Event::Return);
+  EXPECT_EQ(GetCurrentDir().filename(), "general");
+
+  block->OnEvent(ftxui::Event::Home);
+  block->OnEvent(ftxui::Event::Return);
+  EXPECT_EQ(GetCurrentDir().filename(), "test");
+
+  // Cursor must be on the directory we came from, instead of ".."
+  EXPECT_EQ(GetActiveFilename(), "general");
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│▶ general "));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, ReloadDirectoryOnFocus) {
+  // Create temporary directory with a few files
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_reload_on_focus";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directory(dir);
+  utils::CreateEmptyFile(dir / "a.mp3");
+  utils::CreateEmptyFile(dir / "c.mp3");
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(false));
+  block = ftxui::Make<interface::Sidebar>(dispatcher, dir.string(), file_handler_mock_);
+
+  auto sidebar = std::static_pointer_cast<interface::Block>(block);
+  sidebar->SetFocused(true);
+
+  // Select "c.mp3" and remove focus from block
+  block->OnEvent(ftxui::Event::End);
+  sidebar->SetFocused(false);
+
+  // Add a new file while block is not focused, list must not change
+  utils::CreateEmptyFile(dir / "b.mp3");
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+  EXPECT_THAT(rendered, Not(HasSubstr("b.mp3")));
+
+  // After getting focus again, list must contain the new file and keep "c.mp3" selected
+  sidebar->SetFocused(true);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│  b.mp3 "));
+  EXPECT_THAT(rendered, HasSubstr("│▶ c.mp3 "));
+
+  std::filesystem::remove_all(dir);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, DimNonAudioFiles) {
+  // Create temporary directory with audio and non-audio files
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_dim_non_audio";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directory(dir);
+  utils::CreateEmptyFile(dir / "notes.txt");
+  utils::CreateEmptyFile(dir / "song.FLAC");
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(false));
+  block = ftxui::Make<interface::Sidebar>(dispatcher, dir.string(), file_handler_mock_);
+
+  ftxui::Render(*screen, block->Render());
+
+  // Check if first character from the given entry name is rendered as dimmed
+  auto is_dimmed = [this](const std::string& name) {
+    const int length = static_cast<int>(name.size());
+
+    for (int y = 0; y < screen->dimy(); ++y) {
+      for (int x = 0; x + length <= screen->dimx(); ++x) {
+        bool match = true;
+        for (int i = 0; i < length && match; ++i) {
+          match = screen->PixelAt(x + i, y).character == name.substr(i, 1);
+        }
+
+        if (match) {
+          return screen->PixelAt(x, y).dim;
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Could not find entry " << name;
+    return false;
+  };
+
+  EXPECT_TRUE(is_dimmed("notes.txt"));
+  EXPECT_FALSE(is_dimmed("song.FLAC"));
+
+  std::filesystem::remove_all(dir);
 }
 
 /* ********************************************************************************************** */
@@ -536,9 +825,9 @@ TEST_F(SidebarTest, NotifyFileSelection) {
   std::filesystem::path file{"audio_player.cc"};
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::NotifyFileSelection),
+                                    interface::CustomEvent::Identifier::NotifyPlaylistSelection),
                               Field(&interface::CustomEvent::content,
-                                    VariantWith<std::filesystem::path>(IsSameFilename(file))))))
+                                    VariantWith<model::Playlist>(IsQueueOf(Filenames{file}))))))
       .Times(1);
 
   block->OnEvent(ftxui::Event::ArrowDown);
@@ -562,11 +851,40 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
-│  middleware_media_controller.cc    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NotifyFileSelectionWithQueueOfMediaFiles) {
+  // Directory with media files, a file that is not media and a directory with a media extension
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_queue_test";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir / "d.mp3");
+  for (const auto& name : {"a.mp3", "b.flac", "c.txt", "e.ogg"}) std::ofstream(dir / name).put('x');
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(true));
+  block = ftxui::Make<interface::Sidebar>(dispatcher, dir.string(), file_handler_mock_);
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(true);
+
+  // Queue starts from selected file, then every other media file from list (wrapping around)
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id,
+                interface::CustomEvent::Identifier::NotifyPlaylistSelection),
+          Field(&interface::CustomEvent::content,
+                VariantWith<model::Playlist>(IsQueueOf(Filenames{"b.flac", "e.ogg", "a.mp3"}))))));
+
+  // Entries: "..", "a.mp3", "b.flac", "c.txt", "d.mp3" (directory), "e.ogg"
+  for (int i = 0; i < 2; ++i) block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Return);
+
+  std::filesystem::remove_all(dir);
 }
 
 /* ********************************************************************************************** */
@@ -590,17 +908,17 @@ TEST_F(SidebarTest, RunTextAnimation) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_file_info.cc                │
-│  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
+│  util_file_handler.cc              │
 │▶ this_is_a_really_long_pathname_to_│
 ╰────────────────────────────────────╯)";
 
@@ -619,17 +937,17 @@ TEST_F(SidebarTest, RunTextAnimation) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_file_info.cc                │
-│  block_main_content.cc             │
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
+│  util_file_handler.cc              │
 │▶ is_a_really_long_pathname_to_test.│
 ╰────────────────────────────────────╯)";
 
@@ -658,7 +976,7 @@ TEST_F(SidebarTest, TryToNavigateOnEmptySearch) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│                                    │
+│  No matches                        │
 │                                    │
 │                                    │
 │                                    │
@@ -703,7 +1021,7 @@ TEST_F(SidebarTest, NavigateAndEraseCharactersOnSearch) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│                                    │
+│  No matches                        │
 │                                    │
 │                                    │
 │                                    │
@@ -737,13 +1055,13 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  CMakeLists.txt                    │
-│  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
+│  driver_ytdlp.cc                   │
 │  general                           │
 │  middleware_media_controller.cc    │
 │  mock                              │
 │  util_argparser.cc                 │
+│  util_file_handler.cc              │
 │  some_music_0.mp3                  │
 │  some_music_1.mp3                  │
 │  some_music_2.mp3                  │
@@ -756,157 +1074,85 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
 
 /* ********************************************************************************************** */
 
-TEST_F(SidebarTest, PlayNextFileAfterFinished) {
-  InSequence seq;
-  auto derived = GetListDirectory();
+/**
+ * @brief Tests with Sidebar class using a callback to check if file contains audio stream
+ */
+class SidebarAudioCheckTest : public ::SidebarTest {
+ protected:
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(38, 15);
+    dispatcher = std::make_shared<EventDispatcherMock>();
 
-  // Setup expectation to play first file
-  std::filesystem::path file{LISTDIR_PATH + std::string{"/audio_player.cc"}};
+    EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_)).WillOnce(Return(true));
+
+    // Only these files are considered to contain an audio stream
+    auto contains_audio = [](const util::File& file) {
+      return file.filename() == "audio_player.cc" || file.filename() == "block_media_player.cc";
+    };
+
+    block = ftxui::Make<interface::Sidebar>(dispatcher, LISTDIR_PATH, file_handler_mock_,
+                                            contains_audio);
+
+    auto dummy = std::static_pointer_cast<interface::Block>(block);
+    dummy->SetFocused(true);
+  }
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarAudioCheckTest, SelectFileWithoutAudioStream) {
+  // File without audio stream must not be sent to player (it would stop current song)
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
   EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::NotifyFileSelection),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::filesystem::path>(file)))))
-      .Times(1);
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::NotifyFileSelection)))
+      .Times(0);
 
+  EXPECT_CALL(*dispatcher,
+              SetApplicationError(Eq(error::kFileNotSupported), StrEq("block_file_info.cc")));
+
+  // Select "block_file_info.cc"
+  block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::Return);
-
-  ftxui::Render(*screen, block->Render());
-
-  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
-
-  std::string expected = R"(
-╭ F1:files  F2:playlist ─────────────╮
-│test                                │
-│  ..                                │
-│  audio_lyric_finder.cc             │
-│▶ audio_player.cc                   │
-│  block_file_info.cc                │
-│  block_main_content.cc             │
-│  block_media_player.cc             │
-│  block_sidebar.cc                  │
-│  CMakeLists.txt                    │
-│  dialog_playlist.cc                │
-│  driver_fftw.cc                    │
-│  general                           │
-│  middleware_media_controller.cc    │
-╰────────────────────────────────────╯)";
-
-  EXPECT_THAT(rendered, StrEq(expected));
-
-  // Simulate player sending event to update song info and check internal state
-  auto event_update = interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = file,
-                                                                         .artist = "Dummy artist",
-                                                                         .title = "Dummy title",
-                                                                         .num_channels = 2,
-                                                                         .sample_rate = 44100,
-                                                                         .bit_rate = 320000,
-                                                                         .bit_depth = 32,
-                                                                         .duration = 120});
-
-  derived->OnCustomEvent(event_update);
-  EXPECT_EQ(file, GetCurrentPlaying());
-
-  // Simulate player sending event to notify that song has ended
-  auto event_finish = interface::CustomEvent::UpdateSongState(
-      model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
-
-  std::filesystem::path next_file{LISTDIR_PATH + std::string{"/block_file_info.cc"}};
-
-  EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::NotifyFileSelection),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::filesystem::path>(next_file)))))
-      .Times(1);
-
-  derived->OnCustomEvent(event_finish);
-
-  // Simulate player sending event with new song update
-  auto& content = std::get<model::Song>(event_update.content);
-  content.filepath = next_file;
-
-  derived->OnCustomEvent(event_update);
-  EXPECT_EQ(next_file, GetCurrentPlaying());
 }
 
 /* ********************************************************************************************** */
 
-TEST_F(SidebarTest, StartPlayingLastFileAndPlayNextAfterFinished) {
-  InSequence seq;
-  auto derived = GetListDirectory();
+TEST_F(SidebarTest, MouseWheelOnMenus) {
+  // Render block to calculate position of each element on screen
+  ftxui::Render(*screen, block->Render());
+  ftxui::Box box = GetFilesMenuBox();
 
-  // Setup expectation to play last file
-  std::filesystem::path file{LISTDIR_PATH + std::string{"/util_argparser.cc"}};
-  EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::NotifyFileSelection),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::filesystem::path>(file)))))
-      .Times(1);
+  auto wheel = [](ftxui::Mouse::Button button, const ftxui::Box& box) {
+    return ftxui::Event::Mouse("", ftxui::Mouse{.button = button,
+                                                .motion = ftxui::Mouse::Pressed,
+                                                .x = box.x_min + 1,
+                                                .y = box.y_min + 1});
+  };
 
-  block->OnEvent(ftxui::Event::End);
-  block->OnEvent(ftxui::Event::Return);
+  // Scroll down twice and up once on files list (starting from "..")
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, box)));
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, box)));
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelUp, box)));
 
+  EXPECT_THAT(GetActiveFilename(), Eq("audio_lyric_finder.cc"));
+
+  // Scrolling on an empty list must not do anything
+  model::Playlists data{};
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
-  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+  box = GetPlaylistsMenuBox();
+  block->OnEvent(wheel(ftxui::Mouse::WheelDown, box));
+  block->OnEvent(wheel(ftxui::Mouse::WheelUp, box));
 
-  std::string expected = R"(
-╭ F1:files  F2:playlist ─────────────╮
-│test                                │
-│  audio_player.cc                   │
-│  block_file_info.cc                │
-│  block_main_content.cc             │
-│  block_media_player.cc             │
-│  block_sidebar.cc                  │
-│  CMakeLists.txt                    │
-│  dialog_playlist.cc                │
-│  driver_fftw.cc                    │
-│  general                           │
-│  middleware_media_controller.cc    │
-│  mock                              │
-│▶ util_argparser.cc                 │
-╰────────────────────────────────────╯)";
-
-  EXPECT_THAT(rendered, StrEq(expected));
-
-  // Simulate player sending event to update song info and check internal state
-  auto event_update = interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = file,
-                                                                         .artist = "Dummy artist",
-                                                                         .title = "Dummy title",
-                                                                         .num_channels = 2,
-                                                                         .sample_rate = 44100,
-                                                                         .bit_rate = 320000,
-                                                                         .bit_depth = 32,
-                                                                         .duration = 120});
-
-  derived->OnCustomEvent(event_update);
-  EXPECT_EQ(file, GetCurrentPlaying());
-
-  // Simulate player sending event to notify that song has ended
-  auto event_finish = interface::CustomEvent::UpdateSongState(
-      model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
-
-  std::filesystem::path next_file{LISTDIR_PATH + std::string{"/audio_lyric_finder.cc"}};
-
-  EXPECT_CALL(*dispatcher,
-              SendEvent(AllOf(Field(&interface::CustomEvent::id,
-                                    interface::CustomEvent::Identifier::NotifyFileSelection),
-                              Field(&interface::CustomEvent::content,
-                                    VariantWith<std::filesystem::path>(next_file)))))
-      .Times(1);
-
-  derived->OnCustomEvent(event_finish);
-
-  // Simulate player sending event with new song update
-  auto& content = std::get<model::Song>(event_update.content);
-  content.filepath = next_file;
-
-  derived->OnCustomEvent(event_update);
-  EXPECT_EQ(next_file, GetCurrentPlaying());
+  EXPECT_FALSE(HasActivePlaylistEntry());
 }
 
 /* ********************************************************************************************** */
@@ -925,7 +1171,7 @@ TEST_F(SidebarTest, EmptyPlaylist) {
 
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│                                    │
+│  No playlists, press c to create   │
 │                                    │
 │                                    │
 │                                    │
@@ -1330,10 +1576,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│▶ Chill mix really long and the cool│
+│▶ Chill mix really long and the coo │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1359,10 +1605,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│▶  mix really long and the coolest o│
+│▶  mix really long and the coolest  │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1388,10 +1634,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│  Chill mix really long and the cool│
+│  Chill mix really long and the coo │
 │▶   chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1456,7 +1702,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │  Chill mix [3]                     │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│▶   chilling with a really long name│
+│▶   chilling with a really long nam │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1514,7 +1760,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │  Chill mix [3]                     │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long name│
+│    chilling with a really long nam │
 │▶ Lofi [3]                          │
 │    lofi 1.mp3                      │
 │    lofi 2.mp3                      │
@@ -1628,6 +1874,7 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
   model::PlaylistOperation expected_operation{
       .action = model::PlaylistOperation::Operation::Create,
       .playlist = model::Playlist{},
+      .other_names = {"Chill mix", "Lofi"},
   };
 
   EXPECT_CALL(*dispatcher,
@@ -1643,6 +1890,7 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
   expected_operation = {
       .action = model::PlaylistOperation::Operation::Modify,
       .playlist = data[0],
+      .other_names = {"Lofi"},
   };
 
   // Setup expectation for playlist operation
@@ -1907,7 +2155,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│                                    │
+│  No playlists, press c to create   │
 │                                    │
 │                                    │
 │                                    │
@@ -2006,7 +2254,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│                                    │
+│  No playlists, press c to create   │
 │                                    │
 │                                    │
 │                                    │
@@ -2155,6 +2403,121 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+//! Tests for shortening current directory shown as title in files tab
+TEST(ShortenPathTest, PathThatFits) {
+  EXPECT_THAT(interface::shorten_path("/home/user/music", 16), StrEq("/home/user/music"));
+}
+
+TEST(ShortenPathTest, StartFromDirectorySeparator) {
+  EXPECT_THAT(interface::shorten_path("/home/user/collection/electronic/artists/aphex", 30),
+              StrEq(".../electronic/artists/aphex"));
+}
+
+TEST(ShortenPathTest, LastDirectoryLongerThanColumns) {
+  EXPECT_THAT(interface::shorten_path("/home/user/a_really_long_folder_name_for_an_album", 20),
+              StrEq("...name_for_an_album"));
+}
+
+TEST(ShortenPathTest, MultiByteAndFullWidthCharacters) {
+  // Each accented letter takes a single column (and must never be split)
+  EXPECT_THAT(interface::shorten_path("/home/Músicas clássicas", 12), StrEq("...clássicas"));
+
+  // Full-width characters take two columns each
+  EXPECT_THAT(interface::shorten_path("/home/音楽音楽音楽", 9), StrEq("...楽音楽"));
+}
+
+TEST(ShortenPathTest, NotEnoughColumns) {
+  EXPECT_THAT(interface::shorten_path("/home/user", 2), StrEq(".."));
+  EXPECT_THAT(interface::shorten_path("/home/user", 0), StrEq(""));
+}
+
+/* ********************************************************************************************** */
+
+//! Tests for text animation used by menus to show long entries
+TEST(TextAnimationTest, MoveWholeCharacterOnEachStep) {
+  std::atomic<int> updates = 0;
+
+  interface::TextAnimation animation;
+  animation.cb_update = [&updates] { updates++; };
+
+  // Wait until animation has moved text the given number of steps (or timeout)
+  auto wait_steps = [&updates](int steps) {
+    for (int i = 0; i < 100 && updates < steps; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  };
+
+  animation.Start("ção");
+  EXPECT_THAT(animation.GetText(), StrEq("ção "));
+
+  // Each step must move a whole character, even when it uses more than one byte
+  wait_steps(1);
+  EXPECT_THAT(animation.GetText(), StrEq("ão ç"));
+
+  wait_steps(2);
+  EXPECT_THAT(animation.GetText(), StrEq("o çã"));
+
+  animation.Stop();
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, ChangeThemeAfterCreation) {
+  utils::ThemeGuard guard;
+
+  const auto tab = utils::MarkerColor(1);
+  const auto directory = utils::MarkerColor(2);
+  const auto file = utils::MarkerColor(3);
+  const auto button = utils::MarkerColor(4);
+  const auto playlist = utils::MarkerColor(5);
+  const auto all = {tab, directory, file, button, playlist};
+
+  model::Playlists data{{model::Playlist{
+      .index = 0,
+      .name = "Chill mix",
+      .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
+  }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  // Block was created with default theme
+  ftxui::Render(*screen, block->Render());
+  for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
+
+  // Replace theme, the same block must use new colors on next render
+  interface::Theme theme;
+  theme.block.tab = utils::AllButtonStates(tab);
+  theme.menu.directory = directory;
+  theme.menu.file = file;
+  theme.sidebar.button = utils::AllButtonStates(button);
+  theme.menu.playlist = playlist;
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_TRUE(utils::HasColor(*screen, tab));
+  EXPECT_TRUE(utils::HasColor(*screen, directory));
+  EXPECT_TRUE(utils::HasColor(*screen, file));
+
+  // Same thing for playlist viewer
+  block->OnEvent(ftxui::Event::F2);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_TRUE(utils::HasColor(*screen, button));
+  EXPECT_TRUE(utils::HasColor(*screen, playlist));
+
+  // And default theme can be set again
+  interface::SetTheme(interface::GetThemes().front().colors);
+
+  // Screen is cleared before every render by application, do the same here (as a default color
+  // from theme means "do not change it", colors from previous render would be kept otherwise)
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
 }
 
 }  // namespace

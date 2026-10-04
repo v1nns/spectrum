@@ -1,3 +1,21 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+    patch:
+      default:
+        target: 80%
+
 # ignored files for code coverage
 ignore:
   - "src/main.cc"
+  # unit tests (only application code is measured)
+  - "test"
+  # wrappers for external libraries, which need real hardware/network to run
+  - "src/audio/driver/alsa.cc"
+  - "src/audio/driver/ffmpeg.cc"
+  - "src/web/driver/curl_wrapper.cc"
+  - "src/web/driver/libxml_wrapper.cc"
+  - "include/audio/driver/alsa.h"
+  - "include/audio/driver/ffmpeg.h"

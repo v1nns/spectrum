@@ -1,6 +1,7 @@
 #include "view/block/main_content.h"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "util/logger.h"
@@ -8,25 +9,28 @@
 #include "view/block/main_content/audio_equalizer.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/block/main_content/spectrum_visualizer.h"
+#include "view/element/style.h"
 
 namespace interface {
 
-MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher)
+MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
+                         const std::shared_ptr<util::FileHandler>& file_handler)
     : Block{dispatcher, model::BlockIdentifier::MainContent,
             interface::Size{.width = 0, .height = 0}},
       tab_elem_{} {
-  // Create all tabs
-  tab_elem_[View::Visualizer] = std::make_unique<SpectrumVisualizer>(
-      GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
-      keybinding::MainContent::FocusVisualizer);
+  // Create all tabs (keeping a direct reference to visualizer, used to show fullscreen hint)
+  auto visualizer = std::make_unique<SpectrumVisualizer>(
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusVisualizer,
+      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
+
+  visualizer_ = visualizer.get();
+  tab_elem_[View::Visualizer] = std::move(visualizer);
 
   tab_elem_[View::Equalizer] = std::make_unique<AudioEqualizer>(
-      GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
-      keybinding::MainContent::FocusEqualizer);
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusEqualizer);
 
-  tab_elem_[View::Lyric] =
-      std::make_unique<SongLyric>(GetId(), dispatcher, std::bind(&MainContent::AskForFocus, this),
-                                  keybinding::MainContent::FocusLyric);
+  tab_elem_[View::Lyric] = std::make_unique<SongLyric>(
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusLyric);
 
   // Set visualizer as active tab
   tab_elem_.SetActive(View::Visualizer);
@@ -38,8 +42,11 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher)
 /* ********************************************************************************************** */
 
 ftxui::Element MainContent::Render() {
-  // Toggle flag only if it was enabled
-  if (is_fullscreen_) is_fullscreen_ = false;
+  // Toggle flag only if it was enabled (and hide fullscreen hint, if still visible)
+  if (is_fullscreen_) {
+    is_fullscreen_ = false;
+    visualizer_->HideMessage();
+  }
 
   auto block_focused = IsFocused();
   auto active_button = tab_elem_.active();
@@ -71,8 +78,11 @@ ftxui::Element MainContent::Render() {
 /* ********************************************************************************************** */
 
 ftxui::Element MainContent::RenderFullscreen() {
-  // Toggle flag only if it was disabled
-  if (!is_fullscreen_) is_fullscreen_ = true;
+  // Toggle flag only if it was disabled (and let user know how to exit from it)
+  if (!is_fullscreen_) {
+    is_fullscreen_ = true;
+    visualizer_->ShowFullscreenHint();
+  }
 
   return tab_elem_.active_item()->Render();
 }
@@ -121,6 +131,14 @@ bool MainContent::OnCustomEvent(const CustomEvent& event) {
        event == CustomEvent::Identifier::UpdateSongInfo) &&
       tab_elem_.active() != View::Lyric) {
     tab_elem_[View::Lyric]->OnCustomEvent(event);
+  }
+
+  // Same for TabItem::SpectrumVisualizer, it must always know the number of bars that fits on
+  // screen (e.g. after terminal resize), otherwise it would draw too many bars when it becomes
+  // active again
+  if (event == CustomEvent::Identifier::CalculateNumberOfBars &&
+      tab_elem_.active() != View::Visualizer) {
+    return visualizer_->OnCustomEvent(event);
   }
 
   return tab_elem_.active_item()->OnCustomEvent(event);
@@ -174,11 +192,7 @@ bool MainContent::OnMouseEvent(ftxui::Event event) {
 
 void MainContent::CreateButtons() {
   const auto button_style = Button::Style{
-      .focused =
-          Button::Style::State{
-              .foreground = ftxui::Color::GrayLight,
-              .background = ftxui::Color::GrayDark,
-          },
+      .colors = [] { return GetTheme().block.window_button; },
       .delimiters = Button::Delimiters{"[", "]"},
   };
 

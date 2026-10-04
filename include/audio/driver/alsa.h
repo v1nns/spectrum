@@ -18,7 +18,7 @@ namespace driver {
 /**
  * @brief Provides an interface to use ALSA library for handling audio with hardware
  */
-class Alsa final : public Playback {
+class Alsa final : public audio::Playback {
  public:
   /**
    * @brief Construct a new Alsa object

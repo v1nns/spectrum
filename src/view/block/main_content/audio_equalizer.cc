@@ -2,8 +2,11 @@
 
 #include <functional>
 
+#include "ftxui/dom/elements.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -22,6 +25,9 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
   focus_ctl_.Append(picker_);
   focus_ctl_.Append(bars_.begin(), bars_.end());
 
+  // When navigating into this tab, start focus on the first frequency bar (instead of the picker)
+  focus_ctl_.SetInitialFocus(bars_.front());
+
   // Set zeroed custom EQ as last EQ applied
   last_applied_.Update(preset_name_, current_preset());
 
@@ -32,24 +38,28 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 /* ********************************************************************************************** */
 
 ftxui::Element AudioEqualizer::Render() {
-  ftxui::Elements elements;
+  // EQ picker + frequency bars (compact version uses shorter labels, to fit in narrow terminals)
+  auto build = [this](bool compact) {
+    ftxui::Elements elements;
 
-  // EQ picker + frequency bars
-  // TODO: constexpr these values
-  elements.reserve(3 + 2 * bars_.size());
+    // Picker surrounded by fillers, then each bar followed by a filler
+    elements.reserve(3 + (2 * bars_.size()));
 
-  elements.push_back(ftxui::filler());
-  elements.push_back(picker_.Render());
-  elements.push_back(ftxui::filler());
-
-  // Iterate through all frequency bars
-  for (auto& bar : bars_) {
-    elements.push_back(bar.Render());
     elements.push_back(ftxui::filler());
-  }
+    elements.push_back(picker_.Render());
+    elements.push_back(ftxui::filler());
+
+    // Iterate through all frequency bars
+    for (auto& bar : bars_) {
+      elements.push_back(bar.Draw(compact));
+      elements.push_back(ftxui::filler());
+    }
+
+    return ftxui::hbox(elements);
+  };
 
   return ftxui::vbox({
-      ftxui::hbox(elements) | ftxui::flex_grow,
+      fit_or_fallback(build(false), build(true)) | ftxui::flex_grow,
       ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center,
   });
 }
@@ -88,7 +98,9 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
   if (btn_reset_->OnMouseEvent(event)) return true;
 
   if (focus_ctl_.OnMouseEvent(event)) {
-    // TODO: Send event for setting focus on parent block (AskForFocus)
+    // Set focus on parent block, so keys go to equalizer after clicking on it
+    if (on_focus_) on_focus_();
+
     UpdateButtonState();
     return true;
   }
@@ -104,18 +116,12 @@ bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 
 void AudioEqualizer::CreateButtons() {
   auto style = Button::Style{
-      .normal =
-          Button::Style::State{
-              .foreground = ftxui::Color::White,
-              .border = ftxui::Color::GrayDark,
-          },
-
-      .focused = Button::Style::State{.border = ftxui::Color::SteelBlue3},
+      .colors = [] { return GetTheme().equalizer.button; },
       .width = 15,
   };
 
   btn_apply_ = Button::make_button(
-      std::string("Apply"),
+      "Apply",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -139,10 +145,10 @@ void AudioEqualizer::CreateButtons() {
 
         return true;
       },
-      style, false);
+      style, "A", false);
 
   btn_reset_ = Button::make_button(
-      std::string("Reset"),
+      "Reset",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -183,7 +189,7 @@ void AudioEqualizer::CreateButtons() {
 
         return true;
       },
-      style, false);
+      style, "R", false);
 }
 
 /* ********************************************************************************************** */

@@ -6,6 +6,8 @@
 #ifndef INCLUDE_VIEW_BASE_NOTIFIER_H_
 #define INCLUDE_VIEW_BASE_NOTIFIER_H_
 
+#include <cstdint>
+
 #include "model/application_error.h"
 #include "model/song.h"
 
@@ -43,22 +45,23 @@ class Notifier {
 
   /**
    * @brief Notify UI with new state information from current song
-   * @param state Updated state information
+   * @param curr_info Updated state information
    */
-  virtual void NotifySongState(const model::Song::CurrentInformation& state) = 0;
+  virtual void NotifySongState(const model::Song::CurrentInformation& curr_info) = 0;
 
   /**
    * @brief Send raw audio samples to UI
-   * @param buffer Audio samples
-   * @param size Sample count
+   * @param buffer Audio samples (16-bit, interleaved channels)
+   * @param size Sample count (considering all channels)
    */
-  virtual void SendAudioRaw(int* buffer, int size) = 0;
+  virtual void SendAudioRaw(const int16_t* buffer, int size) = 0;
 
   /**
    * @brief Notify UI with error code from some background operation
    * @param code Application error code
+   * @param detail What the error refers to, like the song file name (optional, may be empty)
    */
-  virtual void NotifyError(error::Code code) = 0;
+  virtual void NotifyError(error::Code code, const std::string& detail) = 0;
 };
 
 }  // namespace interface

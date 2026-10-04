@@ -8,6 +8,7 @@
 #define INCLUDE_VIEW_BASE_EVENT_DISPATCHER_H_
 
 #include <memory>
+#include <string>
 
 #include "model/application_error.h"
 #include "view/base/block.h"
@@ -39,7 +40,12 @@ class EventDispatcher : public std::enable_shared_from_this<EventDispatcher> {
   //! Implemented by derived class
   virtual void SendEvent(const CustomEvent& event) = 0;
   virtual void ProcessEvent(const CustomEvent& event) = 0;
-  virtual void SetApplicationError(error::Code id) = 0;
+  /**
+   * @brief Show error to user
+   * @param id Application error code
+   * @param detail What the error refers to, like a file or directory (optional, may be empty)
+   */
+  virtual void SetApplicationError(error::Code id, const std::string& detail) = 0;
 };
 
 }  // namespace interface

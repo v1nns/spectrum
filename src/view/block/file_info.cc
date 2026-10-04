@@ -3,8 +3,12 @@
 #include <string>
 
 #include "ftxui/component/event.hpp"
+#include "ftxui/dom/elements.hpp"
+#include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -27,21 +31,22 @@ ftxui::Element FileInfo::Render() {
   ftxui::Elements lines;
   lines.reserve(audio_info_.size());
 
-  // Choose a different color for when there is no current song
-  ftxui::Color::Palette256 color =
-      is_song_playing_ ? ftxui::Color::LightSteelBlue1 : ftxui::Color::LightSteelBlue3;
+  // Choose a different color for when there is no current song (paused song still has its info)
+  const auto& theme = GetTheme().file_info;
+  const ftxui::Color& color = has_song_info_ ? theme.value : theme.value_empty;
 
   for (const auto& [field, value] : audio_info_) {
-    // Calculate maximum width for text value
-    int width = kMaxColumns - field.size();
+    // Calculate maximum width for text value (keeping a gap between field and value)
+    const int width = kMaxColumns - static_cast<int>(field.size()) - kFieldGap;
 
     // Create element
     ftxui::Element item = ftxui::hbox({
-        ftxui::text(field) | ftxui::bold | ftxui::color(ftxui::Color::SteelBlue1),
+        ftxui::text(field) | ftxui::bold | ftxui::color(theme.field),
         ftxui::filler(),
-        // TODO: maybe use TextAnimation element for Field filename
-        ftxui::text(value) | ftxui::align_right | ftxui::size(WIDTH, LESS_THAN, width) |
-            ftxui::color(ftxui::Color(color)),
+        // Long values are cut with an ellipsis (instead of animated), as the full filename is
+        // already animated in files list when selected
+        ftxui::text(ellipsize(value, width)) | ftxui::align_right |
+            ftxui::size(WIDTH, LESS_THAN, width) | ftxui::color(color),
     });
 
     lines.push_back(item);
@@ -79,14 +84,17 @@ bool FileInfo::OnCustomEvent(const CustomEvent& event) {
 
 void FileInfo::ParseAudioInfo(const model::Song& audio) {
   audio_info_.clear();
-  is_song_playing_ = !audio.IsEmpty();
+  has_song_info_ = !audio.IsEmpty();
 
   // Use istringstream to split string into lines and parse it as <Field, Value>
   std::istringstream input{model::to_string(audio)};
 
   for (std::string line; std::getline(input, line);) {
     size_t pos = line.find_first_of(':');
-    std::string field = line.substr(0, pos), value = line.substr(pos + 1);
+    const std::string field = line.substr(0, pos);
+
+    // Remove spaces around value (e.g. after ':'), so they do not take any column when rendered
+    const std::string value = util::trim(line.substr(pos + 1));
 
     audio_info_.push_back({field, value});
   }

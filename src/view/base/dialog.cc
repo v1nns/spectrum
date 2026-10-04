@@ -1,22 +1,22 @@
 #include "view/base/dialog.h"
 
 #include "ftxui/dom/elements.hpp"
+#include "ftxui/screen/terminal.hpp"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
-Dialog::Dialog(const Size& size, const Style& style) : size_{size}, style_{style} {
+Dialog::Dialog(const std::shared_ptr<EventDispatcher>& dispatcher, const Size& size,
+               const Style& style)
+    : dispatcher_{dispatcher}, size_{size}, style_{style} {
   if (size.min_line) size_.min_line += kBorderSize;
   if (size.min_column) size_.min_column += kBorderSize;
 }
 
 /* ********************************************************************************************** */
 
-ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
-  using ftxui::EQUAL;
-  using ftxui::HEIGHT;
-  using ftxui::WIDTH;
-
+ftxui::Dimensions Dialog::CalculateSize(const ftxui::Dimensions& curr_size) const {
   // Calculate both width and height
   int width = curr_size.dimx * size_.width;
   int height = curr_size.dimy * size_.height;
@@ -29,15 +29,31 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
   if (size_.max_column && width > size_.max_column) width = size_.max_column;
   if (size_.max_line && height > size_.max_line) height = size_.max_line;
 
+  return ftxui::Dimensions{.dimx = width, .dimy = height};
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
+
+  const auto [width, height] = CalculateSize(curr_size);
+
   // Create border decorator style
-  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, ftxui::Color::Grey85);
+  const auto& theme = GetTheme().dialog;
+  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, theme.border);
 
   // Create dialog decorator style
   auto decorator = ftxui::size(HEIGHT, EQUAL, height) | ftxui::size(WIDTH, EQUAL, width) |
-                   ftxui::bgcolor(style_.background) | ftxui::color(style_.foreground) |
-                   ftxui::clear_under | ftxui::center;
+                   ftxui::bgcolor(theme.*style_.background) |
+                   ftxui::color(theme.*style_.foreground);
 
-  return RenderImpl(curr_size) | border_decorator | decorator;
+  // Keep an empty margin around dialog border, otherwise it would be merged with the borders
+  // from blocks behind it (as both are drawn using box characters)
+  return RenderImpl(curr_size) | border_decorator | decorator | ftxui::borderEmpty |
+         ftxui::bgcolor(GetTheme().screen.background) | ftxui::clear_under | ftxui::center;
 }
 
 /* ********************************************************************************************** */
@@ -58,5 +74,9 @@ bool Dialog::OnEvent(const ftxui::Event& event) {
 
   return false;
 }
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<EventDispatcher> Dialog::GetDispatcher() const { return dispatcher_.lock(); }
 
 }  // namespace interface

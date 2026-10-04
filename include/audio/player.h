@@ -13,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -22,9 +23,11 @@
 #include "model/application_error.h"
 #include "model/audio_filter.h"
 #include "model/playlist.h"
+#include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
 #include "util/logger.h"
+#include "web/base/stream_fetcher.h"
 
 //! Forward declaration
 namespace interface {
@@ -56,6 +59,11 @@ class AudioControl {
   virtual void SeekForwardPosition(int value) = 0;
   virtual void SeekBackwardPosition(int value) = 0;
   virtual void ApplyAudioFilters(const model::EqualizerPreset& filters) = 0;
+  virtual void DequeueNextSong() = 0;
+  virtual void SkipToNext() = 0;
+  virtual void SkipToPrevious() = 0;
+  virtual void SetRepeatMode(model::RepeatMode mode) = 0;
+  virtual void SetShuffle(bool enabled) = 0;
   virtual void Exit() = 0;
 };
 
@@ -63,14 +71,19 @@ class AudioControl {
  * @brief Responsible to control media and play it on hardware
  */
 class Player : public AudioControl {
+  static constexpr int kNumberChannels = 2;  //!< Decoded audio is always stereo
+  static constexpr int kMaxFailedSongs = 3;  //!< Songs from playlist that may fail in a row
+
  private:
   /**
    * @brief Construct a new Player object
    * @param playback Pointer to playback interface
    * @param decoder Pointer to decoder interface
+   * @param fetcher Pointer to fetcher interface
    */
-  explicit Player(std::unique_ptr<driver::Playback>&& playback,
-                  std::unique_ptr<driver::Decoder>&& decoder);
+  explicit Player(std::unique_ptr<audio::Playback>&& playback,
+                  std::unique_ptr<audio::Decoder>&& decoder,
+                  std::unique_ptr<web::StreamFetcher>&& fetcher);
 
  public:
   /**
@@ -78,11 +91,13 @@ class Player : public AudioControl {
    * @param verbose Enable verbose logging messages
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
+   * @param fetcher Pass streaming fetcher to be used within Audio thread (optional)
    * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(bool verbose, driver::Playback* playback = nullptr,
-                                        driver::Decoder* decoder = nullptr,
+  static std::shared_ptr<Player> Create(bool verbose, audio::Playback* playback = nullptr,
+                                        audio::Decoder* decoder = nullptr,
+                                        web::StreamFetcher* fetcher = nullptr,
                                         bool asynchronous = true);
 
   /**
@@ -114,13 +129,15 @@ class Player : public AudioControl {
 
   /**
    * @brief Handle an audio command from internal queue
-   * @param buffer Audio buffer
+   * @param buffer Audio buffer (to playback)
+   * @param analysis Audio buffer to analysis (same samples, but not affected by volume)
    * @param size Buffer size
    * @param new_position Latest position in the song (in seconds)
    * @param last_position Last position to control when current position has changed
    * @return True if player should keep playing audio, False if not
    */
-  bool HandleCommand(void* buffer, int size, int64_t& new_position, int& last_position);
+  bool HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
+                     int& last_position);
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream
@@ -128,9 +145,31 @@ class Player : public AudioControl {
   void AudioHandler();
 
   /**
-   * @brief After a song finishes, check if got a next one to play from playlist
+   * @brief After a song finishes, play next song from playlist (when available, based on repeat
+   * mode)
    */
-  void CheckForNextSongFromPlaylist();
+  void DequeueNextSongFromPlaylist();
+
+  /**
+   * @brief Update order of songs from playlist, in case that shuffle was enabled/disabled since
+   * last time (songs already played keep their order, only the next ones are shuffled)
+   */
+  void ApplyShuffle();
+
+  /**
+   * @brief Select song to play based on the given command, updating playlist and its position
+   * @param command Play (song or playlist), skip (to next or previous song from playlist), or play
+   * next song after current one has finished
+   * @return Song to play (or nothing, e.g. when playlist has no next song)
+   */
+  std::optional<model::Song> SelectSong(const Command& command);
+
+  /**
+   * @brief Check if there is a song to skip to (only songs from playlist can be skipped)
+   * @param command Skip command (to next or previous song)
+   * @return True if command can be executed, False if not
+   */
+  bool CanSkip(const Command& command);
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -196,6 +235,33 @@ class Player : public AudioControl {
   void ApplyAudioFilters(const model::EqualizerPreset& filters) override;
 
   /**
+   * @brief Inform audio loop to dequeue next song from playlist (when available)
+   */
+  void DequeueNextSong() override;
+
+  /**
+   * @brief Inform audio loop to play next song from playlist (ignored on last song)
+   */
+  void SkipToNext() override;
+
+  /**
+   * @brief Inform audio loop to play previous song from playlist (on first song, play it again)
+   */
+  void SkipToPrevious() override;
+
+  /**
+   * @brief Set repeat mode for songs from queue (applied when current song finishes or is skipped)
+   * @param mode Repeat mode
+   */
+  void SetRepeatMode(model::RepeatMode mode) override;
+
+  /**
+   * @brief Enable/disable shuffle for next songs from queue
+   * @param enabled Shuffle state
+   */
+  void SetShuffle(bool enabled) override;
+
+  /**
    * @brief Exit from Audio loop
    */
   void Exit() final;
@@ -259,7 +325,9 @@ class Player : public AudioControl {
      * @brief Reset media controls
      */
     void Reset() {
-      // Copy queue and clear it
+      std::unique_lock lock(mutex);
+
+      // Sway with empty queue to clear it
       std::deque<Command> dummy;
       dummy.swap(queue);
 
@@ -282,6 +350,11 @@ class Player : public AudioControl {
 
       // Clear queue in case of exit request
       if (cmd == Command::Identifier::Exit) {
+        if (queue.size() == 1 && queue.front() == cmd) {
+          // Don't do anything else
+          return;
+        }
+
         std::deque<Command>().swap(queue);
         state = State::Exit;
       }
@@ -315,7 +388,7 @@ class Player : public AudioControl {
      */
     template <typename... Args>
     bool WaitFor(Args&&... cmds) {
-      std::vector<Command> expected = {cmds...};
+      std::vector<Command::Identifier> expected = {cmds...};
       LOG("Waiting for commands: ", expected);
 
       std::unique_lock lock(mutex);
@@ -335,7 +408,7 @@ class Player : public AudioControl {
           }
 
           // Check if it matches with some command from list
-          if (std::find(expected.begin(), expected.end(), current) != expected.end()) {
+          if (std::find(expected.begin(), expected.end(), current.id) != expected.end()) {
             // Found expected command, now unblock thread
             return true;
           }
@@ -354,19 +427,38 @@ class Player : public AudioControl {
 
   /* ******************************************************************************************** */
   //! Variables
-  std::unique_ptr<driver::Playback> playback_;  //!< Handle playback stream
-  std::unique_ptr<driver::Decoder> decoder_;    //!< Open file as input stream and parse samples
+  std::unique_ptr<audio::Playback> playback_;    //!< Handle playback stream
+  std::unique_ptr<audio::Decoder> decoder_;      //!< Open file as input stream and parse samples
+  std::unique_ptr<web::StreamFetcher> fetcher_;  //!< Fetch streaming information from URLs
 
   std::thread audio_loop_;  //!< Execute audio-loop function as a thread
 
   MediaControlSynced media_control_;  // Controls the media (play, pause/resume and stop)
 
-  std::unique_ptr<model::Song> curr_song_;        //!< Current song playing
-  std::optional<model::Playlist> curr_playlist_;  //!< Queue of songs (origined from playlist)
+  std::unique_ptr<model::Song> curr_song_;  //!< Current song playing
+  //! Queue of songs from playlist, order to play them (indexes from playlist) and position of
+  //! current song in this order (only used by audio thread)
+  std::optional<model::Playlist> curr_playlist_;
+  std::vector<std::size_t> order_;
+  std::size_t curr_position_ = 0;
+  bool shuffled_ = false;  //!< Shuffle state when order was created
+
+  std::atomic<model::RepeatMode> repeat_ = model::RepeatMode::Off;  //!< Repeat mode for queue
+  std::atomic<bool> shuffle_ = false;                   //!< Shuffle next songs from queue
+  std::mt19937 random_engine_{std::random_device{}()};  //!< Used to shuffle songs
+
+  //! Skip command to handle after current song stops (as media control is reset when song stops)
+  std::optional<Command> pending_skip_;
+
+  std::atomic<int> failed_songs_ = 0;  //!< Songs from playlist that failed in a row
 
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
   int period_size_;  //!< Period size from Playback driver
+
+  error::Code playback_error_ = error::kSuccess;  //!< Error while writing samples to playback
+
+  bool finished_;  //!< Flag to control when player should not process any new requisitions
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

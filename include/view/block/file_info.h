@@ -13,6 +13,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "model/song.h"
 #include "view/base/block.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -20,8 +21,9 @@ namespace interface {
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
 class FileInfo : public Block {
-  static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
-  static constexpr int kMaxRows = 15;     //!< Maximum rows for Component
+  static constexpr int kMaxColumns = kLeftColumnWidth;  //!< Maximum columns for Component
+  static constexpr int kMaxRows = 15;                   //!< Maximum rows for Component
+  static constexpr int kFieldGap = 1;  //!< Minimum space between field name and its value
 
   static constexpr int kMaxSongLines = 8;  //!< Always remember to check song::to_string
 
@@ -72,7 +74,7 @@ class FileInfo : public Block {
   using Entry = std::pair<std::string, std::string>;  //!< A pair of <Field,Value>
   std::vector<Entry> audio_info_;                     //!< Parsed audio information to render on UI
 
-  bool is_song_playing_ = false;  //!< Flag to control when a song is playing
+  bool has_song_info_ = false;  //!< Flag to indicate if displaying information from a song
 };
 
 }  // namespace interface

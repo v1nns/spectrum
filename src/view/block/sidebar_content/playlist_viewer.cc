@@ -8,30 +8,13 @@
 #include "model/question_data.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
 Button::Style PlaylistViewer::kButtonStyle = Button::Style{
-    .normal =
-        Button::Style::State{
-            .foreground = ftxui::Color::Grey11,
-            .background = ftxui::Color::SteelBlue1,
-        },
-    .focused =
-        Button::Style::State{
-            .foreground = ftxui::Color::DeepSkyBlue4Ter,
-            .background = ftxui::Color::LightSkyBlue1,
-        },
-    .pressed =
-        Button::Style::State{
-            .foreground = ftxui::Color::SkyBlue1,
-            .background = ftxui::Color::Blue1,
-        },
-    .disabled =
-        Button::Style::State{
-            .foreground = ftxui::Color::Grey35,
-            .background = ftxui::Color::SteelBlue,
-        },
+    .colors = [] { return GetTheme().sidebar.button; },
+    .delimiters = Button::Delimiters(" ", " "),
 };
 
 /* ********************************************************************************************** */
@@ -92,7 +75,7 @@ ftxui::Element PlaylistViewer::Render() {
   ftxui::Elements entries;
   entries.reserve(kNumberOfElements);
 
-  entries.push_back(menu_->Render());
+  entries.push_back(menu_->Render() | ftxui::yflex_grow);
 
   // Append all buttons at the bottom of the block
   entries.push_back(ftxui::hbox({
@@ -105,7 +88,7 @@ ftxui::Element PlaylistViewer::Render() {
       ftxui::filler(),
   }));
 
-  return ftxui::vbox(entries) | ftxui::reflect(box_) | ftxui::frame | ftxui::flex;
+  return ftxui::vbox(entries) | ftxui::reflect(box_) | ftxui::flex;
 }
 
 /* ********************************************************************************************** */
@@ -150,61 +133,41 @@ bool PlaylistViewer::OnMouseEvent(ftxui::Event& event) {
 
 bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
-    LOG("Received new playlist song information from player");
+    LOG("Received new playlist's song information from player");
 
     // Set current song
     auto current_song = event.GetContent<model::Song>();
-    menu_->SetEntryHighlighted(current_song);
+    bool found = menu_->SetEntryHighlighted(current_song);
+
+    if (found) {
+      // Get updated list and save to file
+      model::Playlists playlists = menu_->actual().GetEntries();
+      bool result = file_handler_->SavePlaylists(playlists);
+    }
   }
 
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     menu_->ResetHighlight();
-
-    // TODO: force to clear highlight always, even when tab_item is not active
   }
 
   // Receive modified playlist from dialog
   if (event == CustomEvent::Identifier::SavePlaylistsToFile) {
     LOG("Save playlists to JSON");
 
-    auto modified_playlist = event.GetContent<model::Playlist>();
-    auto playlists_wrapper = menu_->GetEntries();
-
-    model::Playlists playlists;
-    playlists.reserve(playlists_wrapper.size());
-
-    bool found = false;
-
-    for (auto& playlist_wrapper : playlists_wrapper) {
-      // If modified playlist is based on an existing one, just replace it
-      if (playlist_wrapper.playlist.index == modified_playlist.index) {
-        LOG("Changing playlist old=", playlist_wrapper.playlist, " to new=", modified_playlist);
-        playlist_wrapper.playlist = modified_playlist;
-        found = true;
-      }
-
-      playlists.emplace_back(playlist_wrapper.playlist);
-    }
-
-    // Otherwise, create a new entry for it
-    if (!found) {
-      LOG("Could not find a matching playlist, so create a new one");
-      modified_playlist.index = playlists.size();
-      playlists.emplace_back(modified_playlist);
-    }
-
-    bool result = file_handler_->SavePlaylists(playlists);
-    LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
-
-    // TODO: think if should create new method to edit existing entry
     // Update UI state
-    menu_->SetEntries(playlists);
+    auto modified_playlist = event.GetContent<model::Playlist>();
+    menu_->UpdateOrEmplace(modified_playlist);
 
     // Make sure to enable them
     btn_modify_->Enable();
     btn_delete_->Enable();
 
+    // Get updated list and save to file
+    model::Playlists playlists = menu_->actual().GetEntries();
+    bool result = file_handler_->SavePlaylists(playlists);
+
+    LOG("Operation to save playlists in a JSON file, result=", result ? "success" : "error");
     return true;
   }
 
@@ -214,6 +177,7 @@ bool PlaylistViewer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 void PlaylistViewer::OnFocus() {
+  // TODO: evaluate this parse right here...
   // Attempt to parse playlists file
   if (model::Playlists parsed; file_handler_->ParsePlaylists(parsed) && !parsed.empty()) {
     menu_->SetEntries(parsed);
@@ -230,9 +194,22 @@ void PlaylistViewer::OnFocus() {
 
 /* ********************************************************************************************** */
 
+std::vector<std::string> PlaylistViewer::GetPlaylistNames(std::optional<int> skip_index) const {
+  std::vector<std::string> names;
+
+  for (const auto& playlist : menu_->actual().GetEntries()) {
+    if (skip_index.has_value() && playlist.index == *skip_index) continue;
+    names.push_back(playlist.name);
+  }
+
+  return names;
+}
+
+/* ********************************************************************************************** */
+
 void PlaylistViewer::CreateButtons() {
-  btn_create_ = Button::make_button_minimal(
-      std::string("create"),
+  btn_create_ = Button::make_button(
+      "create",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -245,6 +222,7 @@ void PlaylistViewer::CreateButtons() {
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Create,
             .playlist = model::Playlist{},
+            .other_names = GetPlaylistNames(),
         };
 
         auto event = interface::CustomEvent::ShowPlaylistManager(operation);
@@ -252,10 +230,10 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle);
+      kButtonStyle, "c");
 
-  btn_modify_ = Button::make_button_minimal(
-      std::string("modify"),
+  btn_modify_ = Button::make_button(
+      "modify",
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -270,6 +248,7 @@ void PlaylistViewer::CreateButtons() {
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Modify,
             .playlist = *entry,
+            .other_names = GetPlaylistNames(entry->index),
         };
 
         auto event = interface::CustomEvent::ShowPlaylistManager(operation);
@@ -277,10 +256,10 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle);
+      kButtonStyle, "o");
 
-  btn_delete_ = Button::make_button_minimal(
-      std::string("delete"),
+  btn_delete_ = Button::make_button(
+      "delete",
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -302,7 +281,7 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle);
+      kButtonStyle, "d");
 
   // Start with them disabled, until we parse some playlist from cache file
   btn_modify_->Disable();
@@ -318,15 +297,7 @@ void PlaylistViewer::OnYes() {
 
   LOG("Deleting playlist=", *entry);
   menu_->Erase(*entry);
-
-  const auto& playlists_wrapper = menu_->GetEntries();
-
-  model::Playlists playlists;
-  playlists.reserve(playlists_wrapper.size());
-
-  for (const auto& playlist_wrapper : playlists_wrapper) {
-    playlists.emplace_back(playlist_wrapper.playlist);
-  }
+  model::Playlists playlists = menu_->actual().GetEntries();
 
   bool result = file_handler_->SavePlaylists(playlists);
   LOG("Operation to save playlists in JSON file, result=", result ? "success" : "error");

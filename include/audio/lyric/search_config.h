@@ -11,7 +11,8 @@
 #include <string>
 #include <string_view>
 
-#include "audio/lyric/base/html_parser.h"
+#include "model/song.h"
+#include "web/base/html_parser.h"
 
 namespace lyric {
 
@@ -59,7 +60,21 @@ class SearchConfig {
    * @param raw HTML content
    * @return Song lyrics filtered
    */
-  virtual SongLyric FormatLyrics(const SongLyric &raw) const = 0;
+  virtual model::SongLyric FormatLyrics(const model::SongLyric &raw) const = 0;
+
+  // -----------------------------  This may be overridden by derived class ------------------------
+
+  /**
+   * @brief Extract raw song lyrics from content fetched from search URL (by default, web scrap it
+   * as HTML using XPath)
+   * @param content Content fetched from search URL
+   * @param parser HTML parser
+   * @return Raw song lyrics (empty if not found)
+   */
+  virtual model::SongLyric ExtractLyrics(const std::string &content,
+                                         web::HtmlParser &parser) const {
+    return parser.Parse(content, xpath());
+  }
 
   /**
    * @brief Create a configuration containing all available search engines to use it
@@ -71,10 +86,10 @@ class SearchConfig {
 /* ********************************************************************************************** */
 
 /**
- * @brief Search configurations to web scrap from Google
+ * @brief Search configurations to get lyrics from LRCLIB (JSON API, so there is no web scraping)
  */
-class Google : public SearchConfig {
-  static constexpr std::string_view kEngineName = "Google";  //!< Search engine name
+class LRCLIB : public SearchConfig {
+  static constexpr std::string_view kEngineName = "LRCLIB";  //!< Search engine name
 
  public:
   //! Return search engine name
@@ -83,8 +98,8 @@ class Google : public SearchConfig {
   //! Return URL for search, it is used to fetch song lyric
   std::string url() const override { return url_; }
 
-  //! Return XPath to web scrap content from HTTP GET
-  std::string xpath() const override { return xpath_; }
+  //! Return XPath to web scrap content from HTTP GET (not used, as content is not HTML)
+  std::string xpath() const override { return std::string{}; }
 
   /**
    * @brief Format search URL with artist name and song title
@@ -94,18 +109,23 @@ class Google : public SearchConfig {
   std::string FormatSearchUrl(const std::string &artist, const std::string &name) const override;
 
   /**
-   * @brief Filter webscraping content to an expected song lyrics format
-   * @param raw HTML content
+   * @brief Split raw song lyrics into paragraphs
+   * @param raw Raw song lyrics
    * @return Song lyrics filtered
    */
-  SongLyric FormatLyrics(const SongLyric &raw) const override;
+  model::SongLyric FormatLyrics(const model::SongLyric &raw) const override;
+
+  /**
+   * @brief Extract raw song lyrics from JSON content
+   * @param content Content fetched from search URL
+   * @param parser HTML parser (not used)
+   * @return Raw song lyrics (empty if not found)
+   */
+  model::SongLyric ExtractLyrics(const std::string &content,
+                                 web::HtmlParser &parser) const override;
 
  private:
-  // Web scrap lyrics from google based on these DOM components:
-  //   div[class="BNeawe iBp4i AP7Wnd"] (not used)
-  //   div[class="BNeawe tAd8D AP7Wnd"] (used)
-  const std::string url_ = "https://www.google.com/search?q=lyric+";
-  const std::string xpath_ = "(//div[@class=\"BNeawe tAd8D AP7Wnd\"])[last()-1]";
+  const std::string url_ = "https://lrclib.net/api/get";
 };
 
 /* ********************************************************************************************** */
@@ -127,7 +147,8 @@ class AZLyrics : public SearchConfig {
   std::string xpath() const override { return xpath_; }
 
   /**
-   * @brief Format search URL with artist name and song title
+   * @brief Format search URL with artist name and song title (website uses only lowercase letters
+   * and digits, without accents and without the article in the beginning of artist name)
    * @param artist Artist name
    * @param title Song title
    */
@@ -138,7 +159,7 @@ class AZLyrics : public SearchConfig {
    * @param raw HTML content
    * @return Song lyrics filtered
    */
-  SongLyric FormatLyrics(const SongLyric &raw) const override;
+  model::SongLyric FormatLyrics(const model::SongLyric &raw) const override;
 
  private:
   // Web scrap lyrics from azlyrics based on these DOM component:

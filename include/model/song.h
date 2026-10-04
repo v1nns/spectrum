@@ -11,8 +11,14 @@
 #include <optional>
 #include <ostream>
 #include <string>
+#include <vector>
+
+#include "model/stream_info.h"
 
 namespace model {
+
+//! SongLyric declaration
+using SongLyric = std::vector<std::string>;
 
 /**
  * @brief Detailed audio metadata information from song
@@ -30,6 +36,8 @@ struct Song {
   uint32_t bit_rate;      //!< Bits per second
   uint32_t bit_depth;     //!< Number of bits per sample
   uint32_t duration;      //!< Audio duration (in seconds)
+
+  std::optional<StreamInfo> stream_info;  //!< Detailed streaming information
 
   //! Audio state
   enum class MediaState {
@@ -59,6 +67,12 @@ struct Song {
 
   //! Check if song is empty
   bool IsEmpty() const;
+
+  //! Get song title
+  std::string GetTitle() const;
+
+  //! Check if songs are equal, based on filepath or streaming URL
+  bool Compare(const Song& other) const;
 };
 
 /**

@@ -20,7 +20,7 @@ jobs:
       - name: Install external dependencies
         run: sudo apt-get install -y pkg-config doxygen libgtest-dev
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Configure CMake
         run: cmake -S .
@@ -44,7 +44,7 @@ jobs:
           libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev libcurl4-openssl-dev
           libxml++2.6-dev
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Configure CMake
         run: cmake -S .
@@ -72,7 +72,7 @@ jobs:
           libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev libcurl4-openssl-dev
           libxml++2.6-dev
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Configure CMake
         run: cmake -S .
@@ -92,75 +92,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           gcov: true
-
-  sonar:
-    runs-on: ubuntu-latest
-    env:
-      # Directory where build-wrapper output will be placed
-      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory
-    steps:
-      - name: Install external dependencies
-        # Install ALSA, FFmpeg, FFTW3 and GTest
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build alsa-base alsa-utils pkg-config \
-            doxygen libasound2-dev libfftw3-dev libgtest-dev libavcodec-dev libavformat-dev \
-            libswresample-dev libavfilter-dev libcurl4-openssl-dev libxml++2.6-dev
-
-      - name: Set up GCC
-        uses: egor-tensin/setup-gcc@v1
-        with:
-          version: latest
-          platform: x64
-
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
-
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'oracle'
-          java-version: '17'
-
-      - name: Install sonar-scanner and build-wrapper
-        uses: SonarSource/sonarcloud-github-c-cpp@v2
-        with:
-          cache-binaries: false
-
-      - name: Configure
-        run: cmake -G Ninja -D CMAKE_BUILD_TYPE=RelWithDebInfo
-          -DENABLE_TESTS=ON -DENABLE_COVERAGE=ON
-          -S . -B ${{github.workspace}}/build
-
-      - name: Build
-        run: build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} cmake --build ${{github.workspace}}/build
-
-      - name: Test
-        working-directory: ${{github.workspace}}/build
-        continue-on-error: true
-        run: ctest --output-on-failure --schedule-random -j 2 --test-dir ./test
-
-      - name: Generate coverage info
-        working-directory: ${{github.workspace}}/build
-        continue-on-error: true
-        run: |
-          mkdir gcov-reports
-          pushd gcov-reports
-          for f in `find ../test/CMakeFiles/test.dir -name '*.o'`; do
-            echo "Processing $f file..."
-            gcov -o ${f} x
-          done
-          ls | wc -l
-          popd
-
-      - name: Run sonar-scanner
-        working-directory: ${{github.workspace}}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          export use_embedded_jre=false
-          sonar-scanner --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
 
   cppcheck:
     runs-on: ubuntu-latest
@@ -171,7 +104,7 @@ jobs:
       - name: Install cppcheck
         run: sudo apt-get install -y cppcheck
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Run cppcheck
         run: cppcheck --max-ctu-depth=3 --enable=all --inline-suppr

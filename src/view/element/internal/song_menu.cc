@@ -1,11 +1,25 @@
 #include "view/element/internal/song_menu.h"
 
+#include "util/url.h"
+
 namespace interface {
 namespace internal {
 
 SongMenu::SongMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const TextAnimation::Callback& force_refresh, const Callback& on_click)
     : BaseMenu(dispatcher, force_refresh), on_click_{on_click} {}
+
+/* ********************************************************************************************** */
+
+void SongMenu::UpdateStyleImpl() {
+  const auto& theme = GetTheme();
+
+  style_ = Style{
+      .prefix = ftxui::color(theme.menu.prefix),
+      .tag = ftxui::color(theme.dialog.menu_tag) | ftxui::bold,
+      .entry = Colored(theme.dialog.menu_song),
+  };
+}
 
 /* ********************************************************************************************** */
 
@@ -42,19 +56,28 @@ ftxui::Element SongMenu::RenderImpl() {
 
     // In case of entry text too long, animation thread will be running, so we gotta take the
     // text content from there
-    auto text =
-        ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                        : entry.filepath.filename().string());
+    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                                : GetEntryText(entry));
+
+    // Tag songs played from streaming
+    auto tag = entry.stream_info.has_value() ? ftxui::text(std::string(kStreamTag) + " ")
+                                             : ftxui::emptyElement();
 
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,
+                               tag | style_.tag,
                                text | style | ftxui::xflex,
                            }) |
                            max_size | focus_management | ftxui::reflect(boxes[i]));
   }
 
+  // Let user know that search did not match anything
+  if (IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderNoMatches());
+  }
+
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::frame | ftxui::flex,
+      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
   };
 
   // Append search box, if enabled
@@ -88,7 +111,18 @@ int SongMenu::GetSizeImpl() const {
 
 std::string SongMenu::GetActiveEntryAsTextImpl() const {
   auto active = GetActiveEntryImpl();
-  return active.has_value() ? active->filepath.filename().string() : "";
+  return active.has_value() ? GetEntryText(*active) : "";
+}
+
+/* ********************************************************************************************** */
+
+std::string SongMenu::GetEntryText(const model::Song& entry) {
+  // While there is no title for streaming, show a shorter version of URL
+  if (entry.stream_info.has_value() && entry.title.empty()) {
+    return util::ShortenYoutubeUrl(entry.stream_info->base_url);
+  }
+
+  return entry.GetTitle();
 }
 
 /* ********************************************************************************************** */
@@ -115,7 +149,7 @@ void SongMenu::FilterEntriesBy(const std::string& text) {
 
   // Filter entries
   for (const auto& entry : entries_) {
-    if (util::contains(entry.filepath.filename().string(), text)) {
+    if (util::contains(entry.GetTitle(), text)) {
       filtered_entries_->push_back(entry);
     }
   }
@@ -126,6 +160,27 @@ void SongMenu::FilterEntriesBy(const std::string& text) {
 void SongMenu::SetEntriesImpl(const std::deque<model::Song>& entries) {
   LOG("Set a new list of entries with size=", entries.size());
   entries_ = entries;
+}
+
+/* ********************************************************************************************** */
+
+void SongMenu::EmplaceImpl(const model::Song& entry) {
+  LOG("Emplace a new entry to list");
+  entries_.emplace_back(entry);
+}
+
+/* ********************************************************************************************** */
+
+void SongMenu::EraseImpl(const model::Song& entry) {
+  LOG("Attempt to erase an entry with value=", entry.GetTitle());
+  auto it = std::find_if(entries_.begin(), entries_.end(), [&entry](const model::Song& s) {
+    return s.index == entry.index && s.Compare(entry);
+  });
+
+  if (it != entries_.end()) {
+    LOG("Found matching entry, erasing it, entry=", *it);
+    entries_.erase(it);
+  }
 }
 
 /* ********************************************************************************************** */

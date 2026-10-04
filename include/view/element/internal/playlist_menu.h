@@ -13,6 +13,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "model/playlist.h"
 #include "view/element/internal/base_menu.h"
+#include "view/element/style.h"
 #include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
@@ -51,6 +52,9 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   //! Possible states for playlist entry collapse
   enum class CollapseState { Toggle, ForceOpen, ForceClose };
 
+  //! Define a custom value for maximum number of columns used as icon
+  static constexpr int GetMaxColumnsForIconImpl() { return 4; }
+
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
   using Callback = Callback<model::Playlist>;
@@ -68,6 +72,9 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
    * @brief Destroy Menu object
    */
   ~PlaylistMenu() override = default;
+
+  //! Getter for entries without internal state
+  model::Playlists GetEntries() const;
 
   /* ******************************************************************************************** */
   //! Mandatory API implementation
@@ -102,27 +109,18 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   }
 
   //! Emplace a new entry
-  void EmplaceImpl(const model::Playlist& entry) {
-    LOG("Emplace a new entry to list");
-    auto index = (int)entries_.size();
-    auto tmp = model::Playlist{.index = index, .name = entry.name, .songs = entry.songs};
-    entries_.emplace_back(InternalPlaylist{.collapsed = false, .playlist = tmp});
-  }
+  void EmplaceImpl(const model::Playlist& entry);
+
+  //! Update an existent entry or emplace as new one when can't find it
+  void UpdateOrEmplaceImpl(const model::Playlist& entry);
 
   //! Erase an existing entry
-  void EraseImpl(const model::Playlist& entry) {
-    LOG("Attempt to erase an entry with value=", entry);
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [&entry](const InternalPlaylist& p) { return p.playlist == entry; });
+  void EraseImpl(const model::Playlist& entry);
 
-    if (it != entries_.end()) {
-      LOG("Found matching entry, erasing it, entry=", it->playlist);
-      entries_.erase(it);
-    }
-  }
-
-  //! Set entry to be highlighted
-  void SetEntryHighlightedImpl(const model::Song& entry);
+  //! Set song entry to be highlighted
+  // NOTE: for this class, besides highlighting, the song is also updated
+  // (because we may have fetched streaming information)
+  bool SetEntryHighlightedImpl(const model::Song& entry);
 
   //! Reset highlighted entry
   void ResetHighlightImpl() { highlighted_.reset(); };
@@ -133,10 +131,6 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
 
-  //! Create UI element for a single entry (playlist and song have different styles)
-  ftxui::Element CreateEntry(int index, const std::string& text, bool is_highlighted,
-                             bool is_playlist, const std::string& suffix = "");
-
   //! Toggle collapse state for current selected entry (only available for playlist entries)
   bool ToggleActivePlaylist(const CollapseState& state);
 
@@ -146,13 +140,22 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   //! Getter for active playlist from search list (shuffle if selected is a song)
   std::optional<model::Playlist> GetActivePlaylistFromSearch() const;
 
-  //! Util method to shuffle playlist based on given iterator
+  /* ******************************************************************************************** */
+  //! Utils
+
+  //! Update style for menu entries with colors from current theme (called before rendering)
+  void UpdateStyleImpl();
+
+  //! Create UI element for a single entry (playlist and song have different styles)
+  ftxui::Element CreateEntry(int index, const std::string& text, bool is_highlighted,
+                             bool is_playlist, const std::string& suffix = "");
+
+  //! Shuffle playlist based on given iterator
   model::Playlist ShufflePlaylist(const model::Playlist& playlist,
                                   const std::deque<model::Song>::const_iterator& it) const;
 
   /* ******************************************************************************************** */
   //! Variables
- private:
   InternalPlaylists entries_;  //!< List containing all parsed playlists
 
   //!< List containing only playlists (+ songs) matching the text from search
@@ -163,20 +166,7 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 
-  //!< Style for each element inside this component
-  EntryStyles styles_ = EntryStyles{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .playlist =
-          EntryStyles::State{
-              .normal = Colored(ftxui::Color::SteelBlue1, /*bold=*/true),
-              .playing = Colored(ftxui::Color::PaleGreen1, /*bold=*/true),
-          },
-      .song =
-          EntryStyles::State{
-              .normal = Colored(ftxui::Color::White),
-              .playing = Colored(ftxui::Color::SteelBlue1Bis),
-          },
-  };
+  EntryStyles styles_;  //!< Style for each element inside this component (updated on render)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

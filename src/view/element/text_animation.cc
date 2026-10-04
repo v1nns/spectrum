@@ -1,5 +1,8 @@
 #include "view/element/text_animation.h"
 
+#include "ftxui/screen/string.hpp"
+#include "util/logger.h"
+
 namespace interface {
 
 TextAnimation::~TextAnimation() {
@@ -15,19 +18,31 @@ void TextAnimation::Start(const std::string& entry) {
   enabled = true;
 
   thread = std::thread([this] {
+    util::Logger::SetThreadName("animation");
     using namespace std::chrono_literals;
     std::unique_lock lock(mutex);
 
     // Run the animation every 0.2 seconds while enabled is true
     while (!notifier.wait_for(lock, 0.2s, [this] { return enabled == false; })) {
-      // Here comes the magic
-      text += text.front();
-      text.erase(text.begin());
+      // Here comes the magic: move first character to the end (as a whole glyph, otherwise a
+      // multi-byte character would be split, taking more than one step to move)
+      const auto glyphs = ftxui::Utf8ToGlyphs(text);
+      const size_t first = glyphs.empty() ? 1 : glyphs.front().size();
+
+      text += text.substr(0, first);
+      text.erase(0, first);
 
       // Notify UI
       cb_update();
     }
   });
+}
+
+/* ********************************************************************************************** */
+
+std::string TextAnimation::GetText() const {
+  std::scoped_lock lock(mutex);
+  return text;
 }
 
 /* ********************************************************************************************** */

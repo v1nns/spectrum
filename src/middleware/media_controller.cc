@@ -1,5 +1,10 @@
 #include "middleware/media_controller.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <optional>
+#include <string>
 #include <thread>
 
 #ifndef SPECTRUM_DEBUG
@@ -83,6 +88,7 @@ MediaController::~MediaController() {
 
 void MediaController::Init(int number_bars, bool asynchronous) {
   LOG("Initialize media controller with number_bars=", number_bars, " and async=", asynchronous);
+  finished_ = false;
 
   // Initialize internal structures
   analyzer_->Init(number_bars);
@@ -96,16 +102,25 @@ void MediaController::Init(int number_bars, bool asynchronous) {
 /* ********************************************************************************************** */
 
 void MediaController::Exit() {
-  LOG("Add command to queue: Exit");
+  if (finished_) {
+    // Media controller already exited from loop
+    return;
+  }
+
+  LOG("Add command to queue: \"Exit\"");
   sync_data_.Push(Command::Exit);
 }
 
 /* ********************************************************************************************** */
 
 void MediaController::AnalysisHandler() {
+  util::Logger::SetThreadName("analysis");
   LOG("Start analysis handler thread");
 
   std::vector<double> input, output, previous;
+
+  // Start time of fade-in animation (only set while animation is running)
+  std::optional<std::chrono::steady_clock::time_point> fade_in_start;
 
   while (sync_data_.WaitForCommand()) {
     // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
@@ -124,6 +139,31 @@ void MediaController::AnalysisHandler() {
         // P.S.: do not log this because this command is received too often
         input = sync_data_.GetBuffer(in_size);
         analyzer_->Execute(input.data(), static_cast<int>(input.size()), output.data());
+
+        // Do not normalize output vector, just set 1.0 as maximum value
+        std::for_each(output.begin(), output.end(), [](double& value) {
+          if (value > 1.0) value = 1.0;
+        });
+
+        // When a new song starts, let bars rise smoothly instead of jumping to their height
+        if (fade_in_pending_.exchange(false)) {
+          fade_in_start = std::chrono::steady_clock::now();
+        }
+
+        if (fade_in_start.has_value()) {
+          const double progress =
+              std::chrono::duration<double>(std::chrono::steady_clock::now() - *fade_in_start) /
+              kFadeInDuration;
+
+          if (progress >= 1.0) {
+            fade_in_start.reset();
+          } else {
+            // Smoothstep curve: bars start rising slowly and settle smoothly in their height
+            const double gain = progress * progress * (3.0 - (2.0 * progress));
+            std::for_each(output.begin(), output.end(), [gain](double& value) { value *= gain; });
+          }
+        }
+
         previous = output;
 
         auto dispatcher = GetDispatcher();
@@ -135,33 +175,30 @@ void MediaController::AnalysisHandler() {
 
       } break;
 
-      case Command::RunClearAnimationWithRegain:
-      case Command::RunClearAnimationWithoutRegain: {
+      case Command::RunClearAnimation: {
         LOG("Analysis handler received command to run clear animation on audio visualizer");
         ProcessClearAnimation(previous);
-
-        // Enqueue to run regain animation when song is resumed
-        if (command == Command::RunClearAnimationWithRegain)
-          sync_data_.Push(Command::RunRegainAnimation);
 
       } break;
 
       case Command::RunRegainAnimation: {
         LOG("Analysis handler received command to run regain animation on audio visualizer");
-        ProcessRegainAnimation(output);
-
+        ProcessRegainAnimation(previous);
       } break;
 
       default:
         break;
     }
   }
+
+  LOG("Finish analysis handler thread");
+  finished_ = true;
 }
 
 /* ********************************************************************************************** */
 
 void MediaController::NotifyFileSelection(const std::filesystem::path& filepath) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->Play(filepath);
@@ -169,8 +206,8 @@ void MediaController::NotifyFileSelection(const std::filesystem::path& filepath)
 
 /* ********************************************************************************************** */
 
-void MediaController::PauseOrResume() {
-  auto player = player_ctl_.lock();
+void MediaController::Pause() {
+  auto player = GetPlayer();
   if (!player) return;
 
   player->PauseOrResume();
@@ -178,8 +215,22 @@ void MediaController::PauseOrResume() {
 
 /* ********************************************************************************************** */
 
+void MediaController::Resume(bool run_animation) {
+  if (run_animation) {
+    // Do not toggle player right away, let thread run its animation first
+    sync_data_.Push(Command::RunRegainAnimation);
+  } else {
+    auto player = GetPlayer();
+    if (!player) return;
+
+    player->PauseOrResume();
+  }
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::Stop() {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->Stop();
@@ -188,7 +239,7 @@ void MediaController::Stop() {
 /* ********************************************************************************************** */
 
 void MediaController::SetVolume(model::Volume value) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->SetAudioVolume(value);
@@ -204,7 +255,7 @@ void MediaController::ResizeAnalysisOutput(int value) {
 /* ********************************************************************************************** */
 
 void MediaController::SeekForwardPosition(int value) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->SeekForwardPosition(value);
@@ -213,7 +264,7 @@ void MediaController::SeekForwardPosition(int value) {
 /* ********************************************************************************************** */
 
 void MediaController::SeekBackwardPosition(int value) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->SeekBackwardPosition(value);
@@ -222,7 +273,7 @@ void MediaController::SeekBackwardPosition(int value) {
 /* ********************************************************************************************** */
 
 void MediaController::ApplyAudioFilters(const model::EqualizerPreset& filters) {
-  auto player = player_ctl_.lock();
+  auto player = GetPlayer();
   if (!player) return;
 
   player->ApplyAudioFilters(filters);
@@ -231,8 +282,7 @@ void MediaController::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
-  auto player = player_ctl_.lock();
-  // TODO: add error log for every time that was not possible to acquire a lock for player instance
+  auto player = GetPlayer();
   if (!player) return;
 
   player->Play(playlist);
@@ -240,8 +290,53 @@ void MediaController::NotifyPlaylistSelection(const model::Playlist& playlist) {
 
 /* ********************************************************************************************** */
 
+void MediaController::NotifyErrorDialogClosed() {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->DequeueNextSong();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SkipToNextSong() {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SkipToNext();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SkipToPreviousSong() {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SkipToPrevious();
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SetRepeatMode(model::RepeatMode mode) {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SetRepeatMode(mode);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SetShuffle(bool enabled) {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SetShuffle(enabled);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
-  if (playing) sync_data_.Push(Command::RunClearAnimationWithoutRegain);
+  if (playing) sync_data_.Push(Command::RunClearAnimation);
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
@@ -255,6 +350,9 @@ void MediaController::ClearSongInformation(bool playing) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongInformation(const model::Song& info) {
+  // Bars must rise smoothly when the new song starts
+  fade_in_pending_ = true;
+
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
@@ -266,18 +364,17 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 
 /* ********************************************************************************************** */
 
-void MediaController::NotifySongState(const model::Song::CurrentInformation& state) {
-  // Enqueue animation to thread
-  if (state.state == model::Song::MediaState::Pause) {
-    sync_data_.Push(Command::RunClearAnimationWithRegain);
-  } else if (state.state == model::Song::MediaState::Stop) {
-    sync_data_.Push(Command::RunClearAnimationWithoutRegain);
+void MediaController::NotifySongState(const model::Song::CurrentInformation& curr_info) {
+  if (curr_info.state == model::Song::MediaState::Pause ||
+      curr_info.state == model::Song::MediaState::Finished) {
+    // Enqueue animation to thread
+    sync_data_.Push(Command::RunClearAnimation);
   }
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
-  auto event = interface::CustomEvent::UpdateSongState(state);
+  auto event = interface::CustomEvent::UpdateSongState(curr_info);
 
   // Notify Audio Player block with new state information about the current song
   dispatcher->SendEvent(event);
@@ -285,65 +382,38 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& sta
 
 /* ********************************************************************************************** */
 
-void MediaController::SendAudioRaw(int* buffer, int size) {
+void MediaController::SendAudioRaw(const int16_t* buffer, int size) {
   // Append audio data to be analyzed by thread
   sync_data_.Append(buffer, size);
 }
 
 /* ********************************************************************************************** */
 
-void MediaController::NotifyError(error::Code code) {
+void MediaController::NotifyError(error::Code code, const std::string& detail) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
   // Notify Terminal about error that has occurred in Audio thread
-  dispatcher->SetApplicationError(code);
+  dispatcher->SetApplicationError(code, detail);
 }
 
 /* ********************************************************************************************** */
 
-void MediaController::ProcessClearAnimation(std::vector<double>& data) {
+void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
   using namespace std::chrono_literals;
 
-  for (int i = 0; i < 10; i++) {
-    // Each time this loop is executed, it will reduce spectrum bar values to 35% based on its
+  std::vector<double> bars(data);
+
+  for (double i = 0; i < 80; i++) {
+    // Each time this loop is executed, it will reduce spectrum bar values to 75% based on its
     // previous values (this value was decided based on feeling :P)
-    std::transform(data.begin(), data.end(), data.begin(),
-                   std::bind(std::multiplies<double>(), std::placeholders::_1, 0.35));
-
-    // Send result to UI
-    auto event = interface::CustomEvent::DrawAudioSpectrum(data);
-    dispatcher->SendEvent(event);
-
-    // Sleep a little bit before sending a new update to UI. And in case of receiving a new
-    // command in the meantime, just cancel animation
-    auto timeout = std::chrono::system_clock::now() + 0.04s;
-    if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
-  }
-
-  data = std::vector(data.size(), 0.001);
-
-  auto event = interface::CustomEvent::DrawAudioSpectrum(data);
-  dispatcher->SendEvent(event);
-}
-
-/* ********************************************************************************************** */
-
-void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
-  auto dispatcher = GetDispatcher();
-  if (!dispatcher) return;
-
-  using namespace std::chrono_literals;
-
-  std::vector<double> bars;
-
-  for (int i = 1; i <= 10; i++) {
-    // Each time this loop is executed, it will increase spectrum bar values in a step of 10%
-    // based on its previous values (this value was also decided based on feeling)
-    for (const auto& value : data) bars.push_back((value / 10) * i);
+    std::transform(bars.begin(), bars.end(), bars.begin(), [](double x) {
+      double value = x * 0.75;
+      return value > 0.001 ? value : 0.001;
+    });
 
     // Send result to UI
     auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
@@ -351,22 +421,72 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
 
     // Sleep a little bit before sending a new update to UI. And in case of receiving a new
     // command in the meantime, just cancel animation
-    auto timeout = std::chrono::system_clock::now() + 0.01s;
+    auto timeout = std::chrono::system_clock::now() + 0.03s;
+    if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
+  }
+
+  bars = std::vector(data.size(), 0.001);
+  auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
+  dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
+  static constexpr int kStep = 20;
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  using namespace std::chrono_literals;
+
+  std::vector<double> bars;
+  bars.reserve(data.size());
+
+  for (double i = 1; i <= kStep; i++) {
+    // Each time this loop is executed, it will increase spectrum bar values in a step of 1/20
+    // based on its previous values (this value was also decided based on feeling)
+    for (const auto& value : data) bars.push_back(value * (i / kStep));
+
+    // Send result to UI
+    auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
+    dispatcher->SendEvent(event);
+
+    // Sleep a little bit before sending a new update to UI. And in case of receiving a new
+    // command in the meantime, just cancel animation
+    auto timeout = std::chrono::system_clock::now() + 0.015s;
     if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
 
     bars.clear();
   }
+
+  // Give some time until analyzer gets back on track
+  auto timeout = std::chrono::system_clock::now() + 0.03s;
+  sync_data_.WaitForCommandOrUntil(timeout);
+
+  // FIX: This is not good, but it was the way found to send a command from thread
+  auto event = interface::CustomEvent::ResumeSong(/*run_animation=*/false);
+  dispatcher->SendEvent(event);
 }
 
 /* ********************************************************************************************** */
 
 std::shared_ptr<interface::EventDispatcher> MediaController::GetDispatcher() const {
+  // Do not throw if it fails: this happens while application is exiting (after interface is
+  // destroyed), so caller simply skips its notification
   auto dispatcher = dispatcher_.lock();
-  if (!dispatcher) ERROR("Cannot lock event dispatcher");
-  // TODO: decide if should throw a exception here... sometimes this error can happen when
-  // application is exiting
+  if (!dispatcher) WARN("Cannot lock event dispatcher");
 
   return dispatcher;
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<audio::AudioControl> MediaController::GetPlayer() const {
+  // Same as dispatcher, this happens while application is exiting, so caller skips its command
+  auto player = player_ctl_.lock();
+  if (!player) WARN("Cannot lock audio player, command will be discarded");
+
+  return player;
 }
 
 }  // namespace middleware

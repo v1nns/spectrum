@@ -1,5 +1,7 @@
 #include "view/element/focus_controller.h"
 
+#include <algorithm>
+
 #include "util/formatter.h"
 #include "util/logger.h"
 
@@ -11,8 +13,11 @@ bool FocusController::OnEvent(const ftxui::Event& event) {
     LOG("Handle navigation key=", util::EventToString(event));
 
     // Calculate new index based on upper bound
-    int new_index =
-        focus_index_ + (focus_index_ < (static_cast<int>(elements_.size()) - 1) ? 1 : 0);
+    int size = static_cast<int>(elements_.size());
+    int new_index = focus_index_ + (focus_index_ < (size - 1) ? 1 : 0);
+
+    // If no element is focused yet, start from the initial index
+    if (!HasElementFocused() && initial_index_ < size) new_index = initial_index_;
     UpdateFocus(focus_index_, new_index);
 
     return true;
@@ -58,13 +63,17 @@ bool FocusController::OnEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool FocusController::OnMouseEvent(ftxui::Event& event) {
-  // Iterate through all elements and pass event, if event is handled, update UI state
-  bool event_handled = std::any_of(elements_.begin(), elements_.end(), [&event](Element* element) {
-    if (!element) return false;
-    return element->OnMouseEvent(event);
-  });
+  // Iterate through all elements and pass event, if event is handled (e.g. clicked), focus it
+  for (int index = 0; index < static_cast<int>(elements_.size()); ++index) {
+    Element* element = elements_[static_cast<size_t>(index)];
 
-  return event_handled;
+    if (element && element->OnMouseEvent(event)) {
+      UpdateFocus(focus_index_, index);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -73,6 +82,59 @@ void FocusController::SetFocus(int index) {
   if (!elements_.empty() && (index + 1) <= elements_.size()) {
     UpdateFocus(focus_index_, index);
   }
+}
+
+/* ********************************************************************************************** */
+
+void FocusController::FocusNext() {
+  if (elements_.empty()) return;
+
+  int size = static_cast<int>(elements_.size());
+  int new_index = HasElementFocused() ? (focus_index_ + 1) % size : initial_index_;
+
+  UpdateFocus(focus_index_, new_index);
+}
+
+/* ********************************************************************************************** */
+
+void FocusController::FocusPrevious() {
+  if (elements_.empty()) return;
+
+  int size = static_cast<int>(elements_.size());
+  int new_index = HasElementFocused() ? (focus_index_ + size - 1) % size : initial_index_;
+
+  UpdateFocus(focus_index_, new_index);
+}
+
+/* ********************************************************************************************** */
+
+void FocusController::SetInitialFocus(const Element& element) {
+  auto it = std::find(elements_.begin(), elements_.end(), &element);
+
+  if (it == elements_.end()) {
+    ERROR("Cannot set initial focus on element not appended to controller");
+    return;
+  }
+
+  initial_index_ = static_cast<int>(it - elements_.begin());
+}
+
+/* ********************************************************************************************** */
+
+void FocusController::Replace(const Element& current, Element& replacement) {
+  auto it = std::find(elements_.begin(), elements_.end(), &current);
+
+  if (it == elements_.end()) {
+    ERROR("Cannot replace element not appended to controller");
+    return;
+  }
+
+  // Move focus state to the new element
+  bool focused = current.IsFocused();
+  if (focused) (*it)->SetFocus(false);
+
+  *it = &replacement;
+  if (focused) replacement.SetFocus(true);
 }
 
 /* ********************************************************************************************** */

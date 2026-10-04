@@ -24,8 +24,9 @@ class QuestionDialog : public Dialog {
  public:
   /**
    * @brief Construct a new QuestionDialog object
+   * @param dispatcher Event dispatcher
    */
-  QuestionDialog();
+  QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy QuestionDialog object
@@ -66,6 +67,12 @@ class QuestionDialog : public Dialog {
    */
   void OnClose() override { content_.reset(); }
 
+  /**
+   * @brief Select button to be pressed by Return key (also highlighting it)
+   * @param yes True to select "Yes" button, otherwise "No" button is selected
+   */
+  void SelectButton(bool yes);
+
   /* ******************************************************************************************** */
   //! Variables
 
@@ -73,6 +80,8 @@ class QuestionDialog : public Dialog {
 
   GenericButton btn_yes_;  //!< "Yes" button
   GenericButton btn_no_;   //!< "No" button
+
+  bool yes_selected_ = false;  //!< Button pressed by Return key ("No" is the safest default)
 };
 
 }  // namespace interface

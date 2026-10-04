@@ -1,5 +1,7 @@
 #include "view/base/keybinding.h"
 
+#include <string>
+
 namespace interface {
 
 namespace keybinding {
@@ -28,11 +30,14 @@ Key Navigation::End = Key::Special({27, 91, 70});            //! End key
 Key Navigation::PageUp = Key::Special({27, 91, 53, 126});    //! PageUp key
 Key Navigation::PageDown = Key::Special({27, 91, 54, 126});  //! PageDown key
 
-Key Navigation::Backspace = Key::Special({127});              //! Backspace key
-// TODO: this is not working...
-Key Navigation::CtrlBackspace = Key::Special({8});            //! Ctrl + Backspace
-// Key Navigation::CtrlBackspace = Key::Special("\x1b[127;5u");  //! Ctrl + Backspace
-Key Navigation::CtrlBackspaceReverse = Key::Special("\027");  //! Ctrl + Backspace (alternative)
+Key Navigation::Backspace = Key::Special({127});         //! Backspace key
+Key Navigation::AltBackspace = Key::Special({27, 127});  //! Alt + Backspace
+
+// Most terminals send Ctrl + Backspace as ^H, but FTXUI always translates it into Backspace (as
+// some terminals send ^H for Backspace), so it cannot be distinguished. Only terminals sending it
+// as CSI u, or as ^W (Ctrl + W), are supported
+Key Navigation::CtrlBackspace = Key::Special("\x1b[127;5u");  //! Ctrl + Backspace (CSI u)
+Key Navigation::CtrlW = Key::Special({23});                   //! Ctrl + W
 
 Key Navigation::Delete = Key::Special("\x1B[3~");  //! Delete key
 
@@ -48,8 +53,8 @@ Key Dialog::No = Key::Character('n');
 /* ------------------------------------------ General ------------------------------------------- */
 
 Key General::ExitApplication = Key::Character('q');
-Key General::ShowTabHelper = Key::Special("\x1B[23~");  //! F11
-Key General::ShowHelper = Key::Special("\x1B[24~");     //! F12
+Key General::ShowHelper = Key::Special("\x1B[24~");  //! F12
+Key General::ChangeTheme = Key::Character('t');
 
 Key General::FocusSidebar = Key::Character('!');      //! Shift + 1
 Key General::FocusInfo = Key::Character('@');         //! Shift + 2
@@ -82,10 +87,13 @@ Key MediaPlayer::Mute = Key::Character('m');
 Key MediaPlayer::SeekForward = Key::Character('f');
 Key MediaPlayer::SeekBackward = Key::Character('b');
 
+Key MediaPlayer::ToggleRepeat = Key::Character('R');
+Key MediaPlayer::ToggleShuffle = Key::Character('x');
+
 /* ----------------------------------------- Visualizer ----------------------------------------- */
 
 Key Visualizer::ChangeAnimation = Key::Character('a');
-Key Visualizer::ToggleFullscreen = Key::Character('h');
+Key Visualizer::ToggleFullscreen = Key::Character('z');
 Key Visualizer::IncreaseBarWidth = Key::Character('.');
 Key Visualizer::DecreaseBarWidth = Key::Character(',');
 
@@ -96,7 +104,7 @@ Key Equalizer::ResetFilters = Key::Character('r');
 
 /* ------------------------------------------- Lyrics ------------------------------------------- */
 
-// TODO: retry
+Key Lyric::Retry = Key::Character('r');
 
 /* ------------------------------------------- Files -------------------------------------------- */
 
@@ -110,6 +118,22 @@ Key Playlist::Delete = Key::Character('d');
 
 Key Playlist::Rename = Key::Character('r');
 Key Playlist::Save = Key::Character('s');
+Key Playlist::RemoveSong = Key::Character('d');
+
+Key Playlist::ShowFiles = Key::Special("\x1BOP");    //! F1
+Key Playlist::ShowYoutube = Key::Special("\x1BOQ");  //! F2
+
+/* ********************************************************************************************** */
+
+Key Normalize(const Key& event) {
+  const std::string& input = event.input();
+
+  // VT220-style sequences: ESC [ 1 ~ / ESC [ 7 ~ for Home, ESC [ 4 ~ / ESC [ 8 ~ for End
+  if (input == "\x1B[1~" || input == "\x1B[7~") return Navigation::Home;
+  if (input == "\x1B[4~" || input == "\x1B[8~") return Navigation::End;
+
+  return event;
+}
 
 }  // namespace keybinding
 

@@ -6,10 +6,12 @@
 #ifndef INCLUDE_VIEW_BLOCK_SIDEBAR_H_
 #define INCLUDE_VIEW_BLOCK_SIDEBAR_H_
 
+#include <functional>
 #include <memory>
 
 #include "util/file_handler.h"
 #include "view/base/block.h"
+#include "view/element/style.h"
 #include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
@@ -24,7 +26,7 @@ namespace interface {
  * @brief Component to display a set of tabs and their respective content in the sidebar
  */
 class Sidebar : public Block {
-  static constexpr int kMaxColumns = 36;  //!< Maximum columns for Component
+  static constexpr int kMaxColumns = kLeftColumnWidth;  //!< Maximum columns for Component
 
  public:
   /**
@@ -32,10 +34,12 @@ class Sidebar : public Block {
    * @param dispatcher Block event dispatcher
    * @param optional_path List files from custom path instead of the current one
    * @param file_handler Interface to file handler
+   * @param contains_audio_cb Callback to check if file contains audio stream before playing it
    */
   explicit Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
                    const std::string& optional_path = "",
-                   const std::shared_ptr<util::FileHandler> file_handler = nullptr);
+                   const std::shared_ptr<util::FileHandler> file_handler = nullptr,
+                   const std::function<bool(const util::File& file)>& contains_audio_cb = nullptr);
 
   /**
    * @brief Destroy the Sidebar object
@@ -80,6 +84,12 @@ class Sidebar : public Block {
     Playlist,  //!< Display playlist viewer
     LAST,
   };
+
+  /**
+   * @brief Get tab view being displayed
+   * @return Active view
+   */
+  View GetActiveView() const { return static_cast<View>(tab_elem_.active()); }
 
   /* ******************************************************************************************** */
   //! Private methods

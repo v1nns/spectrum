@@ -16,6 +16,7 @@
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
 #include "model/question_data.h"
+#include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -35,7 +36,6 @@ struct CustomEvent {
   //! Identifier for all existing events
   enum class Identifier {
     // Events from audio thread to interface
-    // TODO: add a better documentation for each one
     ClearSongInfo = 50000,
     UpdateVolume = 50001,
     UpdateSongInfo = 50002,
@@ -44,14 +44,20 @@ struct CustomEvent {
 
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
-    PauseOrResumeSong = 60001,
-    StopSong = 60002,
-    SetAudioVolume = 60003,
-    ResizeAnalysis = 60004,
-    SeekForwardPosition = 60005,
-    SeekBackwardPosition = 60006,
-    ApplyAudioFilters = 60007,
-    NotifyPlaylistSelection = 60008,
+    PauseSong = 60001,
+    ResumeSong = 60002,
+    StopSong = 60003,
+    SetAudioVolume = 60004,
+    ResizeAnalysis = 60005,
+    SeekForwardPosition = 60006,
+    SeekBackwardPosition = 60007,
+    ApplyAudioFilters = 60008,
+    NotifyPlaylistSelection = 60009,
+    NotifyDialogClosed = 60010,
+    SkipToNextPlaylistSong = 60011,
+    SkipToPreviousPlaylistSong = 60012,
+    SetRepeatMode = 60013,
+    SetShuffle = 60014,
 
     // Events from interface to interface
     Refresh = 70000,
@@ -66,12 +72,11 @@ struct CustomEvent {
     PlaySong = 70009,
     ToggleFullscreen = 70010,
     UpdateBarWidth = 70011,
-    SkipToNextSong = 70012,
-    SkipToPreviousSong = 70013,
     ShowPlaylistManager = 70014,
     SavePlaylistsToFile = 70015,
     ShowQuestionDialog = 70016,
     Exit = 70017,
+    ShowWarning = 70018,
   };
 
   //! Overloaded operators
@@ -91,7 +96,8 @@ struct CustomEvent {
 
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
-  static CustomEvent PauseOrResumeSong();
+  static CustomEvent PauseSong();
+  static CustomEvent ResumeSong(bool run_animation);
   static CustomEvent StopSong();
   static CustomEvent SetAudioVolume(const model::Volume& sound_volume);
   static CustomEvent ResizeAnalysis(int bars);
@@ -99,6 +105,11 @@ struct CustomEvent {
   static CustomEvent SeekBackwardPosition(int offset);
   static CustomEvent ApplyAudioFilters(const model::EqualizerPreset& filters);
   static CustomEvent NotifyPlaylistSelection(const model::Playlist& playlist);
+  static CustomEvent NotifyDialogClosed();
+  static CustomEvent SkipToNextPlaylistSong();
+  static CustomEvent SkipToPreviousPlaylistSong();
+  static CustomEvent SetRepeatMode(model::RepeatMode mode);
+  static CustomEvent SetShuffle(bool enabled);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
@@ -113,20 +124,20 @@ struct CustomEvent {
   static CustomEvent PlaySong();
   static CustomEvent ToggleFullscreen();
   static CustomEvent UpdateBarWidth();
-  static CustomEvent SkipToNextSong();
-  static CustomEvent SkipToPreviousSong();
   static CustomEvent ShowPlaylistManager(const model::PlaylistOperation& operation);
   static CustomEvent SavePlaylistsToFile(const model::Playlist& changed_playlist);
   static CustomEvent ShowQuestionDialog(const model::QuestionData& data);
 
   static CustomEvent Exit();
+  static CustomEvent ShowWarning(const std::string& message);
 
   //! Possible types for content
   using Content =
       std::variant<std::monostate, model::Song, model::Volume, model::Song::CurrentInformation,
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
-                   model::PlaylistOperation, model::QuestionData>;
+                   model::PlaylistOperation, model::QuestionData, bool, std::string,
+                   model::RepeatMode>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

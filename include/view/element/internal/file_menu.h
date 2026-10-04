@@ -30,8 +30,12 @@ class FileMenu : public BaseMenu<FileMenu> {
     ftxui::Decorator prefix;
     MenuEntryOption directory;
     MenuEntryOption file;
+    MenuEntryOption unsupported;
     MenuEntryOption playing;
   };
+
+  //! Define a custom value for maximum number of columns used as icon
+  static constexpr int GetMaxColumnsForIconImpl() { return -1; }
 
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
@@ -55,6 +59,14 @@ class FileMenu : public BaseMenu<FileMenu> {
    */
   ~FileMenu() override = default;
 
+  /**
+   * @brief Check if file extension belongs to a known audio/media format (it does not open the
+   * file)
+   * @param file Filepath
+   * @return True if it is a media file, otherwise false
+   */
+  static bool HasMediaExtension(const util::File& file);
+
   /* ******************************************************************************************** */
   //! Mandatory API implementation
  private:
@@ -76,6 +88,16 @@ class FileMenu : public BaseMenu<FileMenu> {
   //! While on search mode, filter all entries to keep only those matching the given text
   void FilterEntriesBy(const std::string& text);
 
+  //! Update style for menu entries with colors from current theme (called before rendering)
+  void UpdateStyleImpl();
+
+  //! Get style for entry based on its state and type (playing, directory, media or other file)
+  [[nodiscard]] const MenuEntryOption& GetEntryStyle(const util::File& entry,
+                                                     bool is_highlighted) const;
+
+  //! Select entry matching the given filename (if found)
+  void SelectEntryByFilename(const std::filesystem::path& filename);
+
   /* ******************************************************************************************** */
   //! Derived specialization
 
@@ -94,6 +116,13 @@ class FileMenu : public BaseMenu<FileMenu> {
    */
   bool RefreshList(const std::filesystem::path& dir_path);
 
+  /**
+   * @brief Read current directory again, to update list with any file change. Active entry is kept
+   *        selected (if it still exists). Nothing is done while search mode is enabled.
+   * @return true if list was updated, false otherwise
+   */
+  bool Reload();
+
   //! Get current directory
   const std::filesystem::path& GetCurrentDir() const { return curr_dir_; }
 
@@ -110,25 +139,13 @@ class FileMenu : public BaseMenu<FileMenu> {
   util::Files GetEntriesImpl() const { return IsSearchEnabled() ? *filtered_entries_ : entries_; }
 
   //! Emplace a new entry
-  void EmplaceImpl(const util::File& entry) {
-    LOG("Emplace a new entry to list");
-    entries_.emplace_back(entry);
-  }
+  void EmplaceImpl(const util::File& entry);
 
   //! Erase an existing entry
-  void EraseImpl(const util::File& entry) {
-    LOG("Attempt to erase an entry with value=", entry);
-    auto it = std::find_if(entries_.begin(), entries_.end(),
-                           [&entry](const util::File& f) { return f == entry; });
-
-    if (it != entries_.end()) {
-      LOG("Found matching entry, erasing it, entry=", *it);
-      entries_.erase(it);
-    }
-  }
+  void EraseImpl(const util::File& entry);
 
   //! Set entry to be highlighted
-  void SetEntryHighlightedImpl(const util::File& entry);
+  bool SetEntryHighlightedImpl(const util::File& entry);
 
   //! Reset highlighted entry
   void ResetHighlightImpl() { highlighted_.reset(); };
@@ -154,7 +171,8 @@ class FileMenu : public BaseMenu<FileMenu> {
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Utility class to manage files (read/write)
 
-  Style style_;  //!< Style for each element inside this component
+  menu::Style menu_style_;  //!< Theme alternative to use in this component
+  Style style_;             //!< Style for each element inside this component (updated on render)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

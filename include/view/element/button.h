@@ -6,12 +6,15 @@
 #ifndef INCLUDE_VIEW_ELEMENT_BUTTON_H_
 #define INCLUDE_VIEW_ELEMENT_BUTTON_H_
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -30,23 +33,16 @@ class Button {
    * implementation for more info)
    */
   struct Style {
-    struct State {
-      ftxui::Color foreground;  //!< Color for button foreground
-      ftxui::Color background;  //!< Color for button background
-      ftxui::Color border;      //!< Color for border
-    };
+    using State = Theme::State;  //!< Colors for a single state (foreground, background, border)
+    using Colors = Theme::ButtonStates;  //!< Colors for all states
 
-    State normal;    //!< Colors for normal state
-    State focused;   //!< Colors for focused state
-    State selected;  //!< Colors for selected state
-    State pressed;   //!< Colors for pressed state
-    State disabled;  //!< Colors for disabled state
+    //! Get colors from theme, called on every render (so a theme change is applied to button)
+    std::function<Colors()> colors;
 
-    ftxui::Decorator decorator;  //!< Style decorator for content
+    int height;  //!< Fixed height for button
+    int width;   //!< Fixed width for button
 
-    int height;             //!< Fixed height for button
-    int width;              //!< Fixed width for button
-    Delimiters delimiters;  //!< Used by window buttons as a custom border
+    std::optional<Delimiters> delimiters;  //!< Used by window buttons as a custom border
   };
 
  protected:
@@ -59,6 +55,75 @@ class Button {
    * @param active Button state (if it is clickable or not)
    */
   explicit Button(const Style& style, Callback on_click, bool active);
+
+  /**
+   * @brief Create a style with given button state colors (foreground and background)
+   * @param colors Button state colors
+   * @param invert Flag to invert foreground with background color
+   * @return ftxui::Decorator Style decorator
+   */
+  inline ftxui::Decorator Apply(const Style::State& colors, bool invert = false) const {
+    return Background(colors.background) | Foreground(colors.foreground) |
+           (invert ? ftxui::inverted : ftxui::nothing);
+  }
+
+  /**
+   * @brief Create a style and switch colors from the given button state colors
+   * @param colors Button state colors
+   * @return ftxui::Decorator Style decorator
+   */
+  inline ftxui::Decorator ApplyReverse(const Style::State& colors) {
+    return Background(colors.foreground) | Foreground(colors.background);
+  }
+
+  //! Create a style for background, in which default color means "do not change it"
+  static inline ftxui::Decorator Background(const ftxui::Color& color) {
+    return color == ftxui::Color{} ? ftxui::nothing : ftxui::bgcolor(color);
+  }
+
+  //! Create a style for foreground, in which default color means "do not change it"
+  static inline ftxui::Decorator Foreground(const ftxui::Color& color) {
+    return color == ftxui::Color{} ? ftxui::nothing : ftxui::color(color);
+  }
+
+  /**
+   * @brief Determine colors based on current button state
+   * @return ftxui::Decorator Style decorator
+   */
+  inline Style::State GetStateColors() const {
+    const Style::Colors colors = GetColors();
+
+    if (!enabled_) {
+      return colors.disabled;
+    }
+
+    if (focused_) {
+      if (pressed_)
+        return colors.pressed;
+      else
+        return colors.focused;
+    }
+
+    if (selected_) {
+      return colors.selected;
+    }
+
+    return colors.normal;
+  }
+
+  /**
+   * @brief Get colors for all button states from current theme
+   * @return Colors for all states
+   */
+  inline Style::Colors GetColors() const {
+    return style_.colors ? style_.colors() : Style::Colors{};
+  }
+
+  /**
+   * @brief Renders the component (implemented by derived)
+   * @return Element Built element based on internal state
+   */
+  virtual ftxui::Element RenderImpl() = 0;
 
  public:
   /**
@@ -109,25 +174,17 @@ class Button {
                                                         const Style& style);
 
   /**
-   * @brief Create a minimal button
-   * @param content Text content to show
-   * @param on_click Callback function for click event
-   * @param style Custom style to apply on button
-   * @return std::shared_ptr<Button> New instance to Window button
-   */
-  static std::shared_ptr<Button> make_button_minimal(const std::string& content,
-                                                     const Callback& on_click, const Style& style);
-
-  /**
    * @brief Create generic button
    * @param content Text content to show
    * @param on_click Callback function for click event
    * @param style Custom style to apply on button
+   * @param letter Letter to highlight in text content (use first occurrence)
    * @param active Button state (if it is clickable or not)
    * @return std::shared_ptr<Button> New instance to button
    */
   static std::shared_ptr<Button> make_button(const std::string& content, const Callback& on_click,
-                                             const Style& style, bool active = true);
+                                             const Style& style, const std::string& letter = "",
+                                             bool active = true);
 
   /**
    * @brief Create generic button with solid color
@@ -148,7 +205,7 @@ class Button {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  virtual ftxui::Element Render() = 0;
+  ftxui::Element Render();
 
   /**
    * @brief Handles an event (from mouse/keyboard)

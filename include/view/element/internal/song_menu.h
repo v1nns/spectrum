@@ -8,11 +8,13 @@
 
 #include <deque>
 #include <string>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "model/song.h"
 #include "view/element/internal/base_menu.h"
+#include "view/element/style.h"
 #include "view/element/text_animation.h"
 
 #ifdef ENABLE_TESTS
@@ -29,8 +31,14 @@ class SongMenu : public BaseMenu<SongMenu> {
   //! Put together all possible styles for an entry in this component
   struct Style {
     ftxui::Decorator prefix;
+    ftxui::Decorator tag;
     MenuEntryOption entry;
   };
+
+  static constexpr std::string_view kStreamTag = "[yt]";  //!< Tag for songs from streaming
+
+  //! Define a custom value for maximum number of columns used as icon
+  static constexpr int GetMaxColumnsForIconImpl() { return -1; }
 
  public:
   //!< Callback definition for function that will be triggered when a menu entry is clicked/pressed
@@ -83,32 +91,28 @@ class SongMenu : public BaseMenu<SongMenu> {
   }
 
   //! Emplace a new entry
-  void EmplaceImpl(const model::Song& entry) {
-    LOG("Emplace a new entry to list");
-    entries_.emplace_back(entry);
-  }
+  void EmplaceImpl(const model::Song& entry);
 
   //! Erase an existing entry
-  void EraseImpl(const model::Song& entry) {
-    LOG("Attempt to erase an entry with value=", entry.filepath);
-    auto it = std::find_if(entries_.begin(), entries_.end(), [&entry](const model::Song& s) {
-      return s.index == entry.index && s.filepath == entry.filepath;
-    });
-
-    if (it != entries_.end()) {
-      LOG("Found matching entry, erasing it, entry=", *it);
-      entries_.erase(it);
-    }
-  }
+  void EraseImpl(const model::Song& entry);
 
   //! Set entry to be highlighted
-  void SetEntryHighlightedImpl(const std::string&) {}
+  bool SetEntryHighlightedImpl(const std::string&) {
+    /* not implemented */
+    return false;
+  }
 
   //! Reset highlighted entry
   void ResetHighlightImpl() {}
 
   //! Getter for active entry (focused/selected)
   std::optional<model::Song> GetActiveEntryImpl() const;
+
+  //! Update style for menu entries with colors from current theme (called before rendering)
+  void UpdateStyleImpl();
+
+  //! Get text to display for the given entry
+  static std::string GetEntryText(const model::Song& entry);
 
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
@@ -123,11 +127,7 @@ class SongMenu : public BaseMenu<SongMenu> {
 
   Callback on_click_;  //!< Callback function to trigger when menu entry is clicked/pressed
 
-  //!< Style for each element inside this component
-  Style style_ = Style{
-      .prefix = ftxui::color(ftxui::Color::SteelBlue1Bis),
-      .entry = Colored(ftxui::Color::Grey11),
-  };
+  Style style_;  //!< Style for each element inside this component (updated on render)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

@@ -1,10 +1,13 @@
 #include "util/sink.h"
 
+#include <filesystem>
 #include <fstream>
+#include <system_error>
 
 namespace util {
 
-FileSink::FileSink(const std::string& path) : ImplSink<FileSink>(), path_{path} {}
+FileSink::FileSink(const std::string& path, std::uintmax_t max_size)
+    : ImplSink<FileSink>(), path_{path}, max_size_{max_size} {}
 
 /* ********************************************************************************************** */
 
@@ -13,6 +16,7 @@ void FileSink::Open() {
 
   if ((now - last_reopen_) > reopen_interval_) {
     Close();
+    RotateIfNeeded();
 
     try {
       // Open file
@@ -23,6 +27,16 @@ void FileSink::Open() {
       throw;
     }
   }
+}
+
+/* ********************************************************************************************** */
+
+void FileSink::RotateIfNeeded() const {
+  std::error_code error;
+  if (auto size = std::filesystem::file_size(path_, error); error || size < max_size_) return;
+
+  // Keep only the previous log file (logger may not be available to report any error here)
+  std::filesystem::rename(path_, path_ + ".1", error);
 }
 
 /* ********************************************************************************************** */

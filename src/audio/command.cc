@@ -32,7 +32,36 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
     case Command::Identifier::Exit:
       out << "Exit";
       break;
+    case Command::Identifier::SkipToNext:
+      out << "SkipToNext";
+      break;
+    case Command::Identifier::SkipToPrevious:
+      out << "SkipToPrevious";
+      break;
+    case Command::Identifier::PlayNext:
+      out << "PlayNext";
+      break;
   }
+
+  return out;
+}
+
+//! Command::Identifiers pretty print
+std::ostream& operator<<(std::ostream& out, const std::vector<Command::Identifier>& cmds) {
+  if (cmds.empty()) {
+    out << "[]";
+    return out;
+  }
+
+  out << "[";
+
+  std::vector<Command::Identifier>::const_iterator i, j;
+  for (i = cmds.begin(), j = --cmds.end(); i != j; ++i) {
+    out << "\"" << *i << "\"" << ",";
+  }
+
+  out << "\"" << *j << "\"";
+  out << "]";
 
   return out;
 }
@@ -46,19 +75,19 @@ std::ostream& operator<<(std::ostream& out, const Command& cmd) {
 //! Commands pretty print
 std::ostream& operator<<(std::ostream& out, const std::vector<Command>& cmds) {
   if (cmds.empty()) {
-    out << "Empty";
+    out << "[]";
     return out;
   }
 
-  out << "{";
+  out << "[";
 
   std::vector<Command>::const_iterator i, j;
   for (i = cmds.begin(), j = --cmds.end(); i != j; ++i) {
-    out << i->id << ",";
+    out << "\"" << i->id << "\"" << ",";
   }
 
-  out << j->id;
-  out << "}";
+  out << "\"" << j->id << "\"";
+  out << "]";
 
   return out;
 }
@@ -75,10 +104,19 @@ Command Command::None() {
 /* ********************************************************************************************** */
 
 // Static
-Command Command::Play(const std::string& filepath) {
+Command Command::Play(const model::Song& song) {
   return Command{
       .id = Identifier::Play,
-      .content = filepath,
+      .content = song,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::Play(const model::Playlist& playlist) {
+  return Command{
+      .id = Identifier::Play,
+      .content = playlist,
   };
 }
 
@@ -146,6 +184,30 @@ Command Command::UpdateAudioFilters(const model::EqualizerPreset& filters) {
 Command Command::Exit() {
   return Command{
       .id = Identifier::Exit,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::SkipToNext() {
+  return Command{
+      .id = Identifier::SkipToNext,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::SkipToPrevious() {
+  return Command{
+      .id = Identifier::SkipToPrevious,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::PlayNext() {
+  return Command{
+      .id = Identifier::PlayNext,
   };
 }
 

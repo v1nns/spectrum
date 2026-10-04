@@ -6,14 +6,18 @@
 #ifndef INCLUDE_VIEW_BASE_TERMINAL_H_
 #define INCLUDE_VIEW_BASE_TERMINAL_H_
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "ftxui/component/component_base.hpp"
 #include "ftxui/component/receiver.hpp"
 #include "middleware/media_controller.h"
 #include "model/application_error.h"
 #include "model/block_identifier.h"
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
@@ -21,6 +25,13 @@
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
 #include "view/element/question_dialog.h"
+#include "view/element/theme_picker.h"
+
+#ifdef ENABLE_TESTS
+namespace {
+class TerminalTest;
+}
+#endif
 
 //! Forward declaration
 namespace audio {
@@ -47,6 +58,14 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   static constexpr int kBlockMainContent = 2;
   static constexpr int kBlockMediaPlayer = 3;
 
+  static constexpr int kBorderSize = 1;  //!< Columns used by a block border (on each side)
+
+  //! Minimum terminal size to render all blocks without cutting their content: width is limited
+  //! by media player (buttons + volume) next to sidebar, and height leaves room for a few files in
+  //! sidebar besides the fixed height from file information and media player blocks
+  static constexpr int kMinColumns = 105;
+  static constexpr int kMinLines = 24;
+
   /**
    * @brief Construct a new Terminal object
    */
@@ -56,9 +75,13 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Factory method: Create, initialize internal components and return Terminal object
    * @param initial_path Initial path to list files (optional)
+   * @param file_handler Utility handler to load/save playlists and settings (optional, a default
+   * one is used when it is null)
    * @return std::shared_ptr<Terminal> Terminal instance
    */
-  static std::shared_ptr<Terminal> Create(const std::string& initial_path);
+  static std::shared_ptr<Terminal> Create(
+      const std::string& initial_path,
+      const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the Terminal object. Base class will do the rest (release resources by detaching
@@ -78,8 +101,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Initialize internal components for Terminal object
    * @param initial_path Initial path to list files (optional)
+   * @param file_handler Utility handler to load/save playlists and settings (optional)
    */
-  void Init(const std::string& initial_path);
+  void Init(const std::string& initial_path,
+            const std::shared_ptr<util::FileHandler>& file_handler);
 
   /**
    * @brief Force application to exit
@@ -125,9 +150,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
 
   /**
    * @brief Based on maximum terminal size, calculate how many bars can be shown in spectrum window
+   * @param animation Current animation identifier (optional)
    * @return Number of bars
    */
-  int CalculateNumberBars();
+  int CalculateNumberBars(const std::optional<model::BarAnimation>& animation = std::nullopt);
 
   /* ******************************************************************************************** */
   //! Internal event handling
@@ -143,6 +169,12 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @return true if event was handled, otherwise false
    */
   bool OnGlobalModeEvent(const ftxui::Event& event);
+
+  /**
+   * @brief Get help section related to what is focused (block and its active tab)
+   * @return Help section
+   */
+  HelpDialog::Section GetHelpSection() const;
 
   /**
    * @brief Handle event when fullscreen mode is enabled
@@ -189,7 +221,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   void ProcessEvent(const CustomEvent& event) override;
 
   //! Set application error (can be originated from controller or any interface::block)
-  void SetApplicationError(error::Code id) override;
+  void SetApplicationError(error::Code id, const std::string& detail) override;
 
   /* ******************************************************************************************** */
   //! Utils
@@ -203,6 +235,21 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
    * @param new_index Block index to be focused
    */
   void UpdateFocus(int old_index, int new_index);
+
+  /**
+   * @brief Check if terminal is smaller than the minimum size to render all blocks (fullscreen
+   * mode is not affected, as it renders only spectrum visualizer)
+   * @return true if terminal is too small, otherwise false
+   */
+  bool IsTooSmall() const {
+    return !fullscreen_mode_ && (size_.dimx < kMinColumns || size_.dimy < kMinLines);
+  }
+
+  /**
+   * @brief Renders message asking user to resize terminal
+   * @return UI element
+   */
+  ftxui::Element RenderTooSmall() const;
 
   /**
    * @brief Check for all dialogs if any is opened
@@ -221,13 +268,19 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /* ******************************************************************************************** */
   //! Variables
 
-  std::weak_ptr<audio::Notifier> notifier_;   //!< Audio notifier for events from UI
+  std::weak_ptr<audio::Notifier> notifier_;  //!< Audio notifier for events from UI
+
+  //! Events to audio thread sent before audio notifier is registered (e.g. volume restored by
+  //! media player while it is being created), handled once it gets registered
+  std::vector<CustomEvent> pending_audio_events_;
+  bool notifier_registered_ = false;  //!< Audio notifier was registered (it may be gone already)
   error::Code last_error_ = error::kSuccess;  //!< Last application error
 
   std::unique_ptr<ErrorDialog> error_dialog_;  //!< Dialog box to show customized error messages
   std::unique_ptr<HelpDialog> help_dialog_;    //!< Dialog box to show help menu
   std::unique_ptr<QuestionDialog> question_dialog_;  //!< Dialog box to question user
   std::unique_ptr<PlaylistDialog> playlist_dialog_;  //!< Dialog box to manage playlists
+  std::unique_ptr<ThemePicker> theme_picker_;        //!< Picker to choose UI theme
 
   //! Custom event receiver
   ftxui::Receiver<CustomEvent> receiver_ = ftxui::MakeReceiver<CustomEvent>();
@@ -236,11 +289,21 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
   Callback cb_exit_;             //!< Function to exit from graphical interface
 
-  ftxui::Dimensions size_ = ftxui::Terminal::Size();  //!< Terminal maximum size
-  int focused_index_ = 0;                             //!< Index of focused block
+  //! Function to get terminal maximum size
+  std::function<ftxui::Dimensions()> cb_size_ = ftxui::Terminal::Size;
+
+  ftxui::Dimensions size_ = cb_size_();  //!< Terminal maximum size
+  int focused_index_ = 0;                //!< Index of focused block
 
   bool global_mode_ = true;       //!< Control flag to process events in global mode
   bool fullscreen_mode_ = false;  //!< Control flag to show spectrum visualizer in fullscreen
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::TerminalTest;
+#endif
 };
 
 }  // namespace interface

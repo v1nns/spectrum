@@ -33,13 +33,6 @@ struct Playlist {
    */
   bool IsEmpty() const { return songs.empty(); }
 
-  /**
-   * @brief Returns the first element from the inner deque container with songs
-   * @warning Be sure to check first if deque contains at least one song
-   * @return First song in the deque
-   */
-  Song PopFront();
-
   //! Pretty-print for testing
   friend void PrintTo(const Playlist& p, std::ostream* os);
 };

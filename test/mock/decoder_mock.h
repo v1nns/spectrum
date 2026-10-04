@@ -14,9 +14,9 @@
 
 namespace {
 
-class DecoderMock final : public driver::Decoder {
+class DecoderMock final : public audio::Decoder {
  public:
-  MOCK_METHOD(error::Code, OpenFile, (model::Song &), (override));
+  MOCK_METHOD(error::Code, Open, (model::Song &), (override));
   MOCK_METHOD(error::Code, Decode, (int, AudioCallback), (override));
   MOCK_METHOD(void, ClearCache, (), (override));
   MOCK_METHOD(error::Code, SetVolume, (model::Volume), (override));

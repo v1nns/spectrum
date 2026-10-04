@@ -6,12 +6,14 @@
 #ifndef INCLUDE_AUDIO_LYRIC_LYRIC_FINDER_H_
 #define INCLUDE_AUDIO_LYRIC_LYRIC_FINDER_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
-#include "audio/lyric/base/html_parser.h"
-#include "audio/lyric/base/url_fetcher.h"
 #include "audio/lyric/search_config.h"
+#include "model/song.h"
+#include "web/base/html_parser.h"
+#include "web/base/url_fetcher.h"
 
 #ifdef ENABLE_TESTS
 namespace {
@@ -22,6 +24,21 @@ class LyricFinderTest;
 namespace lyric {
 
 /**
+ * @brief Result from searching song lyrics
+ */
+struct SearchResult {
+  //! Possible outcomes from search
+  enum class Status : std::uint8_t {
+    Found,        //!< Song lyrics found
+    NotFound,     //!< Search engines were reached, but none of them contains song lyrics
+    FetchFailed,  //!< Could not fetch content from any search engine (e.g. network error)
+  };
+
+  Status status = Status::NotFound;  //!< Search outcome
+  model::SongLyric lyrics;           //!< Song lyrics (filled only when found)
+};
+
+/**
  * @brief Responsible to fetch content from search engines and web scrap song lyrics from it
  */
 class LyricFinder {
@@ -30,8 +47,8 @@ class LyricFinder {
    * @param fetcher Pointer to URL fetcher interface
    * @param parser Pointer to HTML parser interface
    */
-  explicit LyricFinder(std::unique_ptr<driver::UrlFetcher>&& fetcher,
-                       std::unique_ptr<driver::HtmlParser>&& parser);
+  explicit LyricFinder(std::unique_ptr<web::UrlFetcher>&& fetcher,
+                       std::unique_ptr<web::HtmlParser>&& parser);
 
  protected:
   /**
@@ -46,8 +63,8 @@ class LyricFinder {
    * @param parser Pass parser to be used within LyricFinder (optional)
    * @return std::unique_ptr<LyricFinder> LyricFinder instance
    */
-  static std::unique_ptr<LyricFinder> Create(driver::UrlFetcher* fetcher = nullptr,
-                                             driver::HtmlParser* parser = nullptr);
+  static std::unique_ptr<LyricFinder> Create(web::UrlFetcher* fetcher = nullptr,
+                                             web::HtmlParser* parser = nullptr);
 
   /**
    * @brief Destroy the LyricFinder object
@@ -67,16 +84,38 @@ class LyricFinder {
    * @brief Search for lyrics by fetching the search engine and web scraping it
    * @param artist Artist name
    * @param title Song name
-   * @return Song lyrics
+   * @return Search result, containing song lyrics (if found)
    */
-  virtual SongLyric Search(const std::string& artist, const std::string& title);
+  virtual SearchResult Search(const std::string& artist, const std::string& title);
+
+  /**
+   * @brief Set function to check if search in progress must be canceled (checked before each
+   * search engine, and also while fetching content from it)
+   * @param check Function returning true to cancel search
+   */
+  void SetCancelCheck(const web::UrlFetcher::CancelCheck& check);
+
+  /* ******************************************************************************************** */
+  //! Internal methods
+ private:
+  /**
+   * @brief Remove from song title everything that is not part of song name, which usually comes
+   * from video titles: sections split by "|" containing the artist or video-related words, and
+   * featured artists or video-related words, e.g. "(feat. X)" or "[Official Video]"
+   * @param artist Artist name
+   * @param title Song title
+   * @return Song title to use in search
+   */
+  static std::string CleanTitle(const std::string& artist, const std::string& title);
 
   /* ******************************************************************************************** */
   //! Variables
  private:
-  Config engines_ = SearchConfig::Create();      //!< Search engine settings
-  std::unique_ptr<driver::UrlFetcher> fetcher_;  //!< URL fetcher
-  std::unique_ptr<driver::HtmlParser> parser_;   //!< HTML parser
+  Config engines_ = SearchConfig::Create();   //!< Search engine settings
+  std::unique_ptr<web::UrlFetcher> fetcher_;  //!< URL fetcher
+  std::unique_ptr<web::HtmlParser> parser_;   //!< HTML parser
+
+  web::UrlFetcher::CancelCheck cancel_check_;  //!< Check if search in progress must be canceled
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

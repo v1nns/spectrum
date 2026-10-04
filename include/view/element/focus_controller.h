@@ -68,6 +68,31 @@ class FocusController final {
    */
   void SetFocus(int index);
 
+  /**
+   * @brief Move focus to next element, wrapping around to the first one after the last
+   */
+  void FocusNext();
+
+  /**
+   * @brief Move focus to previous element, wrapping around to the last one before the first
+   */
+  void FocusPrevious();
+
+  /**
+   * @brief Set element to be focused when navigating forward while no element is focused
+   *        (by default, it is the first element appended)
+   * @param element Element already appended to this controller
+   */
+  void SetInitialFocus(const Element& element);
+
+  /**
+   * @brief Replace an appended element by another one, keeping its position and focus state
+   *        (e.g. when a block switches the content displayed in the same place)
+   * @param current Element already appended to this controller
+   * @param replacement Element to take its place
+   */
+  void Replace(const Element& current, Element& replacement);
+
   /* ******************************************************************************************** */
   //! Internal implementation
  private:
@@ -89,6 +114,7 @@ class FocusController final {
 
   std::vector<Element*> elements_;   //!< List of elements ordered by focus priority
   int focus_index_ = kInvalidIndex;  //!< Index to current element focused
+  int initial_index_ = 0;            //!< Index to be focused when there is no element focused
 
   //!< List of mapped events to be handled as action key
   const std::array<ftxui::Event, 6> action_events{Keybinding::ArrowUp, Keybinding::ArrowDown,

@@ -22,7 +22,6 @@ extern "C" {
 #include <map>
 #include <memory>
 #include <string>
-#include <string_view>
 
 #include "audio/base/decoder.h"
 #include "model/application_error.h"
@@ -35,7 +34,7 @@ namespace driver {
 /**
  * @brief Decode and equalize audio samples using FFmpeg libraries
  */
-class FFmpeg final : public Decoder {
+class FFmpeg final : public audio::Decoder {
  public:
   /**
    * @brief Construct a new FFmpeg object
@@ -61,15 +60,16 @@ class FFmpeg final : public Decoder {
   /* ******************************************************************************************** */
   //! Internal operations
  private:
-  error::Code OpenInputStream(const std::string& filepath);
+  error::Code OpenInputStream(const model::Song& audio_info);
   error::Code ConfigureDecoder();
   error::Code ConfigureFilters();
 
   //! These are ffmpeg-specific filters
   error::Code CreateFilterAbufferSrc();
   error::Code CreateFilterVolume();
-  error::Code CreateFilterAformat();
-  error::Code CreateFilterAbufferSink();
+  error::Code CreateFilterAformat(const char* name);
+  error::Code CreateFilterAsplit();
+  error::Code CreateFilterAbufferSink(const char* name);
   error::Code CreateFilterEqualizer(const std::string& name, const model::AudioFilter& filter);
 
   /**
@@ -91,11 +91,11 @@ class FFmpeg final : public Decoder {
   /* ******************************************************************************************** */
  public:
   /**
-   * @brief Open file as input stream and check for codec compatibility for decoding
+   * @brief Open song as input stream and check for codec compatibility for decoding
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  error::Code OpenFile(model::Song& audio_info) override;
+  error::Code Open(model::Song& audio_info) override;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
@@ -189,39 +189,17 @@ class FFmpeg final : public Decoder {
   static constexpr char kFilterAformat[] = "aformat";
   static constexpr char kFilterEqualizer[] = "equalizer";
   static constexpr char kFilterAbufferSink[] = "abuffersink";
+  static constexpr char kFilterAsplit[] = "asplit";
+
+  //! Names for filter instances that exist in both branches from filtergraph (playback/analysis)
+  static constexpr char kAformatPlayback[] = "aformat";
+  static constexpr char kAformatAnalysis[] = "aformat_analysis";
+  static constexpr char kSinkPlayback[] = "sink";
+  static constexpr char kSinkAnalysis[] = "sink_analysis";
 
   static constexpr int kDefaultFilterCount =
-      4;  //!< Number of filters without considering equalizer filters
+      3;  //!< Number of filters in the main chain without considering equalizer filters
   static constexpr int kResponseSize = 64;  //!< Response message size from AVFilter command
-
-  /* ******************************************************************************************** */
-  //! Utilities
-
-  struct SampleFmtInfo {
-    std::string_view name;  //! Short name
-    int bits;               //! Bit depth
-    int planar;  //! For planar sample formats, each audio channel is in a separate data plane, and
-                 //! linesize is the buffer size, in bytes, for a single plane.
-    enum AVSampleFormat altform;  //! Associated value from AVSampleFormat
-  };
-
-  /**
-   * @brief Utilitary table with detailed info from FFmpeg AVSampleFormat (bit depth specially)
-   */
-  static constexpr std::array<SampleFmtInfo, AV_SAMPLE_FMT_NB> sample_fmt_info{{
-      {"ut8", 8, 0, AV_SAMPLE_FMT_U8},
-      {"s16", 16, 0, AV_SAMPLE_FMT_S16},
-      {"s32", 32, 0, AV_SAMPLE_FMT_S32},
-      {"flt", 32, 0, AV_SAMPLE_FMT_FLT},
-      {"dbl", 64, 0, AV_SAMPLE_FMT_DBL},
-      {"u8p", 8, 1, AV_SAMPLE_FMT_U8P},
-      {"s16p", 16, 1, AV_SAMPLE_FMT_S16P},
-      {"s32p", 32, 1, AV_SAMPLE_FMT_S32P},
-      {"fltp", 32, 1, AV_SAMPLE_FMT_FLTP},
-      {"dblp", 64, 1, AV_SAMPLE_FMT_DBLP},
-      {"s64", 64, 0, AV_SAMPLE_FMT_S64},
-      {"s64p", 64, 1, AV_SAMPLE_FMT_S64P},
-  }};
 
   /* ******************************************************************************************** */
   //! Decoding
@@ -235,7 +213,8 @@ class FFmpeg final : public Decoder {
 
     Packet packet;         //!< Raw audio data read from input stream
     Frame frame_decoded;   //!< Frame received from decoder
-    Frame frame_filtered;  //!< Frame received from filtergraph
+    Frame frame_filtered;  //!< Frame received from filtergraph (to playback)
+    Frame frame_analysis;  //!< Frame received from filtergraph (to analysis, without volume)
 
     error::Code err_code;  //!< Error code for decoding and equalizing audio
     bool keep_playing;     //!< Control flag for playing audio
@@ -252,6 +231,7 @@ class FFmpeg final : public Decoder {
     void ClearFrames() const {
       av_frame_unref(frame_decoded.get());
       av_frame_unref(frame_filtered.get());
+      av_frame_unref(frame_analysis.get());
     }
 
     /**
@@ -264,7 +244,9 @@ class FFmpeg final : public Decoder {
      * @brief Check if internal structures are allocated correctly
      * @return true for correct allocation, false otherwise
      */
-    bool CheckAllocations() const { return packet && frame_decoded && frame_filtered; }
+    [[nodiscard]] bool CheckAllocations() const {
+      return packet && frame_decoded && frame_filtered && frame_analysis;
+    }
   };
 
   /**
@@ -297,9 +279,10 @@ class FFmpeg final : public Decoder {
 
   model::Volume volume_ = model::Volume{1.f};  //!< Playback stream volume
 
-  FilterGraph filter_graph_;      //!< Directed graph of connected filters
-  FilterContext buffersrc_ctx_;   //!< Input buffer for audio frames in the filter chain
-  FilterContext buffersink_ctx_;  //!< Output buffer from filter chain
+  FilterGraph filter_graph_;         //!< Directed graph of connected filters
+  FilterContext buffersrc_ctx_;      //!< Input buffer for audio frames in the filter chain
+  FilterContext buffersink_ctx_;     //!< Output buffer from filter chain (to playback)
+  FilterContext analysis_sink_ctx_;  //!< Output buffer from filter chain (to audio analysis)
 
   using FilterName = std::string;
   std::map<FilterName, model::AudioFilter, std::less<>> audio_filters_;  //!< Equalization filters

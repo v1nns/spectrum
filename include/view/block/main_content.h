@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/element/tab.h"
 
@@ -19,6 +20,8 @@ class MainContentTest;
 
 namespace interface {
 
+class SpectrumVisualizer;
+
 /**
  * @brief Component to display a set of tabs and their respective content
  */
@@ -27,8 +30,10 @@ class MainContent : public Block {
   /**
    * @brief Construct a new MainContent object
    * @param dispatcher Block event dispatcher
+   * @param file_handler Utility handler to manage any file operation (e.g. save settings)
    */
-  explicit MainContent(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
+                       const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the MainContent object
@@ -82,6 +87,12 @@ class MainContent : public Block {
   };
 
   /**
+   * @brief Get tab view being displayed
+   * @return Active view
+   */
+  View GetActiveView() const { return static_cast<View>(tab_elem_.active()); }
+
+  /**
    * @brief Get width for a single bar (used for Terminal calculation)
    * @return Audio bar width
    */
@@ -104,6 +115,8 @@ class MainContent : public Block {
   WindowButton btn_exit_;  //!< Exit button
 
   Tab tab_elem_;  //!< Tab containing multiple panels with some content
+
+  SpectrumVisualizer* visualizer_ = nullptr;  //!< Visualizer tab item (owned by tab_elem_)
 
   bool is_fullscreen_ =
       false;  //!< Cache flag set by parent(Terminal block) via Render or RenderFullscreen, this is

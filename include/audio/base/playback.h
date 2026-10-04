@@ -11,7 +11,7 @@
 #include "model/application_error.h"
 #include "model/volume.h"
 
-namespace driver {
+namespace audio {
 
 /**
  * @brief Common interface to create and handle playback audio stream
@@ -91,5 +91,5 @@ class Playback {
   virtual uint32_t GetPeriodSize() const = 0;
 };
 
-}  // namespace driver
+}  // namespace audio
 #endif  // INCLUDE_AUDIO_BASE_PLAYBACK_H_

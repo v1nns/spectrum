@@ -15,7 +15,7 @@ namespace driver {
 /**
  * @brief Dummy
  */
-class DummyPlayback : public Playback {
+class DummyPlayback : public audio::Playback {
  public:
   /**
    * @brief Construct a new Playback object

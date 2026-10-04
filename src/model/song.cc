@@ -64,7 +64,8 @@ std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
 
 //! Song::CurrentInformation pretty print
 std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
-  out << "{state:" << info.state << " position:" << info.position << "}";
+  out << "{state:\"" << info.state << "\"";
+  out << ", position:" << info.position << "}";
   return out;
 }
 
@@ -75,25 +76,66 @@ std::ostream& operator<<(std::ostream& out, const Song& s) {
   std::string artist = s.artist.empty() ? "<unknown>" : s.artist;
   std::string title = s.title.empty() ? "<unknown>" : s.title;
 
-  out << "{index:" << (s.index ? std::to_string(*s.index) : "<none>")
-      << " filename:" << (s.filepath.has_filename() ? s.filepath.filename() : "<none>")
-      << " artist:" << artist << " title:" << title
-      << " playlist:" << (s.playlist ? *s.playlist : "<none>") << " duration:" << s.duration
-      << " sample_rate:" << s.sample_rate << " bit_rate:" << s.bit_rate
-      << " bit_depth:" << s.bit_depth << "}";
+  out << "{index:" << (s.index ? *s.index : -1);
+  out << ", filename:"
+      << std::quoted((s.filepath.has_filename() ? s.filepath.filename().c_str() : "<none>"));
+  out << ", artist:" << std::quoted(artist) << ", title:" << std::quoted(title);
+  out << ", playlist:" << std::quoted((s.playlist ? *s.playlist : "<none>"));
+  out << ", duration:" << s.duration;
+  out << ", sample_rate:" << s.sample_rate << ", bit_rate:" << s.bit_rate;
+  out << ", bit_depth:" << s.bit_depth;
+  out << ", streaming_info:" << (s.stream_info ? to_string(*s.stream_info) : "{}") << "}";
   return out;
 }
 
 /* ********************************************************************************************** */
 
-bool Song::IsEmpty() const { return filepath.empty() ? true : false; }
+bool Song::IsEmpty() const { return filepath.empty() && !stream_info.has_value(); }
+
+/* ********************************************************************************************** */
+
+std::string Song::GetTitle() const {
+  std::string text;
+
+  // Get title from streaming information
+  if (stream_info.has_value()) {
+    text = !artist.empty() && !title.empty() ? artist + " - " + title
+           : !title.empty()                  ? title
+                                             : stream_info->base_url;
+  }
+
+  // Get artist and title from metadata information
+  else if (!artist.empty() && !title.empty())
+    text = artist + "-" + title;
+
+  // Get title from metadata information
+  else if (!title.empty())
+    text = title;
+
+  // As last resource, use filepath
+  else
+    text = filepath.filename().string();
+
+  return text;
+}
+
+/* ********************************************************************************************** */
+
+bool Song::Compare(const Song& other) const {
+  // Attempt to use streaming information first
+  if (stream_info.has_value() && other.stream_info.has_value())
+    return stream_info->base_url == other.stream_info->base_url;
+
+  // Otherwise, use filepath
+  return !filepath.empty() && !other.filepath.empty() && filepath == other.filepath;
+}
 
 /* ********************************************************************************************** */
 
 std::string to_string(const Song& arg) {
   bool is_empty = arg.IsEmpty();
 
-  std::string filename = is_empty ? "<Empty>" : arg.filepath.filename();
+  std::string filename = arg.filepath.empty() ? "<Empty>" : arg.filepath.filename();
 
   std::string artist = is_empty ? "<Empty>" : arg.artist.empty() ? "<Unknown>" : arg.artist;
   std::string title = is_empty ? "<Empty>" : arg.title.empty() ? "<Unknown>" : arg.title;
@@ -101,8 +143,22 @@ std::string to_string(const Song& arg) {
   std::string channels = is_empty ? "<Empty>" : std::to_string(arg.num_channels);
   std::string sample_rate = is_empty ? "<Empty>" : util::format_with_prefix(arg.sample_rate, "Hz");
   std::string bit_rate = is_empty ? "<Empty>" : util::format_with_prefix(arg.bit_rate, "bps");
-  std::string bit_depth = is_empty ? "<Empty>" : util::format_with_prefix(arg.bit_depth, "bits");
-  std::string duration = is_empty ? "<Empty>" : util::format_with_prefix(arg.duration, "sec");
+
+  // Bit depth is not applicable for lossy formats (e.g. MP3), as they are not stored as PCM samples
+  const std::string bit_depth = [&]() -> std::string {
+    if (is_empty) {
+      return "<Empty>";
+    }
+
+    if (arg.bit_depth == 0) {
+      return "—";
+    }
+
+    return util::format_with_prefix(arg.bit_depth, "bits");
+  }();
+
+  // Same format used by media player
+  const std::string duration = is_empty ? "<Empty>" : time_to_string(arg.duration);
 
   std::ostringstream ss;
 

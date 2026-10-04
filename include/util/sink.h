@@ -7,6 +7,7 @@
 #define INCLUDE_UTIL_SINK_H_
 
 #include <chrono>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -41,8 +42,8 @@ class Sink {
   /* ******************************************************************************************** */
   //! Internal methods
  protected:
-  virtual void WriteToStream([[maybe_unused]] const std::string& message){
-      // This method may not be used if there isn't a valid ostream opened
+  virtual void WriteToStream([[maybe_unused]] const std::string& message) {
+    // This method may not be used if there isn't a valid ostream opened
   };
 };
 
@@ -99,7 +100,15 @@ class ImplSink : public Sink {
 
 class FileSink : public ImplSink<FileSink> {
  public:
-  explicit FileSink(const std::string& path);
+  static constexpr std::uintmax_t kMaxFileSize = 5 * 1024 * 1024;  //!< Default maximum size (5 MB)
+
+  /**
+   * @brief Construct a new FileSink object
+   * @param path Absolute path for log file
+   * @param max_size Maximum file size, when it is reached, file is renamed to "<path>.1" (replacing
+   * the older one) and a new one is started
+   */
+  explicit FileSink(const std::string& path, std::uintmax_t max_size = kMaxFileSize);
   ~FileSink() override = default;
 
   //!  Required methods
@@ -109,7 +118,11 @@ class FileSink : public ImplSink<FileSink> {
   /* ******************************************************************************************** */
   //! Variables
  private:
-  std::string path_;  //!< Absolute path for log file
+  //! Rename log file to "<path>.1" if it reached maximum size (so it does not grow forever)
+  void RotateIfNeeded() const;
+
+  std::string path_;         //!< Absolute path for log file
+  std::uintmax_t max_size_;  //!< Maximum file size before rotating it
   std::chrono::seconds reopen_interval_ = std::chrono::seconds(300);  //!< Interval to reopen file
   std::chrono::system_clock::time_point last_reopen_;  //!< Last timestamp that file was (re)opened
 };

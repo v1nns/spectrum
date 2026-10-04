@@ -38,8 +38,9 @@ struct Navigation {
   static Key PageDown;
 
   static Key Backspace;
+  static Key AltBackspace;
   static Key CtrlBackspace;
-  static Key CtrlBackspaceReverse;
+  static Key CtrlW;
 
   static Key Delete;
 
@@ -62,7 +63,7 @@ struct Dialog {
 struct General {
   static Key ExitApplication;
   static Key ShowHelper;
-  static Key ShowTabHelper;
+  static Key ChangeTheme;
 
   static Key FocusSidebar;
   static Key FocusInfo;
@@ -93,7 +94,6 @@ struct Sidebar {
 struct MediaPlayer {
   static Key PlayOrPause;
   static Key Stop;
-  static Key ClearSong;
 
   static Key SkipToPrevious;
   static Key SkipToNext;
@@ -104,6 +104,9 @@ struct MediaPlayer {
 
   static Key SeekForward;
   static Key SeekBackward;
+
+  static Key ToggleRepeat;
+  static Key ToggleShuffle;
 };
 
 /* ********************************************************************************************** */
@@ -131,7 +134,7 @@ struct Equalizer {
 
 //! Lyric keybindings
 struct Lyric {
-  // TODO: retry
+  static Key Retry;
 };
 
 /* ********************************************************************************************** */
@@ -149,7 +152,21 @@ struct Playlist {
 
   static Key Rename;
   static Key Save;
+  static Key RemoveSong;
+
+  static Key ShowFiles;
+  static Key ShowYoutube;
 };
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Translate alternative escape sequences sent by some terminals (e.g. tmux, rxvt) into the
+ * sequence used by the keybinding table, so that key comparison works regardless of the terminal
+ * @param event Event received from terminal
+ * @return Normalized event (or the same event if no translation is needed)
+ */
+Key Normalize(const Key& event);
 
 }  // namespace interface::keybinding
 #endif  // INCLUDE_VIEW_BASE_KEYBINDING_H_

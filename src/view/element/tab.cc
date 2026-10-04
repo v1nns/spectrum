@@ -4,6 +4,7 @@
 
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -16,22 +17,7 @@ std::ostream& operator<<(std::ostream& out, const TabItem& item) {
 }
 
 Button::Style TabItem::kTabButtonStyle = Button::Style{
-    .normal =
-        Button::Style::State{
-            .foreground = ftxui::Color::GrayDark,
-            .background = ftxui::Color(),
-        },
-    .focused =
-        Button::Style::State{
-            .foreground = ftxui::Color::GrayLight,
-            .background = ftxui::Color::GrayDark,
-        },
-    .selected =
-        Button::Style::State{
-            .foreground = ftxui::Color::LightSteelBlue1,
-            .background = ftxui::Color::SteelBlue3,
-        },
-
+    .colors = [] { return GetTheme().block.tab; },
     .delimiters = Button::Delimiters{" ", " "},
 };
 

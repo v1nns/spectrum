@@ -2,6 +2,7 @@
 
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -25,27 +26,23 @@ void Block::SetFocused(bool focused) {
 ftxui::Decorator Block::GetTitleDecorator() const {
   using ftxui::bgcolor;
   using ftxui::bold;
-  using ftxui::Color;
   using ftxui::color;
 
-  ftxui::Decorator style = focused_
-                               ? bgcolor(Color::SteelBlue3) | color(Color::PaleTurquoise1) | bold
-                               : bgcolor(Color::GrayDark) | color(Color::GrayLight);
+  const auto& theme = GetTheme().block;
+  const auto& title = focused_ ? theme.title_focused : theme.title;
 
-  return style;
+  ftxui::Decorator decorator = bgcolor(title.background) | color(title.foreground);
+  return focused_ ? decorator | bold : decorator;
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Decorator Block::GetBorderDecorator() const {
   using ftxui::bgcolor;
-  using ftxui::Color;
   using ftxui::color;
   using ftxui::nothing;
 
-  ftxui::Decorator style = focused_ ? color(Color::SteelBlue3) : nothing;
-
-  return style;
+  return focused_ ? color(GetTheme().block.border_focused) : nothing;
 }
 
 /* ********************************************************************************************** */
@@ -65,7 +62,7 @@ void Block::AskForFocus() const {
 std::shared_ptr<EventDispatcher> Block::GetDispatcher() const {
   auto dispatcher = dispatcher_.lock();
   if (!dispatcher) {
-    ERROR("Cannot lock event dispatcher");
+    WARN("Cannot lock event dispatcher");
     throw std::runtime_error("Cannot lock event dispatcher");
   }
 

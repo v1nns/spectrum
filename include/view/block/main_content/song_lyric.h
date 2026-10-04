@@ -6,12 +6,15 @@
 #ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_SONG_LYRIC_H_
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_SONG_LYRIC_H_
 
-#include <chrono>
-#include <future>
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <mutex>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <thread>
 
-#include "audio/lyric/base/html_parser.h"
 #include "audio/lyric/lyric_finder.h"
 #include "model/song.h"
 #include "view/element/tab.h"
@@ -71,52 +74,93 @@ class SongLyric : public TabItem {
   //! Private methods
  private:
   /**
-   * @brief Check inner state from std::future
-   * @tparam R Result from asynchronous operation
-   * @param f Mechanism to execute asynchronous operation
-   * @param st Inner state
-   * @return true if state matches, otherwise false
-   */
-  template <typename R>
-  bool is_state(std::future<R>& f, std::future_status st) const {
-    return f.valid() && f.wait_for(std::chrono::seconds(0)) == st;
-  }
-
-  /**
-   * @brief Check state from fetch operation that is executed asynchronously
+   * @brief Check if song lyrics are being fetched (search result not received yet)
    * @return true if fetch operation is still executing, otherwise false
    */
-  bool IsFetching() { return async_fetcher_ && is_state(*async_fetcher_, std::future_status::timeout); }
+  [[nodiscard]] bool IsFetching() const { return fetching_; }
 
   /**
-   * @brief Check state from fetch operation that is executed asynchronously
-   * @return true if fetch operation finished, otherwise false
+   * @brief Take search result from fetcher thread (if available) and update song lyrics
    */
-  bool IsResultReady() { return async_fetcher_ && is_state(*async_fetcher_, std::future_status::ready); }
-
-  //! Result from asynchronous fetch operation (if empty, it means that failed)
-  using FetchResult = std::optional<lyric::SongLyric>;
+  void ConsumeSearchResult();
 
   /**
-   * @brief Use updated song information to fetch song lyrics
+   * @brief Cancel search in progress (if any) and discard its result
    */
-  FetchResult FetchSongLyrics();
+  void CancelFetching();
+
+  /**
+   * @brief Thread loop to search for song lyrics (one request at a time), so UI thread never waits
+   * for it
+   */
+  void FetchLoop();
+
+  /**
+   * @brief Get artist and title to search for song lyrics, from song metadata or its filename
+   * (following the pattern "artist - title.ext"). If not possible, both are left empty
+   */
+  void ParseSearchTerms();
+
+  /**
+   * @brief Check if song information contains enough data to search for song lyrics
+   * @return true if both artist and title are known, otherwise false
+   */
+  [[nodiscard]] bool HasSearchTerms() const { return !artist_.empty() && !title_.empty(); }
+
+  /**
+   * @brief Launch asynchronous task to search for song lyrics using current artist and title
+   */
+  void StartFetching();
+
+  /**
+   * @brief Check if user may retry fetching song lyrics (only when last attempt did not find them)
+   * @return true if retry is possible, otherwise false
+   */
+  bool CanRetry();
+
+  /**
+   * @brief Renders message explaining why song lyrics are not being shown
+   * @return UI element
+   */
+  [[nodiscard]] ftxui::Element DrawFailure() const;
 
   /**
    * @brief Renders the song lyrics element
    * @param lyrics Song lyrics (each entry represents a paragraph)
    */
-  ftxui::Element DrawSongLyrics(const lyric::SongLyric& lyrics) const;
+  ftxui::Element DrawSongLyrics(const model::SongLyric& lyrics) const;
 
   /* ******************************************************************************************** */
   //! Variables
 
   model::Song audio_info_;   //!< Audio information from current song
-  lyric::SongLyric lyrics_;  //!< Song lyrics from current song
-  int focused_ = 0;          //!< Index for paragraph focused from song lyric
+  model::SongLyric lyrics_;  //!< Song lyrics from current song
+
+  std::string artist_;  //!< Artist used to search for song lyrics
+  std::string title_;   //!< Title used to search for song lyrics
+
+  std::optional<lyric::SearchResult::Status> status_;  //!< Outcome from last search
+  int focused_ = 0;  //!< Index for paragraph focused from song lyric
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
-  std::unique_ptr<std::future<FetchResult>> async_fetcher_;  //!< Use lyric finder asynchronously
+
+  //! Request to search for song lyrics
+  struct Request {
+    uint64_t id;         //!< Request identifier (results from older requests are discarded)
+    std::string artist;  //!< Artist to search
+    std::string title;   //!< Title to search
+  };
+
+  bool fetching_ = false;  //!< Flag to indicate that search result was not received yet
+
+  std::mutex mutex_;                           //!< Control access to fetcher thread data
+  std::condition_variable notifier_;           //!< Wake up fetcher thread on new request or exit
+  std::optional<Request> pending_;             //!< Request waiting to be executed
+  std::optional<lyric::SearchResult> result_;  //!< Result from latest request
+  std::atomic<uint64_t> request_id_ = 0;       //!< Identifier from latest request
+  std::atomic<bool> exit_ = false;             //!< Flag to stop fetcher thread
+
+  std::thread fetcher_;  //!< Thread to search for song lyrics (declared last, started last)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

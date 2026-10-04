@@ -8,6 +8,7 @@
 
 #include <math.h>
 
+#include <iomanip>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -59,11 +60,14 @@ struct Volume {
   // Get mute state
   bool IsMuted() const { return muted; }
 
+  // Get volume level, even when muted (from 0.f to 1.f)
+  float GetLevel() const { return percentage; }
+
   // Convenient conversion to int
-  explicit operator int() const { return !muted ? (int)round(percentage * 100) : 0; }
+  explicit operator int() const { return !muted ? static_cast<int>(round(percentage * 100)) : 0; }
 
   // Convenient conversion to float
-  explicit operator float() const { return !muted ? percentage : 0.F; }
+  explicit operator float() const { return !muted ? percentage : 0.f; }
 
   // For comparisons
   friend bool operator==(const Volume lhs, const Volume rhs) {
@@ -73,8 +77,8 @@ struct Volume {
 
   // Output to ostream
   friend std::ostream& operator<<(std::ostream& out, const Volume& v) {
-    out << "{volume:" << (int)v << "% ";
-    out << "muted: " << (v.muted ? "true" : "false") << "}";
+    out << "{volume:\"" << static_cast<int>(v) << "%\"";
+    out << ", muted:" << (v.muted ? "true" : "false") << "}";
     return out;
   }
 
@@ -90,7 +94,27 @@ struct Volume {
  */
 inline std::string to_string(const Volume& arg) {
   std::ostringstream ss;
-  ss << (float)arg;
+  ss << std::fixed << std::setprecision(2) << static_cast<float>(arg);
+  return std::move(ss).str();
+}
+
+/**
+ * @brief Convert Volume to decibel scale for FFmpeg
+ * @param arg Volume struct
+ * @return std::string Volume in decibels (e.g., "-20.00dB")
+ */
+inline std::string to_string_db(const Volume& arg) {
+  float linear = static_cast<float>(arg);
+  if (linear <= 0.0f) {
+    return "-100dB";  // Effectively silent
+  }
+
+  // Apply -6dB reference adjustment to match streaming service loudness normalization
+  // This compensates for hot-mastered tracks and provides more reasonable volume range
+  float db = 20.0f * log10f(linear) - 6.0f;
+
+  std::ostringstream ss;
+  ss << std::fixed << std::setprecision(2) << db << "dB";
   return std::move(ss).str();
 }
 

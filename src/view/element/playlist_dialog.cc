@@ -2,26 +2,57 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <iomanip>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "ftxui/screen/string.hpp"
 #include "model/playlist_operation.h"
+#include "util/formatter.h"
+#include "util/url.h"
+#include "view/element/style.h"
 
 namespace interface {
 
+namespace {
+
+//! Remove spaces from both ends of the given text
+std::string Trim(const std::string& text) {
+  static constexpr std::string_view kSpaces = " \t";
+
+  auto first = text.find_first_not_of(kSpaces);
+  if (first == std::string::npos) return "";
+
+  return text.substr(first, text.find_last_not_of(kSpaces) - first + 1);
+}
+
+}  // namespace
+
+/* ********************************************************************************************** */
+
 PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                                const std::function<bool(const util::File& file)>& contains_audio_cb,
-                               const std::string& optional_path)
-    : Dialog(Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
-             Style{.background = ftxui::Color::SteelBlue, .foreground = ftxui::Color::Grey93}),
-      dispatcher_(dispatcher),
+                               const std::string& optional_path,
+                               const std::function<bool()>& stream_available_cb,
+                               const PlaylistFetchCallback& fetch_playlist_cb)
+    : Dialog(dispatcher,
+             Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
+             Style{.background = &Theme::Dialog::background,
+                   .foreground = &Theme::Dialog::foreground}),
       base_path_(),
+      stream_available_cb_(stream_available_cb),
+      fetch_playlist_cb_(fetch_playlist_cb),
       menu_files_(menu::CreateFileMenu(
           dispatcher, std::make_shared<util::FileHandler>(),
 
           // Callback to force a UI refresh
           [this] {
-            auto dispatcher = dispatcher_.lock();
+            auto dispatcher = GetDispatcher();
             if (!dispatcher) return;
 
             dispatcher->SendEvent(interface::CustomEvent::Refresh());
@@ -32,7 +63,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
             if (!active) return false;
 
             // Send user action to controller, try to play selected entry
-            auto dispatcher = dispatcher_.lock();
+            auto dispatcher = GetDispatcher();
             if (!dispatcher) return false;
 
             LOG("Handle on_click event on menu entry=", *active);
@@ -52,14 +83,12 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
           },
           menu::Style::Alternative, optional_path)),
 
-      input_playlist_(),
-
       menu_playlist_(menu::CreateSongMenu(
           dispatcher,
 
           // Callback to force a UI refresh
           [this] {
-            auto dispatcher = dispatcher_.lock();
+            auto dispatcher = GetDispatcher();
             if (!dispatcher) return;
 
             dispatcher->SendEvent(interface::CustomEvent::Refresh());
@@ -75,11 +104,10 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
               return false;
             }
 
-            auto it =
-                std::find_if(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
-                             [active](const model::Song& s) {
-                               return s.index == active->index && s.filepath == active->filepath;
-                             });
+            auto it = std::find_if(modified_playlist_->songs.begin(),
+                                   modified_playlist_->songs.end(), [active](const model::Song& s) {
+                                     return s.index == active->index && s.Compare(*active);
+                                   });
 
             bool found = it != modified_playlist_->songs.end();
 
@@ -94,12 +122,24 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
             }
 
             return true;
-          })) {
+          })),
+
+      message_{[this] {
+                 // Message has expired, so UI must be refreshed to remove it from screen
+                 if (auto dispatcher = GetDispatcher(); dispatcher) {
+                   dispatcher->SendEvent(interface::CustomEvent::Refresh());
+                 }
+               },
+               kMessageDuration} {
+  url_input_ =
+      std::make_unique<UrlInput>(std::string{kUrlLabel}, "Added to playlist",
+                                 [this](const std::string& url) { return SubmitUrl(url); });
+
   CreateButtons();
 
   // Append all inner elements to have focus controlled by wrapper
   focus_ctl_.Append(*menu_files_.get(), *menu_playlist_.get());
-  focus_ctl_.SetFocus(0);
+  ShowSource(Source::Files);
 
   // Set default path to list files from
   base_path_ = menu_files_->actual().GetCurrentDir();
@@ -107,11 +147,13 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
 /* ********************************************************************************************** */
 
+PlaylistDialog::~PlaylistDialog() { StopImport(); }
+
+/* ********************************************************************************************** */
+
 void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
-  // Check if FileMenu must reset list of files back to default path
-  if (auto& derived = menu_files_->actual(); derived.GetCurrentDir() != base_path_) {
-    derived.RefreshList(base_path_);
-  }
+  // Always read files from default path again, as they may have changed since last time
+  menu_files_->actual().RefreshList(base_path_);
 
   // Update internal cache
   curr_operation_ = operation;
@@ -135,7 +177,8 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
   modified_playlist_ = curr_operation_.playlist;
 
   // Clear playlist info
-  input_playlist_.name = !modified_playlist_->name.empty() ? modified_playlist_->name : "";
+  rename_.editing = false;
+  rename_.error.reset();
   menu_playlist_->SetEntries(modified_playlist_->songs);
 
   UpdateButtonState();
@@ -170,17 +213,32 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   auto size_decorator = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, max_columns_per_menu) |
                         ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, max_lines_menu);
 
-  int playlist_width = max_columns_per_menu * 0.7f;
-  auto playlist_input = input_playlist_.Render(playlist_width);
+  // Left pane shows songs to add from the active source (files or YouTube URL)
+  bool source_focused = menu_files_->IsFocused() || url_input_->IsFocused();
+  url_input_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);
+
+  ftxui::Element source_view =
+      source_ == Source::Files ? menu_files_->Render() : url_input_->Render();
+
+  // Tab buttons are rendered in bold while pane is focused
+  btn_files_->UpdateParentFocus(source_focused);
+  btn_youtube_->UpdateParentFocus(source_focused);
+
+  // Message is drawn next to save button, and the same width is reserved on the other side to
+  // keep button centered
+  auto [message, message_style] = GetSaveMessage();
+  if (!message.empty()) message = " " + message;
+  int message_width = ftxui::string_width(message);
 
   constexpr auto focus_decorator = [](bool is_focused) {
-    return is_focused ? ftxui::color(ftxui::Color::LightSkyBlue1)
-                      : ftxui::color(ftxui::Color::Grey11);
+    return is_focused ? ftxui::color(GetTheme().dialog.pane_border_focused)
+                      : ftxui::color(GetTheme().dialog.pane_border);
   };
 
   return ftxui::vbox({
              ftxui::text(" "),
-             ftxui::text(title) | ftxui::color(ftxui::Color::Black) | ftxui::center | ftxui::bold,
+             ftxui::text(title) | ftxui::color(GetTheme().dialog.text) | ftxui::center |
+                 ftxui::bold,
              ftxui::text(" "),
 
              ftxui::hbox({
@@ -189,10 +247,9 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
                  ftxui::vbox({
                      ftxui::filler(),
                      // Using hbox as title, otherwise color will be applied incorrectly on border
-                     ftxui::window(
-                         ftxui::hbox({ftxui::text(" files ") | ftxui::color(ftxui::Color::Grey11)}),
-                         menu_files_->Render()) |
-                         size_decorator | focus_decorator(menu_files_->IsFocused()),
+                     ftxui::window(ftxui::hbox({btn_files_->Render(), btn_youtube_->Render()}),
+                                   source_view) |
+                         size_decorator | focus_decorator(source_focused),
                      ftxui::filler(),
                  }),
 
@@ -200,9 +257,8 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 
                  ftxui::vbox({
                      ftxui::filler(),
-                     ftxui::window(
-                         ftxui::hbox({ftxui::text(" "), playlist_input, ftxui::text(" ")}),
-                         menu_playlist_->Render()) |
+                     ftxui::window(RenderPlaylistTitle(max_columns_per_menu),
+                                   menu_playlist_->Render()) |
                          size_decorator | focus_decorator(menu_playlist_->IsFocused()),
                      ftxui::filler(),
 
@@ -214,7 +270,13 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
                  ftxui::flex_grow,
 
              ftxui::filler(),
-             btn_save_->Render() | ftxui::center,
+             ftxui::hbox({
+                 ftxui::filler(),
+                 ftxui::text(std::string(message_width, ' ')),
+                 btn_save_->Render(),
+                 ftxui::text(message) | message_style | ftxui::vcenter,
+                 ftxui::filler(),
+             }),
              ftxui::filler(),
          }) |
          ftxui::flex_grow;
@@ -223,6 +285,12 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
+  // Playlist import finishes in another thread, which asks for a refresh (received as an event)
+  FinishImport();
+
+  // Text input should handle first, as it takes all characters
+  if (url_input_->IsFocused() && url_input_->OnEvent(event)) return true;
+
   // Menu should handle first
   if (menu_files_->IsFocused()) {
     if (menu_files_->OnEvent(event)) return true;
@@ -232,30 +300,64 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
       menu_files_->OnClick();
       return true;
     }
+
+    // Name is edited on playlist pane, so move focus to it
+    if (event == keybinding::Playlist::Rename) {
+      LOG("Handle key to rename playlist (from files)");
+      focus_ctl_.SetFocus(kPlaylistPane);
+      StartRename();
+      return true;
+    }
   }
 
   if (menu_playlist_->IsFocused()) {
-    if (input_playlist_.IsEditing() && input_playlist_.OnEvent(event)) {
-      modified_playlist_->name = input_playlist_.name;
-      UpdateButtonState();
-
-      return true;
-    }
+    if (rename_.editing && OnRenameEvent(event)) return true;
 
     if (menu_playlist_->OnEvent(event)) return true;
 
     if (event == keybinding::Playlist::Rename) {
       LOG("Handle key to rename playlist");
-      input_playlist_.edit_mode = true;
+      StartRename();
       return true;
     }
 
-    if (event == keybinding::Navigation::Space) {
+    if (event == keybinding::Navigation::Space || event == keybinding::Playlist::RemoveSong ||
+        event == keybinding::Navigation::Delete) {
       LOG("Handle key to remove file from playlist");
       menu_playlist_->OnClick();
       return true;
     }
   }
+
+  // Switch focus between menus (unless playlist name is being edited)
+  if (!rename_.editing) {
+    if (event == keybinding::Playlist::ShowFiles) {
+      LOG("Handle key to show files");
+      ShowSource(Source::Files);
+      return true;
+    }
+
+    if (event == keybinding::Playlist::ShowYoutube) {
+      LOG("Handle key to show YouTube URL input");
+      ShowSource(Source::Youtube);
+      return true;
+    }
+
+    if (event == keybinding::Navigation::Tab) {
+      LOG("Handle key to focus next menu");
+      focus_ctl_.FocusNext();
+      return true;
+    }
+
+    if (event == keybinding::Navigation::TabReverse) {
+      LOG("Handle key to focus previous menu");
+      focus_ctl_.FocusPrevious();
+      return true;
+    }
+  }
+
+  // Let base class close this dialog, instead of focus controller removing focus from menu
+  if (event == keybinding::Navigation::Escape) return false;
 
   // Otherwise, pass event to focus controller to handle and pass it along to focused element
   if (focus_ctl_.OnEvent(event)) {
@@ -275,6 +377,9 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnMouseEventImpl(ftxui::Event event) {
+  if (btn_files_->OnMouseEvent(event)) return true;
+  if (btn_youtube_->OnMouseEvent(event)) return true;
+
   if (focus_ctl_.OnMouseEvent(event)) return true;
 
   if (btn_save_->IsActive() && btn_save_->OnMouseEvent(event)) return true;
@@ -291,14 +396,15 @@ void PlaylistDialog::OnOpen() {
 /* ********************************************************************************************** */
 
 void PlaylistDialog::OnClose() {
-  // Reset default path in file menu
-  menu_files_->actual().RefreshList(std::filesystem::current_path());
-
+  StopImport();
   modified_playlist_.reset();
-  input_playlist_.Clear();
+  rename_.editing = false;
+  rename_.error.reset();
   btn_save_->Disable();
+  message_.Hide();
 
-  focus_ctl_.SetFocus(0);
+  url_input_->Clear();
+  ShowSource(Source::Files);
 }
 
 /* ********************************************************************************************** */
@@ -306,26 +412,7 @@ void PlaylistDialog::OnClose() {
 void PlaylistDialog::CreateButtons() {
   // Style for save button
   auto style = Button::Style{
-      .normal =
-          Button::Style::State{
-              .foreground = ftxui::Color::Black,
-              .background = ftxui::Color::SkyBlue3,
-              .border = ftxui::Color::GrayDark,
-          },
-
-      .focused =
-          Button::Style::State{
-              .foreground = ftxui::Color::LightSkyBlue1,
-              .background = ftxui::Color::DeepSkyBlue4Ter,
-              .border = ftxui::Color::LightSkyBlue1,
-          },
-
-      .disabled =
-          Button::Style::State{
-              .foreground = ftxui::Color::Grey35,
-              .background = ftxui::Color::SteelBlue,
-          },
-
+      .colors = [] { return GetTheme().dialog.button; },
       .width = 16,
   };
 
@@ -333,13 +420,17 @@ void PlaylistDialog::CreateButtons() {
       std::string("Save"),
       [this]() {
         LOG("Handle callback for Playlist save button");
-        if (modified_playlist_.has_value()) {
-          auto dispatcher = dispatcher_.lock();
+        if (modified_playlist_.has_value() && !modified_playlist_->name.empty() &&
+            !modified_playlist_->IsEmpty()) {
+          auto dispatcher = GetDispatcher();
           if (!dispatcher) return false;
 
           LOG("Sending modified playlist to be saved, playlist=", *modified_playlist_);
           auto event_save = interface::CustomEvent::SavePlaylistsToFile(*modified_playlist_);
           dispatcher->SendEvent(event_save);
+
+          // Let user know that playlist was saved
+          message_.Show("Saved ✓");
 
           // Update UI state
           curr_operation_.playlist = modified_playlist_;
@@ -349,6 +440,227 @@ void PlaylistDialog::CreateButtons() {
         return true;
       },
       style, false);
+
+  // Style for tab buttons (on the left pane border)
+  auto tab_style = Button::Style{
+      .colors = [] { return GetTheme().dialog.tab; },
+      .delimiters = Button::Delimiters{" ", " "},
+  };
+
+  btn_files_ = Button::make_button_for_window(
+      util::EventToString(keybinding::Playlist::ShowFiles) + ":files",
+      [this]() {
+        LOG("Handle callback for files tab button");
+        ShowSource(Source::Files);
+        return true;
+      },
+      tab_style);
+
+  btn_youtube_ = Button::make_button_for_window(
+      util::EventToString(keybinding::Playlist::ShowYoutube) + ":youtube",
+      [this]() {
+        LOG("Handle callback for YouTube tab button");
+        ShowSource(Source::Youtube);
+        return true;
+      },
+      tab_style);
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::StartRename() {
+  rename_.input.SetText(modified_playlist_->name);
+  rename_.editing = true;
+  rename_.error.reset();
+}
+
+/* ********************************************************************************************** */
+
+bool PlaylistDialog::OnRenameEvent(const ftxui::Event& event) {
+  if (event == keybinding::Navigation::Return) {
+    FinishRename(true);
+    return true;
+  }
+
+  if (event == keybinding::Navigation::Escape) {
+    LOG("Cancel rename, keeping name=", std::quoted(modified_playlist_->name));
+    FinishRename(false);
+    return true;
+  }
+
+  if (rename_.input.OnEvent(event)) {
+    // Any change to the typed name makes the last error obsolete
+    rename_.error.reset();
+    return true;
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::FinishRename(bool keep_name) {
+  if (keep_name) {
+    std::string name = Trim(rename_.input.GetText());
+    const auto& other_names = curr_operation_.other_names;
+
+    if (name.empty()) {
+      rename_.error = "Name can't be empty";
+      return;
+    }
+
+    if (std::find(other_names.begin(), other_names.end(), name) != other_names.end()) {
+      rename_.error = "Name already used";
+      return;
+    }
+
+    LOG("Rename playlist from ", std::quoted(modified_playlist_->name), " to ", std::quoted(name));
+    modified_playlist_->name = name;
+    UpdateButtonState();
+  }
+
+  rename_.editing = false;
+  rename_.error.reset();
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
+  // Hints for the next possible actions on playlist (from the most to the least detailed one)
+  std::vector<std::string> hints;
+
+  if (rename_.editing) {
+    hints.push_back("[" + util::EventToString(keybinding::Navigation::Escape) + ":cancel]");
+  } else if (menu_playlist_->IsFocused()) {
+    std::string rename = util::EventToString(keybinding::Playlist::Rename) + ":rename";
+
+    if (modified_playlist_.has_value() && !modified_playlist_->IsEmpty()) {
+      hints.push_back("[" + rename + " " + util::EventToString(keybinding::Playlist::RemoveSong) +
+                      ":remove]");
+    }
+
+    hints.push_back("[" + rename + "]");
+  }
+
+  std::string name = modified_playlist_.has_value() ? modified_playlist_->name : "";
+  if (name.empty()) name = kUnnamed;
+
+  // Border is split into: corner, space, title, space, line (at least one column), hint, corner
+  static constexpr int kFixedColumns = 4;
+  int title_columns = max_columns - kFixedColumns;
+
+  // Prefer to show title instead of hint, when there is not enough space for both (while not
+  // editing, the whole name should fit)
+  int required =
+      rename_.editing ? kMinTitleColumns : std::max(kMinTitleColumns, ftxui::string_width(name));
+
+  // Use the first hint that fits along with title
+  std::string hint;
+
+  for (const auto& candidate : hints) {
+    int hint_columns = static_cast<int>(candidate.size()) + 1;
+    if (title_columns - hint_columns < required) continue;
+
+    title_columns -= hint_columns;
+    hint = candidate;
+    break;
+  }
+
+  ftxui::Element title =
+      rename_.editing ? rename_.input.Render(title_columns, true, std::string(kNamePlaceholder))
+                      : ftxui::text(name) | ftxui::color(GetTheme().dialog.pane_title) |
+                            ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, title_columns);
+
+  return ftxui::hbox({
+      ftxui::text(" "),
+      title,
+      ftxui::text(" "),
+      ftxui::filler(),
+      ftxui::text(hint) | ftxui::color(GetTheme().dialog.hint),
+  });
+}
+
+/* ********************************************************************************************** */
+
+std::pair<std::string, ftxui::Decorator> PlaylistDialog::GetSaveMessage() const {
+  // Error from last attempt to rename playlist
+  if (rename_.editing && rename_.error.has_value()) {
+    return {"✗ " + *rename_.error, ftxui::color(GetTheme().dialog.error) | ftxui::bold};
+  }
+
+  // Confirmation after saving playlist
+  if (auto text = message_.GetText(); text.has_value()) {
+    return {*text, ftxui::bold};
+  }
+
+  // Reason why playlist cannot be saved yet
+  if (!rename_.editing && modified_playlist_.has_value() && !btn_save_->IsActive()) {
+    auto style = ftxui::color(GetTheme().dialog.hint);
+
+    if (modified_playlist_->IsEmpty()) return {"Add a song to save", style};
+
+    if (modified_playlist_->name.empty()) {
+      return {"Name it to save (" + util::EventToString(keybinding::Playlist::Rename) + ")", style};
+    }
+  }
+
+  return {"", ftxui::nothing};
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::ShowSource(Source source) {
+  auto get_view = [this](Source s) -> Element& {
+    if (s == Source::Files) return *menu_files_;
+    return *url_input_;
+  };
+
+  // Replace view on the left pane and focus it
+  focus_ctl_.Replace(get_view(source_), get_view(source));
+  focus_ctl_.SetFocus(kSourcePane);
+
+  source_ = source;
+
+  // Let user know when songs cannot be added from URL (before typing anything)
+  if (source == Source::Youtube) {
+    url_input_->SetLabel(IsStreamAvailable() ? std::string{kUrlLabel} : std::string{kNoUrlLabel});
+  }
+
+  // Update tab buttons
+  bool show_files = source == Source::Files;
+  show_files ? btn_files_->Select() : btn_files_->Unselect();
+  show_files ? btn_youtube_->Unselect() : btn_youtube_->Select();
+}
+
+/* ********************************************************************************************** */
+
+std::optional<std::string> PlaylistDialog::AddUrl(const std::string& url) {
+  if (!modified_playlist_.has_value()) return "No playlist to add song to";
+
+  if (!util::IsYoutubeUrl(url)) return "Not a YouTube URL";
+
+  if (!IsStreamAvailable()) return "yt-dlp not found";
+
+  model::Song new_song{
+      .index = static_cast<int>(modified_playlist_->songs.size()),
+      .stream_info = model::StreamInfo{.base_url = url},
+  };
+
+  bool duplicated =
+      std::any_of(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
+                  [&new_song](const model::Song& song) { return song.Compare(new_song); });
+
+  if (duplicated) return "Already in playlist";
+
+  LOG("Adding new song from URL=", std::quoted(url),
+      " to modified playlist=", std::quoted(modified_playlist_->name));
+
+  modified_playlist_->songs.emplace_back(new_song);
+  menu_playlist_->Emplace(new_song);
+
+  UpdateButtonState();
+
+  return std::nullopt;
 }
 
 /* ********************************************************************************************** */
@@ -361,6 +673,119 @@ void PlaylistDialog::UpdateButtonState() {
   } else {
     btn_save_->Disable();
   }
+}
+
+/* ********************************************************************************************** */
+
+UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& url) {
+  using Status = UrlInput::Result::Status;
+
+  if (!util::IsYoutubePlaylistUrl(url)) {
+    auto error = AddUrl(url);
+    return error ? UrlInput::Result{Status::Rejected, *error}
+                 : UrlInput::Result{Status::Accepted, ""};
+  }
+
+  if (!modified_playlist_.has_value()) return {Status::Rejected, "No playlist to add songs to"};
+  if (!fetch_playlist_cb_) return {Status::Rejected, "Cannot import playlist"};
+  if (!IsStreamAvailable()) return {Status::Rejected, "yt-dlp not found"};
+
+  if (import_.thread.joinable()) return {Status::Rejected, "Already importing"};
+
+  StartImport(url);
+  return {Status::Pending, "Importing playlist"};
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::StartImport(const std::string& url) {
+  LOG("Start importing songs from playlist URL=", std::quoted(url));
+  import_.cancel = false;
+
+  import_.thread = std::thread([this, url] {
+    util::Logger::SetThreadName("import");
+
+    std::vector<model::Song> songs;
+    error::Code result = fetch_playlist_cb_(url, songs, &import_.cancel);
+
+    if (import_.cancel) return;
+
+    {
+      std::scoped_lock lock{import_.mutex};
+      import_.result = std::make_pair(result, std::move(songs));
+    }
+
+    // Ask for a refresh, so result is added to playlist right away
+    if (auto dispatcher = GetDispatcher(); dispatcher) {
+      dispatcher->SendEvent(interface::CustomEvent::Refresh());
+    }
+  });
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::FinishImport() {
+  std::optional<std::pair<error::Code, std::vector<model::Song>>> result;
+
+  {
+    std::scoped_lock lock{import_.mutex};
+    if (!import_.result.has_value()) return;
+    result.swap(import_.result);
+  }
+
+  // Thread has already finished its job
+  if (import_.thread.joinable()) import_.thread.join();
+
+  auto& [code, songs] = *result;
+  using Status = UrlInput::Result::Status;
+
+  if (code != error::kSuccess || !modified_playlist_.has_value()) {
+    url_input_->SetResult({Status::Rejected, code == error::kStreamFetcherNotFound
+                                                 ? "yt-dlp not found"
+                                                 : "Cannot import playlist"});
+    return;
+  }
+
+  int added = 0;
+  int skipped = 0;
+
+  for (auto& song : songs) {
+    bool duplicated =
+        std::any_of(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
+                    [&song](const model::Song& other) { return other.Compare(song); });
+
+    if (duplicated) {
+      skipped++;
+      continue;
+    }
+
+    song.index = static_cast<int>(modified_playlist_->songs.size());
+    modified_playlist_->songs.emplace_back(song);
+    menu_playlist_->Emplace(song);
+    added++;
+  }
+
+  LOG("Imported songs from playlist, added=", added, " skipped=", skipped);
+  UpdateButtonState();
+
+  std::string message = "Added " + std::to_string(added) + (added == 1 ? " song" : " songs");
+  if (skipped > 0) message += ", " + std::to_string(skipped) + " skipped";
+
+  url_input_->SetResult({added > 0 ? Status::Accepted : Status::Rejected,
+                         added > 0 ? message : "No new songs to add"});
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::StopImport() {
+  if (!import_.thread.joinable()) return;
+
+  LOG("Stop importing songs from playlist");
+  import_.cancel = true;
+  import_.thread.join();
+
+  std::scoped_lock lock{import_.mutex};
+  import_.result.reset();
 }
 
 }  // namespace interface

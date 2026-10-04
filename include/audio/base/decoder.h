@@ -13,7 +13,7 @@
 #include "model/song.h"
 #include "model/volume.h"
 
-namespace driver {
+namespace audio {
 
 /**
  * @brief Common interface to read audio file as an input stream, decode it, apply biquad IIR
@@ -37,15 +37,17 @@ class Decoder {
   /**
    * @brief Function invoked after resample is available.
    * (for better understanding: take a look at Audio Loop from Player, and also Playback class)
+   * Arguments: buffer to playback, buffer to audio analysis (same samples, but not affected by
+   * volume, may be null), number of samples per channel and current position
    */
-  using AudioCallback = std::function<bool(void*, int, int64_t&)>;
+  using AudioCallback = std::function<bool(void*, void*, int, int64_t&)>;
 
   /**
-   * @brief Open file as input stream and check for codec compatibility for decoding
+   * @brief Open song as input stream and check for codec compatibility for decoding
    * @param audio_info (In/Out) In case of success, this is filled with detailed audio information
    * @return error::Code Application error code
    */
-  virtual error::Code OpenFile(model::Song& audio_info) = 0;
+  virtual error::Code Open(model::Song& audio_info) = 0;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
@@ -61,7 +63,9 @@ class Decoder {
   virtual void ClearCache() = 0;
 
   /* ******************************************************************************************** */
-  //! Public API for Equalizer TODO: split into a new header along with FFmpeg class
+  //! Public API for audio processing (volume and equalizer)
+  //! P.S. while no song is playing, these are called directly from UI thread; otherwise, they are
+  //! queued as commands and called from audio thread
 
   /**
    * @brief Set volume on playback stream
@@ -86,5 +90,5 @@ class Decoder {
   virtual error::Code UpdateFilters(const model::EqualizerPreset& filters) = 0;
 };
 
-}  // namespace driver
+}  // namespace audio
 #endif  // INCLUDE_AUDIO_BASE_DECODER_H_

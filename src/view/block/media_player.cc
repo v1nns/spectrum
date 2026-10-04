@@ -1,5 +1,6 @@
 #include "view/block/media_player.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <sstream>
 #include <utility>
@@ -10,14 +11,33 @@
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 
 namespace interface {
 
 /* ********************************************************************************************** */
 
-MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
+MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
+                         const std::shared_ptr<util::FileHandler>& file_handler)
     : Block{dispatcher, model::BlockIdentifier::MediaPlayer,
-            interface::Size{.width = 0, .height = kMaxRows}} {
+            interface::Size{.width = 0, .height = kMaxRows}},
+      warning_{[this] {
+                 // Warning has expired, so UI must be refreshed to remove it from screen
+                 if (auto disp = GetDispatcher(); disp) {
+                   disp->SendEvent(CustomEvent::Refresh());
+                 }
+               },
+               kWarningDuration},
+      file_handler_{file_handler != nullptr ? file_handler
+                                            : std::make_shared<util::FileHandler>()} {
+  // Restore volume from last run, and let audio player know about it
+  if (model::Settings settings; file_handler_->ParseSettings(settings) && settings.volume) {
+    volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
+    INFO("Restored volume=", volume_);
+
+    if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
+  }
+
   btn_play_ = Button::make_button_play([this]() {
     LOG("Handle on_click event on Play button");
     auto disp = GetDispatcher();
@@ -26,7 +46,9 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
     AskForFocus();
 
     if (IsPlaying()) {
-      auto event = interface::CustomEvent::PauseOrResumeSong();
+      bool resume = song_.curr_info.state == model::Song::MediaState::Pause;
+      auto event = resume ? interface::CustomEvent::ResumeSong(/*run_animation=*/true)
+                          : interface::CustomEvent::PauseSong();
       disp->SendEvent(event);
       return true;
     }
@@ -60,7 +82,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       auto disp = GetDispatcher();
 
       LOG("Handle on_click event on Skip to Previous Song button");
-      auto event = interface::CustomEvent::SkipToPreviousSong();
+      auto event = CreateSkipEvent(/*next=*/false);
       disp->SendEvent(event);
 
       // Send event to set focus on this block
@@ -76,7 +98,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher)
       auto disp = GetDispatcher();
 
       LOG("Handle on_click event on Skip to Next Song button");
-      auto event = interface::CustomEvent::SkipToNextSong();
+      auto event = CreateSkipEvent(/*next=*/true);
       disp->SendEvent(event);
 
       // Send event to set focus on this block
@@ -104,10 +126,11 @@ ftxui::Element MediaPlayer::Render() {
   }
 
   // Bar to display song duration
+  const auto& theme = GetTheme().player;
+  const auto& bar_colors = is_duration_focused_ ? theme.duration_focused : theme.duration;
+
   ftxui::Decorator bar_style =
-      is_duration_focused_
-          ? ftxui::bgcolor(ftxui::Color::LightSteelBlue1) | ftxui::color(ftxui::Color::RedLight)
-          : ftxui::bgcolor(ftxui::Color::LightSteelBlue3) | ftxui::color(ftxui::Color::SteelBlue3);
+      ftxui::bgcolor(bar_colors.background) | ftxui::color(bar_colors.foreground);
 
   ftxui::Element bar_duration =
       ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) | bar_style;
@@ -120,21 +143,37 @@ ftxui::Element MediaPlayer::Render() {
   // Current volume element
   ftxui::Element volume = ftxui::text(vol_info);
   if (!volume_.IsMuted())
-    volume |= ftxui::color(ftxui::Color::White);
+    volume |= ftxui::color(theme.text);
   else
-    volume |= ftxui::dim | ftxui::color(ftxui::Color::Red3Bis);
+    volume |= ftxui::dim | ftxui::color(theme.volume_muted);
 
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(5, ' '));
 
-  // In order to maintain media buttons centered on screen, it is necessary to append this dummy
-  // margin based on volume string length
-  auto dummy_margin = ftxui::text(std::string(vol_info.size(), ' '));
+  // Repeat and shuffle modes (dimmed when disabled), on the left side to keep media buttons
+  // centered on screen (same width as volume information)
+  auto mode = [&theme](const std::string& text, bool enabled) {
+    return ftxui::text(text) | (enabled ? ftxui::color(theme.text) : ftxui::dim);
+  };
+
+  ftxui::Element modes = ftxui::vbox({
+                             ftxui::filler(),
+                             mode(std::string{"Shuffle: "} + (shuffle_ ? "on" : "off"), shuffle_),
+                             mode("Repeat: " + std::string{model::GetRepeatModeName(repeat_)},
+                                  repeat_ != model::RepeatMode::Off),
+                         }) |
+                         ftxui::size(ftxui::WIDTH, ftxui::EQUAL, static_cast<int>(vol_info.size()));
+
+  // Warning (if any) uses the empty line between media buttons and song duration
+  ftxui::Element warning = ftxui::text("");
+  if (auto message = warning_.GetText(); message.has_value()) {
+    warning = ftxui::text(*message) | ftxui::bold | ftxui::color(theme.warning) | ftxui::center;
+  }
 
   ftxui::Element content = ftxui::vbox({
       ftxui::hbox({
           margin,
-          dummy_margin,
+          modes,
           ftxui::filler(),
           btn_previous_->Render(),
           btn_play_->Render(),
@@ -147,7 +186,11 @@ ftxui::Element MediaPlayer::Render() {
           }),
           margin,
       }),
-      ftxui::text(""),
+      ftxui::hbox({
+          margin,
+          warning | ftxui::xflex_grow,
+          margin,
+      }),
       ftxui::hbox({
           margin,
           bar_duration,
@@ -155,9 +198,9 @@ ftxui::Element MediaPlayer::Render() {
       }),
       ftxui::hbox({
           margin,
-          ftxui::text(curr_time) | ftxui::bold | ftxui::color(ftxui::Color::White),
+          ftxui::text(curr_time) | ftxui::bold | ftxui::color(theme.text),
           ftxui::filler(),
-          ftxui::text(total_time) | ftxui::bold | ftxui::color(ftxui::Color::White),
+          ftxui::text(total_time) | ftxui::bold | ftxui::color(theme.text),
           margin,
       }),
   });
@@ -187,7 +230,20 @@ bool MediaPlayer::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
+CustomEvent MediaPlayer::CreateSkipEvent(bool next) {
+  return next ? CustomEvent::SkipToNextPlaylistSong() : CustomEvent::SkipToPreviousPlaylistSong();
+}
+
+/* ********************************************************************************************** */
+
 bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
+  if (event == CustomEvent::Identifier::ShowWarning) {
+    LOG("Received warning to show");
+    warning_.Show(event.GetContent<std::string>());
+
+    return true;
+  }
+
   if (event == CustomEvent::Identifier::UpdateVolume) {
     LOG("Received new volume information from player");
     volume_ = event.GetContent<model::Volume>();
@@ -269,15 +325,21 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
+bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
   // Play a song or pause/resume current song
   if (event == keybinding::MediaPlayer::PlayOrPause) {
     LOG("Handle key to play/pause song");
     auto dispatcher = GetDispatcher();
 
-    auto event_play = !IsPlaying() ? interface::CustomEvent::PlaySong()
-                                   : interface::CustomEvent::PauseOrResumeSong();
+    interface::CustomEvent event_play;
 
+    if (!IsPlaying()) {
+      event_play = interface::CustomEvent::PlaySong();
+    } else {
+      bool resume = song_.curr_info.state == model::Song::MediaState::Pause;
+      event_play = resume ? interface::CustomEvent::ResumeSong(/*run_animation=*/true)
+                          : interface::CustomEvent::PauseSong();
+    }
     dispatcher->SendEvent(event_play);
 
     if (IsPlaying()) btn_play_->ToggleState();
@@ -296,11 +358,29 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     return true;
   }
 
+  if (event == keybinding::MediaPlayer::ToggleRepeat) {
+    repeat_ = model::GetNextRepeatMode(repeat_);
+    LOG("Handle key to change repeat mode to ", repeat_);
+
+    auto dispatcher = GetDispatcher();
+    dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+    return true;
+  }
+
+  if (event == keybinding::MediaPlayer::ToggleShuffle) {
+    shuffle_ = !shuffle_;
+    LOG("Handle key to toggle shuffle to ", shuffle_ ? "on" : "off");
+
+    auto dispatcher = GetDispatcher();
+    dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
+    return true;
+  }
+
   if (event == keybinding::MediaPlayer::SkipToPrevious && IsPlaying()) {
     LOG("Handle key to skip to previous song");
     auto dispatcher = GetDispatcher();
 
-    auto event_skip = interface::CustomEvent::SkipToPreviousSong();
+    auto event_skip = CreateSkipEvent(/*next=*/false);
     dispatcher->SendEvent(event_skip);
 
     btn_play_->ResetState();
@@ -312,7 +392,7 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) const {
     LOG("Handle key to skip to next song");
     auto dispatcher = GetDispatcher();
 
-    auto event_skip = interface::CustomEvent::SkipToNextSong();
+    auto event_skip = CreateSkipEvent(/*next=*/true);
     dispatcher->SendEvent(event_skip);
 
     btn_play_->ResetState();
@@ -338,6 +418,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
       auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
       dispatcher->SendEvent(event_volume);
 
+      SaveVolume();
       return true;
     }
   }
@@ -354,6 +435,7 @@ bool MediaPlayer::HandleVolumeEvent(const ftxui::Event& event) {
       auto event_volume = interface::CustomEvent::SetAudioVolume(volume_);
       dispatcher->SendEvent(event_volume);
 
+      SaveVolume();
       return true;
     }
   }
@@ -401,6 +483,14 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+void MediaPlayer::SaveVolume() const {
+  // Mute state is not saved, only the volume level
+  const int level = static_cast<int>(std::round(volume_.GetLevel() * 100));
+  if (!file_handler_->SaveSettings(model::Settings{.volume = level})) ERROR("Cannot save volume");
 }
 
 }  // namespace interface

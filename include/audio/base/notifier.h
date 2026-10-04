@@ -10,6 +10,7 @@
 
 #include "model/audio_filter.h"
 #include "model/playlist.h"
+#include "model/repeat_mode.h"
 #include "model/volume.h"
 
 namespace audio {
@@ -39,9 +40,15 @@ class Notifier {
   virtual void NotifyFileSelection(const std::filesystem::path& file) = 0;
 
   /**
-   * @brief Notify Audio Player to pause/resume the current song
+   * @brief Notify Audio Player to pause the current song
    */
-  virtual void PauseOrResume() = 0;
+  virtual void Pause() = 0;
+
+  /**
+   * @brief Notify Audio Player to resume the current song
+   * @param run_animation Flag to execute regain animation before resuming song on audio player
+   */
+  virtual void Resume(bool run_animation) = 0;
 
   /**
    * @brief Notify Audio Player to stop the current song
@@ -83,6 +90,33 @@ class Notifier {
    * @param playlist Song queue
    */
   virtual void NotifyPlaylistSelection(const model::Playlist& playlist) = 0;
+
+  /**
+   * @brief Notify Audio Player about error dialog closed by user
+   */
+  virtual void NotifyErrorDialogClosed() = 0;
+
+  /**
+   * @brief Notify Audio Player to play next song from playlist
+   */
+  virtual void SkipToNextSong() = 0;
+
+  /**
+   * @brief Notify Audio Player to play previous song from playlist
+   */
+  virtual void SkipToPreviousSong() = 0;
+
+  /**
+   * @brief Notify Audio Player about repeat mode selected by user
+   * @param mode Repeat mode
+   */
+  virtual void SetRepeatMode(model::RepeatMode mode) = 0;
+
+  /**
+   * @brief Notify Audio Player about shuffle state selected by user
+   * @param enabled Shuffle state
+   */
+  virtual void SetShuffle(bool enabled) = 0;
 };
 
 }  // namespace audio

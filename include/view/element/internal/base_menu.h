@@ -19,6 +19,7 @@
 #include "view/base/element.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
+#include "view/element/style.h"
 #include "view/element/text_animation.h"
 #include "view/element/util.h"
 
@@ -61,7 +62,7 @@ class BaseMenu : public Element {
   /* ******************************************************************************************** */
   //! Menu styling and callback definition
  protected:
-  //! Custom style for menu entry TODO: better organize this
+  //! Custom style for menu entry
   struct MenuEntryOption {
     ftxui::Decorator normal;
     ftxui::Decorator focused;
@@ -118,7 +119,12 @@ class BaseMenu : public Element {
    * @brief Renders the element
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() override { return actual().RenderImpl(); };
+  ftxui::Element Render() override {
+    // Read colors from theme on every render, as it may have changed
+    actual().UpdateStyleImpl();
+
+    return actual().RenderImpl();
+  };
 
   /**
    * @brief Handles an event from keyboard
@@ -143,10 +149,7 @@ class BaseMenu : public Element {
    * @brief Handles a double click event from mouse
    * @param event Received event from screen
    */
-  void HandleDoubleClick(ftxui::Event& event) override {
-    // TODO: update animated entry based also on mouse focus
-    UpdateFocusedEntry(event);
-  }
+  void HandleDoubleClick(ftxui::Event& event) override { UpdateFocusedEntry(event); }
 
   /**
    * @brief Handles a hover event from mouse
@@ -163,6 +166,8 @@ class BaseMenu : public Element {
     LOG_T("Handle mouse wheel event=", is_wheel_up ? "Up" : "Down");
 
     int size = GetSize();
+    if (size == 0) return;
+
     int* selected = GetSelected();
     int* focused = GetFocused();
 
@@ -215,12 +220,17 @@ class BaseMenu : public Element {
     for (int i = 0; i < GetSize(); ++i) {
       if (!boxes_[i].Contain(event.mouse().x, event.mouse().y)) continue;
 
-      LOG_T("Handle double left click mouse event on entry=", i);
       entry_focused = true;
       *focused = i;
       *selected = i;
 
-      if (click) OnClick();
+      if (click) {
+        LOG_T("Handle left click mouse event on entry=", i);
+        OnClick();
+      }
+
+      // Make sure to render the newest focused entry
+      UpdateActiveEntry();
       break;
     }
 
@@ -251,7 +261,7 @@ class BaseMenu : public Element {
       *selected = clamp(*selected, 0, size - 1);
 
       if (*selected != old_selected) {
-        LOG_T("Handled menu navigation key=", util::EventToString(event));
+        LOG_T("Handled menu navigation key=", std::quoted(util::EventToString(event)));
         *focused = *selected;
         event_handled = true;
 
@@ -264,7 +274,7 @@ class BaseMenu : public Element {
     if (event == Keybind::Return) {
       event_handled = OnClick();
 
-      LOG_T_IF(event_handled, "Handled Return key");
+      LOG_T_IF(event_handled, "Handled \"Return\" key");
 
       // Always reset search mode
       ResetSearch();
@@ -296,8 +306,8 @@ class BaseMenu : public Element {
       event_handled = true;
     }
 
-    // Ctrl + Backspace
-    if (event == Keybind::CtrlBackspace || event == Keybind::CtrlBackspaceReverse) {
+    // Alt + Backspace
+    if (event == Keybind::AltBackspace) {
       search_params_->text_to_search.clear();
       search_params_->position = 0;
       event_handled = true;
@@ -351,6 +361,7 @@ class BaseMenu : public Element {
     actual().SetEntriesImpl(entries);
     ResetState();
     Clamp();
+    UpdateActiveEntry();
   }
 
   /**
@@ -360,6 +371,16 @@ class BaseMenu : public Element {
   template <typename T>
   void Emplace(const T& entry) {
     actual().EmplaceImpl(entry);
+    Clamp();
+  }
+
+  /**
+   * @brief Update an existent entry to menu list, or emplace when does not exist
+   * @param entry Entry for menu to update/emplace
+   */
+  template <typename T>
+  void UpdateOrEmplace(const T& entry) {
+    actual().UpdateOrEmplaceImpl(entry);
     Clamp();
   }
 
@@ -434,7 +455,7 @@ class BaseMenu : public Element {
   bool IsAnimationRunning() const { return animation_.enabled; }
 
   //! Getter for text from animation effect
-  std::string GetTextFromAnimation() const { return animation_.text; }
+  std::string GetTextFromAnimation() const { return animation_.GetText(); }
 
   /* ******************************************************************************************** */
   //! Highlight entry
@@ -442,10 +463,11 @@ class BaseMenu : public Element {
   /**
    * @brief Set entry to be highlighted
    * @param entry Menu entry to get highlight
+   * @return true if set entry as highlighted, false otherwise
    */
   template <typename T>
-  void SetEntryHighlighted(const T& entry) {
-    actual().SetEntryHighlightedImpl(entry);
+  bool SetEntryHighlighted(const T& entry) {
+    return actual().SetEntryHighlightedImpl(entry);
   }
 
   /**
@@ -462,6 +484,18 @@ class BaseMenu : public Element {
   //! Check if search mode enabled
   bool IsSearchEnabled() const { return search_params_.has_value(); }
 
+  //! Render placeholder for when search mode is enabled and no entry matches the text
+  [[nodiscard]] ftxui::Element RenderNoMatches() const { return RenderPlaceholder("No matches"); }
+
+  //! Render placeholder text (dimmed and aligned with entries) for when menu has nothing to show
+  [[nodiscard]] ftxui::Element RenderPlaceholder(const std::string& text) const {
+    return ftxui::hbox({
+               ftxui::text(std::string(kMaxIconColumns, ' ')),
+               ftxui::text(text),
+           }) |
+           ftxui::dim;
+  }
+
   //! Render UI element for search
   ftxui::Element RenderSearch() const {
     if (!IsSearchEnabled()) {
@@ -471,8 +505,13 @@ class BaseMenu : public Element {
 
     ftxui::InputOption opt{.cursor_position = search_params_->position};
 
+    // Use color from theme for typed text (instead of the default one from input component)
+    opt.transform = [](ftxui::InputState state) {
+      return state.element | ftxui::color(GetTheme().menu.search);
+    };
+
     return ftxui::hbox({
-        ftxui::text("Search:") | ftxui::color(ftxui::Color::White),
+        ftxui::text("Search:") | ftxui::color(GetTheme().menu.search),
         ftxui::Input(search_params_->text_to_search, " ", &opt)->Render() | ftxui::flex,
     });
   }
@@ -570,10 +609,14 @@ class BaseMenu : public Element {
 
     // Get active entry and count char length
     std::string text = GetActiveEntryAsText();
-    int count_chars = (int)text.length() + kMaxIconColumns;
+    int max_icon_columns = actual().GetMaxColumnsForIconImpl();
+
+    // Use columns (instead of bytes), so names with multi-byte characters that fit are not animated
+    int icon_columns = max_icon_columns ? max_icon_columns : kMaxIconColumns;
+    int columns = ftxui::string_width(text) + icon_columns;
 
     // Start animation thread
-    if (count_chars > max_columns_) animation_.Start(text);
+    if (columns > max_columns_) animation_.Start(text);
   }
 
   /* ******************************************************************************************** */

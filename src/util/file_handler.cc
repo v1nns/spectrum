@@ -7,14 +7,28 @@
 #include <algorithm>
 #include <exception>
 #include <fstream>
+#include <iomanip>
 #include <set>
+#include <string_view>
+#include <system_error>
 
 #include "nlohmann/json.hpp"
+#include "util/formatter.h"
 #include "util/logger.h"
+#include "util/url.h"
 
 namespace util {
 
 namespace internal {
+
+static constexpr std::string_view kPlaylistsFile = "playlists.json";  //!< File with playlists
+static constexpr std::string_view kSettingsFile = "settings.json";    //!< File with settings
+
+//! Directory (inside home) used by default for files saved by user
+static constexpr std::string_view kConfigDirectory = "/.config/spectrum";
+
+//! Directory (inside home) used for log file, and by older versions for files saved by user
+static constexpr std::string_view kCacheDirectory = "/.cache/spectrum";
 
 //! Transform single character into lowercase
 static void to_lower(char& c) { c = (char)std::tolower(c); }
@@ -39,6 +53,58 @@ static bool sort_files(const File& a, const File& b) {
   return lhs < rhs;
 }
 
+/**
+ * @brief Parse a single song from playlists file and append it to the given playlist
+ * @param song JSON object with song data (throws nlohmann::json::exception if a field is invalid)
+ * @param filepaths Files already added to playlist (to avoid including the same file twice)
+ * @param playlist Playlist to append song
+ */
+static void ParseSong(const nlohmann::json& song, std::set<std::filesystem::path>& filepaths,
+                      model::Playlist& playlist) {
+  if (song.contains("path") && std::filesystem::exists(song["path"].get<std::string>())) {
+    // Insert only if filepath is not duplicated
+    if (auto [it, inserted] = filepaths.emplace(song["path"].get<std::string>()); inserted) {
+      // Song from filepath
+      playlist.songs.emplace_back(model::Song{
+          .filepath = song["path"].get<std::string>(),
+      });
+    }
+
+  } else if (song.contains("url") && util::IsYoutubeUrl(song["url"])) {
+    // Song from URL
+    playlist.songs.emplace_back(model::Song{
+        .artist = song.contains("artist") ? util::filter_emoji(song["artist"]) : "",
+        .title = song.contains("title") ? util::filter_emoji(song["title"]) : "",
+        .stream_info =
+            model::StreamInfo{
+                .base_url = song["url"],
+            },
+    });
+  }
+}
+
+/**
+ * @brief Copy file to "<filepath>.bak" (replacing any older backup), so its content is not lost
+ * when the original file is overwritten
+ * @param filepath Full path to file
+ */
+static void BackupFile(const std::string& filepath) {
+  static constexpr std::string_view kBackupSuffix = ".bak";
+
+  std::string backup = filepath + std::string(kBackupSuffix);
+  std::error_code error;
+
+  std::filesystem::copy_file(filepath, backup, std::filesystem::copy_options::overwrite_existing,
+                             error);
+
+  if (error) {
+    ERROR("Cannot create backup file=", std::quoted(backup), ", error=", error.message());
+    return;
+  }
+
+  LOG("Created backup file=", std::quoted(backup));
+}
+
 }  // namespace internal
 
 /* ********************************************************************************************** */
@@ -57,8 +123,69 @@ std::string FileHandler::GetHome() const {
 
 /* ********************************************************************************************** */
 
+std::string FileHandler::GetConfigDirectory() const {
+  // Relative path is not valid for this variable, so it is ignored (as stated by XDG specification)
+  if (const char* config = std::getenv("XDG_CONFIG_HOME");
+      config && std::filesystem::path{config}.is_absolute()) {
+    return (std::filesystem::path{config} / "spectrum").string();
+  }
+
+  return GetHome() + std::string{internal::kConfigDirectory};
+}
+
+/* ********************************************************************************************** */
+
 std::string FileHandler::GetPlaylistsPath() const {
-  return std::string{GetHome() + "/.cache/spectrum/playlists.json"};
+  return GetConfigDirectory() + "/" + std::string{internal::kPlaylistsFile};
+}
+
+/* ********************************************************************************************** */
+
+std::string FileHandler::GetSettingsPath() const {
+  return GetConfigDirectory() + "/" + std::string{internal::kSettingsFile};
+}
+
+/* ********************************************************************************************** */
+
+std::string FileHandler::GetLogPath() const {
+  return GetHome() + std::string{internal::kCacheDirectory} + "/spectrum.log";
+}
+
+/* ********************************************************************************************** */
+
+void FileHandler::MigrateLegacyFiles() {
+  const std::filesystem::path legacy_dir{GetHome() + std::string{internal::kCacheDirectory}};
+  const std::filesystem::path config_dir{GetConfigDirectory()};
+
+  for (const auto& filename : {internal::kPlaylistsFile, internal::kSettingsFile}) {
+    const std::filesystem::path legacy = legacy_dir / filename;
+    const std::filesystem::path current = config_dir / filename;
+    std::error_code error;
+
+    if (!std::filesystem::exists(legacy, error)) continue;
+
+    if (std::filesystem::exists(current, error)) {
+      WARN("File from older version was not moved, as there is a newer one, file=",
+           std::quoted(legacy.string()));
+      continue;
+    }
+
+    if (!CreateDirectory(config_dir.string(), error)) {
+      ERROR("Cannot create directory=", std::quoted(config_dir.string()), ", error=", error);
+      return;
+    }
+
+    // Copy and remove, as these directories may be on different filesystems (rename would fail)
+    if (std::filesystem::copy_file(legacy, current, error); error) {
+      ERROR("Cannot move file from older version, file=", std::quoted(legacy.string()),
+            ", error=", error.message());
+      continue;
+    }
+
+    std::filesystem::remove(legacy, error);
+    INFO("Moved file from older version, from=", std::quoted(legacy.string()),
+         " to=", std::quoted(current.string()));
+  }
 }
 
 /* ********************************************************************************************** */
@@ -95,30 +222,51 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
   if (!std::filesystem::exists(file_path)) return false;
 
-  std::ifstream json(file_path);
-  nlohmann::json parsed = nlohmann::json::parse(json);
+  nlohmann::json parsed;
+
+  try {
+    std::ifstream json(file_path);
+    parsed = nlohmann::json::parse(json);
+  } catch (const std::exception& e) {
+    // Besides invalid JSON, file may not even be readable (e.g. it is a directory)
+    ERROR("Cannot parse playlists file=", std::quoted(file_path), ", error=", e.what());
+    internal::BackupFile(file_path);
+    return false;
+  }
 
   LOG("Found playlist file, start parsing it");
-  if (!parsed.contains("playlists")) return false;
+  if (!parsed.is_object() || !parsed.contains("playlists") || !parsed["playlists"].is_array()) {
+    ERROR("Playlists file does not contain a list of playlists, file=", std::quoted(file_path));
+    internal::BackupFile(file_path);
+    return false;
+  }
 
   model::Playlists tmp;
+  bool skipped = false;  // Invalid entries are lost on next save, so keep a backup of the file
 
-  // Parse all playlists
+  // Parse all playlists (skipping only the invalid ones, so a single bad entry does not discard
+  // all the others)
   for (auto& [_, playlist] : parsed["playlists"].items()) {
-    if (!playlist.contains("name") || !playlist.contains("songs")) continue;
+    if (!playlist.is_object() || !playlist.contains("name") || !playlist.contains("songs") ||
+        !playlist["name"].is_string() || !playlist["songs"].is_array()) {
+      WARN("Skipping playlist with missing or invalid name/songs, playlist=", playlist.dump());
+      skipped = true;
+      continue;
+    }
 
     model::Playlist entry{.name = playlist["name"], .songs = {}};
+
+    // To avoid including same song multiple times...
     std::set<std::filesystem::path> filepaths;
 
     // Parse all songs from a single playlist
     for (auto& [_, song] : playlist["songs"].items()) {
-      if (!song.contains("path") || !std::filesystem::exists(song["path"])) continue;
-
-      // Insert only if filepath is not duplicated
-      if (auto [it, inserted] = filepaths.emplace(song["path"]); inserted) {
-        entry.songs.emplace_back(model::Song{
-            .filepath = song["path"],
-        });
+      try {
+        internal::ParseSong(song, filepaths, entry);
+      } catch (const nlohmann::json::exception& e) {
+        WARN("Skipping invalid song=", song.dump(), " from playlist=", std::quoted(entry.name),
+             ", error=", e.what());
+        skipped = true;
       }
     }
 
@@ -126,7 +274,9 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
     tmp.push_back(entry);
   }
 
-  LOG("Parsed ", tmp.size(), " playlists");
+  if (skipped) internal::BackupFile(file_path);
+
+  INFO("Parsed ", tmp.size(), " playlists");
   playlists = std::move(tmp);
   return true;
 }
@@ -135,16 +285,29 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
 bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
   // Start by parsing c++ model structure into JSON structure
-  nlohmann::json json_playlists;
+  // P.S.: lists are created as arrays, otherwise an empty one would be saved as null, which is
+  // not accepted when file is parsed again
+  nlohmann::json json_playlists = nlohmann::json::array();
 
   for (const auto& playlist : playlists) {
-    nlohmann::json json_playlist, json_songs;
+    nlohmann::json json_playlist;
+    nlohmann::json json_songs = nlohmann::json::array();
 
     json_playlist["name"] = playlist.name;
 
     for (const auto& song : playlist.songs) {
       nlohmann::json json_song;
-      json_song["path"] = song.filepath.string();
+
+      // Common information
+      if (!song.artist.empty()) json_song["artist"] = song.artist;
+      if (!song.title.empty()) json_song["title"] = song.title;
+
+      // Exclusive source to play song from
+      if (!song.filepath.empty())
+        json_song["path"] = song.filepath.string();
+      else if (song.stream_info.has_value())
+        json_song["url"] = song.stream_info->base_url;
+
       json_songs.push_back(json_song);
     }
 
@@ -172,16 +335,128 @@ bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
     return false;
   }
 
-  try {
-    // Pretty print JSON data with indentation of 2 spaces
-    out << std::setw(2) << json_data;
-  } catch (const std::exception& e) {
-    ERROR("Failed to write JSON, error=", e.what());
+  // Pretty print JSON data with indentation of 2 spaces
+  out << std::setw(2) << json_data;
+
+  if (out.fail()) {
+    ERROR("Failed to write JSON");
     return false;
   }
 
-  // Close the file
-  out.close();
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::ParseSettings(model::Settings& settings) {
+  std::string file_path{GetSettingsPath()};
+
+  if (!std::filesystem::exists(file_path)) return false;
+
+  nlohmann::json parsed;
+
+  try {
+    std::ifstream json(file_path);
+    parsed = nlohmann::json::parse(json);
+  } catch (const std::exception& e) {
+    // Besides invalid JSON, file may not even be readable (e.g. it is a directory)
+    ERROR("Cannot parse settings file=", std::quoted(file_path), ", error=", e.what());
+    internal::BackupFile(file_path);
+    return false;
+  }
+
+  if (!parsed.is_object()) {
+    ERROR("Settings file does not contain an object, file=", std::quoted(file_path));
+    internal::BackupFile(file_path);
+    return false;
+  }
+
+  if (auto visualizer = parsed.find("visualizer");
+      visualizer != parsed.end() && visualizer->is_object()) {
+    // Animation is saved by its identifier, so check it is a known one
+    if (auto animation = visualizer->find("animation");
+        animation != visualizer->end() && animation->is_number_integer()) {
+      if (int value = animation->get<int>();
+          value >= model::BarAnimation::HorizontalMirror && value < model::BarAnimation::LAST) {
+        settings.animation = static_cast<model::BarAnimation>(value);
+      }
+    }
+
+    if (auto bar_width = visualizer->find("bar_width");
+        bar_width != visualizer->end() && bar_width->is_number_integer()) {
+      settings.bar_width = bar_width->get<int>();
+    }
+  }
+
+  if (auto player = parsed.find("player"); player != parsed.end() && player->is_object()) {
+    if (auto volume = player->find("volume");
+        volume != player->end() && volume->is_number_integer()) {
+      if (int value = volume->get<int>(); value >= 0 && value <= 100) settings.volume = value;
+    }
+  }
+
+  if (auto interface = parsed.find("interface");
+      interface != parsed.end() && interface->is_object()) {
+    if (auto theme = interface->find("theme"); theme != interface->end() && theme->is_string()) {
+      settings.theme = theme->get<std::string>();
+    }
+  }
+
+  LOG("Parsed settings from file=", std::quoted(file_path));
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::SaveSettings(const model::Settings& settings) {
+  std::filesystem::path filepath{GetSettingsPath()};
+
+  // Settings are saved by different parts of the interface, so keep the ones not being saved now
+  nlohmann::json json_data = nlohmann::json::object();
+
+  if (std::ifstream in(filepath); in.is_open()) {
+    try {
+      nlohmann::json parsed = nlohmann::json::parse(in, nullptr, /*allow_exceptions=*/false);
+      if (parsed.is_object()) json_data = std::move(parsed);
+    } catch (const std::exception& e) {
+      // File is not even readable (e.g. it is a directory), so there is nothing to keep from it
+      WARN("Cannot read settings file=", std::quoted(filepath.string()), ", error=", e.what());
+    }
+  }
+
+  auto section = [&json_data](const char* name) -> nlohmann::json& {
+    if (!json_data[name].is_object()) json_data[name] = nlohmann::json::object();
+    return json_data[name];
+  };
+
+  if (settings.animation)
+    section("visualizer")["animation"] = static_cast<int>(*settings.animation);
+  if (settings.bar_width) section("visualizer")["bar_width"] = *settings.bar_width;
+  if (settings.volume) section("player")["volume"] = *settings.volume;
+  if (settings.theme) section("interface")["theme"] = *settings.theme;
+
+  std::error_code error;
+
+  // Check that parent directory exists
+  if (!CreateDirectory(filepath.parent_path(), error)) {
+    ERROR("Cannot create parent directory for settings file, error=", error);
+    return false;
+  }
+
+  std::ofstream out(filepath.string());
+
+  if (!out.is_open()) {
+    ERROR("Cannot open file for writing settings");
+    return false;
+  }
+
+  // Pretty print JSON data with indentation of 2 spaces
+  out << std::setw(2) << json_data;
+
+  if (out.fail()) {
+    ERROR("Failed to write JSON");
+    return false;
+  }
 
   return true;
 }

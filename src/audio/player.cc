@@ -1,50 +1,67 @@
 #include "audio/player.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <iomanip>
+#include <numeric>
 #include <stdexcept>
+#include <string>
+#include <utility>
 
 #ifndef SPECTRUM_DEBUG
 #include "audio/driver/alsa.h"
 #include "audio/driver/ffmpeg.h"
+#include "web/driver/ytdlp_wrapper.h"
 #else
 #include "debug/dummy_decoder.h"
 #include "debug/dummy_playback.h"
+#include "debug/dummy_stream_fetcher.h"
 #endif
 
 #include "view/base/notifier.h"
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(bool verbose, driver::Playback* playback,
-                                       driver::Decoder* decoder, bool asynchronous) {
+std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
+                                       audio::Decoder* decoder, web::StreamFetcher* fetcher,
+                                       bool asynchronous) {
   LOG("Create new instance of player");
 
 #ifndef SPECTRUM_DEBUG
   // Create playback object
-  auto pb = playback != nullptr ? std::unique_ptr<driver::Playback>(std::move(playback))
+  auto pb = playback != nullptr ? std::unique_ptr<audio::Playback>(std::move(playback))
                                 : std::make_unique<driver::Alsa>();
 
   // Create decoder object
-  auto dec = decoder != nullptr ? std::unique_ptr<driver::Decoder>(std::move(decoder))
-                                : std::make_unique<driver::FFmpeg>(verbose);
+  auto dc = decoder != nullptr ? std::unique_ptr<audio::Decoder>(std::move(decoder))
+                               : std::make_unique<driver::FFmpeg>(verbose);
+
+  // Create fetcher object
+  auto ft = fetcher != nullptr ? std::unique_ptr<web::StreamFetcher>(std::move(fetcher))
+                               : std::make_unique<driver::YtDlpWrapper>();
+
 #else
   // Create playback object
   auto pb = std::make_unique<driver::DummyPlayback>();
 
   // Create decoder object
-  auto dec = std::make_unique<driver::DummyDecoder>();
+  auto dc = std::make_unique<driver::DummyDecoder>();
+
+  // Create fetcher object
+  auto ft = std::make_unique<driver::DummyStreamFetcher>();
 #endif
 
   // Simply extend the Player class, as we do not want to expose the default constructor,
   // neither do we want to use std::make_shared explicitly calling operator new()
   struct MakeSharedEnabler : public Player {
-    explicit MakeSharedEnabler(std::unique_ptr<driver::Playback>&& playback,
-                               std::unique_ptr<driver::Decoder>&& decoder)
-        : Player(std::move(playback), std::move(decoder)) {}
+    explicit MakeSharedEnabler(std::unique_ptr<audio::Playback>&& playback,
+                               std::unique_ptr<audio::Decoder>&& decoder,
+                               std::unique_ptr<web::StreamFetcher>&& fetcher)
+        : Player(std::move(playback), std::move(decoder), std::move(fetcher)) {}
   };
 
   // Instantiate Player
-  auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dec));
+  auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dc), std::move(ft));
 
   // Initialize internal components
   player->Init(asynchronous);
@@ -54,9 +71,10 @@ std::shared_ptr<Player> Player::Create(bool verbose, driver::Playback* playback,
 
 /* ********************************************************************************************** */
 
-Player::Player(std::unique_ptr<driver::Playback>&& playback,
-               std::unique_ptr<driver::Decoder>&& decoder)
-    : playback_{std::move(playback)}, decoder_{std::move(decoder)} {}
+Player::Player(std::unique_ptr<audio::Playback>&& playback,
+               std::unique_ptr<audio::Decoder>&& decoder,
+               std::unique_ptr<web::StreamFetcher>&& fetcher)
+    : playback_{std::move(playback)}, decoder_{std::move(decoder)}, fetcher_{std::move(fetcher)} {}
 
 /* ********************************************************************************************** */
 
@@ -76,6 +94,7 @@ Player::~Player() {
 
 void Player::Init(bool asynchronous) {
   LOG("Initialize player with async=", asynchronous);
+  finished_ = false;
 
   // Open playback stream using default device
   error::Code result = playback_->CreatePlaybackStream();
@@ -105,18 +124,53 @@ void Player::Init(bool asynchronous) {
 void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   LOG("Reset media control with error code=", result);
   bool notify_finished = media_control_.state == State::Play;
+
+  // Keep song file name, in case of error it is shown to user
+  const std::string filename = curr_song_ ? curr_song_->filepath.filename().string() : "";
+
+  // Clear internal data
   decoder_->ClearCache();
   media_control_.Reset();
   curr_song_.reset();
+
+  // Song was stopped to skip to another one from playlist
+  if (pending_skip_.has_value()) {
+    media_control_.Push(*pending_skip_);
+    pending_skip_.reset();
+  }
 
   auto media_notifier = notifier_.lock();
   if (!media_notifier) return;
 
   if (result != error::kSuccess) {
+    // Song information was already sent to UI (error happened while decoding), so clear it,
+    // otherwise UI would keep showing information about a song that is not playing anymore
+    if (!error_parsing) media_notifier->ClearSongInformation(true);
+
     // In case of error, notify about it
-    media_notifier->NotifyError(result);
-  } else if (notify_finished) {
-    // If song finished naturally, notify that has finished successfully
+    media_notifier->NotifyError(result, filename);
+
+    // Warning is not shown in a dialog (whose closing would play next song), so keep playing
+    if (error::ApplicationError::GetLevel(result) == error::Level::Warning) {
+      // But do not try every remaining song when they keep failing (e.g. no network to stream them)
+      bool has_next_song = CanSkip(Command::SkipToNext());
+
+      if (has_next_song && ++failed_songs_ >= kMaxFailedSongs) {
+        WARN("Stop playlist, as ", failed_songs_.load(), " songs failed in a row");
+        curr_playlist_.reset();
+        failed_songs_ = 0;
+        media_notifier->NotifyError(error::kTooManyFailedSongs, "");
+      } else if (curr_playlist_) {
+        // Do not repeat this song (even if repeat mode is set to it), as it would fail again
+        media_control_.Push(Command::SkipToNext());
+      }
+    }
+
+    return;
+  }
+
+  // If last state was "playing", it means we should notify that song has finished successfully
+  if (notify_finished) {
     media_notifier->NotifySongState(
         model::Song::CurrentInformation{.state = model::Song::MediaState::Finished});
   }
@@ -124,19 +178,22 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
   // Clear any song information from UI
   media_notifier->ClearSongInformation(!error_parsing);
 
-  // Check song queue
-  CheckForNextSongFromPlaylist();
+  // Play next song only if this one has finished (otherwise, it was stopped or replaced by user)
+  if (notify_finished) DequeueNextSongFromPlaylist();
 }
 
 /* ********************************************************************************************** */
 
-bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& last_position) {
+bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
+                           int& last_position) {
   auto command = media_control_.Pop();
   auto media_notifier = notifier_.lock();
 
   if (media_control_.state == State::Stop || media_control_.state == State::Exit) {
     return false;
   }
+
+  using Cmd = Command::Identifier;
 
   switch (command.GetId()) {
     case Command::Identifier::Play: {
@@ -151,7 +208,7 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
     } break;
 
     case Command::Identifier::PauseOrResume: {
-      LOG("Audio handler received command to pause song");
+      INFO("Audio handler received command to pause song");
       media_control_.state = TranslateCommand(command);
       playback_->Pause();
 
@@ -164,38 +221,76 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
         });
       }
 
-      // Block thread until receives one of the informed commands
-      bool keep_executing =
-          media_control_.WaitFor(Command::Play(), Command::PauseOrResume(), Command::Stop());
+      // Block thread until receives one of the informed commands (ignoring skip commands when there
+      // is no song to skip to)
+      bool keep_executing = false;
+      Command command_after_wait = Command::None();
 
-      // TODO: NotifySongState for stop
+      do {
+        keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop,
+                                                Cmd::SkipToNext, Cmd::SkipToPrevious);
+        command_after_wait = media_control_.Pop();
+      } while (
+          keep_executing &&
+          (command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious) &&
+          !CanSkip(command_after_wait));
 
       // Received command different from PauseOrResume
-      if (auto command_after_wait = media_control_.Pop();
-          !keep_executing || command_after_wait != Command::Identifier::PauseOrResume) {
-        LOG("Audio handler received command to ", command_after_wait);
+      if (!keep_executing || command_after_wait != Cmd::PauseOrResume) {
+        INFO("Audio handler received command to ", command_after_wait);
 
-        if (command_after_wait == Command::Identifier::Play) {
+        bool play_new_song = command_after_wait == Cmd::Play ||
+                             command_after_wait == Cmd::SkipToNext ||
+                             command_after_wait == Cmd::SkipToPrevious;
+
+        // Stop current song (if interrupted by a new song, it must not be notified as finished)
+        media_control_.state = play_new_song ? State::Stop : TranslateCommand(command_after_wait);
+
+        if (command_after_wait == Cmd::Play) {
           LOG("Re-adding command to play new song in the queue");
           media_control_.Push(command_after_wait);
+        } else if (play_new_song) {
+          // Skip request selects the song to play after stopping this one
+          pending_skip_ = command_after_wait;
         }
 
-        // Stop current song
-        media_control_.state = TranslateCommand(command_after_wait);
+        // User stopped playing, so there is no next song to play
+        if (command_after_wait == Cmd::Stop) curr_playlist_.reset();
+
         playback_->Stop();
         return false;
       }
 
-      LOG("Audio handler received command to resume song");
+      INFO("Audio handler received command to resume song");
       media_control_.state = State::Play;
       playback_->Prepare();
     } break;
 
+    case Command::Identifier::SkipToNext:
+    case Command::Identifier::SkipToPrevious: {
+      if (!CanSkip(command)) {
+        LOG("Audio handler received command to ", command, ", but there is no song to skip to");
+        break;
+      }
+
+      INFO("Audio handler received command to ", command);
+      // Skip request selects the song to play after stopping this one
+      pending_skip_ = command;
+
+      // Stop current song
+      media_control_.state = State::Stop;
+      playback_->Stop();
+      return false;
+    } break;
+
     case Command::Identifier::Stop:
     case Command::Identifier::Exit: {
-      LOG("Audio handler received command to ", command);
+      INFO("Audio handler received command to ", command);
       media_control_.state = TranslateCommand(command);
       playback_->Stop();
+
+      // User stopped playing, so there is no next song to play
+      if (command == Command::Identifier::Stop) curr_playlist_.reset();
       return false;
     } break;
 
@@ -228,8 +323,14 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
     case Command::Identifier::UpdateAudioFilters: {
       model::EqualizerPreset value = command.GetContent<model::EqualizerPreset>();
       LOG("Audio handler received command to update audio filters");
-      // TODO: handle error...
-      decoder_->UpdateFilters(value);
+
+      // Song keeps playing with previous filters, but let user know about it
+      if (auto result = decoder_->UpdateFilters(value); result != error::kSuccess) {
+        ERROR("Cannot update audio filters, error=", result);
+        if (auto media_notifier = notifier_.lock(); media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
+      }
     } break;
 
     default:
@@ -238,11 +339,19 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
-    media_notifier->SendAudioRaw(static_cast<int*>(buffer), size);
+    // Decoded audio contains 16-bit samples with interleaved channels, and size is the number of
+    // samples per channel. Analysis must use samples not affected by volume (if available), so
+    // spectrum visualizer keeps working even when audio is muted
+    const void* samples = analysis != nullptr ? analysis : buffer;
+    media_notifier->SendAudioRaw(static_cast<const int16_t*>(samples), size * kNumberChannels);
   }
 
-  // Write samples to playback
-  playback_->AudioCallback(buffer, size);
+  // Write samples to playback (stop playing song if it fails, e.g. output device disconnected)
+  if (auto result = playback_->AudioCallback(buffer, size); result != error::kSuccess) {
+    ERROR("Cannot write samples to playback, stop playing song, error=", result);
+    playback_error_ = result;
+    return false;
+  }
 
   // Notify song state to graphical interface
   if (last_position != new_position) {
@@ -262,23 +371,32 @@ bool Player::HandleCommand(void* buffer, int size, int64_t& new_position, int& l
 /* ********************************************************************************************** */
 
 void Player::AudioHandler() {
+  util::Logger::SetThreadName("audio");
   LOG("Start audio handler thread");
+  fetcher_->Init();
+
+  using Cmd = Command::Identifier;
 
   // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Command::Play())) {
-    LOG("Audio handler received new song to play");
+  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext)) {
+    // Get command from queue and select song to play (if any)
+    auto song = SelectSong(media_control_.Pop());
+    if (!song.has_value()) continue;
 
-    // Get command from queue and update internal media state
-    auto command_play = media_control_.Pop();
-    media_control_.state = TranslateCommand(command_play);
+    // Update internal media state and initialize current song
+    media_control_.state = State::Play;
+    curr_song_ = std::make_unique<model::Song>(std::move(*song));
+    error::Code result = error::kSuccess;
+    // Song information is only filled after opening it, so just let user know where it comes from
+    LOG("Audio handler received new song to play from ", curr_song_->stream_info
+                                                             ? curr_song_->stream_info->base_url
+                                                             : curr_song_->filepath.string());
 
-    // Get filepath from command and initialize current song
-    curr_song_ = std::make_unique<model::Song>(model::Song{
-        .filepath = command_play.GetContent<std::string>(),
-    });
+    // Get streaming information if song contains a valid URL
+    if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
 
-    // First, try to parse file (it may be or not a support file extension to decode)
-    error::Code result = decoder_->OpenFile(*curr_song_);
+    // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
+    if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
 
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {
@@ -286,12 +404,14 @@ void Player::AudioHandler() {
       continue;  // we don't wanna keep in this loop anymore, so wait for next song!
     }
 
+    failed_songs_ = 0;
+    // Full path is logged only here (other messages refer to its filename)
+    INFO("Playing song=", *curr_song_,
+         curr_song_->stream_info ? "" : " path=" + curr_song_->filepath.string());
+
     {
       // Otherwise, it is a supported audio extension, send detailed audio information to UI
       if (auto media_notifier = notifier_.lock(); media_notifier) {
-        // Update internal playlist name
-        if (curr_playlist_) curr_song_->playlist = curr_playlist_->name;
-
         // Notify interface about new song
         media_notifier->NotifySongInformation(*curr_song_);
       }
@@ -303,35 +423,135 @@ void Player::AudioHandler() {
     int position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(period_size_ / 2,
-                              [this, &position](void* buffer, int size, int64_t& new_position) {
-                                return HandleCommand(buffer, size, new_position, position);
-                              });
+    result = decoder_->Decode(period_size_ / 2, [this, &position](void* buffer, void* analysis,
+                                                                  int size, int64_t& new_position) {
+      return HandleCommand(buffer, analysis, size, new_position, position);
+    });
 
-    // Reached the end of song, originated from one of these situations:
-    // 1. naturally; 2. forced to stop/exit by user; 3. error from decoding;
+    // Decoding stops without error when playback fails, so report it from here
+    if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
+
+    // Reached end of song, this may be originated from one of these situations:
+    //  1. naturally;
+    //  2. forced to stop/exit by user;
+    //  3. error from fetching streaming info;
+    //  4. error from decoding;
+    //  5. error from playback;
     ResetMediaControl(result);
   }
 
   LOG("Finish audio handler thread");
+  fetcher_->Finish();
+  finished_ = true;
 }
 
 /* ********************************************************************************************** */
 
-void Player::CheckForNextSongFromPlaylist() {
+void Player::DequeueNextSongFromPlaylist() {
   if (!curr_playlist_) return;
 
-  if (!curr_playlist_->IsEmpty()) {
-    LOG("Popping next song from internal playlist cache");
-    model::Song next_song = curr_playlist_->PopFront();
+  // Song is selected only when command is handled (or playlist is cleared, if there is no next
+  // song)
+  media_control_.Push(Command::PlayNext());
+}
 
-    // Add directly to command queue
-    media_control_.Push(Command::Play(next_song.filepath));
-  } else {
-    // No need to keep this anymore, so reset it
-    LOG("Clearing internal cache, playlist does not contain any song");
-    curr_playlist_.reset();
+/* ********************************************************************************************** */
+
+void Player::ApplyShuffle() {
+  if (!curr_playlist_ || shuffled_ == shuffle_) return;
+  shuffled_ = shuffle_;
+
+  if (shuffled_) {
+    LOG("Shuffle next songs from playlist");
+    std::shuffle(order_.begin() + static_cast<std::ptrdiff_t>(curr_position_) + 1, order_.end(),
+                 random_engine_);
+    return;
   }
+
+  // Back to original order, continuing from current song
+  LOG("Restore original order of songs from playlist");
+  std::size_t current = order_[curr_position_];
+  std::iota(order_.begin(), order_.end(), 0);
+  curr_position_ = current;
+}
+
+/* ********************************************************************************************** */
+
+std::optional<model::Song> Player::SelectSong(const Command& command) {
+  switch (command.GetId()) {
+    case Command::Identifier::Play: {
+      // Single song is played as a queue containing only itself (so it can be repeated)
+      auto playlist =
+          std::holds_alternative<model::Song>(command.content)
+              ? model::Playlist{.index = -1, .songs = {command.GetContent<model::Song>()}}
+              : command.GetContent<model::Playlist>();
+
+      if (playlist.IsEmpty()) {
+        ERROR("Received playlist without any song to play");
+        return std::nullopt;
+      }
+
+      INFO("Start playing playlist=", playlist);
+      curr_playlist_ = std::move(playlist);
+      order_.resize(curr_playlist_->songs.size());
+      std::iota(order_.begin(), order_.end(), 0);
+      curr_position_ = 0;
+      shuffled_ = false;
+    } break;
+
+    case Command::Identifier::PlayNext:
+      // Current song has finished, so play it again
+      if (curr_playlist_ && repeat_ == model::RepeatMode::One) break;
+      [[fallthrough]];
+
+    case Command::Identifier::SkipToNext: {
+      if (!CanSkip(Command::SkipToNext())) {
+        // No need to keep this anymore, so reset it
+        if (curr_playlist_) LOG("Clearing playlist, as it does not contain any other song");
+        curr_playlist_.reset();
+        return std::nullopt;
+      }
+
+      // Wrap around (when last song from playlist is reached, repeat mode is set to all songs)
+      curr_position_ = (curr_position_ + 1) % order_.size();
+    } break;
+
+    case Command::Identifier::SkipToPrevious: {
+      if (!CanSkip(command)) return std::nullopt;
+
+      // On first song, simply play it again
+      if (curr_position_ > 0) --curr_position_;
+    } break;
+
+    default:
+      return std::nullopt;
+  }
+
+  // Shuffle next songs, if enabled
+  ApplyShuffle();
+
+  std::size_t index = order_[curr_position_];
+  LOG("Select song from playlist at position=", curr_position_, " (index=", index, ")");
+
+  model::Song song = curr_playlist_->songs[index];
+  if (!curr_playlist_->name.empty()) song.playlist = curr_playlist_->name;
+
+  return song;
+}
+
+/* ********************************************************************************************** */
+
+bool Player::CanSkip(const Command& command) {
+  if (!curr_playlist_) return false;
+
+  // Shuffle may have been enabled/disabled in the meantime
+  ApplyShuffle();
+
+  // Previous is always possible (on first song, it is played again)
+  if (command == Command::Identifier::SkipToPrevious) return true;
+
+  return command == Command::Identifier::SkipToNext &&
+         (curr_position_ + 1 < order_.size() || repeat_ == model::RepeatMode::All);
 }
 
 /* ********************************************************************************************** */
@@ -344,39 +564,24 @@ void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier
 /* ********************************************************************************************** */
 
 void Player::Play(const std::filesystem::path& filepath) {
-  LOG("Add command to queue: Play (with filepath=", std::quoted(filepath.string()), ")");
-  media_control_.Push(Command::Play(filepath));
-
-  // Reset song queue
-  if (curr_playlist_) {
-    LOG("Clearing internal cache");
-    curr_playlist_.reset();
-  }
+  LOG("Add command to queue: \"Play\" (filepath=", std::quoted(filepath.string()), ")");
+  media_control_.Push(Command::Play(model::Song{.filepath = filepath}));
+  failed_songs_ = 0;
 }
 
 /* ********************************************************************************************** */
 
 void Player::Play(const model::Playlist& playlist) {
-  LOG("Add command to queue: Play (with ", playlist, ")");
-  bool already_playing = curr_playlist_.has_value();
-
-  // Update internal song queue
-  curr_playlist_ = playlist;
-
-  if (!already_playing) {
-    // Enqueue first song
-    CheckForNextSongFromPlaylist();
-  } else {
-    // Add directly to command queue
-    media_control_.Push(Command::Stop());
-  }
+  LOG("Add command to queue: \"Play\" (playlist=", playlist, ")");
+  media_control_.Push(Command::Play(playlist));
+  failed_songs_ = 0;
 }
 
 /* ********************************************************************************************** */
 
 void Player::PauseOrResume() {
-  // TODO: if state = idle, do not add to media_control?
-  LOG("Add command to queue: ", media_control_.state == State::Play ? "Pause" : "Resume");
+  LOG("Add command to queue: ",
+      std::quoted(media_control_.state == State::Play ? "Pause" : "Resume"));
   media_control_.Push(Command::PauseOrResume());
 }
 
@@ -385,15 +590,12 @@ void Player::PauseOrResume() {
 void Player::Stop() {
   LOG("Add command to queue: Stop");
   media_control_.Push(Command::Stop());
-
-  // Clear playlist
-  if (curr_playlist_.has_value()) curr_playlist_.reset();
 }
 
 /* ********************************************************************************************** */
 
 void Player::SetAudioVolume(const model::Volume& value) {
-  LOG("Set audio volume with value=", value);
+  INFO("Set audio volume with value=", value);
 
   // Set volume direcly or add new command to audio queue, based on current media state
   switch (media_control_.state) {
@@ -404,7 +606,9 @@ void Player::SetAudioVolume(const model::Volume& value) {
       // Notify error
       if (result != error::kSuccess) {
         auto media_notifier = notifier_.lock();
-        if (media_notifier) media_notifier->NotifyError(result);
+        if (media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
       }
     } break;
 
@@ -430,14 +634,14 @@ model::Volume Player::GetAudioVolume() const {
 /* ********************************************************************************************** */
 
 void Player::SeekForwardPosition(int value) {
-  LOG("Add command to queue: SeekForward (with value=", value, ")");
+  LOG("Add command to queue: \"SeekForward\" (with value=", value, ")");
   media_control_.Push(Command::SeekForward(value));
 }
 
 /* ********************************************************************************************** */
 
 void Player::SeekBackwardPosition(int value) {
-  LOG("Add command to queue: SeekBackward (with value=", value, ")");
+  LOG("Add command to queue: \"SeekBackward\" (with value=", value, ")");
   media_control_.Push(Command::SeekBackward(value));
 }
 
@@ -455,7 +659,9 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
       // Notify error
       if (result != error::kSuccess) {
         auto media_notifier = notifier_.lock();
-        if (media_notifier) media_notifier->NotifyError(result);
+        if (media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
       }
     } break;
 
@@ -473,8 +679,54 @@ void Player::ApplyAudioFilters(const model::EqualizerPreset& filters) {
 
 /* ********************************************************************************************** */
 
+void Player::DequeueNextSong() {
+  // Error may not have stopped current song (e.g. failed to update audio filters), so keep it
+  if (media_control_.state != State::Idle) {
+    LOG("Song is still playing, do not dequeue next song from playlist");
+    return;
+  }
+
+  LOG("Add command to queue: \"SkipToNext\" (to dequeue next song from playlist)");
+  media_control_.Push(Command::SkipToNext());
+}
+
+/* ********************************************************************************************** */
+
+void Player::SkipToNext() {
+  LOG("Add command to queue: \"SkipToNext\"");
+  media_control_.Push(Command::SkipToNext());
+}
+
+/* ********************************************************************************************** */
+
+void Player::SkipToPrevious() {
+  LOG("Add command to queue: \"SkipToPrevious\"");
+  media_control_.Push(Command::SkipToPrevious());
+}
+
+/* ********************************************************************************************** */
+
+void Player::SetRepeatMode(model::RepeatMode mode) {
+  INFO("Set repeat mode=", mode);
+  repeat_ = mode;
+}
+
+/* ********************************************************************************************** */
+
+void Player::SetShuffle(bool enabled) {
+  INFO("Set shuffle=", enabled);
+  shuffle_ = enabled;
+}
+
+/* ********************************************************************************************** */
+
 void Player::Exit() {
-  LOG("Add command to queue: Exit");
+  if (finished_) {
+    // Player already exited from audio loop
+    return;
+  }
+
+  LOG("Add command to queue: \"Exit\"");
   media_control_.Push(Command::Exit());
 }
 

@@ -6,13 +6,17 @@
 #ifndef INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 #define INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 
+#include <chrono>
 #include <memory>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/element/button.h"
+#include "view/element/flash_message.h"
 
 namespace interface {
 
@@ -22,12 +26,17 @@ namespace interface {
 class MediaPlayer : public Block {
   static constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
 
+  //! Time that a warning stays visible
+  static constexpr std::chrono::milliseconds kWarningDuration{4000};
+
  public:
   /**
    * @brief Construct a new Audio Player object
    * @param dispatcher Block event dispatcher
+   * @param file_handler Utility handler to load/save volume (if null, a new one is created)
    */
-  explicit MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
+                       const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the Audio Player object
@@ -66,7 +75,7 @@ class MediaPlayer : public Block {
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
-  bool HandleMediaEvent(const ftxui::Event& event) const;
+  bool HandleMediaEvent(const ftxui::Event& event);
 
   /**
    * @brief Handle event for volume control
@@ -75,12 +84,18 @@ class MediaPlayer : public Block {
    */
   bool HandleVolumeEvent(const ftxui::Event& event);
 
+  //! Save current volume level, so it is restored on next run
+  void SaveVolume() const;
+
   /**
    * @brief Handle event for seek position in song
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
    */
   bool HandleSeekEvent(const ftxui::Event& event) const;
+
+  //! Create event to skip song (handled by audio player, as songs are always played from a queue)
+  static CustomEvent CreateSkipEvent(bool next);
 
   //! Utility to check media state
   bool IsPlaying() const {
@@ -99,8 +114,15 @@ class MediaPlayer : public Block {
   model::Song song_ = model::Song{};  //!< Audio information from current song
   model::Volume volume_;              //!< General sound volume
 
+  model::RepeatMode repeat_ = model::RepeatMode::Off;  //!< Repeat mode for songs from queue
+  bool shuffle_ = false;                               //!< Shuffle songs from queue
+
   ftxui::Box duration_box_;           //!< Box for song duration component (gauge)
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused
+
+  FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)
+
+  std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save volume
 };
 
 }  // namespace interface

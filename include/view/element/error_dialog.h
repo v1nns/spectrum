@@ -19,12 +19,14 @@ namespace interface {
 class ErrorDialog : public Dialog {
   static constexpr int kMaxColumns = 35;  //!< Maximum columns for Element
   static constexpr int kMaxLines = 5;     //!< Maximum lines for Element
+  static constexpr int kDetailLines = 3;  //!< Extra lines to show detail (separator + 2 lines)
 
  public:
   /**
    * @brief Construct a new ErrorDialog object
+   * @param dispatcher Event dispatcher
    */
-  ErrorDialog();
+  ErrorDialog(const std::shared_ptr<EventDispatcher>& dispatcher);
 
   /**
    * @brief Destroy ErrorDialog object
@@ -34,8 +36,9 @@ class ErrorDialog : public Dialog {
   /**
    * @brief Set error message to show on dialog
    * @param message Error message
+   * @param detail What the error refers to, like a file or directory (optional, may be empty)
    */
-  void SetErrorMessage(const std::string_view& message);
+  void SetErrorMessage(const std::string_view& message, const std::string& detail);
 
   /* ******************************************************************************************** */
   //! Custom implementation
@@ -63,12 +66,13 @@ class ErrorDialog : public Dialog {
   /**
    * @brief Callback to notify when dialog is closed
    */
-  void OnClose() override { message_.clear(); }
+  void OnClose() override;
 
   /* ******************************************************************************************** */
   //! Variables
 
   std::string message_;  //!< Custom error message
+  std::string detail_;   //!< What the error refers to (e.g. file name)
 };
 
 }  // namespace interface

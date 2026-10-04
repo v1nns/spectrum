@@ -49,7 +49,6 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   model::BlockIdentifier GetId() const { return id_; }
 
   //! Block size
-  // TODO: create a header with all size-related constants
   Size GetSize() const { return size_; }
 
   //! Set focus state
@@ -71,7 +70,7 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   /* ******************************************************************************************** */
   //! These must be implemented by derived class
  public:
-  ftxui::Element Render() override { return ftxui::Element(); }
+  ftxui::Element Render() override { return ftxui::emptyElement(); }
   bool OnEvent(ftxui::Event) override { return false; }
   virtual bool OnCustomEvent(const CustomEvent&) = 0;
 

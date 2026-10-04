@@ -8,6 +8,8 @@
 
 #include <iostream>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include "model/playlist.h"
 
@@ -25,9 +27,7 @@ struct PlaylistOperation {
 
   Operation action;                         //!< Operation to execute on playlist dialog
   std::optional<model::Playlist> playlist;  //!< Optional playlist to execute operation
-
-  // Util method to get corresponding operation name
-  static std::string GetActionName(const PlaylistOperation& playlist);
+  std::vector<std::string> other_names;     //!< Names used by other playlists (to avoid duplicates)
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const PlaylistOperation& s);

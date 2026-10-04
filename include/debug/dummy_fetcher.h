@@ -8,12 +8,15 @@
 
 #include <string>
 
+#include "model/application_error.h"
+#include "web/base/url_fetcher.h"
+
 namespace driver {
 
 /**
  * @brief Dummy implementation
  */
-class DummyFetcher : public UrlFetcher {
+class DummyFetcher : public web::UrlFetcher {
  public:
   /**
    * @brief Construct a new DummyFetcher object
@@ -34,7 +37,7 @@ class DummyFetcher : public UrlFetcher {
    * @param output Output from fetch (out)
    * @return Error code from operation
    */
-  error::Code Fetch(const std::string &URL, std::string &output) override {
+  error::Code Fetch(const std::string &url, std::string &output) override {
     return error::kSuccess;
   }
 };

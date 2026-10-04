@@ -9,19 +9,21 @@ namespace interface {
  * @brief Based on Visitor pattern, print content from std::variant used inside CustomEvent
  */
 struct ContentVisitor {
-  explicit ContentVisitor(std::ostream& o) : out{o} { out << " content:"; };
+  explicit ContentVisitor(std::ostream& o) : out{o} {};
 
   // All mapped types used in the CustomEvent content
-  void operator()(const std::monostate&) const { out << "empty"; }
+  void operator()(const std::monostate&) const { out << std::quoted("empty"); }
   void operator()(int i) const { out << i; }
+  void operator()(bool b) const { out << (b ? "true" : "false"); }
+  void operator()(const std::string& s) const { out << std::quoted(s); }
+  void operator()(const model::RepeatMode& m) const { out << m; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
   void operator()(const std::filesystem::path& p) const { out << std::quoted(p.c_str()); }
-  void operator()(const std::vector<double>&) const { out << "{vector data...}"; }
+  void operator()(const std::vector<double>&) const { out << std::quoted("{vector data...}"); }
   void operator()(const model::EqualizerPreset&) const {
-    // TODO: maybe implement detailed info here
-    out << "{audio filter data...}";
+    out << std::quoted("{audio filter data...}");
   }
   void operator()(const model::BarAnimation& a) const { out << a; }
   void operator()(const model::BlockIdentifier& i) const { out << i; }
@@ -36,15 +38,15 @@ struct ContentVisitor {
 std::ostream& operator<<(std::ostream& out, const CustomEvent::Type& t) {
   switch (t) {
     case CustomEvent::Type::FromInterfaceToAudioThread:
-      out << "{UI->Player}";
+      out << "UI->Player";
       break;
 
     case CustomEvent::Type::FromAudioThreadToInterface:
-      out << "{Player->UI}";
+      out << "Player->UI";
       break;
 
     case CustomEvent::Type::FromInterfaceToInterface:
-      out << "{UI->UI}";
+      out << "UI->UI";
       break;
   }
   return out;
@@ -77,8 +79,12 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "NotifyFileSelection";
       break;
 
-    case CustomEvent::Identifier::PauseOrResumeSong:
-      out << "PauseOrResumeSong";
+    case CustomEvent::Identifier::PauseSong:
+      out << "PauseSong";
+      break;
+
+    case CustomEvent::Identifier::ResumeSong:
+      out << "ResumeSong";
       break;
 
     case CustomEvent::Identifier::StopSong:
@@ -107,6 +113,26 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::NotifyPlaylistSelection:
       out << "NotifyPlaylistSelection";
+      break;
+
+    case CustomEvent::Identifier::NotifyDialogClosed:
+      out << "NotifyDialogClosed";
+      break;
+
+    case CustomEvent::Identifier::SkipToNextPlaylistSong:
+      out << "SkipToNextPlaylistSong";
+      break;
+
+    case CustomEvent::Identifier::SkipToPreviousPlaylistSong:
+      out << "SkipToPreviousPlaylistSong";
+      break;
+
+    case CustomEvent::Identifier::SetRepeatMode:
+      out << "SetRepeatMode";
+      break;
+
+    case CustomEvent::Identifier::SetShuffle:
+      out << "SetShuffle";
       break;
 
     case CustomEvent::Identifier::Refresh:
@@ -157,14 +183,6 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "UpdateBarWidth";
       break;
 
-    case CustomEvent::Identifier::SkipToNextSong:
-      out << "SkipToNextSong";
-      break;
-
-    case CustomEvent::Identifier::SkipToPreviousSong:
-      out << "SkipToPreviousSong";
-      break;
-
     case CustomEvent::Identifier::ShowPlaylistManager:
       out << "ShowPlaylistManager";
       break;
@@ -180,19 +198,21 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
     case CustomEvent::Identifier::Exit:
       out << "Exit";
       break;
+
+    case CustomEvent::Identifier::ShowWarning:
+      out << "ShowWarning";
+      break;
   }
   return out;
 }
 
 //! CustomEvent pretty print
 std::ostream& operator<<(std::ostream& out, const CustomEvent& e) {
-  out << "{";
-  out << " type:" << e.type;
-  out << " id:" << e.id;
-
+  out << "{type:\"" << e.type << "\"";
+  out << ", id:\"" << e.id << "\"";
+  out << ", content:";
   std::visit(ContentVisitor{out}, e.content);
-
-  out << " }";
+  out << "}";
 
   return out;
 }
@@ -258,10 +278,20 @@ CustomEvent CustomEvent::NotifyFileSelection(const std::filesystem::path& file_p
 
 /* ********************************************************************************************** */
 
-CustomEvent CustomEvent::PauseOrResumeSong() {
+CustomEvent CustomEvent::PauseSong() {
   return CustomEvent{
       .type = Type::FromInterfaceToAudioThread,
-      .id = Identifier::PauseOrResumeSong,
+      .id = Identifier::PauseSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ResumeSong(bool run_animation) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::ResumeSong,
+      .content = run_animation,
   };
 }
 
@@ -331,6 +361,53 @@ CustomEvent CustomEvent::NotifyPlaylistSelection(const model::Playlist& playlist
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::NotifyPlaylistSelection,
       .content = playlist,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::NotifyDialogClosed() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::NotifyDialogClosed,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SkipToNextPlaylistSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SkipToNextPlaylistSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SkipToPreviousPlaylistSong() {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SkipToPreviousPlaylistSong,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SetRepeatMode(model::RepeatMode mode) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetRepeatMode,
+      .content = mode,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SetShuffle(bool enabled) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetShuffle,
+      .content = enabled,
   };
 }
 
@@ -447,24 +524,6 @@ CustomEvent CustomEvent::UpdateBarWidth() {
 
 /* ********************************************************************************************** */
 
-CustomEvent CustomEvent::SkipToNextSong() {
-  return CustomEvent{
-      .type = Type::FromInterfaceToInterface,
-      .id = Identifier::SkipToNextSong,
-  };
-}
-
-/* ********************************************************************************************** */
-
-CustomEvent CustomEvent::SkipToPreviousSong() {
-  return CustomEvent{
-      .type = Type::FromInterfaceToInterface,
-      .id = Identifier::SkipToPreviousSong,
-  };
-}
-
-/* ********************************************************************************************** */
-
 CustomEvent CustomEvent::ShowPlaylistManager(const model::PlaylistOperation& operation) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
@@ -499,6 +558,16 @@ CustomEvent CustomEvent::Exit() {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::Exit,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::ShowWarning(const std::string& message) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::ShowWarning,
+      .content = message,
   };
 }
 

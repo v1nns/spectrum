@@ -4,6 +4,8 @@
 #include <math.h>
 
 #include <array>
+#include <cerrno>
+#include <iomanip>
 #include <vector>
 
 #include "model/application_error.h"
@@ -75,12 +77,12 @@ error::Code Alsa::CreatePlaybackStream() {
 
   std::string device_name;
   for (auto &device : devices_name) {
-    LOG("Creating playback stream on device: ", device);
+    LOG("Creating playback stream on device: ", std::quoted(device));
     if (snd_pcm_open(&pcm_handle, device.c_str(), SND_PCM_STREAM_PLAYBACK, 0) < 0) {
-      LOG("Cannot open playback stream on device: ", device);
+      WARN("Cannot open playback stream on device: ", std::quoted(device));
       continue;
     }
-    LOG("Created playback stream on device: ", device);
+    INFO("Created playback stream on device: ", std::quoted(device));
 
     device_name = device;
     break;
@@ -174,13 +176,29 @@ error::Code Alsa::Stop() {
 
 error::Code Alsa::AudioCallback(void *buffer, int size) {
   // As this is called multiple times, LOG will not be called here in the beginning
-  if (auto result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
-      result < 0) {
-    ERROR("Cannot write buffer to playback stream, error=", result);
-    if ((result = snd_pcm_recover(playback_handle_.get(), result, 1)) == 0) {
-      // TODO: do something?
-      LOG("Recovered playback stream from error (overrun/underrun), error=", result);
-    }
+  auto result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
+  if (result >= 0) return error::kSuccess;
+
+  if (result == -EPIPE) {
+    // Underrun: samples were not written in time (e.g. waiting for network), so song stuttered
+    WARN("Playback underrun, audio device ran out of samples to play (audible gap)");
+  } else {
+    ERROR("Cannot write buffer to playback stream, error=", snd_strerror(result));
+  }
+
+  // Attempt to recover from error (e.g. overrun/underrun or suspended device)
+  if (int recovered = snd_pcm_recover(playback_handle_.get(), result, 1); recovered < 0) {
+    ERROR("Cannot recover playback stream, error=", snd_strerror(recovered));
+    return error::kPlaybackFailed;
+  }
+
+  LOG("Recovered playback stream from error=", snd_strerror(result));
+
+  // Buffer was not written, so try it again
+  result = static_cast<int>(snd_pcm_writei(playback_handle_.get(), buffer, size));
+  if (result < 0) {
+    ERROR("Cannot write buffer to playback stream after recovering, error=", snd_strerror(result));
+    return error::kPlaybackFailed;
   }
 
   return error::kSuccess;

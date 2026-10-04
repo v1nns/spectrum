@@ -1,17 +1,72 @@
 #include "view/element/internal/playlist_menu.h"
 
+#include <deque>
+
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "model/playlist.h"
+#include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 
 namespace interface {
 namespace internal {
 
+namespace {
+
+//! Set position of each song in playlist, so the same song can be listed (and highlighted) twice
+model::Playlist WithSongPositions(model::Playlist playlist) {
+  int position = 0;
+  for (auto& song : playlist.songs) song.index = position++;
+
+  return playlist;
+}
+
+//! Check if song entry from playlist is the one being played (by position, when available)
+bool IsSameEntry(const model::Song& playing, const model::Song& entry) {
+  if (playing.index.has_value() && entry.index.has_value()) return playing.index == entry.index;
+
+  return playing.Compare(entry);
+}
+
+}  // namespace
+
 PlaylistMenu::PlaylistMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                            const TextAnimation::Callback& force_refresh, const Callback& on_click)
     : BaseMenu(dispatcher, force_refresh), on_click_{on_click} {}
+
+/* ********************************************************************************************** */
+
+model::Playlists PlaylistMenu::GetEntries() const {
+  // Get list of entries without internal state
+  auto dummy = IsSearchEnabled() ? *filtered_entries_ : entries_;
+
+  model::Playlists playlists;
+  playlists.reserve(dummy.size());
+
+  for (const auto& entry : dummy) playlists.emplace_back(entry.playlist);
+  return playlists;
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistMenu::UpdateStyleImpl() {
+  const auto& theme = GetTheme().menu;
+
+  styles_ = EntryStyles{
+      .prefix = ftxui::color(theme.prefix),
+      .playlist =
+          EntryStyles::State{
+              .normal = Colored(theme.playlist, /*bold=*/true),
+              .playing = Colored(theme.playlist_playing, /*bold=*/true),
+          },
+      .song =
+          EntryStyles::State{
+              .normal = Colored(theme.song),
+              .playing = Colored(theme.song_playing),
+          },
+  };
+}
 
 /* ********************************************************************************************** */
 
@@ -35,18 +90,25 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     // Add songs
     for (const auto& song : entry.playlist.songs) {
       is_highlighted = highlighted_ ? highlighted_->playlist == entry.playlist.name &&
-                                          highlighted_->filepath == song.filepath
+                                          IsSameEntry(*highlighted_, song)
                                     : false;
-      menu_entries.push_back(
-          CreateEntry(index++, song.filepath.filename().string(), is_highlighted, false));
+      menu_entries.push_back(CreateEntry(index++, song.GetTitle(), is_highlighted, false));
     }
   }
 
-  menu_entries.push_back(ftxui::filler());
+  // Let user know that search did not match anything
+  if (IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderNoMatches());
+  }
 
-  ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::frame | ftxui::flex,
-  };
+  // Let user know how to create the first playlist
+  if (!IsSearchEnabled() && menu_entries.empty()) {
+    menu_entries.push_back(RenderPlaceholder(
+        "No playlists, press " + util::EventToString(keybinding::Playlist::Create) + " to create"));
+  }
+
+  ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |
+                          ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex_grow};
 
   // Append search box, if enabled
   if (IsSearchEnabled()) {
@@ -54,7 +116,7 @@ ftxui::Element PlaylistMenu::RenderImpl() {
     content.push_back(ftxui::text(""));
   }
 
-  return ftxui::vbox(content) | ftxui::flex;
+  return ftxui::vbox(content) | ftxui::yframe | ftxui::flex;
 }
 
 /* ********************************************************************************************** */
@@ -121,7 +183,7 @@ std::string PlaylistMenu::GetActiveEntryAsTextImpl() const {
     if (!entry.collapsed) continue;
 
     for (const auto& song : entry.playlist.songs) {
-      if (count == selected) return song.filepath.filename().string();
+      if (count == selected) return song.GetTitle();
 
       // Already checked song index, so increment count
       ++count;
@@ -153,7 +215,7 @@ void PlaylistMenu::FilterEntriesBy(const std::string& text) {
 
   filtered_entries_->clear();
 
-  // Filter entries (try to match any of these: playlist title or song filepath)
+  // Filter entries (try to match any of these: playlist title or song title)
   for (const auto& entry : entries_) {
     bool contains_text = util::contains(entry.playlist.name, text);
 
@@ -165,7 +227,7 @@ void PlaylistMenu::FilterEntriesBy(const std::string& text) {
 
     // Append only filtered songs
     for (const auto& song : entry.playlist.songs) {
-      if (util::contains(song.filepath.filename().string(), text)) {
+      if (util::contains(song.GetTitle(), text)) {
         tmp.playlist.songs.push_back(song);
         contains_text = true;
       }
@@ -188,12 +250,11 @@ void PlaylistMenu::SetEntriesImpl(const model::Playlists& entries) {
   for (const auto& playlist : entries) {
     auto tmp = InternalPlaylist{
         .collapsed = false,
-        .playlist =
-            model::Playlist{
-                .index = count++,
-                .name = playlist.name,
-                .songs = playlist.songs,
-            },
+        .playlist = WithSongPositions(model::Playlist{
+            .index = count++,
+            .name = playlist.name,
+            .songs = playlist.songs,
+        }),
     };
     entries_.push_back(tmp);
   }
@@ -201,7 +262,67 @@ void PlaylistMenu::SetEntriesImpl(const model::Playlists& entries) {
 
 /* ********************************************************************************************** */
 
-void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
+void PlaylistMenu::EmplaceImpl(const model::Playlist& entry) {
+  LOG("Emplace a new entry to list");
+  model::Playlist new_entry = model::Playlist{
+      .index = static_cast<int>(entries_.size()),
+      .name = entry.name,
+      .songs = entry.songs,
+  };
+
+  entries_.emplace_back(InternalPlaylist{
+      .collapsed = false,
+      .playlist = WithSongPositions(new_entry),
+  });
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistMenu::UpdateOrEmplaceImpl(const model::Playlist& entry) {
+  LOG("Update/emplace entry to list");
+  bool found = false;
+
+  for (auto& internal_entry : entries_) {
+    // If modified playlist is based on an existing one, just replace it
+    if (internal_entry.playlist.index == entry.index) {
+      LOG("Changing old playlist=", internal_entry.playlist, " to new playlist=", entry);
+      internal_entry.playlist = WithSongPositions(entry);
+      found = true;
+    }
+  }
+
+  // Otherwise, create a new entry for it
+  if (!found) {
+    LOG("Could not find a matching playlist, so create a new one");
+    model::Playlist new_entry{
+        .index = static_cast<int>(entries_.size()),
+        .name = entry.name,
+        .songs = entry.songs,
+    };
+
+    entries_.emplace_back(InternalPlaylist{
+        .collapsed = false,
+        .playlist = WithSongPositions(new_entry),
+    });
+  }
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistMenu::EraseImpl(const model::Playlist& entry) {
+  LOG("Attempt to erase an entry with value=", entry);
+  auto it = std::find_if(entries_.begin(), entries_.end(),
+                         [&entry](const InternalPlaylist& p) { return p.playlist == entry; });
+
+  if (it != entries_.end()) {
+    LOG("Found matching entry, erasing it, entry=", it->playlist);
+    entries_.erase(it);
+  }
+}
+
+/* ********************************************************************************************** */
+
+bool PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
   int index = 0;
   int count = 0;
   bool found = false;
@@ -218,17 +339,19 @@ void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
         count += tmp.playlist.songs.size();
       }
 
+      // As the playlist does not match, we just skip it
       continue;
     }
 
-    for (const auto& song : tmp.playlist.songs) {
-      // We check only by the filepath, otherwise it will never be equal
-      if (song.filepath == entry.filepath) {
+    for (auto& song : tmp.playlist.songs) {
+      // Check if it is the same entry (by position in playlist, or by streaming URL or filepath)
+      if (!found && IsSameEntry(entry, song)) {
         // Always collapse playlist
         tmp.collapsed = true;
 
         // From now on, we cannot increment index anymore
         highlighted_ = entry;
+        song = entry;
         found = true;
       }
 
@@ -240,7 +363,7 @@ void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
 
   if (!found) {
     LOG("Could not find entry to highlight");
-    return;
+    return false;
   }
 
   // Resize boxes vector
@@ -250,6 +373,11 @@ void PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
   // To get a better experience, update focused and select indexes,
   // to highlight current playing song entry in playlist
   ResetState(index);
+
+  // And check for animation effect
+  UpdateActiveEntry();
+
+  return true;
 }
 
 /* ********************************************************************************************** */
@@ -280,45 +408,6 @@ std::optional<model::Playlist> PlaylistMenu::GetActiveEntryImpl() const {
   }
 
   return std::nullopt;
-}
-
-/* ********************************************************************************************** */
-
-ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, bool is_highlighted,
-                                         bool is_playlist, const std::string& suffix) {
-  using ftxui::EQUAL;
-  using ftxui::WIDTH;
-
-  auto max_size = GetMaxColumns() ? ftxui::size(WIDTH, EQUAL, GetMaxColumns()) : ftxui::nothing;
-
-  auto& boxes = GetBoxes();
-
-  bool is_focused = (index == *GetFocused());
-  bool is_selected = (index == *GetSelected());
-
-  const auto& type = is_playlist
-                         ? (is_highlighted ? styles_.playlist.playing : styles_.playlist.normal)
-                         : (is_highlighted ? styles_.song.playing : styles_.song.normal);
-
-  std::string prefix{is_selected ? "▶ " : "  "};
-  auto prefix_text = ftxui::text(prefix);
-
-  ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
-                                       : (is_focused ? type.focused : type.normal);
-
-  auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
-
-  // In case of entry text too long, animation thread will be running, so we gotta take the
-  // text content from there
-  auto entry_text =
-      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : text + suffix);
-
-  return ftxui::hbox({
-             prefix_text | styles_.prefix,
-             ftxui::text(!is_playlist ? "  " : "") | style,
-             entry_text | style | ftxui::xflex,
-         }) |
-         max_size | focus_management | ftxui::reflect(boxes[index]);
 }
 
 /* ********************************************************************************************** */
@@ -399,7 +488,7 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
 
   // Playlist values from search
   int playlist_index = -1;
-  std::filesystem::path song;
+  std::string song_title;
 
   int count = 0;
   int selected = GetSelected();
@@ -422,7 +511,7 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
       // Selected index is a song from this playlist
       if (count == selected) {
         playlist_index = entry.playlist.index;
-        song = it->filepath;
+        song_title = it->GetTitle();
         break;
       }
     }
@@ -433,7 +522,7 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
 
   // With these values, find playlist in the original list of entries
   for (const auto& entry : entries_) {
-    if (playlist_index != -1 && playlist_index == entry.playlist.index && song.empty()) {
+    if (playlist_index != -1 && playlist_index == entry.playlist.index && song_title.empty()) {
       return entry.playlist;
     }
 
@@ -441,13 +530,53 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
 
     // Otherwise, selected index may be pointing to a song entry
     for (auto it = entry.playlist.songs.begin(); it != entry.playlist.songs.end(); ++it) {
-      if (playlist_index != -1 && playlist_index == entry.playlist.index && it->filepath == song) {
+      if (playlist_index != -1 && playlist_index == entry.playlist.index &&
+          it->GetTitle() == song_title) {
         return ShufflePlaylist(entry.playlist, it);
       }
     }
   }
 
   return std::nullopt;
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, bool is_highlighted,
+                                         bool is_playlist, const std::string& suffix) {
+  using ftxui::EQUAL;
+  using ftxui::WIDTH;
+
+  auto max_size = GetMaxColumns() ? ftxui::size(WIDTH, EQUAL, GetMaxColumns()) : ftxui::nothing;
+
+  auto& boxes = GetBoxes();
+
+  bool is_focused = (index == *GetFocused());
+  bool is_selected = (index == *GetSelected());
+
+  const auto& type = is_playlist
+                         ? (is_highlighted ? styles_.playlist.playing : styles_.playlist.normal)
+                         : (is_highlighted ? styles_.song.playing : styles_.song.normal);
+
+  std::string prefix{is_selected ? "▶ " : "  "};
+  auto prefix_text = ftxui::text(prefix);
+
+  ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
+                                       : (is_focused ? type.focused : type.normal);
+
+  auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
+
+  // In case of entry text too long, animation thread will be running, so we gotta take the
+  // text content from there
+  auto entry_text =
+      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : text + suffix);
+
+  return ftxui::hbox({
+             prefix_text | styles_.prefix,
+             ftxui::text(!is_playlist ? "  " : "") | style,
+             entry_text | style | ftxui::xflex_grow,
+         }) |
+         max_size | focus_management | ftxui::reflect(boxes[index]);
 }
 
 /* ********************************************************************************************** */

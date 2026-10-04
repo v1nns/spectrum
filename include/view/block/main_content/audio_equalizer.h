@@ -6,17 +6,28 @@
 #ifndef INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_AUDIO_EQUALIZER_H_
 
+#include <algorithm>
 #include <array>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "ftxui/component/component.hpp"
 #include "model/audio_filter.h"
+#include "util/formatter.h"
 #include "view/base/element.h"
 #include "view/base/keybinding.h"
 #include "view/element/button.h"
 #include "view/element/focus_controller.h"
+#include "view/element/style.h"
 #include "view/element/tab.h"
+#include "view/element/util.h"
+
+#ifdef ENABLE_TESTS
+namespace {
+class MainContentTest;
+}
+#endif
 
 namespace interface {
 
@@ -100,23 +111,12 @@ class AudioEqualizer : public TabItem {
   //! Internal structures
 
   struct FrequencyBar final : public Element {
-    static constexpr int kMaxGainLength = 8;  //!< Maximum string length in the input box for gain
+    static constexpr int kMaxGainLength = 8;      //!< Maximum length in the input box for gain
+    static constexpr int kCompactGainLength = 4;  //!< Same as above, but when space is limited
+    static constexpr int kKiloHertz = 1000;       //!< Used to format frequency in compact mode
 
     //! Style for frequency bar
-    struct BarStyle {
-      ftxui::Color background;
-      ftxui::Color foreground;
-    };
-
-    //!< Color styles
-    BarStyle style_normal = BarStyle{.background = ftxui::Color::LightSteelBlue3,
-                                     .foreground = ftxui::Color::SteelBlue3};  //!< Normal mode
-
-    BarStyle style_hovered = BarStyle{.background = ftxui::Color::LightSteelBlue1,
-                                      .foreground = ftxui::Color::SlateBlue1};  //!< On hover state
-
-    BarStyle style_focused = BarStyle{.background = ftxui::Color::LightSteelBlue3,
-                                      .foreground = ftxui::Color::RedLight};  //!< On focus state
+    using BarStyle = Theme::State;
 
     model::AudioFilter* filter;  //!< Audio frequency filters for equalization
 
@@ -124,7 +124,14 @@ class AudioEqualizer : public TabItem {
      * @brief Render frequency bar
      * @return UI element
      */
-    ftxui::Element Render() override {
+    ftxui::Element Render() override { return Draw(false); }
+
+    /**
+     * @brief Render frequency bar
+     * @param compact Use shorter labels (without units), for when there is not much space available
+     * @return UI element
+     */
+    ftxui::Element Draw(bool compact) {
       using ftxui::EQUAL;
       using ftxui::WIDTH;
 
@@ -142,14 +149,16 @@ class AudioEqualizer : public TabItem {
 
       // Get gain value and choose style
       float gain = filter->GetGainAsPercentage();
+      const auto& theme = GetTheme().equalizer;
       const BarStyle* style;
 
-      style = IsFocused() ? &style_focused : IsHovered() ? &style_hovered : &style_normal;
+      style = IsFocused() ? &theme.bar_focused : IsHovered() ? &theme.bar_hovered : &theme.bar;
 
       return ftxui::vbox({
           // title
           empty_line(),
-          ftxui::text(filter->GetFrequency()) | ftxui::color(ftxui::Color::White) | ftxui::hcenter,
+          ftxui::text(compact ? GetCompactFrequency() : filter->GetFrequency()) |
+              ftxui::color(GetTheme().equalizer.text) | ftxui::hcenter,
           empty_line(),
 
           // frequency gauge
@@ -157,10 +166,32 @@ class AudioEqualizer : public TabItem {
 
           // gain input
           empty_line(),
-          ftxui::text(filter->GetGain()) | ftxui::color(ftxui::Color::White) | ftxui::inverted |
-              ftxui::hcenter | ftxui::size(WIDTH, EQUAL, kMaxGainLength),
+          ftxui::text(compact ? GetCompactGain() : filter->GetGain()) |
+              ftxui::color(GetTheme().equalizer.text) | ftxui::inverted | ftxui::hcenter |
+              ftxui::size(WIDTH, EQUAL, compact ? kCompactGainLength : kMaxGainLength),
           empty_line(),
       });
+    }
+
+    //! Format gain without unit, centered in the input box (to highlight the whole box)
+    [[nodiscard]] std::string GetCompactGain() const {
+      std::string gain = util::to_string_with_precision(filter->gain, 0);
+
+      const int padding = kCompactGainLength - static_cast<int>(gain.size());
+      if (padding <= 0) {
+        return gain;
+      }
+
+      const int left = padding / 2;
+      return std::string(left, ' ') + gain + std::string(padding - left, ' ');
+    }
+
+    //! Format frequency without unit (e.g. "125" for 125 Hz and "16k" for 16 kHz)
+    [[nodiscard]] std::string GetCompactFrequency() const {
+      const auto frequency = static_cast<int>(filter->frequency);
+
+      return frequency < kKiloHertz ? std::to_string(frequency)
+                                    : std::to_string(frequency / kKiloHertz) + "k";
     }
 
    private:
@@ -304,7 +335,7 @@ class AudioEqualizer : public TabItem {
                  content | ftxui::center | ftxui::border | ftxui::reflect(Box()),
                  ftxui::filler(),
              }) |
-             ftxui::color(ftxui::Color::White);
+             ftxui::color(GetTheme().equalizer.text);
     }
 
    private:
@@ -333,13 +364,30 @@ class AudioEqualizer : public TabItem {
         }
       }
 
-      if (opened &&
-          (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down)) {
+      // While closed, cycle through presets
+      if (!opened) {
+        bool previous =
+            event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up;
+        bool next =
+            event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down;
+
+        if (!previous && !next) return false;
+
+        auto it = std::find(presets.begin(), presets.end(), *preset_name);
+        int size = static_cast<int>(presets.size());
+        int index = it != presets.end() ? static_cast<int>(it - presets.begin()) : 0;
+
+        index = (index + (next ? 1 : size - 1)) % size;
+        update_preset(presets[index]);
+
+        return true;
+      }
+
+      if (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down) {
         entry_focused = entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
       }
 
-      if (opened &&
-          (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up)) {
+      if (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up) {
         entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
       }
 
@@ -457,6 +505,13 @@ class AudioEqualizer : public TabItem {
   FocusController focus_ctl_;  //!< Controller to manage focus in registered elements
   model::MusicGenre preset_name_ =
       model::MusicGenre(kModifiablePreset);  //!< Index name to current EQ settings
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::MainContentTest;
+#endif
 };
 
 }  // namespace interface

@@ -6,8 +6,10 @@
 #ifndef INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -46,6 +48,9 @@ namespace middleware {
  * Audio Notifier (UI->Player) and Interface Notifier (Player->UI).
  */
 class MediaController : public audio::Notifier, public interface::Notifier {
+  //! Duration of fade-in animation applied to spectrum bars when a new song starts playing
+  static constexpr std::chrono::milliseconds kFadeInDuration{1000};
+
   /**
    * @brief Construct a new MediaController object
    * @param dispatcher Event dispatcher for Interface
@@ -106,9 +111,15 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void NotifyFileSelection(const std::filesystem::path& file) override;
 
   /**
-   * @brief Notify Audio Player to pause/resume current song
+   * @brief Notify Audio Player to pause current song
    */
-  void PauseOrResume() override;
+  void Pause() override;
+
+  /**
+   * @brief Notify Audio Player to resume the current song
+   * @param run_animation Flag to execute regain animation before resuming song on audio player
+   */
+  void Resume(bool run_animation) override;
 
   /**
    * @brief Notify Audio thread to stop the current song
@@ -150,6 +161,33 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void NotifyPlaylistSelection(const model::Playlist& playlist) override;
 
+  /**
+   * @brief Notify Audio Player about error dialog closed by user
+   */
+  void NotifyErrorDialogClosed() override;
+
+  /**
+   * @brief Notify Audio Player to play next song from playlist
+   */
+  void SkipToNextSong() override;
+
+  /**
+   * @brief Notify Audio Player to play previous song from playlist
+   */
+  void SkipToPreviousSong() override;
+
+  /**
+   * @brief Notify Audio Player about repeat mode selected by user
+   * @param mode Repeat mode
+   */
+  void SetRepeatMode(model::RepeatMode mode) override;
+
+  /**
+   * @brief Notify Audio Player about shuffle state selected by user
+   * @param enabled Shuffle state
+   */
+  void SetShuffle(bool enabled) override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 
@@ -167,22 +205,22 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   /**
    * @brief Notify UI with new state information from current song
-   * @param state Updated state information
+   * @param curr_info Updated state information
    */
-  void NotifySongState(const model::Song::CurrentInformation& state) override;
+  void NotifySongState(const model::Song::CurrentInformation& curr_info) override;
 
   /**
    * @brief Send raw audio samples to UI
    * @param buffer Audio samples
    * @param size Sample count
    */
-  void SendAudioRaw(int* buffer, int size) override;
+  void SendAudioRaw(const int16_t* buffer, int size) override;
 
   /**
    * @brief Notify UI with error code from some background operation
    * @param code Application error code
    */
-  void NotifyError(error::Code code) override;
+  void NotifyError(error::Code code, const std::string& detail) override;
 
   /* ******************************************************************************************** */
   //! Audio analysis
@@ -193,10 +231,9 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   enum class Command {
     None = 10000,
     Analyze = 10001,
-    RunClearAnimationWithRegain = 10002,
-    RunClearAnimationWithoutRegain = 10003,
-    RunRegainAnimation = 10004,
-    Exit = 10005,
+    RunClearAnimation = 10002,
+    RunRegainAnimation = 10003,
+    Exit = 10004,
   };
 
   /**
@@ -236,7 +273,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      * @param input Array with raw data
      * @param size Array size
      */
-    void Append(int* input, int size) {
+    void Append(const int16_t* input, int size) {
       std::unique_lock lock(mutex);
       std::vector<double>::const_iterator end = buffer.end();
 
@@ -255,6 +292,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
       // Clear queue in case of exit request
       if (cmd == Command::Exit) {
+        if (queue.size() == 1 && queue.front() == cmd) {
+          // Don't do anything else
+          return;
+        }
         std::queue<Command>().swap(queue);
       }
 
@@ -288,9 +329,6 @@ class MediaController : public audio::Notifier, public interface::Notifier {
         // No command in queue
         if (queue.empty()) return false;
 
-        // Do not run regain animation while it has not received any input data from player
-        if (queue.size() == 1 && queue.front() == Command::RunRegainAnimation) return false;
-
         return true;
       });
 
@@ -322,7 +360,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   //! Audio visualizer animation
 
   //! Execute clear animation based on the most recent analyzed data
-  void ProcessClearAnimation(std::vector<double>& data);
+  void ProcessClearAnimation(const std::vector<double>& data);
 
   //! Execute regain animation based on old data from before the clear animation
   void ProcessRegainAnimation(const std::vector<double>& data);
@@ -332,6 +370,9 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   //! Get event dispatcher
   std::shared_ptr<interface::EventDispatcher> GetDispatcher() const;
+
+  //! Get audio player
+  std::shared_ptr<audio::AudioControl> GetPlayer() const;
 
   /* ******************************************************************************************** */
   //! Variables
@@ -343,6 +384,11 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   std::thread analysis_loop_;  //!< Execute audio-analysis function as a thread
 
   AnalysisDataSynced sync_data_;  //!< Controls the audio data synchronization
+
+  bool finished_;  //!< Flag to control when media controller shouldn't process any new requisitions
+
+  //! Flag set when a new song starts playing, so analysis thread starts fade-in animation
+  std::atomic<bool> fade_in_pending_ = false;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

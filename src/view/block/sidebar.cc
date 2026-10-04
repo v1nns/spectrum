@@ -10,7 +10,8 @@ namespace interface {
 
 Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
                  const std::string& optional_path,
-                 const std::shared_ptr<util::FileHandler> file_handler)
+                 const std::shared_ptr<util::FileHandler> file_handler,
+                 const std::function<bool(const util::File& file)>& contains_audio_cb)
     : Block{dispatcher, model::BlockIdentifier::Sidebar,
             interface::Size{.width = kMaxColumns, .height = 0}} {
   // Initialize file handler
@@ -19,7 +20,7 @@ Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
   // Create all tabs
   tab_elem_[View::Files] = std::make_unique<ListDirectory>(
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this), keybinding::Sidebar::FocusList,
-      file_handler_, kMaxColumns, optional_path);
+      file_handler_, kMaxColumns, optional_path, contains_audio_cb);
 
   tab_elem_[View::Playlist] = std::make_unique<PlaylistViewer>(
       GetId(), dispatcher, std::bind(&Sidebar::AskForFocus, this),
@@ -89,8 +90,11 @@ bool Sidebar::OnEvent(ftxui::Event event) {
 /* ********************************************************************************************** */
 
 bool Sidebar::OnCustomEvent(const CustomEvent& event) {
-  // Process this event for all tab items
-  if (event == CustomEvent::Identifier::UpdateSongInfo) {
+  // Process these events for all tab items, so the one not active also highlights the song playing
+  // (or stops highlighting it), and files tab can play next file even when it is not active
+  if (event == CustomEvent::Identifier::UpdateSongInfo ||
+      event == CustomEvent::Identifier::ClearSongInfo ||
+      event == CustomEvent::Identifier::UpdateSongState) {
     for (const auto& [id, item] : tab_elem_.items()) item->OnCustomEvent(event);
     return false;
   }
@@ -103,6 +107,11 @@ bool Sidebar::OnCustomEvent(const CustomEvent& event) {
 void Sidebar::OnFocus() {
   // Update internal state for all buttons
   for (const auto& [id, item] : tab_elem_.items()) item->GetButton()->UpdateParentFocus(true);
+
+  // Let files tab refresh its list (playlist tab is not notified, as it would reset its cursor)
+  if (tab_elem_.active() == View::Files) {
+    tab_elem_.active_item()->OnFocus();
+  }
 }
 
 /* ********************************************************************************************** */

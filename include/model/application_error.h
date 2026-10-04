@@ -9,12 +9,12 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstdint>
 #include <string_view>
 
 namespace error {
 
 //! To make life easier in the first versions, error is simple an int
-// TODO: next step is to add a level (like critical or non-critical, warning, ...)
 using Code = int;
 
 //! Everything fine!
@@ -38,10 +38,28 @@ static constexpr Code kCorruptedData = 35;
 
 //! ALSA driver errors
 static constexpr Code kSetupAudioParamsFailed = 50;
+static constexpr Code kPlaybackFailed = 51;
 
 //! FFMPEG driver errors
 static constexpr Code kDecodeFileFailed = 70;
 static constexpr Code kSeekFrameFailed = 71;
+static constexpr Code kEqualizerFailed = 72;
+
+//! Playlist errors
+static constexpr Code kTooManyFailedSongs = 80;
+
+//! Streaming errors
+static constexpr Code kStreamFetchFailed = 90;
+static constexpr Code kStreamFetcherNotFound = 91;
+
+//! Web errors
+static constexpr Code kUrlNotFound = 95;
+
+//! How error is presented to user
+enum class Level : std::uint8_t {
+  Critical,  //!< Shown in a dialog, user must close it to continue
+  Warning,   //!< Shown briefly, without interrupting user
+};
 
 /* ********************************************************************************************** */
 
@@ -50,26 +68,48 @@ static constexpr Code kSeekFrameFailed = 71;
  */
 class ApplicationError {
  private:
-  //! Single entry for error message <code, message>
-  using Message = std::pair<Code, std::string_view>;
+  //! Single entry for error
+  struct Message {
+    Code code;                 //!< Error code
+    Level level;               //!< How error is presented to user
+    std::string_view message;  //!< Error message
+  };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 13> kErrorMap{{
-      {kTerminalInitialization, "Cannot initialize screen"},
-      {kTerminalColorsUnavailable, "No support to change colors"},
-      {kAccessDirFailed, "Cannot access directory"},
-      {kInvalidFile, "Invalid file"},
-      {kFileNotSupported, "File not supported"},
-      {kFileCompressionNotSupported, "Decoding compressed file is not supported"},
-      {kUnknownNumOfChannels,
+  static constexpr std::array<Message, 19> kErrorMap{{
+      {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
+      {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
+      {kAccessDirFailed, Level::Warning, "Cannot access directory"},
+      {kInvalidFile, Level::Warning, "Invalid file"},
+      {kFileNotSupported, Level::Warning, "File not supported"},
+      {kFileCompressionNotSupported, Level::Warning, "Decoding compressed file is not supported"},
+      {kUnknownNumOfChannels, Level::Warning,
        "File does not seem to be neither mono nor stereo (perhaps multi-track or corrupted)"},
-      {kInconsistentHeaderInfo, "Header data is inconsistent"},
-      {kCorruptedData, "File is corrupted"},
-      {kSetupAudioParamsFailed, "Cannot set audio parameters"},
-      {kDecodeFileFailed, "Cannot decode song"},
-      {kSeekFrameFailed, "Cannot seek frame in song"},
-      {kUnknownError, "Unknown error used for almost everything during development =)"},
+      {kInconsistentHeaderInfo, Level::Warning, "Header data is inconsistent"},
+      {kCorruptedData, Level::Warning, "File is corrupted"},
+      {kSetupAudioParamsFailed, Level::Critical, "Cannot set audio parameters"},
+      {kPlaybackFailed, Level::Critical,
+       "Cannot play audio on output device (was it disconnected?)"},
+      {kDecodeFileFailed, Level::Warning, "Cannot decode song"},
+      {kSeekFrameFailed, Level::Warning, "Cannot seek frame in song"},
+      {kEqualizerFailed, Level::Warning, "Cannot apply equalizer settings"},
+      {kTooManyFailedSongs, Level::Critical, "Several songs failed in a row, playlist was stopped"},
+      {kStreamFetchFailed, Level::Warning, "Cannot fetch song from URL"},
+      {kStreamFetcherNotFound, Level::Warning, "Cannot play song from URL, yt-dlp was not found"},
+      {kUrlNotFound, Level::Warning, "Content not found in URL"},
+      {kUnknownError, Level::Critical,
+       "Unknown error used for almost everything during development =)"},
   }};
+
+  //! Find entry for the given error code
+  static const Message& Find(Code id) {
+    auto find_error = [&id](const Message& element) { return element.code == id; };
+
+    auto error = std::find_if(kErrorMap.begin(), kErrorMap.end(), find_error);
+    assert(error != kErrorMap.end());
+
+    return *error;
+  }
 
   /* ******************************************************************************************** */
  public:
@@ -79,14 +119,15 @@ class ApplicationError {
    * @param code Error code
    * @return Message Error detail
    */
-  static std::string_view GetMessage(Code id) {
-    auto find_error = [&id](Message element) { return element.first == id; };
+  static std::string_view GetMessage(Code id) { return Find(id).message; }
 
-    auto error = std::find_if(kErrorMap.begin(), kErrorMap.end(), find_error);
-    assert(error != kErrorMap.end());
-
-    return error->second;
-  }
+  /**
+   * @brief Get how error must be presented to user
+   *
+   * @param id Error code
+   * @return Level Error level
+   */
+  static Level GetLevel(Code id) { return Find(id).level; }
 };
 
 }  // namespace error

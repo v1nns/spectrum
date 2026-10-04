@@ -24,6 +24,11 @@ if(NOT SPECTRUM_DEBUG)
   if(NOT LIBXML_FOUND)
     pkg_search_module(LIBXML REQUIRED IMPORTED_TARGET libxml++-2.6)
   endif()
+
+  # libxml2 (used directly by libxml_wrapper, and only a private dependency of libxml++)
+  pkg_search_module(LIBXML2 REQUIRED IMPORTED_TARGET libxml-2.0)
+
+  # yt-dlp is optional: it is only run (when found in PATH) to play songs from YouTube URL
 endif()
 
 if(NOT DISABLE_POPULATE)
@@ -31,7 +36,11 @@ if(NOT DISABLE_POPULATE)
   FetchContent_Declare(
     ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736)
+    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736
+    # Backport upstream fix for out-of-bounds read in LinearGradient (fixed in FTXUI v6.0.0).
+    # Skip applying it when already applied, so that re-running the patch step does not fail.
+    PATCH_COMMAND sh -c "git apply --reverse --check \"$0\" 2>/dev/null || git apply \"$0\""
+                  ${PROJECT_SOURCE_DIR}/patches/ftxui-linear-gradient-oob.patch)
 
   FetchContent_MakeAvailable(ftxui)
 
@@ -39,7 +48,7 @@ if(NOT DISABLE_POPULATE)
   FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json
-    GIT_TAG v3.11.2)
+    GIT_TAG v3.11.3)
 
   FetchContent_MakeAvailable(nlohmann_json)
 else()
@@ -80,6 +89,7 @@ target_sources(
           model/playlist_operation.cc
           model/question_data.cc
           model/song.cc
+          model/stream_info.cc
           # view
           view/base/block.cc
           view/base/custom_event.cc
@@ -97,13 +107,18 @@ target_sources(
           view/block/sidebar_content/list_directory.cc
           view/block/sidebar_content/playlist_viewer.cc
           view/element/button.cc
+          view/element/flash_message.cc
           view/element/focus_controller.cc
           view/element/error_dialog.cc
           view/element/help_dialog.cc
           view/element/playlist_dialog.cc
           view/element/question_dialog.cc
+          view/element/style.cc
           view/element/tab.cc
           view/element/text_animation.cc
+          view/element/text_input.cc
+          view/element/theme_picker.cc
+          view/element/url_input.cc
           view/element/menu.cc
           view/element/internal/file_menu.cc
           view/element/internal/playlist_menu.cc
@@ -112,6 +127,7 @@ target_sources(
           util/arg_parser.cc
           util/file_handler.cc
           util/logger.cc
+          util/process.cc
           util/sink.cc)
 
 target_include_directories(
@@ -139,9 +155,10 @@ if(NOT SPECTRUM_DEBUG)
             audio/driver/alsa.cc
             audio/driver/ffmpeg.cc
             audio/driver/fftw.cc
-            # lyric
-            audio/lyric/driver/curl_wrapper.cc
-            audio/lyric/driver/libxml_wrapper.cc)
+            # web
+            web/driver/curl_wrapper.cc
+            web/driver/libxml_wrapper.cc
+            web/driver/ytdlp_wrapper.cc)
 
   target_include_directories(
     spectrum_lib
@@ -170,7 +187,8 @@ if(NOT SPECTRUM_DEBUG)
     PRIVATE
     INTERFACE PkgConfig::CURL
     PRIVATE
-    INTERFACE PkgConfig::LIBXML)
+    INTERFACE PkgConfig::LIBXML
+    INTERFACE PkgConfig::LIBXML2)
 
   if(ENABLE_TESTS)
     message(STATUS "Enabling additional compile definitions for tests...")
@@ -184,6 +202,20 @@ endif()
 add_executable(spectrum)
 target_sources(spectrum PRIVATE main.cc)
 target_link_libraries(spectrum PRIVATE spectrum_lib)
+
+# Version written to log (from git, when available)
+execute_process(
+  COMMAND git describe --tags --always --dirty
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE SPECTRUM_VERSION
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET)
+
+if(NOT SPECTRUM_VERSION)
+  set(SPECTRUM_VERSION "unknown")
+endif()
+
+target_compile_definitions(spectrum PRIVATE SPECTRUM_VERSION="${SPECTRUM_VERSION}")
 target_compile_options(
   spectrum
   PRIVATE -Wall

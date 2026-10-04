@@ -8,13 +8,14 @@
 
 #include <gmock/gmock-function-mocker.h>
 
-#include "audio/lyric/base/html_parser.h"
+#include "model/song.h"
+#include "web/base/html_parser.h"
 
 namespace {
 
-class HtmlParserMock final : public driver::HtmlParser {
+class HtmlParserMock final : public web::HtmlParser {
  public:
-  MOCK_METHOD(lyric::SongLyric, Parse, (const std::string&, const std::string&), (override));
+  MOCK_METHOD(model::SongLyric, Parse, (const std::string&, const std::string&), (override));
 };
 
 }  // namespace

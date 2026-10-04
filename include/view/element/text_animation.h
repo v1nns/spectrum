@@ -21,13 +21,13 @@ namespace interface {
 struct TextAnimation {
   using Callback = std::function<void()>;  //!< Callback triggered by internal thread
 
-  std::mutex mutex = std::mutex();  //!< Control access for internal resources
+  mutable std::mutex mutex = std::mutex();  //!< Control access for internal resources
   std::condition_variable notifier =
       std::condition_variable();       //!< Conditional variable to block thread
   std::thread thread = std::thread();  //!< Thread to perform offset animation on text
 
   std::atomic<bool> enabled = false;  //!< Flag to control thread animation
-  std::string text = "";              //!< Entry text to perform animation
+  std::string text = "";              //!< Entry text to perform animation (read it with GetText)
 
   Callback cb_update = nullptr;  //!< Force an UI refresh
 
@@ -44,6 +44,12 @@ struct TextAnimation {
    * @brief Stop animation thread
    */
   void Stop();
+
+  /**
+   * @brief Get current text from animation (it is updated by animation thread)
+   * @return Copy of animated text
+   */
+  std::string GetText() const;
 
  private:
   /**

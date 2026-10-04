@@ -8,13 +8,15 @@
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
+#include "view/base/event_dispatcher.h"
+#include "view/element/style.h"
 
 namespace interface {
 
 class Dialog {
+ protected:
   static constexpr int kBorderSize = 2;  //!< Extra padding based on border size
 
- protected:
   struct Size {
     float width = 0.f;   //!< Width percentage
     float height = 0.f;  //!< Height percentage
@@ -26,18 +28,19 @@ class Dialog {
     int max_line = 0;    //!< Maximum value of lines
   };
 
-  //! Style for each part of the dialog
+  //! Style for each part of the dialog (as colors from theme, which are read on every render)
   struct Style {
-    ftxui::Color background;
-    ftxui::Color foreground;
+    ftxui::Color Theme::Dialog::* background;
+    ftxui::Color Theme::Dialog::* foreground;
   };
 
   /**
    * @brief Construct a new Dialog object
+   * @param dispatcher Event dispatcher
    * @param size Size settings for dialog
    * @param style Dialog style to apply
    */
-  Dialog(const Size& size, const Style& style);
+  Dialog(const std::shared_ptr<EventDispatcher>& dispatcher, const Size& size, const Style& style);
 
  public:
   /**
@@ -122,11 +125,24 @@ class Dialog {
   }
 
   /* ******************************************************************************************** */
-  //! Variables
+  //! Used by derived class
+ protected:
+  //! Get event dispatcher
+  std::shared_ptr<EventDispatcher> GetDispatcher() const;
 
-  bool opened_ = false;  //!< Flag to indicate dialog visilibity
-  Size size_;            //!< Dialog size settings
-  Style style_;          //!< Color style
+  //! Calculate dialog size (including border) for the given terminal size
+  [[nodiscard]] ftxui::Dimensions CalculateSize(const ftxui::Dimensions& curr_size) const;
+
+  //! Change minimum number of lines for dialog content (border is added automatically)
+  void SetMinimumLines(int lines) { size_.min_line = lines + kBorderSize; }
+
+  /* ******************************************************************************************** */
+  //! Variables
+ private:
+  std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
+  bool opened_ = false;                        //!< Flag to indicate dialog visilibity
+  Size size_;                                  //!< Dialog size settings
+  Style style_;                                //!< Color style
 };
 
 }  // namespace interface

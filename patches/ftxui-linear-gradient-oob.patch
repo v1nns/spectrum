@@ -1,0 +1,16 @@
+diff --git a/src/ftxui/dom/linear_gradient.cpp b/src/ftxui/dom/linear_gradient.cpp
+index 3bf0e561..76266f62 100644
+--- a/src/ftxui/dom/linear_gradient.cpp
++++ b/src/ftxui/dom/linear_gradient.cpp
+@@ -89,7 +89,10 @@ Color Interpolate(const LinearGradientNormalized& gradient, float t) {
+   // Find the right color in the gradient's stops.
+   size_t i = 1;
+   while (true) {
+-    if (i > gradient.positions.size()) {
++    // `t` might be slightly greater than 1.0 due to floating point precision, so
++    // handle the case where it is past the last stop (backport of upstream
++    // d75108e9, see https://github.com/ArthurSonzogni/FTXUI/issues/998).
++    if (i >= gradient.positions.size()) {
+       // NOLINTNEXTLINE
+       return Color::Interpolate(0.5f, gradient.colors.back(),
+                                 gradient.colors.back());
