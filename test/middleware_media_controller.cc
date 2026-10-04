@@ -3,6 +3,7 @@
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
 
+#include <filesystem>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -10,17 +11,29 @@
 #include <vector>
 
 #include "audio/base/notifier.h"
+#include "ftxui/component/event.hpp"
+#include "ftxui/dom/node.hpp"
+#include "ftxui/screen/screen.hpp"
 #include "general/sync_testing.h"
+#include "general/utils.h"
 #include "middleware/media_controller.h"
 #include "mock/analyzer_mock.h"
 #include "mock/audio_control_mock.h"
 #include "mock/event_dispatcher_mock.h"
+#include "mock/file_handler_mock.h"
 #include "model/application_error.h"
+#include "model/bar_animation.h"
+#include "model/block_identifier.h"
 #include "model/playlist.h"
+#include "model/playlist_operation.h"
+#include "model/question_data.h"
+#include "model/settings.h"
 #include "model/song.h"
 #include "util/logger.h"
 #include "view/base/custom_event.h"
+#include "view/base/keybinding.h"
 #include "view/base/notifier.h"
+#include "view/base/terminal.h"
 
 namespace {
 
@@ -764,6 +777,604 @@ TEST(CustomEventTest, PrintEventWithEachContent) {
       Print(CustomEvent::ShowQuestionDialog(question)),
       ::testing::StrEq(R"({type:"UI->UI", id:"ShowQuestionDialog", )"
                        R"(content:{question: "Quit?", cb_yes:"not empty", cb_no:"empty"}})"));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Mock class for audio notifier API (events sent from interface to audio thread)
+ */
+class AudioNotifierMock : public audio::Notifier {
+ public:
+  MOCK_METHOD(void, NotifyFileSelection, (const std::filesystem::path&), (override));
+  MOCK_METHOD(void, Pause, (), (override));
+  MOCK_METHOD(void, Resume, (bool), (override));
+  MOCK_METHOD(void, Stop, (), (override));
+  MOCK_METHOD(void, SetVolume, (model::Volume), (override));
+  MOCK_METHOD(void, ResizeAnalysisOutput, (int), (override));
+  MOCK_METHOD(void, SeekForwardPosition, (int), (override));
+  MOCK_METHOD(void, SeekBackwardPosition, (int), (override));
+  MOCK_METHOD(void, ApplyAudioFilters, (const model::EqualizerPreset&), (override));
+  MOCK_METHOD(void, NotifyPlaylistSelection, (const model::Playlist&), (override));
+  MOCK_METHOD(void, NotifyErrorDialogClosed, (), (override));
+  MOCK_METHOD(void, SkipToNextSong, (), (override));
+  MOCK_METHOD(void, SkipToPreviousSong, (), (override));
+  MOCK_METHOD(void, SetRepeatMode, (model::RepeatMode), (override));
+  MOCK_METHOD(void, SetShuffle, (bool), (override));
+};
+
+/**
+ * @brief Tests with Terminal class
+ */
+class TerminalTest : public ::testing::Test {
+ protected:
+  using Terminal = interface::Terminal;
+
+  //! Terminal size big enough to render all blocks
+  static constexpr int kColumns = 120;
+  static constexpr int kLines = 30;
+
+  //! Terminal size smaller than the minimum one
+  static constexpr int kSmallColumns = 80;
+  static constexpr int kSmallLines = 24;
+
+  //! Index from each block
+  static constexpr int kSidebar = Terminal::kBlockSidebar;
+  static constexpr int kFileInfo = Terminal::kBlockFileInfo;
+  static constexpr int kMainContent = Terminal::kBlockMainContent;
+  static constexpr int kMediaPlayer = Terminal::kBlockMediaPlayer;
+
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
+  void SetUp() override { CreateTerminal(); }
+
+  void TearDown() override {
+    terminal.reset();
+    notifier.reset();
+  }
+
+  //! Create terminal with a fixed size (using a mock to not load/save files from user's home)
+  void CreateTerminal() {
+    terminal = Terminal::Create(LISTDIR_PATH, file_handler);
+
+    size = ftxui::Dimensions{kColumns, kLines};
+    terminal->cb_size_ = [this] { return size; };
+    terminal->size_ = size;
+
+    terminal->RegisterEventSenderCallback([this](const ftxui::Event&) { ++refresh_count; });
+    terminal->RegisterExitCallback([this] { ++exit_count; });
+  }
+
+  //! Register audio notifier, as middleware does when application starts
+  void RegisterNotifier() { terminal->RegisterPlayerNotifier(notifier); }
+
+  //! Simulate user resizing the terminal (noticed by Terminal on next render)
+  void Resize(int columns, int lines) { size = ftxui::Dimensions{columns, lines}; }
+
+  //! Render terminal and get it as text
+  std::string Render() {
+    auto element = terminal->Render();
+
+    ftxui::Screen screen(size.dimx, size.dimy);
+    ftxui::Render(screen, element);
+
+    return utils::FilterAnsiCommands(screen.ToString());
+  }
+
+  //! Send a keyboard event, which also makes terminal handle any pending custom event
+  bool Send(const ftxui::Event& event) { return terminal->OnEvent(event); }
+
+  //! Make terminal handle any pending custom event
+  void HandlePendingEvents() { Send(ftxui::Event::Custom); }
+
+  //! Getters for internal state
+  int GetFocusedIndex() const { return terminal->focused_index_; }
+  bool IsBlockFocused(int index) const {
+    return std::static_pointer_cast<interface::Block>(terminal->children_.at(index))->IsFocused();
+  }
+
+  bool IsFullscreen() const { return terminal->fullscreen_mode_; }
+  bool IsErrorVisible() const { return terminal->error_dialog_->IsVisible(); }
+  bool IsHelpVisible() const { return terminal->help_dialog_->IsVisible(); }
+  bool IsQuestionVisible() const { return terminal->question_dialog_->IsVisible(); }
+  bool IsPlaylistDialogVisible() const { return terminal->playlist_dialog_->IsVisible(); }
+  bool IsThemePickerVisible() const { return terminal->theme_picker_->IsVisible(); }
+
+  utils::ThemeGuard guard;  //!< Restore default theme when test finishes
+
+  //! Load/save settings (by default, there are no settings saved)
+  std::shared_ptr<::testing::NiceMock<FileHandlerMock>> file_handler =
+      std::make_shared<::testing::NiceMock<FileHandlerMock>>();
+
+  std::shared_ptr<::testing::NiceMock<AudioNotifierMock>> notifier =
+      std::make_shared<::testing::NiceMock<AudioNotifierMock>>();
+
+  std::shared_ptr<Terminal> terminal;
+  ftxui::Dimensions size;  //!< Size reported to terminal
+
+  int refresh_count = 0;  //!< Number of times that terminal asked to refresh screen
+  int exit_count = 0;     //!< Number of times that terminal asked to exit application
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, RenderAllBlocks) {
+  const std::string rendered = Render();
+
+  EXPECT_THAT(rendered, ::testing::HasSubstr("F1:files"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr(" information "));
+  EXPECT_THAT(rendered, ::testing::HasSubstr(" player "));
+  EXPECT_THAT(rendered, ::testing::Not(::testing::HasSubstr("Terminal too small")));
+
+  // Sidebar is the one focused when application starts
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+  EXPECT_TRUE(IsBlockFocused(kSidebar));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, RenderTooSmall) {
+  Resize(kSmallColumns, kSmallLines);
+  const std::string rendered = Render();
+
+  EXPECT_THAT(rendered, ::testing::HasSubstr("Terminal too small"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr("Current: 80x24"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr("Minimum: 105x24"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr("Resize it or press q to quit"));
+  EXPECT_THAT(rendered, ::testing::Not(::testing::HasSubstr(" player ")));
+
+  // Blocks are not visible, so user cannot interact with them
+  EXPECT_FALSE(Send(interface::keybinding::Navigation::Tab));
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  EXPECT_FALSE(Send(interface::keybinding::General::ShowHelper));
+  EXPECT_FALSE(IsHelpVisible());
+
+  // Only quit is allowed
+  EXPECT_EQ(exit_count, 0);
+  EXPECT_TRUE(Send(interface::keybinding::General::ExitApplication));
+  EXPECT_EQ(exit_count, 1);
+
+  // Blocks are rendered again after resizing terminal
+  Resize(kColumns, kLines);
+  EXPECT_THAT(Render(), ::testing::HasSubstr(" player "));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ResizeRecalculatesNumberOfBars) {
+  Render();
+  const int bars = terminal->CalculateNumberBars();
+  const int refresh = refresh_count;
+
+  EXPECT_GT(bars, 0);
+  EXPECT_EQ(bars % 2, 0);
+
+  // Nothing changes without a resize
+  Render();
+  EXPECT_EQ(refresh_count, refresh);
+
+  // A wider terminal fits more bars, and spectrum visualizer must be informed about it
+  Resize(kColumns * 2, kLines);
+  Render();
+
+  EXPECT_GT(refresh_count, refresh);
+  EXPECT_GT(terminal->CalculateNumberBars(), bars);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, NumberOfBarsDependsOnAnimation) {
+  using interface::CustomEvent;
+
+  terminal->ProcessEvent(CustomEvent::ChangeBarAnimation(model::BarAnimation::HorizontalMirror));
+  const int spaced = terminal->CalculateNumberBars();
+
+  // Without space between bars, more of them fit in the same width
+  terminal->ProcessEvent(
+      CustomEvent::ChangeBarAnimation(model::BarAnimation::HorizontalMirrorNoSpace));
+  const int not_spaced = terminal->CalculateNumberBars();
+
+  EXPECT_GT(not_spaced, spaced);
+
+  // Animation is kept when only bar width changes
+  terminal->ProcessEvent(CustomEvent::UpdateBarWidth());
+  EXPECT_EQ(terminal->CalculateNumberBars(), not_spaced);
+
+  // Given by parameter, it replaces the last one
+  EXPECT_EQ(terminal->CalculateNumberBars(model::BarAnimation::HorizontalMirror), spaced);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ExitApplication) {
+  EXPECT_TRUE(Send(interface::keybinding::General::ExitApplication));
+  EXPECT_EQ(exit_count, 1);
+
+  // Any block may also ask to exit
+  terminal->ProcessEvent(interface::CustomEvent::Exit());
+  EXPECT_EQ(exit_count, 2);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, DisableGlobalEvents) {
+  using interface::CustomEvent;
+
+  // Blocks disable global events while user is typing (e.g. searching in a list)
+  terminal->ProcessEvent(CustomEvent::DisableGlobalEvent());
+
+  Send(interface::keybinding::General::ExitApplication);
+  Send(interface::keybinding::General::ShowHelper);
+
+  EXPECT_EQ(exit_count, 0);
+  EXPECT_FALSE(IsHelpVisible());
+
+  terminal->ProcessEvent(CustomEvent::EnableGlobalEvent());
+
+  EXPECT_TRUE(Send(interface::keybinding::General::ExitApplication));
+  EXPECT_EQ(exit_count, 1);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, SwitchFocusWithKeys) {
+  using interface::keybinding::General;
+  using interface::keybinding::Navigation;
+
+  // Focus next block, returning to the first one after the last
+  for (int index : {kFileInfo, kMainContent, kMediaPlayer, kSidebar}) {
+    EXPECT_TRUE(Send(Navigation::Tab));
+    EXPECT_EQ(GetFocusedIndex(), index);
+    EXPECT_TRUE(IsBlockFocused(index));
+  }
+
+  // Focus previous block, going to the last one from the first
+  for (int index : {kMediaPlayer, kMainContent, kFileInfo, kSidebar}) {
+    EXPECT_TRUE(Send(Navigation::TabReverse));
+    EXPECT_EQ(GetFocusedIndex(), index);
+    EXPECT_TRUE(IsBlockFocused(index));
+  }
+
+  EXPECT_FALSE(IsBlockFocused(kMediaPlayer));
+
+  // Focus a specific block
+  EXPECT_TRUE(Send(General::FocusPlayer));
+  EXPECT_EQ(GetFocusedIndex(), kMediaPlayer);
+
+  EXPECT_TRUE(Send(General::FocusMainContent));
+  EXPECT_EQ(GetFocusedIndex(), kMainContent);
+
+  EXPECT_TRUE(Send(General::FocusInfo));
+  EXPECT_EQ(GetFocusedIndex(), kFileInfo);
+
+  EXPECT_TRUE(Send(General::FocusSidebar));
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  EXPECT_TRUE(IsBlockFocused(kSidebar));
+  EXPECT_FALSE(IsBlockFocused(kFileInfo));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, SwitchFocusWithEvents) {
+  using interface::CustomEvent;
+
+  terminal->ProcessEvent(CustomEvent::SetFocused(model::BlockIdentifier::MediaPlayer));
+  EXPECT_EQ(GetFocusedIndex(), kMediaPlayer);
+  EXPECT_TRUE(IsBlockFocused(kMediaPlayer));
+  EXPECT_FALSE(IsBlockFocused(kSidebar));
+
+  terminal->ProcessEvent(CustomEvent::SetFocused(model::BlockIdentifier::FileInfo));
+  EXPECT_EQ(GetFocusedIndex(), kFileInfo);
+
+  terminal->ProcessEvent(CustomEvent::SetFocused(model::BlockIdentifier::MainContent));
+  EXPECT_EQ(GetFocusedIndex(), kMainContent);
+
+  terminal->ProcessEvent(CustomEvent::SetNextFocused());
+  EXPECT_EQ(GetFocusedIndex(), kMediaPlayer);
+
+  terminal->ProcessEvent(CustomEvent::SetPreviousFocused());
+  EXPECT_EQ(GetFocusedIndex(), kMainContent);
+
+  // An unknown block falls back to the first one
+  terminal->ProcessEvent(CustomEvent::SetFocused(model::BlockIdentifier::None));
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+  EXPECT_TRUE(IsBlockFocused(kSidebar));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, SendEventsToAudioThread) {
+  using interface::CustomEvent;
+  using ::testing::_;
+
+  RegisterNotifier();
+  HandlePendingEvents();
+
+  const std::filesystem::path file{"/some/path/to/song.mp3"};
+  const model::Playlist playlist{.index = 3, .name = "coding", .songs = {model::Song{}}};
+  const model::Volume volume{0.4F};
+  const int bars = 16;
+
+  EXPECT_CALL(*notifier, NotifyFileSelection(file));
+  terminal->ProcessEvent(CustomEvent::NotifyFileSelection(file));
+
+  EXPECT_CALL(*notifier, Pause());
+  terminal->ProcessEvent(CustomEvent::PauseSong());
+
+  EXPECT_CALL(*notifier, Resume(true));
+  terminal->ProcessEvent(CustomEvent::ResumeSong(true));
+
+  EXPECT_CALL(*notifier, Stop());
+  terminal->ProcessEvent(CustomEvent::StopSong());
+
+  EXPECT_CALL(*notifier, SetVolume(volume));
+  terminal->ProcessEvent(CustomEvent::SetAudioVolume(volume));
+
+  EXPECT_CALL(*notifier, ResizeAnalysisOutput(bars));
+  terminal->ProcessEvent(CustomEvent::ResizeAnalysis(bars));
+
+  EXPECT_CALL(*notifier, SeekForwardPosition(2));
+  terminal->ProcessEvent(CustomEvent::SeekForwardPosition(2));
+
+  EXPECT_CALL(*notifier, SeekBackwardPosition(1));
+  terminal->ProcessEvent(CustomEvent::SeekBackwardPosition(1));
+
+  EXPECT_CALL(*notifier, ApplyAudioFilters(_));
+  terminal->ProcessEvent(CustomEvent::ApplyAudioFilters({}));
+
+  EXPECT_CALL(*notifier, NotifyPlaylistSelection(playlist));
+  terminal->ProcessEvent(CustomEvent::NotifyPlaylistSelection(playlist));
+
+  EXPECT_CALL(*notifier, NotifyErrorDialogClosed());
+  terminal->ProcessEvent(CustomEvent::NotifyDialogClosed());
+
+  EXPECT_CALL(*notifier, SkipToNextSong());
+  terminal->ProcessEvent(CustomEvent::SkipToNextPlaylistSong());
+
+  EXPECT_CALL(*notifier, SkipToPreviousSong());
+  terminal->ProcessEvent(CustomEvent::SkipToPreviousPlaylistSong());
+
+  EXPECT_CALL(*notifier, SetRepeatMode(model::RepeatMode::One));
+  terminal->ProcessEvent(CustomEvent::SetRepeatMode(model::RepeatMode::One));
+
+  EXPECT_CALL(*notifier, SetShuffle(true));
+  terminal->ProcessEvent(CustomEvent::SetShuffle(true));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, KeepEventsToAudioThreadUntilNotifierIsRegistered) {
+  using interface::CustomEvent;
+  using ::testing::_;
+
+  // Volume from last run is restored by media player while terminal is being created
+  ON_CALL(*file_handler, ParseSettings(_))
+      .WillByDefault(::testing::DoAll(::testing::SetArgReferee<0>(model::Settings{.volume = 40}),
+                                      ::testing::Return(true)));
+  CreateTerminal();
+
+  EXPECT_CALL(*notifier, SetVolume(_)).Times(0);
+  EXPECT_CALL(*notifier, Pause()).Times(0);
+
+  HandlePendingEvents();
+  terminal->ProcessEvent(CustomEvent::PauseSong());
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // Events are sent to audio thread as soon as it can be reached
+  EXPECT_CALL(*notifier, SetVolume(model::Volume{0.4F}));
+  EXPECT_CALL(*notifier, Pause());
+  RegisterNotifier();
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // And they are discarded when audio thread is gone (application is exiting)
+  notifier.reset();
+  terminal->ProcessEvent(CustomEvent::PauseSong());
+
+  EXPECT_THAT(Render(), ::testing::HasSubstr("Volume:  40%"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, SendEventsFromAudioThreadToBlocks) {
+  using interface::CustomEvent;
+
+  const int refresh = refresh_count;
+
+  // Events are queued, and screen is asked to refresh, so they are handled by UI thread
+  terminal->SendEvent(CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/some/path/to/song.mp3",
+      .artist = "cln",
+      .title = "DUST",
+      .duration = 146,
+  }));
+
+  EXPECT_EQ(refresh_count, refresh + 1);
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr("02:26")));
+
+  HandlePendingEvents();
+  EXPECT_THAT(Render(), ::testing::HasSubstr("02:26"));
+
+  // While this one is handled right away
+  terminal->ProcessEvent(CustomEvent::ClearSongInfo());
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr("02:26")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ShowWarningOnMediaPlayer) {
+  terminal->SetApplicationError(error::kInvalidFile, "song.mp3");
+  HandlePendingEvents();
+
+  // Warning does not interrupt user
+  EXPECT_FALSE(IsErrorVisible());
+  EXPECT_THAT(Render(), ::testing::HasSubstr("Invalid file: song.mp3"));
+
+  // Without any detail, only its message is shown
+  terminal->SetApplicationError(error::kCorruptedData, "");
+  HandlePendingEvents();
+
+  EXPECT_FALSE(IsErrorVisible());
+  EXPECT_THAT(Render(), ::testing::HasSubstr("File is corrupted"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ShowErrorDialog) {
+  RegisterNotifier();
+
+  terminal->SetApplicationError(error::kTooManyFailedSongs, "");
+
+  EXPECT_TRUE(IsErrorVisible());
+  EXPECT_THAT(Render(), ::testing::HasSubstr("Several songs failed in a row"));
+
+  // Nothing else is handled while dialog is opened
+  Send(interface::keybinding::General::ShowHelper);
+  Send(interface::keybinding::Navigation::Tab);
+
+  EXPECT_FALSE(IsHelpVisible());
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+  EXPECT_EQ(exit_count, 0);
+
+  // Audio thread is informed when user closes it
+  EXPECT_CALL(*notifier, NotifyErrorDialogClosed());
+
+  EXPECT_TRUE(Send(interface::keybinding::Navigation::Escape));
+  HandlePendingEvents();
+
+  EXPECT_FALSE(IsErrorVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ShowHelpForFocusedBlock) {
+  using interface::CustomEvent;
+  using interface::keybinding::General;
+  using interface::keybinding::Navigation;
+
+  // Open help from every block and view (it starts from the section related to it)
+  const std::vector<std::vector<ftxui::Event>> steps{
+      {},
+      {interface::keybinding::Sidebar::FocusPlaylist},
+      {General::FocusInfo},
+      {General::FocusMainContent},
+      {interface::keybinding::MainContent::FocusEqualizer},
+      {interface::keybinding::MainContent::FocusLyric},
+      {General::FocusPlayer},
+  };
+
+  for (const auto& keys : steps) {
+    for (const auto& key : keys) Send(key);
+
+    EXPECT_TRUE(Send(General::ShowHelper));
+    EXPECT_TRUE(IsHelpVisible());
+    EXPECT_THAT(Render(), ::testing::HasSubstr("help"));
+
+    // Keys go to dialog while it is opened, so application does not exit
+    EXPECT_TRUE(Send(Navigation::Close));
+    EXPECT_FALSE(IsHelpVisible());
+    EXPECT_EQ(exit_count, 0);
+  }
+
+  EXPECT_EQ(GetFocusedIndex(), kMediaPlayer);
+
+  // Any block may also ask to show it
+  terminal->ProcessEvent(CustomEvent::ShowHelper());
+  EXPECT_TRUE(IsHelpVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ShowThemePicker) {
+  EXPECT_TRUE(Send(interface::keybinding::General::ChangeTheme));
+  EXPECT_TRUE(IsThemePickerVisible());
+  EXPECT_THAT(Render(), ::testing::HasSubstr("Tokyo Night"));
+
+  // Keys go to picker while it is opened
+  Send(interface::keybinding::Navigation::Tab);
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  EXPECT_TRUE(Send(interface::keybinding::Navigation::Escape));
+  EXPECT_FALSE(IsThemePickerVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ShowQuestionDialog) {
+  bool answered = false;
+
+  terminal->ProcessEvent(interface::CustomEvent::ShowQuestionDialog(model::QuestionData{
+      .question = "Do you want to quit?",
+      .cb_yes = [&answered] { answered = true; },
+  }));
+
+  EXPECT_TRUE(IsQuestionVisible());
+  EXPECT_THAT(Render(), ::testing::HasSubstr("Do you want to quit?"));
+
+  EXPECT_TRUE(Send(interface::keybinding::Dialog::Yes));
+
+  EXPECT_TRUE(answered);
+  EXPECT_FALSE(IsQuestionVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ShowPlaylistDialog) {
+  terminal->ProcessEvent(interface::CustomEvent::ShowPlaylistManager(model::PlaylistOperation{
+      .action = model::PlaylistOperation::Operation::Create,
+  }));
+
+  EXPECT_TRUE(IsPlaylistDialogVisible());
+
+  // Keys go to dialog while it is opened
+  Send(interface::keybinding::Navigation::Tab);
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  EXPECT_TRUE(Send(interface::keybinding::Navigation::Escape));
+  EXPECT_FALSE(IsPlaylistDialogVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ToggleFullscreen) {
+  using interface::CustomEvent;
+
+  const int bars = terminal->CalculateNumberBars();
+
+  terminal->ProcessEvent(CustomEvent::ToggleFullscreen());
+  EXPECT_TRUE(IsFullscreen());
+
+  // Only spectrum visualizer is rendered, using the whole terminal
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, ::testing::Not(::testing::HasSubstr("F1:files")));
+  EXPECT_THAT(rendered, ::testing::Not(::testing::HasSubstr(" player ")));
+
+  EXPECT_GT(terminal->CalculateNumberBars(), bars);
+
+  // And it fits even in a small terminal
+  Resize(kSmallColumns, kSmallLines);
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr("Terminal too small")));
+
+  // Focus cannot be changed, as other blocks are not visible
+  EXPECT_FALSE(Send(interface::keybinding::Navigation::Tab));
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  // But media player still handles its keys
+  RegisterNotifier();
+  EXPECT_CALL(*notifier, SetShuffle(true));
+
+  EXPECT_TRUE(Send(interface::keybinding::MediaPlayer::ToggleShuffle));
+  HandlePendingEvents();
+
+  // Back to normal
+  Resize(kColumns, kLines);
+  terminal->ProcessEvent(CustomEvent::ToggleFullscreen());
+
+  EXPECT_FALSE(IsFullscreen());
+  EXPECT_THAT(Render(), ::testing::HasSubstr(" player "));
 }
 
 }  // namespace

@@ -45,7 +45,8 @@ bool operator!=(const ftxui::Dimensions& lhs, const ftxui::Dimensions& rhs) {
 
 /* ********************************************************************************************** */
 
-std::shared_ptr<Terminal> Terminal::Create(const std::string& initial_path) {
+std::shared_ptr<Terminal> Terminal::Create(const std::string& initial_path,
+                                           const std::shared_ptr<util::FileHandler>& file_handler) {
   LOG("Create new instance of terminal");
 
   // Simply extend the Terminal class, as we do not want to expose the default constructor, neither
@@ -54,14 +55,15 @@ std::shared_ptr<Terminal> Terminal::Create(const std::string& initial_path) {
   auto terminal = std::make_shared<MakeSharedEnabler>();
 
   // Initialize internal components
-  terminal->Init(initial_path);
+  terminal->Init(initial_path, file_handler);
 
   return terminal;
 }
 
 /* ********************************************************************************************** */
 
-void Terminal::Init(const std::string& initial_path) {
+void Terminal::Init(const std::string& initial_path,
+                    const std::shared_ptr<util::FileHandler>& file_handler) {
   LOG("Initialize terminal");
 
   // As this terminal will hold all these interface blocks, there is nothing better than
@@ -93,10 +95,11 @@ void Terminal::Init(const std::string& initial_path) {
 #endif
 
   // Create blocks
-  auto sidebar = std::make_shared<Sidebar>(dispatcher, initial_path, nullptr, contains_audio_cb);
+  auto sidebar =
+      std::make_shared<Sidebar>(dispatcher, initial_path, file_handler, contains_audio_cb);
   auto file_info = std::make_shared<FileInfo>(dispatcher);
-  auto tab_viewer = std::make_shared<MainContent>(dispatcher);
-  auto media_player = std::make_shared<MediaPlayer>(dispatcher);
+  auto tab_viewer = std::make_shared<MainContent>(dispatcher, file_handler);
+  auto media_player = std::make_shared<MediaPlayer>(dispatcher, file_handler);
 
   // As default, make Sidebar focused to receive input commands
   sidebar->SetFocused(true);
@@ -116,7 +119,8 @@ void Terminal::Init(const std::string& initial_path) {
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 
   // Create theme picker, which also restores theme chosen on last run
-  theme_picker_ = std::make_unique<ThemePicker>(std::make_shared<util::FileHandler>());
+  theme_picker_ = std::make_unique<ThemePicker>(
+      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
 }
 
 /* ********************************************************************************************** */
@@ -164,7 +168,7 @@ ftxui::Element Terminal::Render() {
   }
 
   // Check if terminal has been resized
-  if (auto current_size = ftxui::Terminal::Size(); size_ != current_size) {
+  if (auto current_size = cb_size_(); size_ != current_size) {
     LOG("Resize terminal with new value={x:", current_size.dimx, " y:", current_size.dimy, "}");
     size_ = current_size;
 

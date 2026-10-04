@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BASE_TERMINAL_H_
 #define INCLUDE_VIEW_BASE_TERMINAL_H_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -16,6 +17,7 @@
 #include "middleware/media_controller.h"
 #include "model/application_error.h"
 #include "model/block_identifier.h"
+#include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
@@ -24,6 +26,12 @@
 #include "view/element/playlist_dialog.h"
 #include "view/element/question_dialog.h"
 #include "view/element/theme_picker.h"
+
+#ifdef ENABLE_TESTS
+namespace {
+class TerminalTest;
+}
+#endif
 
 //! Forward declaration
 namespace audio {
@@ -67,9 +75,13 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Factory method: Create, initialize internal components and return Terminal object
    * @param initial_path Initial path to list files (optional)
+   * @param file_handler Utility handler to load/save playlists and settings (optional, a default
+   * one is used when it is null)
    * @return std::shared_ptr<Terminal> Terminal instance
    */
-  static std::shared_ptr<Terminal> Create(const std::string& initial_path);
+  static std::shared_ptr<Terminal> Create(
+      const std::string& initial_path,
+      const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the Terminal object. Base class will do the rest (release resources by detaching
@@ -89,8 +101,10 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   /**
    * @brief Initialize internal components for Terminal object
    * @param initial_path Initial path to list files (optional)
+   * @param file_handler Utility handler to load/save playlists and settings (optional)
    */
-  void Init(const std::string& initial_path);
+  void Init(const std::string& initial_path,
+            const std::shared_ptr<util::FileHandler>& file_handler);
 
   /**
    * @brief Force application to exit
@@ -275,11 +289,21 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
   Callback cb_exit_;             //!< Function to exit from graphical interface
 
-  ftxui::Dimensions size_ = ftxui::Terminal::Size();  //!< Terminal maximum size
-  int focused_index_ = 0;                             //!< Index of focused block
+  //! Function to get terminal maximum size
+  std::function<ftxui::Dimensions()> cb_size_ = ftxui::Terminal::Size;
+
+  ftxui::Dimensions size_ = cb_size_();  //!< Terminal maximum size
+  int focused_index_ = 0;                //!< Index of focused block
 
   bool global_mode_ = true;       //!< Control flag to process events in global mode
   bool fullscreen_mode_ = false;  //!< Control flag to show spectrum visualizer in fullscreen
+
+  /* ******************************************************************************************** */
+  //! Friend class for testing purpose
+
+#ifdef ENABLE_TESTS
+  friend class ::TerminalTest;
+#endif
 };
 
 }  // namespace interface
