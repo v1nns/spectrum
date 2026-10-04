@@ -92,6 +92,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           gcov: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
 
   cppcheck:
     runs-on: ubuntu-latest
