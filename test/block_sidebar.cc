@@ -2511,7 +2511,7 @@ TEST_F(SidebarTest, ChangeThemeAfterCreation) {
   EXPECT_TRUE(utils::HasColor(*screen, playlist));
 
   // And default theme can be set again
-  interface::SetTheme(interface::Theme{});
+  interface::SetTheme(interface::GetThemes().front().colors);
 
   ftxui::Render(*screen, block->Render());
   for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));

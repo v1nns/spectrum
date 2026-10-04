@@ -87,7 +87,7 @@ class ThemeGuard {
 
   ~ThemeGuard() {
     ftxui::Terminal::SetColorSupport(color_support_);
-    interface::SetTheme(interface::Theme{});
+    interface::SetTheme(interface::GetThemes().front().colors);
   }
 
   ThemeGuard(const ThemeGuard&) = delete;

@@ -505,6 +505,11 @@ class BaseMenu : public Element {
 
     ftxui::InputOption opt{.cursor_position = search_params_->position};
 
+    // Use color from theme for typed text (instead of the default one from input component)
+    opt.transform = [](ftxui::InputState state) {
+      return state.element | ftxui::color(GetTheme().menu.search);
+    };
+
     return ftxui::hbox({
         ftxui::text("Search:") | ftxui::color(GetTheme().menu.search),
         ftxui::Input(search_params_->text_to_search, " ", &opt)->Render() | ftxui::flex,
