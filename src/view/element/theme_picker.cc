@@ -58,8 +58,9 @@ ftxui::Element ThemePicker::Render() const {
 
   return ftxui::window(ftxui::text(" theme ") | ftxui::color(colors.entry_selected),
                        ftxui::vbox(std::move(entries)) | ftxui::vscroll_indicator | ftxui::frame) |
-         ftxui::color(colors.border) | ftxui::clear_under |
-         ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height) | ftxui::center;
+         ftxui::color(colors.border) | ftxui::bgcolor(GetTheme().screen.background) |
+         ftxui::clear_under | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height) |
+         ftxui::center;
 }
 
 /* ********************************************************************************************** */

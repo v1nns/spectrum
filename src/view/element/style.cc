@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace interface {
 
@@ -32,25 +33,120 @@ Rgb Mix(const Rgb& first, const Rgb& second, float ratio) {
 
 /* ********************************************************************************************** */
 
-//! Colors from a color scheme, with the role each one takes in UI
+//! Colors with the role each one takes in UI
 struct Palette {
-  Rgb base;     //!< Darkest background, also used for text placed over an accent color
-  Rgb surface;  //!< Background for dialogs and block titles
-  Rgb overlay;  //!< Borders without focus, empty part from bars and disabled elements
-  Rgb muted;    //!< Hints, placeholders and anything else that should not stand out
-  Rgb subtext;  //!< Secondary text
-  Rgb text;     //!< Main text
+  using Color = ftxui::Color;
 
-  Rgb accent;      //!< Focused and main elements
-  Rgb accent_alt;  //!< Hovered elements and keybindings
+  Color base;     //!< Darkest background, also used for text placed over an accent color
+  Color surface;  //!< Background for dialogs and block titles
+  Color overlay;  //!< Borders without focus, empty part from bars and disabled elements
+  Color muted;    //!< Hints, placeholders and anything else that should not stand out
+  Color subtext;  //!< Secondary text
+  Color text;     //!< Main text
 
-  Rgb green;
-  Rgb red;
-  Rgb yellow;
-  Rgb special;  //!< Tags and anything else that needs a color of its own
+  Color accent;      //!< Focused and main elements
+  Color accent_alt;  //!< Hovered elements and keybindings
 
-  std::array<Rgb, 4> gradient;  //!< Spectrum, from the lowest to the highest part
+  Color green;
+  Color red;
+  Color yellow;
+  Color special;  //!< Tags and anything else that needs a color of its own
+
+  Color highlight;         //!< Highlighted letter placed over an accent color
+  Color error_background;  //!< Background for error dialog
+  Color error_foreground;  //!< Text placed over background for error dialog
+
+  Color screen_foreground;  //!< Default color means "use the one from terminal"
+  Color screen_background;  //!< Default color means "use the one from terminal"
+
+  std::array<Rgb, 4> gradient{};  //!< Spectrum, from the lowest to the highest part
+  std::optional<Color> solid;     //!< Single color for spectrum, used instead of gradient
 };
+
+/* ********************************************************************************************** */
+
+//! Colors from a color scheme (other colors needed by UI are derived from these)
+struct ColorScheme {
+  Rgb base{};
+  Rgb surface{};
+  Rgb overlay{};
+  Rgb muted{};
+  Rgb subtext{};
+  Rgb text{};
+
+  Rgb accent{};
+  Rgb accent_alt{};
+
+  Rgb green{};
+  Rgb red{};
+  Rgb yellow{};
+  Rgb special{};
+
+  std::array<Rgb, 4> gradient{};
+
+  //! Highlighted letter placed over an accent color (when empty, a darker red is used)
+  std::optional<Rgb> highlight = std::nullopt;
+
+  //! Fill screen with colors from scheme instead of using the ones from terminal (needed by a
+  //! light scheme, otherwise it could not be read on a terminal with dark background)
+  bool fill_screen = false;
+};
+
+/* ********************************************************************************************** */
+
+//! Create palette from a color scheme
+Palette MakePalette(const ColorScheme& s) {
+  return Palette{
+      .base = s.base,
+      .surface = s.surface,
+      .overlay = s.overlay,
+      .muted = s.muted,
+      .subtext = s.subtext,
+      .text = s.text,
+      .accent = s.accent,
+      .accent_alt = s.accent_alt,
+      .green = s.green,
+      .red = s.red,
+      .yellow = s.yellow,
+      .special = s.special,
+      .highlight = s.highlight.value_or(Mix(s.red, s.base, 0.6F)),
+      .error_background = Mix(s.base, s.red, 0.3F),
+      .error_foreground = s.text,
+      .screen_foreground = s.fill_screen ? ftxui::Color{s.text} : ftxui::Color{},
+      .screen_background = s.fill_screen ? ftxui::Color{s.base} : ftxui::Color{},
+      .gradient = s.gradient,
+      .solid = std::nullopt,
+  };
+}
+
+/* ********************************************************************************************** */
+
+//! Create palette using only the 16 colors from terminal, so UI follows its color scheme
+Palette MakeTerminalPalette() {
+  using Color = ftxui::Color;
+
+  return Palette{
+      .base = Color::Black,
+      .surface = Color::Black,
+      .overlay = Color::GrayDark,
+      .muted = Color::GrayDark,
+      .subtext = Color::GrayLight,
+      .text = Color::White,
+      .accent = Color::Blue,
+      .accent_alt = Color::Cyan,
+      .green = Color::Green,
+      .red = Color::Red,
+      .yellow = Color::Yellow,
+      .special = Color::Magenta,
+      .highlight = Color::Black,
+      .error_background = Color::Red,
+      .error_foreground = Color::Black,
+      .screen_foreground = Color{},
+      .screen_background = Color{},
+      .gradient = {},
+      .solid = Color::Blue,
+  };
+}
 
 /* ********************************************************************************************** */
 
@@ -62,10 +158,12 @@ Theme MakeTheme(const Palette& p) {
   //! Positions for colors from spectrum gradient
   static constexpr std::array<float, 4> kGradientPositions{0.0F, 0.3F, 0.6F, 0.8F};
 
-  // Red that can still be read when placed over an accent color
-  const Rgb dark_red = Mix(p.red, p.base, 0.6F);
-
   Theme theme;
+
+  theme.screen = Theme::Screen{
+      .foreground = p.screen_foreground,
+      .background = p.screen_background,
+  };
 
   theme.block = Theme::Block{
       .title = State{.foreground = p.subtext, .background = p.surface},
@@ -104,7 +202,7 @@ Theme MakeTheme(const Palette& p) {
               .focused = State{.foreground = p.base, .background = p.accent_alt},
               .pressed = State{.foreground = p.accent_alt, .background = p.overlay},
               .disabled = State{.foreground = p.muted, .background = p.surface},
-              .highlight = State{.foreground = dark_red},
+              .highlight = State{.foreground = p.highlight},
           },
   };
 
@@ -115,6 +213,7 @@ Theme MakeTheme(const Palette& p) {
   };
 
   theme.visualizer.text = p.text;
+  theme.visualizer.solid = p.solid;
 
   for (size_t i = 0; i < theme.visualizer.gradient.size(); i++) {
     const Rgb& color = p.gradient.at(i);
@@ -155,8 +254,9 @@ Theme MakeTheme(const Palette& p) {
   theme.dialog = Theme::Dialog{
       .border = p.accent,
       .background = p.surface,
-      .background_error = Mix(p.base, p.red, 0.3F),
+      .background_error = p.error_background,
       .foreground = p.text,
+      .foreground_error = p.error_foreground,
       .text = p.text,
       .label = p.text,
       .hint = p.subtext,
@@ -179,7 +279,7 @@ Theme MakeTheme(const Palette& p) {
               .focused =
                   State{.foreground = p.base, .background = p.accent_alt, .border = p.accent_alt},
               .pressed = State{.foreground = p.accent, .background = p.overlay, .border = p.accent},
-              .disabled = State{.foreground = p.muted, .background = p.overlay, .border = p.muted},
+              .disabled = State{.foreground = p.muted, .background = p.surface, .border = p.muted},
           },
       .tab =
           ButtonStates{
@@ -193,7 +293,7 @@ Theme MakeTheme(const Palette& p) {
               .focused = State{.foreground = p.base, .background = p.accent_alt},
               .selected = State{.foreground = p.base, .background = p.text},
               .pressed = State{.foreground = p.accent_alt, .background = p.overlay},
-              .highlight = State{.foreground = dark_red},
+              .highlight = State{.foreground = p.highlight},
           },
   };
 
@@ -209,7 +309,7 @@ Theme MakeTheme(const Palette& p) {
 /* ********************************************************************************************** */
 
 //! Tokyo Night (https://github.com/folke/tokyonight.nvim)
-const Palette kTokyoNight{
+const ColorScheme kTokyoNight{
     .base = {0x1A, 0x1B, 0x26},
     .surface = {0x29, 0x2E, 0x42},
     .overlay = {0x41, 0x48, 0x68},
@@ -226,7 +326,7 @@ const Palette kTokyoNight{
 };
 
 //! Catppuccin Mocha (https://catppuccin.com/palette)
-const Palette kCatppuccinMocha{
+const ColorScheme kCatppuccinMocha{
     .base = {0x1E, 0x1E, 0x2E},
     .surface = {0x31, 0x32, 0x44},
     .overlay = {0x45, 0x47, 0x5A},
@@ -243,7 +343,7 @@ const Palette kCatppuccinMocha{
 };
 
 //! Gruvbox Dark (https://github.com/morhetz/gruvbox)
-const Palette kGruvboxDark{
+const ColorScheme kGruvboxDark{
     .base = {0x28, 0x28, 0x28},
     .surface = {0x3C, 0x38, 0x36},
     .overlay = {0x50, 0x49, 0x45},
@@ -260,7 +360,7 @@ const Palette kGruvboxDark{
 };
 
 //! Nord (https://www.nordtheme.com)
-const Palette kNord{
+const ColorScheme kNord{
     .base = {0x2E, 0x34, 0x40},
     .surface = {0x3B, 0x42, 0x52},
     .overlay = {0x4C, 0x56, 0x6A},
@@ -277,7 +377,7 @@ const Palette kNord{
 };
 
 //! Dracula (https://draculatheme.com)
-const Palette kDracula{
+const ColorScheme kDracula{
     .base = {0x28, 0x2A, 0x36},
     .surface = {0x34, 0x37, 0x46},
     .overlay = {0x44, 0x47, 0x5A},
@@ -293,17 +393,38 @@ const Palette kDracula{
     .gradient = {{{0x8B, 0xE9, 0xFD}, {0xBD, 0x93, 0xF9}, {0xFF, 0x79, 0xC6}, {0xFF, 0xB8, 0x6C}}},
 };
 
+//! Catppuccin Latte (https://catppuccin.com/palette)
+const ColorScheme kCatppuccinLatte{
+    .base = {0xEF, 0xF1, 0xF5},
+    .surface = {0xDC, 0xE0, 0xE8},
+    .overlay = {0xBC, 0xC0, 0xCC},
+    .muted = {0x9C, 0xA0, 0xB0},
+    .subtext = {0x6C, 0x6F, 0x85},
+    .text = {0x4C, 0x4F, 0x69},
+    .accent = {0x88, 0x39, 0xEF},
+    .accent_alt = {0x1E, 0x66, 0xF5},
+    .green = {0x40, 0xA0, 0x2B},
+    .red = {0xD2, 0x0F, 0x39},
+    .yellow = {0xDF, 0x8E, 0x1D},
+    .special = {0xFE, 0x64, 0x0B},
+    .gradient = {{{0x1E, 0x66, 0xF5}, {0x72, 0x87, 0xFD}, {0x88, 0x39, 0xEF}, {0xEA, 0x76, 0xCB}}},
+    .highlight = Rgb{0xF9, 0xE2, 0xAF},
+    .fill_screen = true,
+};
+
 }  // namespace
 
 /* ********************************************************************************************** */
 
 const std::vector<ThemeOption>& GetThemes() {
   static const std::vector<ThemeOption> themes{
-      {"tokyo-night", "Tokyo Night", MakeTheme(kTokyoNight)},
-      {"catppuccin-mocha", "Catppuccin Mocha", MakeTheme(kCatppuccinMocha)},
-      {"gruvbox-dark", "Gruvbox Dark", MakeTheme(kGruvboxDark)},
-      {"nord", "Nord", MakeTheme(kNord)},
-      {"dracula", "Dracula", MakeTheme(kDracula)},
+      {"tokyo-night", "Tokyo Night", MakeTheme(MakePalette(kTokyoNight))},
+      {"catppuccin-mocha", "Catppuccin Mocha", MakeTheme(MakePalette(kCatppuccinMocha))},
+      {"gruvbox-dark", "Gruvbox Dark", MakeTheme(MakePalette(kGruvboxDark))},
+      {"nord", "Nord", MakeTheme(MakePalette(kNord))},
+      {"dracula", "Dracula", MakeTheme(MakePalette(kDracula))},
+      {"catppuccin-latte", "Catppuccin Latte", MakeTheme(MakePalette(kCatppuccinLatte))},
+      {"terminal", "Terminal", MakeTheme(MakeTerminalPalette())},
   };
 
   return themes;

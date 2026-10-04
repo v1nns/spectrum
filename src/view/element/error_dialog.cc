@@ -12,7 +12,7 @@ namespace interface {
 ErrorDialog::ErrorDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
              Style{.background = &Theme::Dialog::background_error,
-                   .foreground = &Theme::Dialog::foreground}) {}
+                   .foreground = &Theme::Dialog::foreground_error}) {}
 
 /* ********************************************************************************************** */
 

@@ -22,7 +22,9 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Audio spectrum visualizer;
 - Audio equalizer;
 - Fetch song lyrics;
-- Support for playlists (locally or from YouTube);
+- Playlists with local files and songs from YouTube (including whole YouTube playlists);
+- Repeat and shuffle modes;
+- Color themes (Tokyo Night, Catppuccin Mocha and Latte, Gruvbox Dark, Nord, Dracula, or the colors from your terminal);
 
 ## Installation :floppy_disk:
 
@@ -49,6 +51,42 @@ To install spectrum using Flatpak:
    flatpak install flathub io.github.v1nns.spectrum
    ```
 
+## Usage :musical_keyboard:
+
+Run `spectrum` to start listing files from the current directory, or `spectrum -d <path>` to start from another one. Everything is controlled by keyboard (mouse also works), and <kbd>F12</kbd> shows all keybindings, starting from the ones related to what is focused.
+
+### Playlists and YouTube
+
+To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be installed and found in `PATH` (it is optional, and only used for that).
+
+1. Press <kbd>F2</kbd> to show playlists, then <kbd>c</kbd> to create one (<kbd>o</kbd> modifies and <kbd>d</kbd> deletes the selected one);
+2. Add songs to it:
+   - from local files: navigate in the files list and press <kbd>Space</kbd> on each song;
+   - from YouTube: press <kbd>F2</kbd>, paste the URL of a video (or of a whole playlist, to import all its songs) and press <kbd>Return</kbd>;
+3. Press <kbd>r</kbd> to give it a name, and <kbd>s</kbd> to save;
+4. Back in the playlists list, press <kbd>Return</kbd> on a playlist (or on a song from it) to play.
+
+### Most used keys
+
+| Key | Action |
+| --- | --- |
+| <kbd>F12</kbd> | Show help with all keybindings |
+| <kbd>F1</kbd> / <kbd>F2</kbd> | Show files / playlists |
+| <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> | Show visualizer / equalizer / lyrics |
+| <kbd>/</kbd> | Search in the focused list |
+| <kbd>p</kbd> / <kbd>s</kbd> | Pause or resume / stop |
+| <kbd>&lt;</kbd> / <kbd>&gt;</kbd> | Skip to previous / next song |
+| <kbd>f</kbd> / <kbd>b</kbd> | Seek forward / backward |
+| <kbd>+</kbd> / <kbd>-</kbd> / <kbd>m</kbd> | Volume up / down / mute |
+| <kbd>R</kbd> / <kbd>x</kbd> | Change repeat mode (off, all, one) / toggle shuffle |
+| <kbd>a</kbd> / <kbd>z</kbd> | Choose visualizer animation / toggle fullscreen |
+| <kbd>t</kbd> | Choose theme |
+| <kbd>q</kbd> | Quit |
+
+### Files
+
+Playlists and settings (volume, theme and visualizer animation) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
+
 ## Development :memo:
 
 To build spectrum, you need a C++ compiler installed on your system along with another dependencies that are listed below:
@@ -60,6 +98,7 @@ sudo apt install build-essential libasound2-dev libavcodec-dev \
      libcurl4-openssl-dev libxml++2.6-dev
 
 # Optional: install yt-dlp to play songs from YouTube (only needed at runtime, found in PATH)
+sudo apt install yt-dlp
 
 # Clone repository
 git clone https://github.com/v1nns/spectrum.git
@@ -102,6 +141,7 @@ This software uses the following open source packages:
 - [FTXUI](https://github.com/ArthurSonzogni/FTXUI)
 - [cava](https://github.com/karlstav/cava) <sup>(visualizer is based on cava implementation)</sup>
 - [json](https://github.com/nlohmann/json)
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) <sup>(optional)</sup>
 
 ## Contributing
 

@@ -31,10 +31,15 @@ class FileHandlerTest : public ::testing::Test {
  protected:
   void SetUp() override {
     if (const char* home = std::getenv("HOME"); home) original_home = home;
+    if (const char* config = std::getenv("XDG_CONFIG_HOME"); config) original_config = config;
 
     home_dir = std::filesystem::temp_directory_path() / "spectrum_file_handler_test";
-    std::filesystem::create_directories(home_dir / ".cache" / "spectrum");
+    std::filesystem::remove_all(home_dir);
+    std::filesystem::create_directories(home_dir / ".config" / "spectrum");
     setenv("HOME", home_dir.c_str(), 1);
+
+    // Otherwise files would be saved in the real directory from user
+    unsetenv("XDG_CONFIG_HOME");
   }
 
   void TearDown() override {
@@ -44,7 +49,28 @@ class FileHandlerTest : public ::testing::Test {
       unsetenv("HOME");
     }
 
+    if (original_config.has_value()) {
+      setenv("XDG_CONFIG_HOME", original_config->c_str(), 1);
+    } else {
+      unsetenv("XDG_CONFIG_HOME");
+    }
+
     std::filesystem::remove_all(home_dir);
+  }
+
+  //! Write content to file in directory used by older versions
+  void WriteLegacyFile(const std::string& filename, const std::string& content) const {
+    std::filesystem::create_directories(GetLegacyDirectory());
+    std::ofstream(GetLegacyDirectory() / filename) << content;
+  }
+
+  //! Get directory used by older versions to save playlists and settings
+  std::filesystem::path GetLegacyDirectory() const { return home_dir / ".cache" / "spectrum"; }
+
+  //! Read content from file (empty if it does not exist)
+  static std::string ReadFile(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    return std::string(std::istreambuf_iterator<char>(in), {});
   }
 
   //! Write content to playlists file
@@ -59,9 +85,10 @@ class FileHandlerTest : public ::testing::Test {
     return std::string(std::istreambuf_iterator<char>(in), {});
   }
 
-  std::optional<std::string> original_home;  //!< HOME before test
-  std::filesystem::path home_dir;            //!< Temporary HOME directory
-  util::FileHandler handler;                 //!< Class under test
+  std::optional<std::string> original_home;    //!< HOME before test
+  std::optional<std::string> original_config;  //!< XDG_CONFIG_HOME before test
+  std::filesystem::path home_dir;              //!< Temporary HOME directory
+  util::FileHandler handler;                   //!< Class under test
 };
 
 /* ********************************************************************************************** */
@@ -341,6 +368,81 @@ TEST(ProcessTest, KillProcessWhenCanceled) {
   EXPECT_TRUE(result->canceled);
   EXPECT_FALSE(result->timed_out);
   EXPECT_LT(elapsed, std::chrono::seconds(2));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, ConfigDirectory) {
+  // Default directory is inside home
+  EXPECT_EQ(handler.GetConfigDirectory(), (home_dir / ".config" / "spectrum").string());
+  EXPECT_EQ(handler.GetPlaylistsPath(), (home_dir / ".config/spectrum/playlists.json").string());
+  EXPECT_EQ(handler.GetSettingsPath(), (home_dir / ".config/spectrum/settings.json").string());
+
+  // Directory set by user is used instead
+  const std::filesystem::path custom = home_dir / "custom";
+  setenv("XDG_CONFIG_HOME", custom.c_str(), 1);
+  EXPECT_EQ(handler.GetConfigDirectory(), (custom / "spectrum").string());
+  EXPECT_EQ(handler.GetSettingsPath(), (custom / "spectrum/settings.json").string());
+
+  // Unless it is not an absolute path
+  setenv("XDG_CONFIG_HOME", "relative/path", 1);
+  EXPECT_EQ(handler.GetConfigDirectory(), (home_dir / ".config" / "spectrum").string());
+
+  setenv("XDG_CONFIG_HOME", "", 1);
+  EXPECT_EQ(handler.GetConfigDirectory(), (home_dir / ".config" / "spectrum").string());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, MigrateLegacyFiles) {
+  const std::string playlists =
+      R"({"playlists": [{"name": "Old", "songs": [{"url": "https://youtu.be/dQw4w9WgXcQ"}]}]})";
+  const std::string settings = R"({"player": {"volume": 35}})";
+
+  WriteLegacyFile("playlists.json", playlists);
+  WriteLegacyFile("settings.json", settings);
+
+  // Config directory does not exist yet (as in the first run after updating)
+  std::filesystem::remove_all(home_dir / ".config");
+
+  handler.MigrateLegacyFiles();
+
+  EXPECT_EQ(ReadFile(handler.GetPlaylistsPath()), playlists);
+  EXPECT_EQ(ReadFile(handler.GetSettingsPath()), settings);
+  EXPECT_FALSE(std::filesystem::exists(GetLegacyDirectory() / "playlists.json"));
+  EXPECT_FALSE(std::filesystem::exists(GetLegacyDirectory() / "settings.json"));
+
+  // And files moved are the ones parsed
+  model::Playlists parsed_playlists;
+  ASSERT_TRUE(handler.ParsePlaylists(parsed_playlists));
+  ASSERT_THAT(parsed_playlists, SizeIs(1));
+  EXPECT_THAT(parsed_playlists[0].name, StrEq("Old"));
+
+  model::Settings parsed_settings;
+  ASSERT_TRUE(handler.ParseSettings(parsed_settings));
+  EXPECT_EQ(parsed_settings.volume, 35);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, MigrateLegacyFilesKeepsExistingOnes) {
+  const std::string current = R"({"player": {"volume": 80}})";
+  const std::string legacy = R"({"player": {"volume": 35}})";
+
+  std::ofstream(handler.GetSettingsPath()) << current;
+  WriteLegacyFile("settings.json", legacy);
+
+  handler.MigrateLegacyFiles();
+
+  // File from older version is neither used nor removed
+  EXPECT_EQ(ReadFile(handler.GetSettingsPath()), current);
+  EXPECT_EQ(ReadFile(GetLegacyDirectory() / "settings.json"), legacy);
+
+  // Nothing happens when there is no file from older version
+  std::filesystem::remove_all(GetLegacyDirectory());
+  handler.MigrateLegacyFiles();
+  EXPECT_EQ(ReadFile(handler.GetSettingsPath()), current);
+  EXPECT_FALSE(std::filesystem::exists(handler.GetPlaylistsPath()));
 }
 
 }  // namespace

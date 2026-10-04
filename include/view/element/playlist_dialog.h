@@ -46,7 +46,8 @@ class PlaylistDialog : public Dialog {
   static constexpr std::string_view kNoUrlLabel =
       "yt-dlp not installed";  //!< Label when URL cannot be added
 
-  static constexpr int kSourcePane = 0;  //!< Focus index for pane with songs to add (files/URL)
+  static constexpr int kSourcePane = 0;    //!< Focus index for pane with songs to add (files/URL)
+  static constexpr int kPlaylistPane = 1;  //!< Focus index for pane with songs from playlist
 
   static constexpr std::string_view kUnnamed = "<unnamed>";  //!< Title for playlist without name
   static constexpr std::string_view kNamePlaceholder = "type a name";  //!< Placeholder for rename

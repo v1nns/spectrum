@@ -300,6 +300,14 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
       menu_files_->OnClick();
       return true;
     }
+
+    // Name is edited on playlist pane, so move focus to it
+    if (event == keybinding::Playlist::Rename) {
+      LOG("Handle key to rename playlist (from files)");
+      focus_ctl_.SetFocus(kPlaylistPane);
+      StartRename();
+      return true;
+    }
   }
 
   if (menu_playlist_->IsFocused()) {

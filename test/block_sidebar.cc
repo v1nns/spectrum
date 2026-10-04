@@ -2513,6 +2513,9 @@ TEST_F(SidebarTest, ChangeThemeAfterCreation) {
   // And default theme can be set again
   interface::SetTheme(interface::GetThemes().front().colors);
 
+  // Screen is cleared before every render by application, do the same here (as a default color
+  // from theme means "do not change it", colors from previous render would be kept otherwise)
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
   for (const auto& color : all) EXPECT_FALSE(utils::HasColor(*screen, color));
 }

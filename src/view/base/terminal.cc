@@ -34,6 +34,7 @@
 #include "view/block/main_content.h"
 #include "view/block/media_player.h"
 #include "view/block/sidebar.h"
+#include "view/element/style.h"
 
 namespace interface {
 
@@ -176,8 +177,12 @@ ftxui::Element Terminal::Render() {
   }
 
   // Blocks would be cut or overlapped, so ask user to resize terminal instead
+  // Colors for anything without a color of its own (when theme does not use the ones from terminal)
+  const auto& colors = GetTheme().screen;
+  const auto screen = ftxui::color(colors.foreground) | ftxui::bgcolor(colors.background);
+
   if (IsTooSmall()) {
-    return RenderTooSmall();
+    return RenderTooSmall() | screen;
   }
 
   ftxui::Element terminal;
@@ -206,7 +211,7 @@ ftxui::Element Terminal::Render() {
   // Render element as overlay
   ftxui::Element overlay = GetOverlay();
 
-  return ftxui::dbox({terminal | dim, overlay});
+  return ftxui::dbox({terminal | dim, overlay}) | screen;
 }
 
 /* ********************************************************************************************** */

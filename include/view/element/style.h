@@ -8,9 +8,11 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <vector>
 
+#include "ftxui/dom/canvas.hpp"
 #include "ftxui/screen/color.hpp"
 
 namespace interface {
@@ -49,6 +51,16 @@ struct Theme {
     uint8_t green;
     uint8_t blue;
   };
+
+  /* ------------------------------------------- Screen ----------------------------------------- */
+
+  //! Whole screen (default color means "use the one from terminal")
+  struct Screen {
+    Color foreground;  //!< Anything without a color of its own (e.g. border from unfocused block)
+    Color background;
+  };
+
+  Screen screen;  //!< Colors for whole screen
 
   /* ------------------------------------------- Block ------------------------------------------ */
 
@@ -117,6 +129,9 @@ struct Theme {
 
     //! Gradient from the lowest to the highest part of spectrum
     std::array<ColorStop, 4> gradient{};
+
+    //! Single color to use instead of gradient (for themes limited to colors from terminal)
+    std::optional<Color> solid;
   };
 
   Visualizer visualizer;  //!< Colors for spectrum visualizer
@@ -173,6 +188,7 @@ struct Theme {
     Color background;
     Color background_error;  //!< Background for error dialog
     Color foreground;
+    Color foreground_error;  //!< Foreground for error dialog
 
     Color text;        //!< Title and content
     Color label;       //!< Label for input
@@ -258,6 +274,26 @@ inline const Theme& GetTheme() { return internal::CurrentTheme(); }
  * @param theme New theme
  */
 inline void SetTheme(const Theme& theme) { internal::CurrentTheme() = theme; }
+
+/**
+ * @brief Fill canvas with background color from theme (as canvas replaces anything drawn behind it,
+ * including its background). Nothing is done when theme uses the background from terminal
+ * @param canvas Canvas to fill
+ */
+inline void FillBackground(ftxui::Canvas& canvas) {
+  static constexpr int kCellWidth = 2;   //!< Canvas points in a single cell (horizontally)
+  static constexpr int kCellHeight = 4;  //!< Canvas points in a single cell (vertically)
+
+  const ftxui::Color& background = GetTheme().screen.background;
+  if (background == ftxui::Color{}) return;
+
+  for (int y = 0; y < canvas.height(); y += kCellHeight) {
+    for (int x = 0; x < canvas.width(); x += kCellWidth) {
+      canvas.Style(x, y,
+                   [&background](ftxui::Pixel& pixel) { pixel.background_color = background; });
+    }
+  }
+}
 
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_STYLE_H_

@@ -131,6 +131,7 @@ class GraphicButton : public Button {
   //! Override base class method to implement custom rendering
   ftxui::Element RenderImpl() override {
     ftxui::Canvas content = Draw();
+    FillBackground(content);
 
     auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
 

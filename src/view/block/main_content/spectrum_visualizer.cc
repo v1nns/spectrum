@@ -148,7 +148,9 @@ ftxui::Element SpectrumVisualizer::RenderPicker() const {
   return ftxui::vbox({
       ftxui::window(ftxui::text(" animation "),
                     ftxui::vbox(std::move(entries)) | ftxui::vscroll_indicator | ftxui::frame) |
-          ftxui::clear_under | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height),
+          ftxui::color(GetTheme().screen.foreground) |
+          ftxui::bgcolor(GetTheme().screen.background) | ftxui::clear_under |
+          ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height),
       ftxui::filler(),
   });
 }
@@ -317,6 +319,8 @@ void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
                                      ftxui::Elements& elements, bool space) const {
   using ftxui::gaugeDirection;
   constexpr auto color = [](const ftxui::Direction& dir) {
+    if (const auto& solid = GetTheme().visualizer.solid; solid) return ftxui::color(*solid);
+
     auto gradient = ftxui::LinearGradient().Angle(dir == ftxui::Direction::Up ? 270 : 90);
     for (const auto& stop : GetTheme().visualizer.gradient) {
       gradient.Stop(ftxui::Color(stop.red, stop.green, stop.blue), stop.position);
@@ -489,6 +493,8 @@ void SpectrumVisualizer::DrawAnimationLine(ftxui::Element& visualizer, LineStyle
         DrawMirroredFilledAreas(canvas, left, right);
         break;
     }
+
+    FillBackground(canvas);
   };
 
   // Minimum size is a single cell, as canvas fills all the available space
@@ -609,6 +615,8 @@ void SpectrumVisualizer::FillBlocks(ftxui::Canvas& canvas, const VerticalRun& ru
 /* ********************************************************************************************** */
 
 ftxui::Color SpectrumVisualizer::GetGradientColor(double position) {
+  if (const auto& solid = GetTheme().visualizer.solid; solid) return *solid;
+
   const auto& gradient = GetTheme().visualizer.gradient;
   const double clamped = std::clamp(position, 0.0, 1.0);
 

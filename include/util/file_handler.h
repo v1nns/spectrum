@@ -49,6 +49,13 @@ class FileHandler {
   std::string GetHome() const;
 
   /**
+   * @brief Get full path to directory containing files saved by user (playlists and settings),
+   * which is "$XDG_CONFIG_HOME/spectrum" or, when that is not set, "~/.config/spectrum"
+   * @return String containing directory path
+   */
+  std::string GetConfigDirectory() const;
+
+  /**
    * @brief Get full path to playlist JSON file
    * @return String containing filepath
    */
@@ -65,6 +72,13 @@ class FileHandler {
    * @return Filepath
    */
   std::string GetLogPath() const;
+
+  /**
+   * @brief Move playlists and settings saved by older versions (in "~/.cache/spectrum") to
+   * directory from GetConfigDirectory. A file already existing in the new directory is never
+   * replaced
+   */
+  void MigrateLegacyFiles();
 
   /**
    * @brief List all files from the given directory path

@@ -21,6 +21,15 @@ namespace util {
 
 namespace internal {
 
+static constexpr std::string_view kPlaylistsFile = "playlists.json";  //!< File with playlists
+static constexpr std::string_view kSettingsFile = "settings.json";    //!< File with settings
+
+//! Directory (inside home) used by default for files saved by user
+static constexpr std::string_view kConfigDirectory = "/.config/spectrum";
+
+//! Directory (inside home) used for log file, and by older versions for files saved by user
+static constexpr std::string_view kCacheDirectory = "/.cache/spectrum";
+
 //! Transform single character into lowercase
 static void to_lower(char& c) { c = (char)std::tolower(c); }
 
@@ -114,20 +123,69 @@ std::string FileHandler::GetHome() const {
 
 /* ********************************************************************************************** */
 
+std::string FileHandler::GetConfigDirectory() const {
+  // Relative path is not valid for this variable, so it is ignored (as stated by XDG specification)
+  if (const char* config = std::getenv("XDG_CONFIG_HOME");
+      config && std::filesystem::path{config}.is_absolute()) {
+    return (std::filesystem::path{config} / "spectrum").string();
+  }
+
+  return GetHome() + std::string{internal::kConfigDirectory};
+}
+
+/* ********************************************************************************************** */
+
 std::string FileHandler::GetPlaylistsPath() const {
-  return std::string{GetHome() + "/.cache/spectrum/playlists.json"};
+  return GetConfigDirectory() + "/" + std::string{internal::kPlaylistsFile};
 }
 
 /* ********************************************************************************************** */
 
 std::string FileHandler::GetSettingsPath() const {
-  return std::string{GetHome() + "/.cache/spectrum/settings.json"};
+  return GetConfigDirectory() + "/" + std::string{internal::kSettingsFile};
 }
 
 /* ********************************************************************************************** */
 
 std::string FileHandler::GetLogPath() const {
-  return std::string{GetHome() + "/.cache/spectrum/spectrum.log"};
+  return GetHome() + std::string{internal::kCacheDirectory} + "/spectrum.log";
+}
+
+/* ********************************************************************************************** */
+
+void FileHandler::MigrateLegacyFiles() {
+  const std::filesystem::path legacy_dir{GetHome() + std::string{internal::kCacheDirectory}};
+  const std::filesystem::path config_dir{GetConfigDirectory()};
+
+  for (const auto& filename : {internal::kPlaylistsFile, internal::kSettingsFile}) {
+    const std::filesystem::path legacy = legacy_dir / filename;
+    const std::filesystem::path current = config_dir / filename;
+    std::error_code error;
+
+    if (!std::filesystem::exists(legacy, error)) continue;
+
+    if (std::filesystem::exists(current, error)) {
+      WARN("File from older version was not moved, as there is a newer one, file=",
+           std::quoted(legacy.string()));
+      continue;
+    }
+
+    if (!CreateDirectory(config_dir.string(), error)) {
+      ERROR("Cannot create directory=", std::quoted(config_dir.string()), ", error=", error);
+      return;
+    }
+
+    // Copy and remove, as these directories may be on different filesystems (rename would fail)
+    if (std::filesystem::copy_file(legacy, current, error); error) {
+      ERROR("Cannot move file from older version, file=", std::quoted(legacy.string()),
+            ", error=", error.message());
+      continue;
+    }
+
+    std::filesystem::remove(legacy, error);
+    INFO("Moved file from older version, from=", std::quoted(legacy.string()),
+         " to=", std::quoted(current.string()));
+  }
 }
 
 /* ********************************************************************************************** */

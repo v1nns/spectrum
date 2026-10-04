@@ -377,6 +377,36 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, RenameFromFilesMenu) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Setup expectation for checking audio stream on selected file
+  EXPECT_CALL(contains_audio_cb, Call).WillOnce(Return(true));
+
+  // Add a song and, with files menu still focused, rename playlist
+  std::string typed{"jjjjj rmix"};
+  utils::QueueCharacterEvents(*dialog, typed);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  EXPECT_THAT(GetRenderedScreen(), AllOf(HasSubstr("mix"), Not(HasSubstr("<unnamed>"))));
+
+  // Playlist has a name now, so it can be saved
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(1);
+
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Create,
@@ -2612,6 +2642,8 @@ TEST_F(ThemePickerTest, RenderAllThemes) {
 │  Gruvbox Dark      │
 │  Nord              │
 │  Dracula           │
+│  Catppuccin Latte  │
+│  Terminal          │
 ╰────────────────────╯
 )";
 

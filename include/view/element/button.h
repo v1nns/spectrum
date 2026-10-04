@@ -63,7 +63,7 @@ class Button {
    * @return ftxui::Decorator Style decorator
    */
   inline ftxui::Decorator Apply(const Style::State& colors, bool invert = false) const {
-    return ftxui::bgcolor(colors.background) | ftxui::color(colors.foreground) |
+    return Background(colors.background) | Foreground(colors.foreground) |
            (invert ? ftxui::inverted : ftxui::nothing);
   }
 
@@ -73,7 +73,17 @@ class Button {
    * @return ftxui::Decorator Style decorator
    */
   inline ftxui::Decorator ApplyReverse(const Style::State& colors) {
-    return ftxui::bgcolor(colors.foreground) | ftxui::color(colors.background);
+    return Background(colors.foreground) | Foreground(colors.background);
+  }
+
+  //! Create a style for background, in which default color means "do not change it"
+  static inline ftxui::Decorator Background(const ftxui::Color& color) {
+    return color == ftxui::Color{} ? ftxui::nothing : ftxui::bgcolor(color);
+  }
+
+  //! Create a style for foreground, in which default color means "do not change it"
+  static inline ftxui::Decorator Foreground(const ftxui::Color& color) {
+    return color == ftxui::Color{} ? ftxui::nothing : ftxui::color(color);
   }
 
   /**

@@ -119,6 +119,10 @@ int main(int argc, char** argv) {
   INFO("Starting spectrum version=", SPECTRUM_VERSION);
   INFO("Options: log=", std::quoted(options.log_path), " verbose=", options.verbose_logging,
        " directory=", std::quoted(options.initial_dir));
+
+  // Playlists and settings were saved in another directory by older versions
+  file_handler.MigrateLegacyFiles();
+
   INFO("Files: playlists=", std::quoted(file_handler.GetPlaylistsPath()),
        " settings=", std::quoted(file_handler.GetSettingsPath()));
   INFO("Terminal size=", terminal_size.dimx, "x", terminal_size.dimy);
