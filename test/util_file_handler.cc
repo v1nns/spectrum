@@ -12,6 +12,10 @@
 #include <thread>
 
 #include "general/utils.h"
+#include "model/playlist.h"
+#include "model/settings.h"
+#include "model/song.h"
+#include "model/stream_info.h"
 #include "util/file_handler.h"
 #include "util/process.h"
 #include "util/sink.h"
@@ -443,6 +447,155 @@ TEST_F(FileHandlerTest, MigrateLegacyFilesKeepsExistingOnes) {
   handler.MigrateLegacyFiles();
   EXPECT_EQ(ReadFile(handler.GetSettingsPath()), current);
   EXPECT_FALSE(std::filesystem::exists(handler.GetPlaylistsPath()));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveAndParsePlaylists) {
+  const std::string url = "https://www.youtube.com/watch?v=URlPXepBZdo";
+  const std::filesystem::path file = home_dir / "song.mp3";
+  utils::CreateEmptyFile(file);
+
+  const model::Playlists playlists{
+      model::Playlist{
+          .name = "coding",
+          .songs = {model::Song{.filepath = file, .artist = "cln", .title = "DUST"},
+                    model::Song{.artist = "Clipse",
+                                .title = "So Be It",
+                                .stream_info = model::StreamInfo{.base_url = url}}},
+      },
+      model::Playlist{.name = "empty", .songs = {}},
+  };
+
+  // Directory is created when it does not exist yet
+  std::filesystem::remove_all(handler.GetConfigDirectory());
+  ASSERT_TRUE(handler.SavePlaylists(playlists));
+
+  model::Playlists parsed;
+  ASSERT_TRUE(handler.ParsePlaylists(parsed));
+  ASSERT_THAT(parsed, SizeIs(2));
+
+  EXPECT_THAT(parsed[0].name, StrEq("coding"));
+  ASSERT_THAT(parsed[0].songs, SizeIs(2));
+
+  // Song from file is saved by its path, as the rest is read from file when it is played
+  EXPECT_EQ(parsed[0].songs[0].filepath, file);
+
+  // While song from URL keeps its artist and title, to show them without fetching anything
+  ASSERT_TRUE(parsed[0].songs[1].stream_info.has_value());
+  EXPECT_THAT(parsed[0].songs[1].stream_info->base_url, StrEq(url));
+  EXPECT_THAT(parsed[0].songs[1].artist, StrEq("Clipse"));
+  EXPECT_THAT(parsed[0].songs[1].title, StrEq("So Be It"));
+
+  // Playlist without any song is not lost (e.g. all of its files were removed)
+  EXPECT_THAT(parsed[1].name, StrEq("empty"));
+  EXPECT_THAT(parsed[1].songs, IsEmpty());
+
+  // Nothing was skipped, so there is no backup
+  EXPECT_FALSE(std::filesystem::exists(handler.GetPlaylistsPath() + ".bak"));
+
+  // Same when there is no playlist at all (e.g. the last one was deleted)
+  ASSERT_TRUE(handler.SavePlaylists(model::Playlists{}));
+  ASSERT_TRUE(handler.ParsePlaylists(parsed));
+
+  EXPECT_THAT(parsed, IsEmpty());
+  EXPECT_FALSE(std::filesystem::exists(handler.GetPlaylistsPath() + ".bak"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, CannotSaveWithoutConfigDirectory) {
+  WriteLegacyFile("settings.json", R"({"player": {"volume": 35}})");
+
+  // Directory cannot be created, as there is a file using the name of its parent
+  const std::filesystem::path parent =
+      std::filesystem::path{handler.GetConfigDirectory()}.parent_path();
+  std::filesystem::remove_all(parent);
+  utils::CreateEmptyFile(parent);
+
+  EXPECT_FALSE(handler.SavePlaylists(model::Playlists{model::Playlist{.name = "coding"}}));
+  EXPECT_FALSE(handler.SaveSettings(model::Settings{.volume = 40}));
+
+  // File from older version is kept where it is
+  handler.MigrateLegacyFiles();
+  EXPECT_TRUE(std::filesystem::exists(GetLegacyDirectory() / "settings.json"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, DirectoryInPlaceOfFile) {
+  // There are directories using the name of both files
+  std::filesystem::create_directories(handler.GetPlaylistsPath());
+  std::filesystem::create_directories(handler.GetSettingsPath());
+
+  // They cannot be read
+  model::Playlists playlists;
+  EXPECT_FALSE(handler.ParsePlaylists(playlists));
+  EXPECT_THAT(playlists, IsEmpty());
+
+  model::Settings settings;
+  EXPECT_FALSE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.volume.has_value());
+
+  // Neither replaced by a file
+  EXPECT_FALSE(handler.SavePlaylists(model::Playlists{model::Playlist{.name = "coding"}}));
+  EXPECT_FALSE(handler.SaveSettings(model::Settings{.volume = 40}));
+
+  EXPECT_TRUE(std::filesystem::is_directory(handler.GetPlaylistsPath()));
+  EXPECT_TRUE(std::filesystem::is_directory(handler.GetSettingsPath()));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, ParseSettingsFileWithUnexpectedStructure) {
+  const std::string content = R"([1, 2, 3])";
+  std::ofstream(handler.GetSettingsPath()) << content;
+
+  model::Settings settings;
+  EXPECT_FALSE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.volume.has_value());
+
+  // Keep a backup, as file will be overwritten on next save
+  EXPECT_THAT(ReadFile(handler.GetSettingsPath() + ".bak"), StrEq(content));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, ParseMalformedFileWhenBackupCannotBeCreated) {
+  // There is a directory using the name of backup file
+  const std::string backup = handler.GetPlaylistsPath() + ".bak";
+  std::filesystem::create_directories(backup);
+
+  WritePlaylistsFile(R"({"playlists": [)");
+
+  model::Playlists playlists;
+  EXPECT_FALSE(handler.ParsePlaylists(playlists));
+  EXPECT_TRUE(std::filesystem::is_directory(backup));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, MigrateLegacyFilesSkipsWhatCannotBeMoved) {
+  const std::string settings = R"({"player": {"volume": 35}})";
+
+  // Only a regular file can be moved
+  std::filesystem::create_directories(GetLegacyDirectory() / "playlists.json");
+  WriteLegacyFile("settings.json", settings);
+
+  handler.MigrateLegacyFiles();
+
+  EXPECT_FALSE(std::filesystem::exists(handler.GetPlaylistsPath()));
+  EXPECT_TRUE(std::filesystem::is_directory(GetLegacyDirectory() / "playlists.json"));
+
+  // And it does not stop the other file from being moved
+  EXPECT_EQ(ReadFile(handler.GetSettingsPath()), settings);
+  EXPECT_FALSE(std::filesystem::exists(GetLegacyDirectory() / "settings.json"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, LogPath) {
+  EXPECT_EQ(handler.GetLogPath(), (home_dir / ".cache" / "spectrum" / "spectrum.log").string());
 }
 
 }  // namespace

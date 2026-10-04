@@ -1,10 +1,18 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "model/application_error.h"
 #include "model/song.h"
+#include "model/stream_info.h"
 #include "nlohmann/json.hpp"
 #include "util/url.h"
 #include "web/driver/ytdlp_wrapper.h"
@@ -302,6 +310,208 @@ TEST_F(YtDlpWrapperTest, ParsePlaylistFromYtDlp) {
 
   // Output that does not contain a playlist
   EXPECT_EQ(ParsePlaylist(R"({"title": "Single video"})", songs), error::kStreamFetchFailed);
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with YtDlpWrapper class running an external program: a script named as yt-dlp,
+ * which is the only program found in PATH (so nothing is fetched from network)
+ */
+class YtDlpProgramTest : public ::testing::Test {
+ protected:
+  //! URL from song used in tests
+  static constexpr const char* kSongUrl = "https://youtu.be/URlPXepBZdo";
+
+  //! URL from playlist used in tests
+  static constexpr const char* kPlaylistUrl = "https://www.youtube.com/playlist?list=PL123";
+
+  void SetUp() override {
+    if (const char* path = std::getenv("PATH"); path) original_path = path;
+
+    dir = std::filesystem::temp_directory_path() / "spectrum_ytdlp_test";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+
+    setenv("PATH", dir.c_str(), 1);
+  }
+
+  void TearDown() override {
+    if (original_path.has_value()) {
+      setenv("PATH", original_path->c_str(), 1);
+    } else {
+      unsetenv("PATH");
+    }
+
+    std::filesystem::remove_all(dir);
+  }
+
+  //! Create script to be executed as yt-dlp (only shell builtins are available, as PATH is changed)
+  void InstallProgram(const std::string& script) const {
+    const std::filesystem::path program = dir / "yt-dlp";
+
+    std::ofstream(program) << "#!/bin/sh\n" << script << "\n";
+    std::filesystem::permissions(program, std::filesystem::perms::owner_all);
+  }
+
+  //! Create song with only its URL, as it is before extracting information
+  static model::Song CreateSong() {
+    return model::Song{.stream_info = model::StreamInfo{.base_url = kSongUrl}};
+  }
+
+  std::optional<std::string> original_path;  //!< PATH before test
+  std::filesystem::path dir;                 //!< Temporary directory, the only one in PATH
+  driver::YtDlpWrapper wrapper;              //!< Class under test
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ProgramNotFound) {
+  EXPECT_FALSE(driver::YtDlpWrapper::IsAvailable());
+
+  // Nothing happens, it is only informed in log
+  wrapper.Init();
+
+  model::Song song = CreateSong();
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamFetcherNotFound);
+
+  std::vector<model::Song> songs;
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs),
+            error::kStreamFetcherNotFound);
+  EXPECT_THAT(songs, IsEmpty());
+
+  // File that cannot be executed is not used
+  std::ofstream(dir / "yt-dlp") << "#!/bin/sh\n";
+  EXPECT_FALSE(driver::YtDlpWrapper::IsAvailable());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ProgramFound) {
+  InstallProgram(R"sh([ "$1" = "--version" ] && echo 2026.08.19)sh");
+  EXPECT_TRUE(driver::YtDlpWrapper::IsAvailable());
+
+  // Version is only informed in log, even when it cannot be read
+  wrapper.Init();
+
+  InstallProgram("exit 1");
+  wrapper.Init();
+
+  wrapper.Finish();
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ExtractInfo) {
+  // Information is printed only when program is executed with the expected arguments
+  InstallProgram(R"sh(
+[ "$1" = "--dump-single-json" ] && [ "$2" = "--no-playlist" ] || exit 2
+[ "$5" = "https://youtu.be/URlPXepBZdo" ] || exit 3
+
+printf '%s' '{
+  "title": "Clipse - So Be It (Official Music Video)", "duration": 212.6,
+  "formats": [
+    {"format_id": "18", "url": "https://video", "protocol": "https", "resolution": "640x360"},
+    {"format_id": "251", "url": "https://best", "protocol": "https", "resolution": "audio only",
+     "quality": 3, "abr": 128.9, "acodec": "opus", "audio_channels": 2}
+  ]
+}')sh");
+
+  model::Song song = CreateSong();
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+
+  EXPECT_THAT(song.artist, StrEq("Clipse"));
+  EXPECT_THAT(song.title, StrEq("So Be It (Official Music Video)"));
+  EXPECT_THAT(song.duration, Eq(212));
+
+  ASSERT_TRUE(song.stream_info.has_value());
+  EXPECT_THAT(song.stream_info->base_url, StrEq(kSongUrl));
+  EXPECT_THAT(song.stream_info->streaming_url, StrEq("https://best"));
+  EXPECT_THAT(song.stream_info->codec, StrEq("opus"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ExtractInfoFails) {
+  // Song without any URL, program is not even executed
+  model::Song empty;
+  EXPECT_EQ(wrapper.ExtractInfo(empty), error::kStreamFetchFailed);
+
+  empty.stream_info = model::StreamInfo{};
+  EXPECT_EQ(wrapper.ExtractInfo(empty), error::kStreamFetchFailed);
+
+  // Program fails (e.g. video is not available)
+  InstallProgram(R"sh(echo "ERROR: Video unavailable" >&2; exit 1)sh");
+
+  model::Song song = CreateSong();
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamFetchFailed);
+
+  // Program prints something that is not the expected information
+  InstallProgram("echo unexpected");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamFetchFailed);
+
+  // Video without any audio stream
+  InstallProgram(R"sh(printf '%s' '{"title": "Silent", "formats": []}')sh");
+  EXPECT_NE(wrapper.ExtractInfo(song), error::kSuccess);
+
+  // Song is not filled by any of them
+  EXPECT_THAT(song.stream_info->streaming_url, IsEmpty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ExtractPlaylist) {
+  // Playlist is printed only when program is executed with the expected arguments
+  InstallProgram(R"sh(
+[ "$1" = "--flat-playlist" ] && [ "$2" = "--dump-single-json" ] || exit 2
+[ "$5" = "https://www.youtube.com/playlist?list=PL123" ] || exit 3
+
+printf '%s' '{
+  "title": "So be it",
+  "entries": [
+    {"id": "URlPXepBZdo", "title": "Clipse - So Be It (Official Music Video)"},
+    {"id": "deleted", "title": "[Deleted video]"},
+    {"id": "84vL55y8fog", "title": "меланхолия", "uploader": "vecher 1998"}
+  ]
+}')sh");
+
+  std::vector<model::Song> songs;
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kSuccess);
+  ASSERT_THAT(songs.size(), Eq(2));
+
+  EXPECT_THAT(songs[0].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=URlPXepBZdo"));
+  EXPECT_THAT(songs[0].artist, StrEq("Clipse"));
+  EXPECT_THAT(songs[0].title, StrEq("So Be It (Official Music Video)"));
+
+  EXPECT_THAT(songs[1].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=84vL55y8fog"));
+  EXPECT_THAT(songs[1].artist, StrEq("vecher 1998"));
+  EXPECT_THAT(songs[1].title, StrEq("меланхолия"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ExtractPlaylistFails) {
+  std::vector<model::Song> songs{CreateSong()};
+
+  // Program fails (e.g. playlist is private)
+  InstallProgram(R"sh(echo "ERROR: The playlist does not exist" >&2; exit 1)sh");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamFetchFailed);
+
+  // Program prints something that is not a playlist
+  InstallProgram("echo unexpected");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamFetchFailed);
+
+  // User cancels it while program is still running
+  InstallProgram("exec /bin/sleep 5");
+  const std::atomic<bool> cancel = true;
+
+  const auto start = std::chrono::steady_clock::now();
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs, &cancel),
+            error::kStreamFetchFailed);
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(2));
+
+  // List of songs is not changed by any of them
+  EXPECT_THAT(songs.size(), Eq(1));
 }
 
 }  // namespace

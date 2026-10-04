@@ -227,7 +227,8 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
   try {
     std::ifstream json(file_path);
     parsed = nlohmann::json::parse(json);
-  } catch (const nlohmann::json::exception& e) {
+  } catch (const std::exception& e) {
+    // Besides invalid JSON, file may not even be readable (e.g. it is a directory)
     ERROR("Cannot parse playlists file=", std::quoted(file_path), ", error=", e.what());
     internal::BackupFile(file_path);
     return false;
@@ -284,10 +285,13 @@ bool FileHandler::ParsePlaylists(model::Playlists& playlists) {
 
 bool FileHandler::SavePlaylists(const model::Playlists& playlists) {
   // Start by parsing c++ model structure into JSON structure
-  nlohmann::json json_playlists;
+  // P.S.: lists are created as arrays, otherwise an empty one would be saved as null, which is
+  // not accepted when file is parsed again
+  nlohmann::json json_playlists = nlohmann::json::array();
 
   for (const auto& playlist : playlists) {
-    nlohmann::json json_playlist, json_songs;
+    nlohmann::json json_playlist;
+    nlohmann::json json_songs = nlohmann::json::array();
 
     json_playlist["name"] = playlist.name;
 
@@ -354,7 +358,8 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
   try {
     std::ifstream json(file_path);
     parsed = nlohmann::json::parse(json);
-  } catch (const nlohmann::json::exception& e) {
+  } catch (const std::exception& e) {
+    // Besides invalid JSON, file may not even be readable (e.g. it is a directory)
     ERROR("Cannot parse settings file=", std::quoted(file_path), ", error=", e.what());
     internal::BackupFile(file_path);
     return false;
@@ -410,8 +415,13 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
   nlohmann::json json_data = nlohmann::json::object();
 
   if (std::ifstream in(filepath); in.is_open()) {
-    nlohmann::json parsed = nlohmann::json::parse(in, nullptr, /*allow_exceptions=*/false);
-    if (parsed.is_object()) json_data = std::move(parsed);
+    try {
+      nlohmann::json parsed = nlohmann::json::parse(in, nullptr, /*allow_exceptions=*/false);
+      if (parsed.is_object()) json_data = std::move(parsed);
+    } catch (const std::exception& e) {
+      // File is not even readable (e.g. it is a directory), so there is nothing to keep from it
+      WARN("Cannot read settings file=", std::quoted(filepath.string()), ", error=", e.what());
+    }
   }
 
   auto section = [&json_data](const char* name) -> nlohmann::json& {
