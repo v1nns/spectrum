@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag of an existing release to attach packages (e.g. v1.0.0)"
+        required: true
+      ref:
+        description: "Branch, tag or commit to build (default is the tag itself)"
+        required: false
+
+env:
+  # CMake build type
+  BUILD_TYPE: Release
+
+jobs:
+  deb:
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # A package only works on the distro release where it was built (e.g. FFmpeg version)
+        image: ["ubuntu:24.04", "debian:13"]
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Update packages list
+        run: apt-get update
+
+      - name: Install external dependencies
+        # Install build tools, ALSA, FFmpeg, FFTW3, curl and libxml++
+        run:
+          apt-get install -y build-essential git ca-certificates file pkg-config python3-venv
+          libasound2-dev libfftw3-dev libavcodec-dev libavformat-dev libswresample-dev
+          libavfilter-dev libcurl4-openssl-dev libxml++2.6-dev
+
+      - name: Install CMake
+        # Version from distro may be older than the minimum required
+        run: |
+          python3 -m venv /opt/cmake
+          /opt/cmake/bin/pip install "cmake>=3.30"
+          echo "/opt/cmake/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || inputs.tag || github.event.release.tag_name }}
+          # Tags are necessary to set version
+          fetch-depth: 0
+
+      - name: Allow git to run in container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Build
+        run: cmake --build build --config ${{env.BUILD_TYPE}} --parallel
+
+      - name: Create package
+        working-directory: build
+        run: cpack -G DEB
+
+      - name: Add distro to package name
+        # e.g. spectrum_1.0.0_amd64.deb is renamed to spectrum_1.0.0_ubuntu24.04_amd64.deb
+        run: |
+          . /etc/os-release
+          for file in build/*.deb; do
+            mv "$file" "${file%_*}_${ID}${VERSION_ID}_${file##*_}"
+          done
+
+      - name: Install package
+        run: |
+          apt-get install -y ./build/*.deb
+          dpkg-deb --info build/*.deb
+          dpkg-deb --contents build/*.deb
+          spectrum --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ strategy.job-index }}
+          path: build/*.deb
+          if-no-files-found: error
+
+  publish:
+    needs: deb
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          path: packages
+          merge-multiple: true
+
+      - name: Upload packages to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: gh release upload "$TAG" packages/*.deb --clobber --repo "$GITHUB_REPOSITORY"

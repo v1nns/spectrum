@@ -230,5 +230,5 @@ target_compile_options(
 # Install executable
 
 if(ENABLE_INSTALL)
-  install(TARGETS spectrum DESTINATION ${CMAKE_INSTALL_BIN})
+  install(TARGETS spectrum DESTINATION ${CMAKE_INSTALL_BIN} COMPONENT runtime)
 endif()
