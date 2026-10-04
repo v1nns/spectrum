@@ -113,9 +113,11 @@ target_sources(
           view/element/help_dialog.cc
           view/element/playlist_dialog.cc
           view/element/question_dialog.cc
+          view/element/style.cc
           view/element/tab.cc
           view/element/text_animation.cc
           view/element/text_input.cc
+          view/element/theme_picker.cc
           view/element/url_input.cc
           view/element/menu.cc
           view/element/internal/file_menu.cc

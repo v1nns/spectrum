@@ -202,6 +202,25 @@ TEST_F(FileHandlerTest, SaveSettingsKeepsOtherSettings) {
 
 /* ********************************************************************************************** */
 
+TEST_F(FileHandlerTest, SaveAndParseTheme) {
+  // Theme is saved without changing the other settings
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.volume = 35}));
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.theme = "tokyo-night"}));
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.theme, "tokyo-night");
+  EXPECT_EQ(settings.volume, 35);
+
+  // Value with unexpected type is not filled
+  std::ofstream(handler.GetSettingsPath()) << R"({"interface": {"theme": 3}})";
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.theme.has_value());
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with FileSink class (using a temporary directory for log files)
  */

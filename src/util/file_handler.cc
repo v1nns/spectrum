@@ -332,6 +332,13 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
     }
   }
 
+  if (auto interface = parsed.find("interface");
+      interface != parsed.end() && interface->is_object()) {
+    if (auto theme = interface->find("theme"); theme != interface->end() && theme->is_string()) {
+      settings.theme = theme->get<std::string>();
+    }
+  }
+
   LOG("Parsed settings from file=", std::quoted(file_path));
   return true;
 }
@@ -358,6 +365,7 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
     section("visualizer")["animation"] = static_cast<int>(*settings.animation);
   if (settings.bar_width) section("visualizer")["bar_width"] = *settings.bar_width;
   if (settings.volume) section("player")["volume"] = *settings.volume;
+  if (settings.theme) section("interface")["theme"] = *settings.theme;
 
   std::error_code error;
 

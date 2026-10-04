@@ -17,26 +17,35 @@
 #include "general/utils.h"
 #include "gmock/gmock.h"
 #include "mock/event_dispatcher_mock.h"
+#include "mock/file_handler_mock.h"
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
 #include "model/question_data.h"
+#include "model/settings.h"
 #include "util/file_handler.h"
 #include "view/base/keybinding.h"
 #include "view/element/error_dialog.h"
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
 #include "view/element/question_dialog.h"
+#include "view/element/style.h"
+#include "view/element/theme_picker.h"
 
 namespace {
 
+using ::testing::_;
 using ::testing::AllOf;
+using ::testing::DoAll;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
 using ::testing::MockFunction;
+using ::testing::NiceMock;
 using ::testing::Not;
+using ::testing::Optional;
 using ::testing::Return;
+using ::testing::SetArgReferee;
 using ::testing::StrEq;
 using ::testing::VariantWith;
 
@@ -2507,6 +2516,179 @@ TEST_F(HelpDialogTest, ChangeThemeAfterCreation) {
 
   ftxui::Render(*screen, dialog->Render(size));
   EXPECT_TRUE(utils::HasColor(*screen, background));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with ThemePicker class
+ */
+class ThemePickerTest : public ::testing::Test {
+ protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(32, 10);
+    file_handler = std::make_shared<NiceMock<FileHandlerMock>>();
+  }
+
+  //! Create picker, as if the given theme was saved on last run (empty means no theme saved)
+  void CreatePicker(const std::string& saved = "") {
+    if (!saved.empty()) {
+      EXPECT_CALL(*file_handler, ParseSettings(_))
+          .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.theme = saved}), Return(true)));
+    }
+
+    picker = std::make_unique<interface::ThemePicker>(file_handler);
+  }
+
+  //! Check if theme in use is the one with the given identifier
+  bool IsThemeInUse(const std::string& id) {
+    for (const auto& theme : interface::GetThemes()) {
+      if (theme.id != id) continue;
+
+      const auto& current = interface::GetTheme();
+      return current.picker.border == theme.colors.picker.border &&
+             current.dialog.background == theme.colors.dialog.background;
+    }
+
+    return false;
+  }
+
+  //! Getter for rendered screen
+  std::string GetRenderedScreen() {
+    ftxui::Render(*screen, picker->Render());
+    return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
+  }
+
+  utils::ThemeGuard guard;  //!< Restore default theme when test finishes
+  std::unique_ptr<ftxui::Screen> screen;
+  std::shared_ptr<NiceMock<FileHandlerMock>> file_handler;
+  std::unique_ptr<interface::ThemePicker> picker;
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, DefaultThemeWithoutSettings) {
+  CreatePicker();
+
+  EXPECT_FALSE(picker->IsVisible());
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+
+  // Picker does not handle anything while closed
+  EXPECT_FALSE(picker->OnEvent(interface::keybinding::Navigation::ArrowDown));
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, RestoreThemeFromSettings) {
+  CreatePicker("gruvbox-dark");
+  EXPECT_TRUE(IsThemeInUse("gruvbox-dark"));
+
+  // Theme restored is the one selected when picker is opened
+  picker->Open();
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ Gruvbox Dark"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, UnknownThemeFallsBackToDefault) {
+  CreatePicker("does-not-exist");
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, RenderAllThemes) {
+  CreatePicker();
+  picker->Open();
+  EXPECT_TRUE(picker->IsVisible());
+
+  std::string expected = R"(
+╭ theme ─────────────╮
+│▶ Tokyo Night       │
+│  Catppuccin Mocha  │
+│  Gruvbox Dark      │
+│  Nord              │
+│  Dracula           │
+╰────────────────────╯
+)";
+
+  EXPECT_THAT(GetRenderedScreen(), StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, PreviewAndKeepTheme) {
+  using Keybind = interface::keybinding::Navigation;
+
+  CreatePicker();
+  picker->Open();
+
+  // Theme is applied while selection moves, but saved only when it is chosen
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::ArrowDown));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::Down));
+  EXPECT_TRUE(IsThemeInUse("gruvbox-dark"));
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::Up));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ Catppuccin Mocha"));
+
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  EXPECT_CALL(*file_handler,
+              SaveSettings(Field(&model::Settings::theme, Optional(Eq("catppuccin-mocha")))))
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::Return));
+  EXPECT_FALSE(picker->IsVisible());
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, CancelRestoresPreviousTheme) {
+  using Keybind = interface::keybinding::Navigation;
+
+  CreatePicker("nord");
+  picker->Open();
+
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::ArrowUp));
+  EXPECT_TRUE(picker->OnEvent(Keybind::ArrowUp));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::Escape));
+  EXPECT_FALSE(picker->IsVisible());
+  EXPECT_TRUE(IsThemeInUse("nord"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, SelectionStopsAtFirstAndLastTheme) {
+  using Keybind = interface::keybinding::Navigation;
+
+  CreatePicker();
+  picker->Open();
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::ArrowUp));
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+
+  for (size_t i = 0; i < interface::GetThemes().size() + 1; i++) {
+    EXPECT_TRUE(picker->OnEvent(Keybind::ArrowDown));
+  }
+
+  EXPECT_TRUE(IsThemeInUse(std::string{interface::GetThemes().back().id}));
+
+  // Any other key is not passed along while picker is open
+  EXPECT_TRUE(picker->OnEvent(ftxui::Event::Character('p')));
+  EXPECT_TRUE(picker->IsVisible());
 }
 
 }  // namespace

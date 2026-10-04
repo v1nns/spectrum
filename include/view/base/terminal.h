@@ -23,6 +23,7 @@
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
 #include "view/element/question_dialog.h"
+#include "view/element/theme_picker.h"
 
 //! Forward declaration
 namespace audio {
@@ -265,6 +266,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::unique_ptr<HelpDialog> help_dialog_;    //!< Dialog box to show help menu
   std::unique_ptr<QuestionDialog> question_dialog_;  //!< Dialog box to question user
   std::unique_ptr<PlaylistDialog> playlist_dialog_;  //!< Dialog box to manage playlists
+  std::unique_ptr<ThemePicker> theme_picker_;        //!< Picker to choose UI theme
 
   //! Custom event receiver
   ftxui::Receiver<CustomEvent> receiver_ = ftxui::MakeReceiver<CustomEvent>();

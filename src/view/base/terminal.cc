@@ -25,6 +25,7 @@
 #include "model/bar_animation.h"
 #include "model/block_identifier.h"
 #include "model/playlist_operation.h"
+#include "util/file_handler.h"
 #include "util/formatter.h"
 #include "util/logger.h"
 #include "view/base/block.h"
@@ -112,6 +113,9 @@ void Terminal::Init(const std::string& initial_path) {
   playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher, contains_audio_cb, initial_path,
                                                       stream_available_cb, fetch_playlist_cb);
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
+
+  // Create theme picker, which also restores theme chosen on last run
+  theme_picker_ = std::make_unique<ThemePicker>(std::make_shared<util::FileHandler>());
 }
 
 /* ********************************************************************************************** */
@@ -258,6 +262,9 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Or if question dialog is opened
   if (question_dialog_->IsVisible()) return question_dialog_->OnEvent(event);
 
+  // Or if theme picker is opened
+  if (theme_picker_->IsVisible()) return theme_picker_->OnEvent(event);
+
   // Global commands
   if (global_mode_ && OnGlobalModeEvent(event)) return true;
 
@@ -399,6 +406,14 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   if (event == keybinding::General::ShowHelper) {
     LOG("Handle key to show helper");
     help_dialog_->Show(GetHelpSection());
+
+    return true;
+  }
+
+  // Show theme picker
+  if (event == keybinding::General::ChangeTheme) {
+    LOG("Handle key to show theme picker");
+    theme_picker_->Open();
 
     return true;
   }
@@ -762,6 +777,8 @@ ftxui::Element Terminal::GetOverlay() const {
   if (playlist_dialog_->IsVisible()) return playlist_dialog_->Render(size_);
 
   if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
+
+  if (theme_picker_->IsVisible()) return theme_picker_->Render();
 
   return ftxui::emptyElement();
 }

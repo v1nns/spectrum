@@ -63,6 +63,7 @@ struct Dialog {
 struct General {
   static Key ExitApplication;
   static Key ShowHelper;
+  static Key ChangeTheme;
 
   static Key FocusSidebar;
   static Key FocusInfo;

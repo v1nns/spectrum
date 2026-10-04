@@ -8,6 +8,8 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
+#include <vector>
 
 #include "ftxui/screen/color.hpp"
 
@@ -256,7 +258,33 @@ struct Theme {
   };
 
   Dialog dialog;  //!< Colors for dialogs
+
+  /* ------------------------------------------- Picker ----------------------------------------- */
+
+  //! Theme picker (shown over all blocks)
+  struct Picker {
+    Color border = Color::SteelBlue3;
+    Color entry = Color::GrayLight;
+    Color entry_selected = Color::White;
+  };
+
+  Picker picker;  //!< Colors for theme picker
 };
+
+/**
+ * @brief Theme that may be chosen by user
+ */
+struct ThemeOption {
+  std::string_view id;    //!< Identifier saved in settings
+  std::string_view name;  //!< Name shown by UI
+  Theme colors;           //!< All colors from theme
+};
+
+/**
+ * @brief Get all themes available to choose from (the first one is the default theme)
+ * @return List of themes
+ */
+const std::vector<ThemeOption>& GetThemes();
 
 namespace internal {
 
