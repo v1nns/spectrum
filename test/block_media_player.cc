@@ -966,4 +966,175 @@ TEST_F(MediaPlayerTest, ChangeThemeAfterCreation) {
   EXPECT_TRUE(utils::HasColor(*screen, border));
 }
 
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with mouse/seek events on MediaPlayer (coordinates based on its fixed-size screen)
+ */
+class MediaPlayerMouseTest : public MediaPlayerTest {
+ protected:
+  //! Position of media buttons on screen
+  static constexpr int kButtonRow = 4;
+  static constexpr int kPreviousColumn = 34;
+  static constexpr int kPlayColumn = 42;
+  static constexpr int kStopColumn = 50;
+  static constexpr int kNextColumn = 58;
+
+  //! Position of song duration bar on screen
+  static constexpr int kDurationRow = 8;
+  static constexpr int kDurationFirstColumn = 6;
+  static constexpr int kDurationMiddleColumn = 48;
+  static constexpr int kDurationLastColumn = 89;
+
+  static constexpr int kSongDuration = 100;  //!< Song duration (in seconds)
+  static constexpr int kSongPosition = 50;   //!< Song position (in seconds)
+
+  //! Update block with a song in the given state, and render it to calculate elements position
+  void SetSongState(model::Song::MediaState state) {
+    Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+        .filepath = "/another/custom/path/to/music.mp3",
+        .duration = kSongDuration,
+    }));
+
+    Process(interface::CustomEvent::UpdateSongState(model::Song::CurrentInformation{
+        .state = state,
+        .position = kSongPosition,
+    }));
+
+    RenderBlock();
+  }
+
+  //! Render block to calculate position of each element on screen
+  void RenderBlock() { ftxui::Render(*screen, block->Render()); }
+
+  //! Simulate a mouse event on the given position
+  bool SendMouse(int x, int y, ftxui::Mouse::Button button = ftxui::Mouse::Left) {
+    ftxui::Mouse mouse{.button = button, .motion = ftxui::Mouse::Released, .x = x, .y = y};
+    return block->OnEvent(ftxui::Event::Mouse("", mouse));
+  }
+
+  //! Expect a single event with the given identifier
+  void ExpectEvent(interface::CustomEvent::Identifier id) {
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id, id)));
+  }
+
+  //! Expect a single event with the given identifier and content
+  template <typename T>
+  void ExpectEvent(interface::CustomEvent::Identifier id, const T& content) {
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&interface::CustomEvent::id, id),
+                                Field(&interface::CustomEvent::content, VariantWith<T>(content)))));
+  }
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnButtonsWithoutSong) {
+  using Identifier = interface::CustomEvent::Identifier;
+  RenderBlock();
+
+  // Without a song, only play button does something: it asks to play the selected file
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  ExpectEvent(Identifier::PlaySong);
+
+  EXPECT_TRUE(SendMouse(kPlayColumn, kButtonRow));
+  EXPECT_TRUE(SendMouse(kStopColumn, kButtonRow));
+  EXPECT_TRUE(SendMouse(kPreviousColumn, kButtonRow));
+  EXPECT_TRUE(SendMouse(kNextColumn, kButtonRow));
+
+  // Neither a click outside of them, nor on the (empty) song duration bar
+  EXPECT_FALSE(SendMouse(0, 0));
+  EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnButtonsWhilePlaying) {
+  using Identifier = interface::CustomEvent::Identifier;
+  SetSongState(model::Song::MediaState::Play);
+
+  // Play button pauses the current song
+  ExpectEvent(Identifier::PauseSong);
+  EXPECT_TRUE(SendMouse(kPlayColumn, kButtonRow));
+
+  // And resumes it when paused
+  SetSongState(model::Song::MediaState::Pause);
+
+  ExpectEvent(Identifier::ResumeSong, true);
+  EXPECT_TRUE(SendMouse(kPlayColumn, kButtonRow));
+
+  ExpectEvent(Identifier::SkipToPreviousPlaylistSong);
+  EXPECT_TRUE(SendMouse(kPreviousColumn, kButtonRow));
+
+  ExpectEvent(Identifier::SkipToNextPlaylistSong);
+  EXPECT_TRUE(SendMouse(kNextColumn, kButtonRow));
+
+  ExpectEvent(Identifier::StopSong);
+  EXPECT_TRUE(SendMouse(kStopColumn, kButtonRow));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnButtonAsksForFocus) {
+  using Identifier = interface::CustomEvent::Identifier;
+  SetSongState(model::Song::MediaState::Play);
+
+  // Simulate another block taking focus
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  for (int column : {kPlayColumn, kStopColumn, kPreviousColumn, kNextColumn}) {
+    EXPECT_CALL(*dispatcher, SendEvent(_));
+    ExpectEvent(Identifier::SetFocused, model::BlockIdentifier::MediaPlayer);
+
+    EXPECT_TRUE(SendMouse(column, kButtonRow));
+    testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnDurationBar) {
+  using Identifier = interface::CustomEvent::Identifier;
+  SetSongState(model::Song::MediaState::Play);
+
+  // Click on the end of bar seeks forward until the end of song, and asks for focus
+  ExpectEvent(Identifier::SeekForwardPosition, kSongDuration - kSongPosition);
+  ExpectEvent(Identifier::SetFocused, model::BlockIdentifier::MediaPlayer);
+  EXPECT_TRUE(SendMouse(kDurationLastColumn, kDurationRow));
+
+  // Click on the beginning of bar seeks backward until the beginning of song
+  ExpectEvent(Identifier::SeekBackwardPosition, kSongPosition);
+  ExpectEvent(Identifier::SetFocused, model::BlockIdentifier::MediaPlayer);
+  EXPECT_TRUE(SendMouse(kDurationFirstColumn, kDurationRow));
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Click on the current position does nothing, same as hovering or clicking outside of bar
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  EXPECT_TRUE(SendMouse(kDurationMiddleColumn, kDurationRow));
+  EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow, ftxui::Mouse::None));
+  EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow + 1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, SeekWithKeyboard) {
+  using Identifier = interface::CustomEvent::Identifier;
+
+  // Nothing to seek without a song
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  block->OnEvent(ftxui::Event::Character('f'));
+  block->OnEvent(ftxui::Event::Character('b'));
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  SetSongState(model::Song::MediaState::Play);
+
+  ExpectEvent(Identifier::SeekForwardPosition, 2);
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('f')));
+
+  ExpectEvent(Identifier::SeekBackwardPosition, 1);
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('b')));
+}
+
 }  // namespace

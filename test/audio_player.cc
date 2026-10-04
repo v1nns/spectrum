@@ -7,10 +7,13 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
+#include "audio/command.h"
 #include "audio/player.h"
 #include "general/sync_testing.h"
 #include "mock/decoder_mock.h"
@@ -2354,6 +2357,145 @@ TEST_F(PlayerTest, ShuffleSongsFromPlaylist) {
   std::sort(played.begin(), played.end());
   std::sort(expected.begin(), expected.end());
   EXPECT_EQ(played, expected);
+}
+
+/* ********************************************************************************************** */
+
+//! Utility to get the pretty print from any value
+template <typename T>
+std::string Print(const T& value) {
+  std::ostringstream out;
+  out << value;
+  return out.str();
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, PrintIdentifier) {
+  using audio::Command;
+  const std::vector<std::pair<Command::Identifier, std::string>> expected{
+      {Command::Identifier::None, "None"},
+      {Command::Identifier::Play, "Play"},
+      {Command::Identifier::PauseOrResume, "PauseOrResume"},
+      {Command::Identifier::Stop, "Stop"},
+      {Command::Identifier::SeekForward, "SeekForward"},
+      {Command::Identifier::SeekBackward, "SeekBackward"},
+      {Command::Identifier::SetVolume, "SetVolume"},
+      {Command::Identifier::UpdateAudioFilters, "UpdateAudioFilter"},
+      {Command::Identifier::Exit, "Exit"},
+      {Command::Identifier::SkipToNext, "SkipToNext"},
+      {Command::Identifier::SkipToPrevious, "SkipToPrevious"},
+      {Command::Identifier::PlayNext, "PlayNext"},
+  };
+
+  for (const auto& [id, name] : expected) {
+    EXPECT_THAT(Print(id), ::testing::StrEq(name));
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, PrintListOfIdentifiers) {
+  using audio::Command;
+  using Identifiers = std::vector<Command::Identifier>;
+
+  EXPECT_THAT(Print(Identifiers{}), ::testing::StrEq("[]"));
+  EXPECT_THAT(Print(Identifiers{Command::Identifier::Play}), ::testing::StrEq(R"(["Play"])"));
+  EXPECT_THAT(Print(Identifiers{Command::Identifier::Play, Command::Identifier::Stop,
+                                Command::Identifier::Exit}),
+              ::testing::StrEq(R"(["Play","Stop","Exit"])"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, PrintCommands) {
+  using audio::Command;
+  using Commands = std::vector<Command>;
+
+  EXPECT_THAT(Print(Command::PauseOrResume()), ::testing::StrEq("PauseOrResume"));
+
+  EXPECT_THAT(Print(Commands{}), ::testing::StrEq("[]"));
+  EXPECT_THAT(Print(Commands{Command::Stop()}), ::testing::StrEq(R"(["Stop"])"));
+  EXPECT_THAT(Print(Commands{Command::SkipToNext(), Command::SkipToPrevious(), Command::None()}),
+              ::testing::StrEq(R"(["SkipToNext","SkipToPrevious","None"])"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, CreateCommandsWithoutContent) {
+  using audio::Command;
+  const std::vector<std::pair<Command, Command::Identifier>> commands{
+      {Command::None(), Command::Identifier::None},
+      {Command::PauseOrResume(), Command::Identifier::PauseOrResume},
+      {Command::Stop(), Command::Identifier::Stop},
+      {Command::Exit(), Command::Identifier::Exit},
+      {Command::SkipToNext(), Command::Identifier::SkipToNext},
+      {Command::SkipToPrevious(), Command::Identifier::SkipToPrevious},
+      {Command::PlayNext(), Command::Identifier::PlayNext},
+  };
+
+  for (const auto& [command, id] : commands) {
+    EXPECT_EQ(command.GetId(), id);
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(command.content));
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, CreateCommandsWithContent) {
+  using audio::Command;
+  const model::Song song{.filepath = "/some/path/to/song.mp3"};
+  auto play_song = Command::Play(song);
+  EXPECT_EQ(play_song.GetId(), Command::Identifier::Play);
+  EXPECT_EQ(play_song.GetContent<model::Song>().filepath, song.filepath);
+
+  const model::Playlist playlist{.index = 3, .name = "coding", .songs = {song}};
+  auto play_playlist = Command::Play(playlist);
+  EXPECT_EQ(play_playlist.GetId(), Command::Identifier::Play);
+  EXPECT_EQ(play_playlist.GetContent<model::Playlist>(), playlist);
+
+  auto forward = Command::SeekForward(5);
+  EXPECT_EQ(forward.GetId(), Command::Identifier::SeekForward);
+  EXPECT_EQ(forward.GetContent<int>(), 5);
+
+  auto backward = Command::SeekBackward(3);
+  EXPECT_EQ(backward.GetId(), Command::Identifier::SeekBackward);
+  EXPECT_EQ(backward.GetContent<int>(), 3);
+
+  const model::Volume volume{0.4F};
+  auto set_volume = Command::SetVolume(volume);
+  EXPECT_EQ(set_volume.GetId(), Command::Identifier::SetVolume);
+  EXPECT_EQ(set_volume.GetContent<model::Volume>(), volume);
+
+  model::EqualizerPreset preset{};
+  preset.front().gain = 6;
+
+  auto filters = Command::UpdateAudioFilters(preset);
+  EXPECT_EQ(filters.GetId(), Command::Identifier::UpdateAudioFilters);
+  EXPECT_EQ(filters.GetContent<model::EqualizerPreset>().front().gain, 6);
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, GetContentWithWrongType) {
+  using audio::Command;
+  auto command = Command::SeekForward(5);
+
+  // When content does not hold the given type, a default value is returned
+  EXPECT_TRUE(command.GetContent<model::Song>().filepath.empty());
+  EXPECT_TRUE(command.GetContent<model::Playlist>().songs.empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST(CommandTest, CompareCommands) {
+  using audio::Command;
+  // Content is not considered on comparison, only its identifier
+  EXPECT_TRUE(Command::SeekForward(1) == Command::SeekForward(2));
+  EXPECT_TRUE(Command::SeekForward(1) != Command::SeekBackward(1));
+
+  EXPECT_TRUE(Command::Stop() == Command::Identifier::Stop);
+  EXPECT_TRUE(Command::Stop() != Command::Identifier::Play);
 }
 
 }  // namespace

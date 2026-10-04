@@ -4,6 +4,9 @@
 #include <gtest/gtest-test-part.h>
 
 #include <memory>
+#include <sstream>
+#include <string>
+#include <tuple>
 #include <vector>
 
 #include "audio/base/notifier.h"
@@ -16,6 +19,7 @@
 #include "model/playlist.h"
 #include "model/song.h"
 #include "util/logger.h"
+#include "view/base/custom_event.h"
 #include "view/base/notifier.h"
 
 namespace {
@@ -541,6 +545,225 @@ TEST_F(MediaControllerTest, AnalysisAndRegainAnimation) {
   };
 
   testing::RunAsyncTest({analysis, client});
+}
+
+/* ********************************************************************************************** */
+
+//! Utility to get the pretty print from any value
+template <typename T>
+std::string Print(const T& value) {
+  std::ostringstream out;
+  out << value;
+  return out.str();
+}
+
+/* ********************************************************************************************** */
+
+TEST(CustomEventTest, CreateEvents) {
+  using interface::CustomEvent;
+  using Identifier = CustomEvent::Identifier;
+  using Type = CustomEvent::Type;
+
+  const model::Song song{.filepath = "/some/path/to/song.mp3"};
+  const model::Playlist playlist{.index = 3, .name = "coding", .songs = {song}};
+
+  // Each event must be created with the type matching its direction, and print its own name
+  const std::vector<std::tuple<CustomEvent, Type, Identifier, std::string>> events{
+      // From audio thread to interface
+      {CustomEvent::ClearSongInfo(), Type::FromAudioThreadToInterface, Identifier::ClearSongInfo,
+       "ClearSongInfo"},
+      {CustomEvent::UpdateVolume(model::Volume{}), Type::FromAudioThreadToInterface,
+       Identifier::UpdateVolume, "UpdateVolume"},
+      {CustomEvent::UpdateSongInfo(song), Type::FromAudioThreadToInterface,
+       Identifier::UpdateSongInfo, "UpdateSongInfo"},
+      {CustomEvent::UpdateSongState({}), Type::FromAudioThreadToInterface,
+       Identifier::UpdateSongState, "UpdateSongState"},
+      {CustomEvent::DrawAudioSpectrum({}), Type::FromAudioThreadToInterface,
+       Identifier::DrawAudioSpectrum, "DrawAudioSpectrum"},
+
+      // From interface to audio thread
+      {CustomEvent::NotifyFileSelection(song.filepath), Type::FromInterfaceToAudioThread,
+       Identifier::NotifyFileSelection, "NotifyFileSelection"},
+      {CustomEvent::PauseSong(), Type::FromInterfaceToAudioThread, Identifier::PauseSong,
+       "PauseSong"},
+      {CustomEvent::ResumeSong(true), Type::FromInterfaceToAudioThread, Identifier::ResumeSong,
+       "ResumeSong"},
+      {CustomEvent::StopSong(), Type::FromInterfaceToAudioThread, Identifier::StopSong, "StopSong"},
+      {CustomEvent::SetAudioVolume(model::Volume{}), Type::FromInterfaceToAudioThread,
+       Identifier::SetAudioVolume, "SetAudioVolume"},
+      {CustomEvent::ResizeAnalysis(16), Type::FromInterfaceToAudioThread,
+       Identifier::ResizeAnalysis, "ResizeAnalysis"},
+      {CustomEvent::SeekForwardPosition(1), Type::FromInterfaceToAudioThread,
+       Identifier::SeekForwardPosition, "SeekForwardPosition"},
+      {CustomEvent::SeekBackwardPosition(1), Type::FromInterfaceToAudioThread,
+       Identifier::SeekBackwardPosition, "SeekBackwardPosition"},
+      {CustomEvent::ApplyAudioFilters({}), Type::FromInterfaceToAudioThread,
+       Identifier::ApplyAudioFilters, "ApplyAudioFilters"},
+      {CustomEvent::NotifyPlaylistSelection(playlist), Type::FromInterfaceToAudioThread,
+       Identifier::NotifyPlaylistSelection, "NotifyPlaylistSelection"},
+      {CustomEvent::NotifyDialogClosed(), Type::FromInterfaceToAudioThread,
+       Identifier::NotifyDialogClosed, "NotifyDialogClosed"},
+      {CustomEvent::SkipToNextPlaylistSong(), Type::FromInterfaceToAudioThread,
+       Identifier::SkipToNextPlaylistSong, "SkipToNextPlaylistSong"},
+      {CustomEvent::SkipToPreviousPlaylistSong(), Type::FromInterfaceToAudioThread,
+       Identifier::SkipToPreviousPlaylistSong, "SkipToPreviousPlaylistSong"},
+      {CustomEvent::SetRepeatMode(model::RepeatMode::Off), Type::FromInterfaceToAudioThread,
+       Identifier::SetRepeatMode, "SetRepeatMode"},
+      {CustomEvent::SetShuffle(true), Type::FromInterfaceToAudioThread, Identifier::SetShuffle,
+       "SetShuffle"},
+
+      // From interface to interface
+      {CustomEvent::Refresh(), Type::FromInterfaceToInterface, Identifier::Refresh, "Refresh"},
+      {CustomEvent::EnableGlobalEvent(), Type::FromInterfaceToInterface,
+       Identifier::EnableGlobalEvent, "EnableGlobalEvent"},
+      {CustomEvent::DisableGlobalEvent(), Type::FromInterfaceToInterface,
+       Identifier::DisableGlobalEvent, "DisableGlobalEvent"},
+      {CustomEvent::ChangeBarAnimation(model::BarAnimation::Mono), Type::FromInterfaceToInterface,
+       Identifier::ChangeBarAnimation, "ChangeBarAnimation"},
+      {CustomEvent::ShowHelper(), Type::FromInterfaceToInterface, Identifier::ShowHelper,
+       "ShowHelper"},
+      {CustomEvent::CalculateNumberOfBars(16), Type::FromInterfaceToInterface,
+       Identifier::CalculateNumberOfBars, "CalculateNumberOfBars"},
+      {CustomEvent::SetPreviousFocused(), Type::FromInterfaceToInterface,
+       Identifier::SetPreviousFocused, "SetPreviousFocused"},
+      {CustomEvent::SetNextFocused(), Type::FromInterfaceToInterface, Identifier::SetNextFocused,
+       "SetNextFocused"},
+      {CustomEvent::SetFocused(model::BlockIdentifier::Sidebar), Type::FromInterfaceToInterface,
+       Identifier::SetFocused, "SetFocused"},
+      {CustomEvent::PlaySong(), Type::FromInterfaceToInterface, Identifier::PlaySong, "PlaySong"},
+      {CustomEvent::ToggleFullscreen(), Type::FromInterfaceToInterface,
+       Identifier::ToggleFullscreen, "ToggleFullscreen"},
+      {CustomEvent::UpdateBarWidth(), Type::FromInterfaceToInterface, Identifier::UpdateBarWidth,
+       "UpdateBarWidth"},
+      {CustomEvent::ShowPlaylistManager({}), Type::FromInterfaceToInterface,
+       Identifier::ShowPlaylistManager, "ShowPlaylistManager"},
+      {CustomEvent::SavePlaylistsToFile(playlist), Type::FromInterfaceToInterface,
+       Identifier::SavePlaylistsToFile, "SavePlaylistsToFile"},
+      {CustomEvent::ShowQuestionDialog({}), Type::FromInterfaceToInterface,
+       Identifier::ShowQuestionDialog, "ShowQuestionDialog"},
+      {CustomEvent::Exit(), Type::FromInterfaceToInterface, Identifier::Exit, "Exit"},
+      {CustomEvent::ShowWarning("oops"), Type::FromInterfaceToInterface, Identifier::ShowWarning,
+       "ShowWarning"},
+  };
+
+  for (const auto& [event, type, id, name] : events) {
+    EXPECT_EQ(event.type, type) << name;
+    EXPECT_EQ(event.GetId(), id) << name;
+    EXPECT_TRUE(event == id) << name;
+
+    EXPECT_THAT(Print(id), ::testing::StrEq(name));
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST(CustomEventTest, GetContent) {
+  using interface::CustomEvent;
+  auto event = CustomEvent::SeekForwardPosition(7);
+  EXPECT_EQ(event.GetContent<int>(), 7);
+
+  // When content does not hold the given type, a default value is returned
+  EXPECT_TRUE(event.GetContent<std::string>().empty());
+  EXPECT_FALSE(event.GetContent<bool>());
+
+  EXPECT_TRUE(event != CustomEvent::Identifier::SeekBackwardPosition);
+}
+
+/* ********************************************************************************************** */
+
+TEST(CustomEventTest, PrintEventWithEachContent) {
+  using interface::CustomEvent;
+  // Empty
+  EXPECT_THAT(Print(CustomEvent::ClearSongInfo()),
+              ::testing::StrEq(R"({type:"Player->UI", id:"ClearSongInfo", content:"empty"})"));
+
+  // Integer, boolean and string
+  EXPECT_THAT(Print(CustomEvent::ResizeAnalysis(16)),
+              ::testing::StrEq(R"({type:"UI->Player", id:"ResizeAnalysis", content:16})"));
+
+  EXPECT_THAT(Print(CustomEvent::SetShuffle(true)),
+              ::testing::StrEq(R"({type:"UI->Player", id:"SetShuffle", content:true})"));
+
+  EXPECT_THAT(Print(CustomEvent::ResumeSong(false)),
+              ::testing::StrEq(R"({type:"UI->Player", id:"ResumeSong", content:false})"));
+
+  EXPECT_THAT(Print(CustomEvent::ShowWarning("oops")),
+              ::testing::StrEq(R"({type:"UI->UI", id:"ShowWarning", content:"oops"})"));
+
+  // Repeat mode
+  EXPECT_THAT(Print(CustomEvent::SetRepeatMode(model::RepeatMode::Off)),
+              ::testing::StrEq(R"({type:"UI->Player", id:"SetRepeatMode", content:off})"));
+
+  // Song
+  const model::Song song{.filepath = "/some/path/to/song.mp3", .artist = "cln", .title = "DUST"};
+  EXPECT_THAT(Print(CustomEvent::UpdateSongInfo(song)),
+              ::testing::AllOf(
+                  ::testing::HasSubstr(R"({type:"Player->UI", id:"UpdateSongInfo", content:{)"),
+                  ::testing::HasSubstr(R"(filename:"song.mp3", artist:"cln", title:"DUST")")));
+
+  // Volume
+  EXPECT_THAT(
+      Print(CustomEvent::UpdateVolume(model::Volume{0.5F})),
+      ::testing::StrEq(
+          R"({type:"Player->UI", id:"UpdateVolume", content:{volume:"50%", muted:false}})"));
+
+  // Song state
+  const model::Song::CurrentInformation info{.state = model::Song::MediaState::Pause,
+                                             .position = 12};
+  EXPECT_THAT(
+      Print(CustomEvent::UpdateSongState(info)),
+      ::testing::StrEq(
+          R"({type:"Player->UI", id:"UpdateSongState", content:{state:"Pause", position:12}})"));
+
+  // Path
+  EXPECT_THAT(
+      Print(CustomEvent::NotifyFileSelection(song.filepath)),
+      ::testing::StrEq(
+          R"({type:"UI->Player", id:"NotifyFileSelection", content:"/some/path/to/song.mp3"})"));
+
+  // Spectrum data and audio filters are not printed, as they are too big
+  EXPECT_THAT(Print(CustomEvent::DrawAudioSpectrum({0.1, 0.2})),
+              ::testing::StrEq(
+                  R"({type:"Player->UI", id:"DrawAudioSpectrum", content:"{vector data...}"})"));
+
+  EXPECT_THAT(
+      Print(CustomEvent::ApplyAudioFilters({})),
+      ::testing::StrEq(
+          R"({type:"UI->Player", id:"ApplyAudioFilters", content:"{audio filter data...}"})"));
+
+  // Bar animation
+  EXPECT_THAT(Print(CustomEvent::ChangeBarAnimation(model::BarAnimation::Mono)),
+              ::testing::StrEq(R"({type:"UI->UI", id:"ChangeBarAnimation", content:"Mono"})"));
+
+  // Block identifier
+  EXPECT_THAT(Print(CustomEvent::SetFocused(model::BlockIdentifier::MediaPlayer)),
+              ::testing::StrEq(R"({type:"UI->UI", id:"SetFocused", content:"MediaPlayer"})"));
+
+  // Playlist
+  const model::Playlist playlist{.index = 3, .name = "coding", .songs = {song}};
+  EXPECT_THAT(Print(CustomEvent::NotifyPlaylistSelection(playlist)),
+              ::testing::StrEq(R"({type:"UI->Player", id:"NotifyPlaylistSelection", )"
+                               R"(content:{id:3, playlist:"coding", songs:1}})"));
+
+  // Playlist operation
+  const model::PlaylistOperation create{.action = model::PlaylistOperation::Operation::Create};
+  EXPECT_THAT(Print(CustomEvent::ShowPlaylistManager(create)),
+              ::testing::StrEq(R"({type:"UI->UI", id:"ShowPlaylistManager", )"
+                               R"(content:{action:"Create", playlist:{}}})"));
+
+  const model::PlaylistOperation modify{.action = model::PlaylistOperation::Operation::Modify,
+                                        .playlist = playlist};
+  EXPECT_THAT(Print(CustomEvent::ShowPlaylistManager(modify)),
+              ::testing::StrEq(
+                  R"({type:"UI->UI", id:"ShowPlaylistManager", )"
+                  R"(content:{action:"Modify", playlist:{id:3, playlist:"coding", songs:1}}})"));
+
+  // Question data
+  const model::QuestionData question{.question = "Quit?", .cb_yes = [] {}};
+  EXPECT_THAT(
+      Print(CustomEvent::ShowQuestionDialog(question)),
+      ::testing::StrEq(R"({type:"UI->UI", id:"ShowQuestionDialog", )"
+                       R"(content:{question: "Quit?", cb_yes:"not empty", cb_no:"empty"}})"));
 }
 
 }  // namespace

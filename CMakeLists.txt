@@ -17,8 +17,9 @@ function(check_coverage library)
   if(ENABLE_COVERAGE)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES
                                                ".*Clang")
-      target_compile_options(${library} INTERFACE --coverage -O0 -g)
-      target_link_libraries(${library} INTERFACE --coverage)
+      # Instrument sources from the target itself, and link gcov also on targets that depend on it
+      target_compile_options(${library} PRIVATE --coverage -O0 -g)
+      target_link_libraries(${library} PUBLIC --coverage)
     endif()
   endif()
 endfunction()
