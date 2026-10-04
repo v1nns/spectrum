@@ -13,6 +13,23 @@
 
 namespace driver {
 
+namespace {
+
+/**
+ * @brief Get description for an error code from FFmpeg (used instead of av_err2str, as that macro
+ * relies on a C feature not accepted by every C++ compiler)
+ * @param code Error code
+ * @return Error description
+ */
+std::string ErrorToString(int code) {
+  char buffer[AV_ERROR_MAX_STRING_SIZE] = {0};
+  av_strerror(code, buffer, sizeof(buffer));
+
+  return std::string{buffer};
+}
+
+}  // namespace
+
 static void log_callback(void*, int level, const char* fmt, va_list vargs) {
   // Custom callback receives messages from every level, so filter them here
   if (level > av_log_get_level()) return;
@@ -67,7 +84,7 @@ bool FFmpeg::ContainsAudioStream(const util::File& file) {
   // Open input stream from given file
   int result = avformat_open_input(&ptr, file.c_str(), nullptr, nullptr);
   if (result < 0) {
-    ERROR("Cannot open file as input stream, error=", av_err2str(result));
+    ERROR("Cannot open file as input stream, error=", ErrorToString(result));
     return false;
   }
 
@@ -76,7 +93,7 @@ bool FFmpeg::ContainsAudioStream(const util::File& file) {
   result = avformat_find_stream_info(input_stream.get(), nullptr);
 
   if (result < 0) {
-    ERROR("Cannot find stream information in the opened input, error=", av_err2str(result));
+    ERROR("Cannot find stream information in the opened input, error=", ErrorToString(result));
     return false;
   }
 
@@ -129,7 +146,7 @@ error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
   int result = avformat_open_input(&ptr, url.c_str(), nullptr, &options);
   if (options) av_dict_free(&options);
   if (result < 0) {
-    ERROR("Cannot open input stream, error=", av_err2str(result));
+    ERROR("Cannot open input stream, error=", ErrorToString(result));
     return error::kFileNotSupported;
   }
 
@@ -137,7 +154,7 @@ error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
 
   result = avformat_find_stream_info(input_stream_.get(), nullptr);
   if (result < 0) {
-    ERROR("Cannot find stream info about opened input, error=", av_err2str(result));
+    ERROR("Cannot find stream info about opened input, error=", ErrorToString(result));
     return error::kFileNotSupported;
   }
 
@@ -168,7 +185,7 @@ error::Code FFmpeg::ConfigureDecoder() {
 
   int result = avcodec_parameters_to_context(decoder_.get(), parameters);
   if (result < 0) {
-    ERROR("Cannot create audio decoder, error=", av_err2str(result));
+    ERROR("Cannot create audio decoder, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -184,7 +201,7 @@ error::Code FFmpeg::ConfigureDecoder() {
 
   result = avcodec_open2(decoder_.get(), codec, nullptr);
   if (result < 0) {
-    ERROR("Cannot initialize audio decoder, error=", av_err2str(result));
+    ERROR("Cannot initialize audio decoder, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -290,7 +307,7 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
 
   // Initialize filter
   if (int result = avfilter_init_str(buffersrc_ctx_.get(), nullptr); result < 0) {
-    ERROR("Cannot initialize the abuffer filter, error=", av_err2str(result));
+    ERROR("Cannot initialize the abuffer filter, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -324,7 +341,7 @@ error::Code FFmpeg::CreateFilterVolume() {
 
   // Initialize filter
   if (int result = avfilter_init_str(volume_ctx, nullptr); result < 0) {
-    ERROR("Cannot initialize the volume filter, error=", av_err2str(result));
+    ERROR("Cannot initialize the volume filter, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -370,7 +387,7 @@ error::Code FFmpeg::CreateFilterAformat(const char* name) {
 
   // Initialize filter
   if (int result = avfilter_init_str(aformat_ctx, nullptr); result < 0) {
-    ERROR("Cannot initialize the aformat filter, error=", av_err2str(result));
+    ERROR("Cannot initialize the aformat filter, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -401,7 +418,7 @@ error::Code FFmpeg::CreateFilterAsplit() {
 
   // Initialize filter with two outputs
   if (const int result = avfilter_init_str(asplit_ctx, "outputs=2"); result < 0) {
-    ERROR("Cannot initialize the asplit filter, error=", av_err2str(result));
+    ERROR("Cannot initialize the asplit filter, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -431,7 +448,7 @@ error::Code FFmpeg::CreateFilterAbufferSink(const char* name) {
 
   // This filter takes no options
   if (const int result = avfilter_init_str(sink_ctx, nullptr); result < 0) {
-    ERROR("Cannot initialize the abuffersink instance, error=", av_err2str(result));
+    ERROR("Cannot initialize the abuffersink instance, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -470,7 +487,7 @@ error::Code FFmpeg::CreateFilterEqualizer(const std::string& name,
   // Initialize filter
   int result = avfilter_init_str(equalizer_ctx, nullptr);
   if (result < 0) {
-    ERROR("Cannot initialize the equalizer filter (", name, "), error=", av_err2str(result));
+    ERROR("Cannot initialize the equalizer filter (", name, "), error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -533,14 +550,14 @@ error::Code FFmpeg::ConnectFilters() {
   }
 
   if (result < 0) {
-    ERROR("Cannot connect filters, error=", av_err2str(result));
+    ERROR("Cannot connect filters, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
   // Configure the graph
   result = avfilter_graph_config(filter_graph_.get(), nullptr);
   if (result < 0) {
-    ERROR("Cannot configure the filter graph for equalization, error=", av_err2str(result));
+    ERROR("Cannot configure the filter graph for equalization, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
@@ -651,7 +668,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
         break;
       }
 
-      ERROR("Cannot decode song, error=", av_err2str(result));
+      ERROR("Cannot decode song, error=", ErrorToString(result));
       return error::kDecodeFileFailed;
     }
 
@@ -811,7 +828,7 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
 
   // Check if got some critical error
   if (result < 0 && result != AVERROR(EAGAIN) && result != AVERROR_EOF) {
-    ERROR("Cannot pull data from audio filtergraph, error=", av_err2str(result));
+    ERROR("Cannot pull data from audio filtergraph, error=", ErrorToString(result));
     shared_context_.err_code = error::kDecodeFileFailed;
   }
 
