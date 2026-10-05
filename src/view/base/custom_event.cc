@@ -17,7 +17,7 @@ struct ContentVisitor {
   void operator()(bool b) const { out << (b ? "true" : "false"); }
   void operator()(const std::string& s) const { out << std::quoted(s); }
   void operator()(const model::RepeatMode& m) const { out << m; }
-  void operator()(const model::RemoteCommand& c) const { out << c; }
+  void operator()(const model::RemoteRequest& r) const { out << r; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
@@ -578,11 +578,11 @@ CustomEvent CustomEvent::ShowWarning(const std::string& message) {
 
 /* ********************************************************************************************** */
 
-CustomEvent CustomEvent::RunRemoteCommand(model::RemoteCommand command) {
+CustomEvent CustomEvent::RunRemoteCommand(const model::RemoteRequest& request) {
   return CustomEvent{
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::RunRemoteCommand,
-      .content = command,
+      .content = request,
   };
 }
 

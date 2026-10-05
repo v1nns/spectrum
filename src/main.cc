@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <system_error>
 
@@ -14,6 +15,7 @@
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
+#include "middleware/remote_playlist.h"
 #include "model/player_status.h"
 #include "model/remote_command.h"
 #include "util/arg_parser.h"
@@ -78,6 +80,7 @@ bool parse(int argc, char** argv, Settings& options) {
             .choices = {"-r", "--remote"},
             .description =
                 "Send command to the running instance (" + model::GetRemoteCommandNames() + ")",
+            .is_multiple = true,
         },
         Argument{
             .name = "format",
@@ -192,14 +195,43 @@ int send_remote_command(const std::string& command, const std::optional<std::str
   if (command == model::kRemoteSubscribeQuery) return print_remote_status_updates(format);
 
   const bool is_query = command == model::kRemoteStatusQuery;
+  std::string request = command;
 
-  if (!is_query && !model::ParseRemoteCommand(command)) {
-    std::cerr << "spectrum: unknown command " << std::quoted(command)
-              << " (available: " << model::GetRemoteCommandNames() << ")\n";
-    return EXIT_FAILURE;
+  if (!is_query) {
+    std::string error;
+    auto parsed = model::ParseRemoteRequest(command, error);
+
+    if (!parsed) {
+      std::cerr << "spectrum: " << error;
+
+      // Command exists when error is about its value, so there is no reason to list all of them
+      if (!model::ParseRemoteCommand(command.substr(0, command.find(' ')))) {
+        std::cerr << " (available: " << model::GetRemoteCommandNames() << ")";
+      }
+
+      std::cerr << "\n";
+      return EXIT_FAILURE;
+    }
+
+    // Running instance has another working directory, so it must receive the full path. Anything
+    // that does not exist here is sent as it is (e.g. name of a playlist)
+    if (auto* target = std::get_if<std::string>(&parsed->value);
+        target && !middleware::IsRemoteUrl(*target)) {
+      std::error_code failure;
+
+      if (auto path = std::filesystem::absolute(*target, failure);
+          !failure && std::filesystem::exists(path, failure)) {
+        *target = path.lexically_normal().string();
+      }
+    }
+
+    // Send it in a single format, no matter how it was written
+    std::ostringstream text;
+    text << *parsed;
+    request = text.str();
   }
 
-  auto reply = util::SendRemoteRequest(util::GetRemoteSocketPath(), command);
+  auto reply = util::SendRemoteRequest(util::GetRemoteSocketPath(), request);
 
   if (!reply) {
     std::cerr << "spectrum: there is no running instance to control\n";
@@ -294,15 +326,25 @@ int main(int argc, char** argv) {
   // Listen for commands sent by other instances (only the first instance running does it)
   auto remote = util::RemoteServer::Create(
       util::GetRemoteSocketPath(),
-      [&terminal, &middleware](const std::string& request) -> std::string {
+      [&terminal, &middleware, &file_handler](const std::string& request) -> std::string {
         // Status is read directly from this thread, without waiting for UI
         if (request == model::kRemoteStatusQuery) return model::to_json(middleware->GetStatus());
 
         // Not written for status, as it may be requested many times (e.g. by a status bar)
         INFO("Received remote command=", std::quoted(request));
 
-        auto command = model::ParseRemoteCommand(request);
-        if (!command) return "unknown command \"" + request + "\"";
+        std::string error;
+        auto command = model::ParseRemoteRequest(request, error);
+        if (!command) return error;
+
+        // Unlike the other commands, this one does not depend on anything from UI
+        if (const auto* target = std::get_if<std::string>(&command->value); target) {
+          auto playlist = middleware::CreateRemotePlaylist(*target, file_handler);
+          if (!playlist) return "nothing to play was found for \"" + *target + "\"";
+
+          terminal->SendEvent(interface::CustomEvent::NotifyPlaylistSelection(*playlist));
+          return kRemoteReplyOk;
+        }
 
         terminal->SendEvent(interface::CustomEvent::RunRemoteCommand(*command));
         return kRemoteReplyOk;

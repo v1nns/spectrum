@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -395,7 +396,92 @@ TEST(RemoteCommandTest, ParseAndPrintNames) {
   // Status is not a command, but it is also available from command-line
   EXPECT_FALSE(model::ParseRemoteCommand(model::kRemoteStatusQuery).has_value());
   EXPECT_FALSE(model::ParseRemoteCommand(model::kRemoteSubscribeQuery).has_value());
-  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::EndsWith(", shuffle, status, subscribe"));
+  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::EndsWith(", quit, status, subscribe"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(RemoteCommandTest, ParseRequestWithValue) {
+  using model::RemoteCommand;
+  using model::RemoteNumber;
+  using model::RemoteRequest;
+  using model::RepeatMode;
+
+  std::string error;
+
+  const auto parse = [&error](const std::string& text) {
+    error.clear();
+    return model::ParseRemoteRequest(text, error);
+  };
+
+  //! Text that must be accepted, with the request expected from it
+  const std::vector<std::pair<std::string, RemoteRequest>> valid{
+      {"next", RemoteCommand::SkipToNext},
+      {"  quit  ", RemoteCommand::Quit},
+      {"volume 50", {RemoteCommand::SetVolume, RemoteNumber{50, false}}},
+      {"volume 0", {RemoteCommand::SetVolume, RemoteNumber{0, false}}},
+      {"volume   100", {RemoteCommand::SetVolume, RemoteNumber{100, false}}},
+      {"volume +5", {RemoteCommand::SetVolume, RemoteNumber{5, true}}},
+      {"volume -150", {RemoteCommand::SetVolume, RemoteNumber{-150, true}}},
+      {"seek 90", {RemoteCommand::Seek, RemoteNumber{90, false}}},
+      {"seek 1:30", {RemoteCommand::Seek, RemoteNumber{90, false}}},
+      {"seek 90:00", {RemoteCommand::Seek, RemoteNumber{5400, false}}},
+      {"seek 1:02:03", {RemoteCommand::Seek, RemoteNumber{3723, false}}},
+      {"seek +10", {RemoteCommand::Seek, RemoteNumber{10, true}}},
+      {"seek -1:05", {RemoteCommand::Seek, RemoteNumber{-65, true}}},
+      {"repeat", RemoteCommand::ToggleRepeat},
+      {"repeat off", {RemoteCommand::ToggleRepeat, RepeatMode::Off}},
+      {"repeat all", {RemoteCommand::ToggleRepeat, RepeatMode::All}},
+      {"repeat one", {RemoteCommand::ToggleRepeat, RepeatMode::One}},
+      {"shuffle", RemoteCommand::ToggleShuffle},
+      {"shuffle on", {RemoteCommand::ToggleShuffle, true}},
+      {"shuffle off", {RemoteCommand::ToggleShuffle, false}},
+      {"play", RemoteCommand::Play},
+      {"play /path/with  some spaces.mp3 ",
+       {RemoteCommand::Play, std::string{"/path/with  some spaces.mp3"}}},
+      {"play https://www.youtube.com/watch?v=abc",
+       {RemoteCommand::Play, std::string{"https://www.youtube.com/watch?v=abc"}}},
+  };
+
+  for (const auto& [text, expected] : valid) {
+    auto request = parse(text);
+    ASSERT_TRUE(request.has_value()) << text << ": " << error;
+    EXPECT_EQ(*request, expected) << text;
+    EXPECT_THAT(error, IsEmpty());
+
+    // Request is sent as text to the running instance, which must get the same from it
+    std::ostringstream sent;
+    sent << *request;
+
+    auto received = parse(sent.str());
+    ASSERT_TRUE(received.has_value()) << sent.str() << ": " << error;
+    EXPECT_EQ(*received, expected) << sent.str();
+  }
+
+  //! Text that must be refused, with part of the reason for it
+  const std::vector<std::pair<std::string, std::string>> invalid{
+      {"", "unknown command \"\""},
+      {"explode now", "unknown command \"explode\""},
+      {"next 2", "command \"next\" does not accept a value"},
+      {"quit now", "command \"quit\" does not accept a value"},
+      {"volume", "missing value for command \"volume\""},
+      {"volume 101", "invalid value \"101\" for command \"volume\""},
+      {"volume 5%", "invalid value \"5%\""},
+      {"volume + 5", "invalid value \"+ 5\""},
+      {"volume 1234567", "invalid value \"1234567\""},
+      {"seek", "missing value for command \"seek\""},
+      {"seek 1:60", "invalid value \"1:60\" for command \"seek\""},
+      {"seek 1:2:3:4", "invalid value \"1:2:3:4\""},
+      {"seek 1:", "invalid value \"1:\""},
+      {"seek abc", "invalid value \"abc\""},
+      {"repeat two", "invalid value \"two\" for command \"repeat\" (expected off, all or one)"},
+      {"shuffle yes", "invalid value \"yes\" for command \"shuffle\" (expected on or off)"},
+  };
+
+  for (const auto& [text, reason] : invalid) {
+    EXPECT_FALSE(parse(text).has_value()) << text;
+    EXPECT_THAT(error, ::testing::HasSubstr(reason)) << text;
+  }
 }
 
 /* ********************************************************************************************** */
@@ -538,7 +624,7 @@ TEST_F(RemoteTest, SendRequestAndReceiveReply) {
 /* ********************************************************************************************** */
 
 TEST_F(RemoteTest, ReplyBiggerThanRequest) {
-  std::string content(util::kMaxRemoteRequestSize * 4, 'a');
+  std::string content(util::kMaxRemoteRequestSize + 1, 'a');
 
   auto server =
       util::RemoteServer::Create(path, [&content](const std::string&) { return content; });

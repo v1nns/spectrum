@@ -91,13 +91,20 @@ A running `spectrum` may be controlled from another terminal (or from a script, 
 | --- | --- |
 | `play-pause` | Play selected song, or pause/resume the current one |
 | `play` / `pause` | Same as above, but without toggling (useful for scripts) |
+| `play <target>` | Play a file (followed by the other ones from its directory), a directory, a YouTube URL or a saved playlist (by its name) |
 | `stop` | Stop current song |
 | `previous` / `next` | Skip to previous / next song |
 | `seek-forward` / `seek-backward` | Seek forward / backward |
+| `seek <position>` | Seek to a position (`90` or `1:30`), or by some seconds from the current one (`+10` or `-10`) |
 | `volume-up` / `volume-down` / `mute` | Volume up / down / mute |
+| `volume <level>` | Set volume (from `0` to `100`), or change it (`+5` or `-5`) |
 | `repeat` / `shuffle` | Change repeat mode (off, all, one) / toggle shuffle |
+| `repeat <off\|all\|one>` / `shuffle <on\|off>` | Set repeat mode / shuffle, without toggling |
+| `quit` | Exit from the running instance |
 | `status` | Print what is playing (nothing changes on player) |
 | `subscribe` | Same as `status`, but keeps running and prints it again every time something changes |
+
+A command and its value may be written as separate words or as a single one, so `spectrum -r volume 50` is the same as `spectrum -r "volume 50"`.
 
 By default, `status` is printed as JSON in a single line, useful for scripts and status bars:
 

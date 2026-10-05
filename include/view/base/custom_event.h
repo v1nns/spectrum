@@ -132,7 +132,7 @@ struct CustomEvent {
 
   static CustomEvent Exit();
   static CustomEvent ShowWarning(const std::string& message);
-  static CustomEvent RunRemoteCommand(model::RemoteCommand command);
+  static CustomEvent RunRemoteCommand(const model::RemoteRequest& request);
 
   //! Possible types for content
   using Content =
@@ -140,7 +140,7 @@ struct CustomEvent {
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
                    model::PlaylistOperation, model::QuestionData, bool, std::string,
-                   model::RepeatMode, model::RemoteCommand>;
+                   model::RepeatMode, model::RemoteRequest>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

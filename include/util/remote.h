@@ -23,9 +23,10 @@ namespace util {
 //! Maximum time to wait for the other side (to send its request or its reply)
 inline constexpr std::chrono::milliseconds kRemoteTimeout{1000};
 
-//! Maximum size for a request, and for a reply (which is bigger, as it may contain player status)
-inline constexpr std::size_t kMaxRemoteRequestSize = 256;
-inline constexpr std::size_t kMaxRemoteReplySize = 4096;
+//! Maximum size for a request (which may contain a file path), and for a reply (which is bigger,
+//! as it may contain player status)
+inline constexpr std::size_t kMaxRemoteRequestSize = 4096;
+inline constexpr std::size_t kMaxRemoteReplySize = 8192;
 
 /**
  * @brief Get full path to socket used for remote control, which is "$XDG_RUNTIME_DIR/spectrum.sock"

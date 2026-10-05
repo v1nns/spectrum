@@ -105,6 +105,19 @@ ParsedArguments ArgumentParser::Parse(int count, char** values) const {
       // Invalid value for argument, print error and finish
       if (value.rfind('-', 0) == 0 || value.empty()) PrintErrorAndThrow(argument, value);
 
+      // Following values belong to the same argument, even the ones that look like an option
+      // (e.g. a negative number), as long as they are not an expected one
+      while (found->is_multiple && index + 1 < count) {
+        argument = values[index + 1];
+
+        if (argument == "-h" || argument == "--help" ||
+            std::any_of(expected_arguments_.begin(), expected_arguments_.end(), match_choice))
+          break;
+
+        value += " " + argument;
+        ++index;
+      }
+
       // Everything is fine, should include into opts
       opts[found->name] = value;
     }

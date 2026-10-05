@@ -1,9 +1,11 @@
 #include "view/block/media_player.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <sstream>
 #include <utility>
+#include <variant>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
@@ -14,6 +16,9 @@
 #include "view/element/style.h"
 
 namespace interface {
+
+//! Volume level is shown (and saved) as percentage
+static constexpr float kMaxVolume = 100.F;
 
 /* ********************************************************************************************** */
 
@@ -245,7 +250,7 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   }
 
   if (event == CustomEvent::Identifier::RunRemoteCommand) {
-    HandleRemoteCommand(event.GetContent<model::RemoteCommand>());
+    HandleRemoteCommand(event.GetContent<model::RemoteRequest>());
 
     return true;
   }
@@ -493,8 +498,11 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
 
 /* ********************************************************************************************** */
 
-void MediaPlayer::HandleRemoteCommand(model::RemoteCommand command) {
-  LOG("Handle remote command=", command);
+void MediaPlayer::HandleRemoteCommand(const model::RemoteRequest& request) {
+  LOG("Handle remote command=", request);
+  if (HandleRemoteValue(request)) return;
+
+  const model::RemoteCommand command = request.command;
   const keybinding::Key* key = nullptr;
   const bool playing = song_.curr_info.state == model::Song::MediaState::Play;
 
@@ -552,6 +560,15 @@ void MediaPlayer::HandleRemoteCommand(model::RemoteCommand command) {
     case model::RemoteCommand::ToggleShuffle:
       key = &keybinding::MediaPlayer::ToggleShuffle;
       break;
+
+    case model::RemoteCommand::Quit:
+      if (auto dispatcher = GetDispatcher(); dispatcher) dispatcher->SendEvent(CustomEvent::Exit());
+      break;
+
+    case model::RemoteCommand::SetVolume:
+    case model::RemoteCommand::Seek:
+      // There is nothing to do without a value
+      break;
   }
 
   if (!key) return;
@@ -564,9 +581,74 @@ void MediaPlayer::HandleRemoteCommand(model::RemoteCommand command) {
 
 /* ********************************************************************************************** */
 
+bool MediaPlayer::HandleRemoteValue(const model::RemoteRequest& request) {
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return false;
+
+  const auto* number = std::get_if<model::RemoteNumber>(&request.value);
+
+  if (request.command == model::RemoteCommand::SetVolume && number) {
+    const int current = static_cast<int>(std::round(volume_.GetLevel() * kMaxVolume));
+    const int level = std::clamp(number->relative ? current + number->value : number->value, 0,
+                                 static_cast<int>(kMaxVolume));
+
+    if (level == current) return true;
+
+    // Mute state does not depend on volume level, so it is kept
+    model::Volume volume{static_cast<float>(level) / kMaxVolume};
+    if (volume_.IsMuted()) volume.ToggleMute();
+
+    volume_ = volume;
+    dispatcher->SendEvent(interface::CustomEvent::SetAudioVolume(volume_));
+
+    SaveVolume();
+    return true;
+  }
+
+  if (request.command == model::RemoteCommand::Seek && number) {
+    if (!IsPlaying()) return true;
+
+    // Player ignores a position outside of song, so use the closest one instead
+    const int position = static_cast<int>(song_.curr_info.position);
+    const int last = std::max(static_cast<int>(song_.duration) - 1, 0);
+    const int target =
+        std::clamp(number->relative ? position + number->value : number->value, 0, last);
+
+    if (target > position) {
+      dispatcher->SendEvent(interface::CustomEvent::SeekForwardPosition(target - position));
+    } else if (target < position) {
+      dispatcher->SendEvent(interface::CustomEvent::SeekBackwardPosition(position - target));
+    }
+
+    return true;
+  }
+
+  if (const auto* mode = std::get_if<model::RepeatMode>(&request.value);
+      request.command == model::RemoteCommand::ToggleRepeat && mode) {
+    if (*mode == repeat_) return true;
+
+    repeat_ = *mode;
+    dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+    return true;
+  }
+
+  if (const auto* enabled = std::get_if<bool>(&request.value);
+      request.command == model::RemoteCommand::ToggleShuffle && enabled) {
+    if (*enabled == shuffle_) return true;
+
+    shuffle_ = *enabled;
+    dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
+    return true;
+  }
+
+  return false;
+}
+
+/* ********************************************************************************************** */
+
 void MediaPlayer::SaveVolume() const {
   // Mute state is not saved, only the volume level
-  const int level = static_cast<int>(std::round(volume_.GetLevel() * 100));
+  const int level = static_cast<int>(std::round(volume_.GetLevel() * kMaxVolume));
   if (!file_handler_->SaveSettings(model::Settings{.volume = level})) ERROR("Cannot save volume");
 }
 

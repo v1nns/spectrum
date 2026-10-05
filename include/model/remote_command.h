@@ -13,6 +13,9 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
+
+#include "model/repeat_mode.h"
 
 namespace model {
 
@@ -21,7 +24,8 @@ namespace model {
  */
 enum class RemoteCommand : std::uint8_t {
   PlayOrPause,     //!< Play selected song, or pause/resume current one
-  Play,            //!< Play selected song, or resume current one (nothing changes if playing)
+  Play,            //!< Play selected song, or resume current one (nothing changes if playing).
+                   //!< With a value: play that file, directory, URL or playlist
   Pause,           //!< Pause current song (nothing changes if not playing)
   Stop,            //!< Stop current song
   SkipToPrevious,  //!< Skip to previous song from queue
@@ -31,12 +35,15 @@ enum class RemoteCommand : std::uint8_t {
   Mute,            //!< Toggle volume mute
   SeekForward,     //!< Seek forward in current song
   SeekBackward,    //!< Seek backward in current song
-  ToggleRepeat,    //!< Change repeat mode (off, all, one)
-  ToggleShuffle,   //!< Toggle shuffle
+  ToggleRepeat,    //!< Change repeat mode (off, all, one), or set it to the given value
+  ToggleShuffle,   //!< Toggle shuffle, or set it to the given value
+  SetVolume,       //!< Set volume to the given value (or change it by that much)
+  Seek,            //!< Seek to the given position in current song (or change it by that much)
+  Quit,            //!< Exit from application
 };
 
 //! All remote commands with the name used in command-line
-inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 13> kRemoteCommands{{
+inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 16> kRemoteCommands{{
     {RemoteCommand::PlayOrPause, "play-pause"},
     {RemoteCommand::Play, "play"},
     {RemoteCommand::Pause, "pause"},
@@ -50,6 +57,9 @@ inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 13> kRem
     {RemoteCommand::SeekBackward, "seek-backward"},
     {RemoteCommand::ToggleRepeat, "repeat"},
     {RemoteCommand::ToggleShuffle, "shuffle"},
+    {RemoteCommand::SetVolume, "volume"},
+    {RemoteCommand::Seek, "seek"},
+    {RemoteCommand::Quit, "quit"},
 }};
 
 //! Name of the request to get player status (it is not a command, as nothing changes on player)
@@ -96,6 +106,51 @@ inline std::string GetRemoteCommandNames() {
 inline std::ostream& operator<<(std::ostream& out, RemoteCommand command) {
   return out << GetRemoteCommandName(command);
 }
+
+/**
+ * @brief Number given to a remote command, either as the new value or as a change on current one
+ */
+struct RemoteNumber {
+  int value;      //!< Number (negative only when relative)
+  bool relative;  //!< Number is added to the current value, instead of replacing it
+
+  //! Overloaded operators
+  friend bool operator==(const RemoteNumber& lhs, const RemoteNumber& rhs);
+  friend std::ostream& operator<<(std::ostream& out, const RemoteNumber& number);
+};
+
+/**
+ * @brief Remote command with the value given to it (most commands do not have one)
+ */
+struct RemoteRequest {
+  //! Nothing, a number (volume in percentage, or position in seconds), repeat mode, shuffle state
+  //! or text (what to play)
+  using Value = std::variant<std::monostate, RemoteNumber, RepeatMode, bool, std::string>;
+
+  RemoteCommand command = RemoteCommand::PlayOrPause;  //!< Command to execute
+  Value value;                                         //!< Value for command
+
+  //! Default constructor
+  RemoteRequest() = default;
+
+  //! A command is also a request (not explicit, so it may be used wherever a request is expected)
+  RemoteRequest(RemoteCommand id, Value content = {})  // NOLINT
+      : command{id}, value{std::move(content)} {}
+
+  //! Overloaded operators
+  friend bool operator==(const RemoteRequest& lhs, const RemoteRequest& rhs);
+  friend bool operator!=(const RemoteRequest& lhs, const RemoteRequest& rhs);
+  friend std::ostream& operator<<(std::ostream& out, const RemoteRequest& request);
+};
+
+/**
+ * @brief Get remote request from a line of text: command name, optionally followed by its value
+ * (e.g. "next", "volume 50", "volume +5", "seek 1:30", "repeat all", "shuffle on", "play <path>")
+ * @param text Line of text
+ * @param error Reason why it is not a valid request (filled only when nothing is returned)
+ * @return Remote request (or nothing, if command does not exist or does not accept this value)
+ */
+std::optional<RemoteRequest> ParseRemoteRequest(std::string_view text, std::string& error);
 
 }  // namespace model
 #endif  // INCLUDE_MODEL_REMOTE_COMMAND_H_

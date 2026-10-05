@@ -81,6 +81,7 @@ target_sources(
           audio/lyric/lyric_finder.cc
           # middleware
           middleware/media_controller.cc
+          middleware/remote_playlist.cc
           # model
           model/audio_filter.cc
           model/block_identifier.cc
@@ -89,6 +90,7 @@ target_sources(
           model/playlist.cc
           model/playlist_operation.cc
           model/question_data.cc
+          model/remote_command.cc
           model/song.cc
           model/stream_info.cc
           # view
