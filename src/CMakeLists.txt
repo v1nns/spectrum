@@ -128,6 +128,7 @@ target_sources(
           util/file_handler.cc
           util/logger.cc
           util/process.cc
+          util/remote.cc
           util/sink.cc)
 
 target_include_directories(

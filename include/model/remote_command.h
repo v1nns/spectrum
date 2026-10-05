@@ -1,0 +1,87 @@
+/**
+ * \file
+ * \brief  Command sent from command-line to a running instance of this application
+ */
+
+#ifndef INCLUDE_MODEL_REMOTE_COMMAND_H_
+#define INCLUDE_MODEL_REMOTE_COMMAND_H_
+
+#include <array>
+#include <cstdint>
+#include <optional>
+#include <ostream>
+#include <string>
+#include <string_view>
+#include <utility>
+
+namespace model {
+
+/**
+ * @brief Media command to control a running instance (same actions available by keyboard)
+ */
+enum class RemoteCommand : std::uint8_t {
+  PlayOrPause,     //!< Play selected song, or pause/resume current one
+  Stop,            //!< Stop current song
+  SkipToPrevious,  //!< Skip to previous song from queue
+  SkipToNext,      //!< Skip to next song from queue
+  VolumeUp,        //!< Increase volume
+  VolumeDown,      //!< Decrease volume
+  Mute,            //!< Toggle volume mute
+  SeekForward,     //!< Seek forward in current song
+  SeekBackward,    //!< Seek backward in current song
+  ToggleRepeat,    //!< Change repeat mode (off, all, one)
+  ToggleShuffle,   //!< Toggle shuffle
+};
+
+//! All remote commands with the name used in command-line
+inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 11> kRemoteCommands{{
+    {RemoteCommand::PlayOrPause, "play-pause"},
+    {RemoteCommand::Stop, "stop"},
+    {RemoteCommand::SkipToPrevious, "previous"},
+    {RemoteCommand::SkipToNext, "next"},
+    {RemoteCommand::VolumeUp, "volume-up"},
+    {RemoteCommand::VolumeDown, "volume-down"},
+    {RemoteCommand::Mute, "mute"},
+    {RemoteCommand::SeekForward, "seek-forward"},
+    {RemoteCommand::SeekBackward, "seek-backward"},
+    {RemoteCommand::ToggleRepeat, "repeat"},
+    {RemoteCommand::ToggleShuffle, "shuffle"},
+}};
+
+//! Get remote command name
+inline std::string_view GetRemoteCommandName(RemoteCommand command) {
+  for (const auto& [id, name] : kRemoteCommands) {
+    if (id == command) return name;
+  }
+
+  return "unknown";
+}
+
+//! Get remote command from its name (or nothing, if there is no command with this name)
+inline std::optional<RemoteCommand> ParseRemoteCommand(std::string_view name) {
+  for (const auto& [id, command_name] : kRemoteCommands) {
+    if (command_name == name) return id;
+  }
+
+  return std::nullopt;
+}
+
+//! Get names from all remote commands (separated by comma)
+inline std::string GetRemoteCommandNames() {
+  std::string names;
+
+  for (const auto& [id, name] : kRemoteCommands) {
+    if (!names.empty()) names += ", ";
+    names += name;
+  }
+
+  return names;
+}
+
+//! Output remote command to ostream
+inline std::ostream& operator<<(std::ostream& out, RemoteCommand command) {
+  return out << GetRemoteCommandName(command);
+}
+
+}  // namespace model
+#endif  // INCLUDE_MODEL_REMOTE_COMMAND_H_

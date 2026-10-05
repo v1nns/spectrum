@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
+#include <iostream>
+#include <optional>
 #include <string>
 #include <system_error>
 
@@ -12,9 +14,11 @@
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
+#include "model/remote_command.h"
 #include "util/arg_parser.h"
 #include "util/file_handler.h"
 #include "util/logger.h"
+#include "util/remote.h"
 #include "view/base/terminal.h"
 
 /**
@@ -24,7 +28,13 @@ struct Settings {
   std::string log_path = "";     //!< Path to log file (empty if logging is disabled)
   std::string initial_dir = "";  //!< Initial directory to list in "files" block
   bool verbose_logging = false;  //!< Enable verbose log messages
+
+  //! Command to send to the running instance (when filled, a new instance is not started)
+  std::optional<std::string> remote_command;
 };
+
+//! Reply sent to remote instance when its command was accepted
+static constexpr char kRemoteReplyOk[] = "ok";
 
 /**
  * @brief Command-line argument parsing
@@ -59,11 +69,23 @@ bool parse(int argc, char** argv, Settings& options) {
             .description = "Enable verbose logging messages",
             .is_empty = true,
         },
+        Argument{
+            .name = "remote",
+            .choices = {"-r", "--remote"},
+            .description =
+                "Send command to the running instance (" + model::GetRemoteCommandNames() + ")",
+        },
     };
 
     // Configure argument parser and run to get parsed arguments
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
     ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
+
+    // Command is handled by the running instance, so nothing else is used (not even logging)
+    if (auto& remote = parsed_args["remote"]; remote) {
+      options.remote_command = remote->get_string();
+      return true;
+    }
 
     // Check if contains filepath for logging (otherwise, use default path)
     if (auto& logging_path = parsed_args["log"]; logging_path) {
@@ -104,12 +126,45 @@ bool parse(int argc, char** argv, Settings& options) {
 
 /* ********************************************************************************************** */
 
+/**
+ * @brief Send command to the running instance
+ *
+ * @param command Command name
+ * @return EXIT_SUCCESS if command was accepted by the running instance, otherwise EXIT_FAILURE
+ */
+int send_remote_command(const std::string& command) {
+  if (!model::ParseRemoteCommand(command)) {
+    std::cerr << "spectrum: unknown command " << std::quoted(command)
+              << " (available: " << model::GetRemoteCommandNames() << ")\n";
+    return EXIT_FAILURE;
+  }
+
+  auto reply = util::SendRemoteRequest(util::GetRemoteSocketPath(), command);
+
+  if (!reply) {
+    std::cerr << "spectrum: there is no running instance to control\n";
+    return EXIT_FAILURE;
+  }
+
+  if (*reply != kRemoteReplyOk) {
+    std::cerr << "spectrum: " << *reply << "\n";
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/* ********************************************************************************************** */
+
 int main(int argc, char** argv) {
   // In case of getting some unexpected argument or some other error: do not execute the program
   Settings options;
   if (!parse(argc, argv, options)) {
     return EXIT_SUCCESS;
   }
+
+  // Instead of starting a new instance, just send command to the one already running
+  if (options.remote_command) return send_remote_command(*options.remote_command);
 
   // Write some information useful to understand any issue reported from this log
   util::Logger::SetThreadName("ui");
@@ -162,8 +217,19 @@ int main(int argc, char** argv) {
     screen.ExitLoopClosure()();
   });
 
+  // Listen for commands sent by other instances (only the first instance running does it)
+  auto remote = util::RemoteServer::Create(
+      util::GetRemoteSocketPath(), [&terminal](const std::string& request) -> std::string {
+        auto command = model::ParseRemoteCommand(request);
+        if (!command) return "unknown command \"" + request + "\"";
+
+        terminal->SendEvent(interface::CustomEvent::RunRemoteCommand(*command));
+        return kRemoteReplyOk;
+      });
+
   // Start GUI loop and clear screen after exit
   screen.Loop(terminal);
+  if (remote) remote->Stop();
   screen.ResetPosition(true);
 
   return EXIT_SUCCESS;

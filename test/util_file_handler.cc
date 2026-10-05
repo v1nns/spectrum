@@ -10,14 +10,17 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "general/utils.h"
 #include "model/playlist.h"
+#include "model/remote_command.h"
 #include "model/settings.h"
 #include "model/song.h"
 #include "model/stream_info.h"
 #include "util/file_handler.h"
 #include "util/process.h"
+#include "util/remote.h"
 #include "util/sink.h"
 
 namespace {
@@ -372,6 +375,124 @@ TEST(ProcessTest, KillProcessWhenCanceled) {
   EXPECT_TRUE(result->canceled);
   EXPECT_FALSE(result->timed_out);
   EXPECT_LT(elapsed, std::chrono::seconds(2));
+}
+
+/* ********************************************************************************************** */
+
+TEST(RemoteCommandTest, ParseAndPrintNames) {
+  for (const auto& [command, name] : model::kRemoteCommands) {
+    EXPECT_EQ(model::ParseRemoteCommand(name), command) << name;
+    EXPECT_EQ(model::GetRemoteCommandName(command), name);
+  }
+
+  EXPECT_FALSE(model::ParseRemoteCommand("").has_value());
+  EXPECT_FALSE(model::ParseRemoteCommand("Next").has_value());
+  EXPECT_FALSE(model::ParseRemoteCommand("explode").has_value());
+
+  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::StartsWith("play-pause, stop, "));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with RemoteServer class (using a socket in a temporary directory)
+ */
+class RemoteTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    path = (std::filesystem::temp_directory_path() / "spectrum_remote_test.sock").string();
+    std::filesystem::remove(path);
+  }
+
+  void TearDown() override { std::filesystem::remove(path); }
+
+  std::string path;  //!< Socket path
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, SendRequestAndReceiveReply) {
+  std::vector<std::string> received;
+
+  auto server = util::RemoteServer::Create(path, [&received](const std::string& request) {
+    received.push_back(request);
+    return "reply to " + request;
+  });
+  ASSERT_NE(server, nullptr);
+
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("reply to next"));
+
+  reply = util::SendRemoteRequest(path, "stop");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("reply to stop"));
+
+  // Socket is removed when server stops, and nobody replies anymore
+  server->Stop();
+  EXPECT_THAT(received, ::testing::ElementsAre("next", "stop"));
+  EXPECT_FALSE(std::filesystem::exists(path));
+  EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, OnlyFirstInstanceListens) {
+  auto first = util::RemoteServer::Create(path, [](const std::string&) { return "first"; });
+  ASSERT_NE(first, nullptr);
+
+  auto second = util::RemoteServer::Create(path, [](const std::string&) { return "second"; });
+  EXPECT_EQ(second, nullptr);
+
+  // First instance keeps its socket
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("first"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, ReplaceSocketLeftByAnotherInstance) {
+  // Socket file without anyone listening on it, as left by an instance that did not exit properly
+  std::ofstream(path) << "";
+  ASSERT_TRUE(std::filesystem::exists(path));
+  EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+
+  auto server = util::RemoteServer::Create(path, [](const std::string&) { return "ok"; });
+  ASSERT_NE(server, nullptr);
+
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("ok"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, InvalidSocketPath) {
+  const std::string too_long(512, 'a');
+
+  EXPECT_EQ(util::RemoteServer::Create("", [](const std::string&) { return ""; }), nullptr);
+  EXPECT_EQ(util::RemoteServer::Create(too_long, [](const std::string&) { return ""; }), nullptr);
+  EXPECT_FALSE(util::SendRemoteRequest(too_long, "next").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST(RemotePathTest, SocketPath) {
+  std::optional<std::string> original;
+  if (const char* runtime = std::getenv("XDG_RUNTIME_DIR"); runtime) original = runtime;
+
+  setenv("XDG_RUNTIME_DIR", "/run/user/1234", 1);
+  EXPECT_THAT(util::GetRemoteSocketPath(), StrEq("/run/user/1234/spectrum.sock"));
+
+  // Relative path is ignored
+  setenv("XDG_RUNTIME_DIR", "relative/dir", 1);
+  EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::StartsWith("/tmp/spectrum-"));
+
+  unsetenv("XDG_RUNTIME_DIR");
+  EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::StartsWith("/tmp/spectrum-"));
+
+  if (original) setenv("XDG_RUNTIME_DIR", original->c_str(), 1);
 }
 
 /* ********************************************************************************************** */

@@ -1137,4 +1137,69 @@ TEST_F(MediaPlayerMouseTest, SeekWithKeyboard) {
   EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('b')));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, RemoteCommandsWithoutSong) {
+  using Identifier = interface::CustomEvent::Identifier;
+  using model::RemoteCommand;
+
+  // Without a song, these commands do nothing
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  for (auto command :
+       {RemoteCommand::Stop, RemoteCommand::SkipToPrevious, RemoteCommand::SkipToNext,
+        RemoteCommand::SeekForward, RemoteCommand::SeekBackward}) {
+    Process(interface::CustomEvent::RunRemoteCommand(command));
+  }
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // While these ones do not depend on it
+  {
+    InSequence seq;
+    for (auto id :
+         {Identifier::PlaySong, Identifier::SetAudioVolume, Identifier::SetAudioVolume,
+          Identifier::SetAudioVolume, Identifier::SetRepeatMode, Identifier::SetShuffle}) {
+      EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id, id)));
+    }
+  }
+
+  for (auto command :
+       {RemoteCommand::PlayOrPause, RemoteCommand::VolumeDown, RemoteCommand::VolumeUp,
+        RemoteCommand::Mute, RemoteCommand::ToggleRepeat, RemoteCommand::ToggleShuffle}) {
+    Process(interface::CustomEvent::RunRemoteCommand(command));
+  }
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, AllOf(HasSubstr("Shuffle: on"), HasSubstr("Repeat: all")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, RemoteCommandsWhilePlaying) {
+  using Identifier = interface::CustomEvent::Identifier;
+  using model::RemoteCommand;
+
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{.duration = 146}));
+  Process(interface::CustomEvent::UpdateSongState(
+      model::Song::CurrentInformation{.state = model::Song::MediaState::Play, .position = 10}));
+
+  // Each command sends the same event as its key
+  {
+    InSequence seq;
+    for (auto id : {Identifier::PauseSong, Identifier::SeekForwardPosition,
+                    Identifier::SeekBackwardPosition, Identifier::SkipToNextPlaylistSong,
+                    Identifier::SkipToPreviousPlaylistSong, Identifier::StopSong}) {
+      EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id, id)));
+    }
+  }
+
+  for (auto command :
+       {RemoteCommand::PlayOrPause, RemoteCommand::SeekForward, RemoteCommand::SeekBackward,
+        RemoteCommand::SkipToNext, RemoteCommand::SkipToPrevious, RemoteCommand::Stop}) {
+    Process(interface::CustomEvent::RunRemoteCommand(command));
+  }
+}
+
 }  // namespace

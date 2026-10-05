@@ -83,6 +83,21 @@ To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be i
 | <kbd>t</kbd> | Choose theme |
 | <kbd>q</kbd> | Quit |
 
+### Remote control
+
+A running `spectrum` may be controlled from another terminal (or from a script, a window manager keybinding, etc.) with `spectrum -r <command>`, for example `spectrum -r next`. Available commands:
+
+| Command | Action |
+| --- | --- |
+| `play-pause` | Play selected song, or pause/resume the current one |
+| `stop` | Stop current song |
+| `previous` / `next` | Skip to previous / next song |
+| `seek-forward` / `seek-backward` | Seek forward / backward |
+| `volume-up` / `volume-down` / `mute` | Volume up / down / mute |
+| `repeat` / `shuffle` | Change repeat mode (off, all, one) / toggle shuffle |
+
+When more than one instance is running, only the first one started receives the commands.
+
 ### Files
 
 Playlists and settings (volume, theme and visualizer animation) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).

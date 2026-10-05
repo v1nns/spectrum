@@ -657,6 +657,8 @@ TEST(CustomEventTest, CreateEvents) {
       {CustomEvent::Exit(), Type::FromInterfaceToInterface, Identifier::Exit, "Exit"},
       {CustomEvent::ShowWarning("oops"), Type::FromInterfaceToInterface, Identifier::ShowWarning,
        "ShowWarning"},
+      {CustomEvent::RunRemoteCommand(model::RemoteCommand::Stop), Type::FromInterfaceToInterface,
+       Identifier::RunRemoteCommand, "RunRemoteCommand"},
   };
 
   for (const auto& [event, type, id, name] : events) {

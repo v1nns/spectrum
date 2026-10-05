@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/remote_command.h"
 #include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
@@ -93,6 +94,12 @@ class MediaPlayer : public Block {
    * @return true if event was handled, otherwise false
    */
   bool HandleSeekEvent(const ftxui::Event& event) const;
+
+  /**
+   * @brief Execute command sent from command-line, exactly like its key was pressed
+   * @param command Remote command
+   */
+  void HandleRemoteCommand(model::RemoteCommand command);
 
   //! Create event to skip song (handled by audio player, as songs are always played from a queue)
   static CustomEvent CreateSkipEvent(bool next);

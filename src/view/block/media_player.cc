@@ -244,6 +244,12 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
     return true;
   }
 
+  if (event == CustomEvent::Identifier::RunRemoteCommand) {
+    HandleRemoteCommand(event.GetContent<model::RemoteCommand>());
+
+    return true;
+  }
+
   if (event == CustomEvent::Identifier::UpdateVolume) {
     LOG("Received new volume information from player");
     volume_ = event.GetContent<model::Volume>();
@@ -483,6 +489,66 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+void MediaPlayer::HandleRemoteCommand(model::RemoteCommand command) {
+  LOG("Handle remote command=", command);
+  const keybinding::Key* key = nullptr;
+
+  switch (command) {
+    case model::RemoteCommand::PlayOrPause:
+      key = &keybinding::MediaPlayer::PlayOrPause;
+      break;
+
+    case model::RemoteCommand::Stop:
+      key = &keybinding::MediaPlayer::Stop;
+      break;
+
+    case model::RemoteCommand::SkipToPrevious:
+      key = &keybinding::MediaPlayer::SkipToPrevious;
+      break;
+
+    case model::RemoteCommand::SkipToNext:
+      key = &keybinding::MediaPlayer::SkipToNext;
+      break;
+
+    case model::RemoteCommand::VolumeUp:
+      key = &keybinding::MediaPlayer::VolumeUp;
+      break;
+
+    case model::RemoteCommand::VolumeDown:
+      key = &keybinding::MediaPlayer::VolumeDown;
+      break;
+
+    case model::RemoteCommand::Mute:
+      key = &keybinding::MediaPlayer::Mute;
+      break;
+
+    case model::RemoteCommand::SeekForward:
+      key = &keybinding::MediaPlayer::SeekForward;
+      break;
+
+    case model::RemoteCommand::SeekBackward:
+      key = &keybinding::MediaPlayer::SeekBackward;
+      break;
+
+    case model::RemoteCommand::ToggleRepeat:
+      key = &keybinding::MediaPlayer::ToggleRepeat;
+      break;
+
+    case model::RemoteCommand::ToggleShuffle:
+      key = &keybinding::MediaPlayer::ToggleShuffle;
+      break;
+  }
+
+  if (!key) return;
+
+  // Reuse handlers from keyboard, to keep the same behavior (and UI state) for both of them
+  if (HandleMediaEvent(*key) || HandleVolumeEvent(*key)) return;
+
+  HandleSeekEvent(*key);
 }
 
 /* ********************************************************************************************** */

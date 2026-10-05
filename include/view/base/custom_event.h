@@ -16,6 +16,7 @@
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
 #include "model/question_data.h"
+#include "model/remote_command.h"
 #include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
@@ -77,6 +78,7 @@ struct CustomEvent {
     ShowQuestionDialog = 70016,
     Exit = 70017,
     ShowWarning = 70018,
+    RunRemoteCommand = 70019,
   };
 
   //! Overloaded operators
@@ -130,6 +132,7 @@ struct CustomEvent {
 
   static CustomEvent Exit();
   static CustomEvent ShowWarning(const std::string& message);
+  static CustomEvent RunRemoteCommand(model::RemoteCommand command);
 
   //! Possible types for content
   using Content =
@@ -137,7 +140,7 @@ struct CustomEvent {
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
                    model::PlaylistOperation, model::QuestionData, bool, std::string,
-                   model::RepeatMode>;
+                   model::RepeatMode, model::RemoteCommand>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

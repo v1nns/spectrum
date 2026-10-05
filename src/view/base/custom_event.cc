@@ -17,6 +17,7 @@ struct ContentVisitor {
   void operator()(bool b) const { out << (b ? "true" : "false"); }
   void operator()(const std::string& s) const { out << std::quoted(s); }
   void operator()(const model::RepeatMode& m) const { out << m; }
+  void operator()(const model::RemoteCommand& c) const { out << c; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
@@ -201,6 +202,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::ShowWarning:
       out << "ShowWarning";
+      break;
+
+    case CustomEvent::Identifier::RunRemoteCommand:
+      out << "RunRemoteCommand";
       break;
   }
   return out;
@@ -568,6 +573,16 @@ CustomEvent CustomEvent::ShowWarning(const std::string& message) {
       .type = Type::FromInterfaceToInterface,
       .id = Identifier::ShowWarning,
       .content = message,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::RunRemoteCommand(model::RemoteCommand command) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToInterface,
+      .id = Identifier::RunRemoteCommand,
+      .content = command,
   };
 }
 
