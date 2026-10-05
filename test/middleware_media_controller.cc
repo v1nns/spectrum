@@ -301,6 +301,119 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MediaControllerTest, KeepPlayerStatusFromNotifications) {
+  using model::Song;
+  using ::testing::AnyNumber;
+
+  auto player_notifier = GetPlayerNotifier();
+  auto interface_notifier = GetInterfaceNotifier();
+
+  EXPECT_CALL(*GetEventDispatcher(), SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*GetAudioControl(), SetAudioVolume(_)).Times(AnyNumber());
+  EXPECT_CALL(*GetAudioControl(), SetRepeatMode(_)).Times(AnyNumber());
+  EXPECT_CALL(*GetAudioControl(), SetShuffle(_)).Times(AnyNumber());
+
+  // Nothing is playing yet
+  model::PlayerStatus status = controller->GetStatus();
+  EXPECT_EQ(status.state, Song::MediaState::Empty);
+  EXPECT_THAT(status.artist, StrEq(""));
+  EXPECT_THAT(status.title, StrEq(""));
+  EXPECT_EQ(status.volume, model::Volume{});
+  EXPECT_EQ(status.repeat, model::RepeatMode::Off);
+  EXPECT_FALSE(status.shuffle);
+
+  // Settings changed by user
+  model::Volume volume{0.35F};
+  volume.ToggleMute();
+
+  player_notifier->SetVolume(volume);
+  player_notifier->SetRepeatMode(model::RepeatMode::One);
+  player_notifier->SetShuffle(true);
+
+  status = controller->GetStatus();
+  EXPECT_EQ(status.volume, volume);
+  EXPECT_TRUE(status.volume.IsMuted());
+  EXPECT_EQ(status.repeat, model::RepeatMode::One);
+  EXPECT_TRUE(status.shuffle);
+
+  // Song loaded by player, and its state changing while playing
+  interface_notifier->NotifySongInformation(Song{
+      .filepath = "/path/to/song.mp3", .artist = "NIKITO", .title = "Bounce", .duration = 123});
+
+  status = controller->GetStatus();
+  EXPECT_EQ(status.state, Song::MediaState::Play);
+  EXPECT_THAT(status.artist, StrEq("NIKITO"));
+  EXPECT_THAT(status.title, StrEq("Bounce"));
+  EXPECT_EQ(status.position, 0);
+  EXPECT_EQ(status.duration, 123);
+
+  interface_notifier->NotifySongState({.state = Song::MediaState::Pause, .position = 42});
+
+  status = controller->GetStatus();
+  EXPECT_EQ(status.state, Song::MediaState::Pause);
+  EXPECT_EQ(status.position, 42);
+  EXPECT_THAT(status.title, StrEq("Bounce"));
+
+  // Song is gone, but settings are kept
+  interface_notifier->ClearSongInformation(false);
+
+  status = controller->GetStatus();
+  EXPECT_EQ(status.state, Song::MediaState::Empty);
+  EXPECT_THAT(status.artist, StrEq(""));
+  EXPECT_THAT(status.title, StrEq(""));
+  EXPECT_EQ(status.position, 0);
+  EXPECT_EQ(status.duration, 0);
+  EXPECT_EQ(status.volume, volume);
+  EXPECT_EQ(status.repeat, model::RepeatMode::One);
+  EXPECT_TRUE(status.shuffle);
+
+  // Without a title in metadata, filename (or URL, for streaming) is used instead
+  interface_notifier->NotifySongInformation(Song{.filepath = "/path/to/song.mp3"});
+  EXPECT_THAT(controller->GetStatus().title, StrEq("song.mp3"));
+
+  interface_notifier->NotifySongInformation(
+      Song{.stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=abc"}});
+  EXPECT_THAT(controller->GetStatus().title, StrEq("https://www.youtube.com/watch?v=abc"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, NotifyPlayerStatusToListener) {
+  using model::Song;
+  using ::testing::AnyNumber;
+
+  EXPECT_CALL(*GetEventDispatcher(), SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*GetAudioControl(), SetShuffle(_)).Times(AnyNumber());
+
+  std::vector<model::PlayerStatus> received;
+  controller->SetStatusListener(
+      [&received](const model::PlayerStatus& status) { received.push_back(status); });
+
+  // Current status is received right away
+  ASSERT_EQ(received.size(), 1);
+  EXPECT_EQ(received.back().state, Song::MediaState::Empty);
+  EXPECT_FALSE(received.back().shuffle);
+
+  // And then every change, from both UI and player
+  GetPlayerNotifier()->SetShuffle(true);
+  ASSERT_EQ(received.size(), 2);
+  EXPECT_TRUE(received.back().shuffle);
+
+  GetInterfaceNotifier()->NotifySongState({.state = Song::MediaState::Play, .position = 7});
+  ASSERT_EQ(received.size(), 3);
+  EXPECT_EQ(received.back().state, Song::MediaState::Play);
+  EXPECT_EQ(received.back().position, 7);
+  EXPECT_TRUE(received.back().shuffle);
+
+  // Until listener is removed
+  controller->SetStatusListener(nullptr);
+  GetPlayerNotifier()->SetShuffle(false);
+  EXPECT_EQ(received.size(), 3);
+  EXPECT_FALSE(controller->GetStatus().shuffle);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MediaControllerTest, DiscardCommandsWhenPlayerIsGone) {
   auto notifier = GetPlayerNotifier();
 

@@ -85,6 +85,7 @@ target_sources(
           model/audio_filter.cc
           model/block_identifier.cc
           model/bar_animation.cc
+          model/player_status.cc
           model/playlist.cc
           model/playlist_operation.cc
           model/question_data.cc

@@ -10,6 +10,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -18,6 +19,7 @@
 #include "audio/base/notifier.h"
 #include "audio/player.h"
 #include "model/application_error.h"
+#include "model/player_status.h"
 #include "model/song.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/notifier.h"
@@ -84,6 +86,21 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    * @brief Exit from Audio Analysis loop
    */
   void Exit();
+
+  /**
+   * @brief Get a copy of the last known player status (may be called from any thread)
+   * @return Player status
+   */
+  model::PlayerStatus GetStatus() const;
+
+  //! Called with player status (from the thread that has changed it, so it must not block)
+  using StatusListener = std::function<void(const model::PlayerStatus&)>;
+
+  /**
+   * @brief Set callback to receive the current player status, and the new one every time it changes
+   * @param listener Callback (or null, to stop receiving it)
+   */
+  void SetStatusListener(StatusListener listener);
 
   /* ******************************************************************************************** */
   //! Internal operations
@@ -374,6 +391,16 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   //! Get audio player
   std::shared_ptr<audio::AudioControl> GetPlayer() const;
 
+  //! Change player status, with exclusive access to it
+  template <typename Updater>
+  void UpdateStatus(Updater&& updater) {
+    std::scoped_lock lock(status_mutex_);
+    updater(status_);
+
+    // Called with exclusive access, so listener receives all changes in the same order
+    if (status_listener_) status_listener_(status_);
+  }
+
   /* ******************************************************************************************** */
   //! Variables
   std::weak_ptr<interface::EventDispatcher> dispatcher_;  //!< Send events to UI blocks
@@ -389,6 +416,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   //! Flag set when a new song starts playing, so analysis thread starts fade-in animation
   std::atomic<bool> fade_in_pending_ = false;
+
+  mutable std::mutex status_mutex_;  //!< Control access to player status
+  model::PlayerStatus status_;       //!< Last known player status (updated by UI and audio threads)
+  StatusListener status_listener_;   //!< Callback to notify every change on player status
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

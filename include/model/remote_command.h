@@ -52,6 +52,12 @@ inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 13> kRem
     {RemoteCommand::ToggleShuffle, "shuffle"},
 }};
 
+//! Name of the request to get player status (it is not a command, as nothing changes on player)
+inline constexpr std::string_view kRemoteStatusQuery{"status"};
+
+//! Name of the request to keep receiving player status, every time it changes
+inline constexpr std::string_view kRemoteSubscribeQuery{"subscribe"};
+
 //! Get remote command name
 inline std::string_view GetRemoteCommandName(RemoteCommand command) {
   for (const auto& [id, name] : kRemoteCommands) {
@@ -70,14 +76,18 @@ inline std::optional<RemoteCommand> ParseRemoteCommand(std::string_view name) {
   return std::nullopt;
 }
 
-//! Get names from all remote commands (separated by comma)
+//! Get names from all remote commands and the status queries (separated by comma)
 inline std::string GetRemoteCommandNames() {
   std::string names;
 
   for (const auto& [id, name] : kRemoteCommands) {
-    if (!names.empty()) names += ", ";
     names += name;
+    names += ", ";
   }
+
+  names += kRemoteStatusQuery;
+  names += ", ";
+  names += kRemoteSubscribeQuery;
 
   return names;
 }

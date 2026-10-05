@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "general/utils.h"
+#include "model/player_status.h"
 #include "model/playlist.h"
 #include "model/remote_command.h"
 #include "model/settings.h"
@@ -390,6 +391,91 @@ TEST(RemoteCommandTest, ParseAndPrintNames) {
   EXPECT_FALSE(model::ParseRemoteCommand("explode").has_value());
 
   EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::StartsWith("play-pause, play, pause, "));
+
+  // Status is not a command, but it is also available from command-line
+  EXPECT_FALSE(model::ParseRemoteCommand(model::kRemoteStatusQuery).has_value());
+  EXPECT_FALSE(model::ParseRemoteCommand(model::kRemoteSubscribeQuery).has_value());
+  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::EndsWith(", shuffle, status, subscribe"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(PlayerStatusTest, ConvertToJson) {
+  // Nothing is playing
+  EXPECT_THAT(model::to_json(model::PlayerStatus{}),
+              StrEq(R"({"artist":"","duration":0,"muted":false,"position":0,"repeat":"off",)"
+                    R"("shuffle":false,"state":"stopped","title":"","volume":100})"));
+
+  model::PlayerStatus status{
+      .state = model::Song::MediaState::Play,
+      .artist = "Deko \"Tok\"",
+      .title = "First line\nSecond line",
+      .position = 75,
+      .duration = 3725,
+      .volume = model::Volume{0.35F},
+      .repeat = model::RepeatMode::All,
+      .shuffle = true,
+  };
+  status.volume.ToggleMute();
+
+  // Always a single line, no matter the content
+  EXPECT_THAT(
+      model::to_json(status),
+      StrEq(R"({"artist":"Deko \"Tok\"","duration":3725,"muted":true,"position":75,"repeat":"all",)"
+            R"("shuffle":true,"state":"playing","title":"First line\nSecond line","volume":35})"));
+
+  status.state = model::Song::MediaState::Pause;
+  EXPECT_THAT(model::to_json(status), ::testing::HasSubstr(R"("state":"paused")"));
+
+  // Invalid text from metadata is replaced
+  status.title = "Invalid \xff text";
+  EXPECT_THAT(model::to_json(status),
+              ::testing::HasSubstr("\"title\":\"Invalid \xEF\xBF\xBD text\""));
+}
+
+/* ********************************************************************************************** */
+
+TEST(PlayerStatusTest, FormatAsText) {
+  model::PlayerStatus status{
+      .state = model::Song::MediaState::Play,
+      .artist = "Deko",
+      .title = "Use {volume} wisely",
+      .position = 75,
+      .duration = 3725,
+      .volume = model::Volume{0.35F},
+      .repeat = model::RepeatMode::One,
+      .shuffle = true,
+  };
+
+  const std::string json = model::to_json(status);
+
+  // Without a format, it is kept as JSON
+  auto text = model::format_status(json, std::nullopt);
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq(json));
+
+  // Values are not formatted again, even when they look like a field
+  text = model::format_status(json, "{artist} - {title} [{position}/{duration}]");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq("Deko - Use {volume} wisely [01:15/01:02:05]"));
+
+  text = model::format_status(json, "{state} vol:{volume}% muted:{muted} {repeat} {shuffle}");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq("playing vol:35% muted:off one on"));
+
+  // Anything that is not a field is kept
+  text = model::format_status(json, "{unknown} {{state}} {state {artist");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq("{unknown} {playing} {state {artist"));
+
+  text = model::format_status(json, "");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq(""));
+
+  // Reply from running instance is an error message
+  EXPECT_FALSE(model::format_status("unknown command \"status\"", "{title}").has_value());
+  EXPECT_FALSE(model::format_status("ok", std::nullopt).has_value());
+  EXPECT_FALSE(model::format_status("\"text\"", "{title}").has_value());
 }
 
 /* ********************************************************************************************** */
@@ -447,6 +533,111 @@ TEST_F(RemoteTest, SendRequestAndReceiveReply) {
   EXPECT_THAT(received, ::testing::ElementsAre("next", "stop"));
   EXPECT_FALSE(std::filesystem::exists(path));
   EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, ReplyBiggerThanRequest) {
+  std::string content(util::kMaxRemoteRequestSize * 4, 'a');
+
+  auto server =
+      util::RemoteServer::Create(path, [&content](const std::string&) { return content; });
+  ASSERT_NE(server, nullptr);
+
+  // Player status does not fit in the size accepted for a request
+  auto reply = util::SendRemoteRequest(path, "status");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq(content));
+
+  // Request is discarded by server when it is too big
+  EXPECT_FALSE(util::SendRemoteRequest(path, content).has_value());
+
+  // And so is the reply by client
+  content.assign(util::kMaxRemoteReplySize * 2, 'a');
+  EXPECT_FALSE(util::SendRemoteRequest(path, "status").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, PublishToSubscriber) {
+  std::vector<std::string> requests;
+
+  auto server = util::RemoteServer::Create(
+      path,
+      [&requests](const std::string& request) {
+        requests.push_back(request);
+        return "ok";
+      },
+      "subscribe");
+  ASSERT_NE(server, nullptr);
+
+  server->Publish("first");
+
+  // Last content published is received right away, and then every new one (each one published
+  // here only after receiving the previous, otherwise just the last of them would be sent)
+  std::vector<std::string> updates;
+
+  bool sent = util::ReceiveRemoteUpdates(path, "subscribe", [&](const std::string& update) {
+    updates.push_back(update);
+
+    if (update == "first") {
+      server->Publish("first");
+      server->Publish("second");
+    } else if (update == "second") {
+      server->Publish("third");
+    }
+
+    // Stop receiving
+    return update != "third";
+  });
+
+  EXPECT_TRUE(sent);
+  EXPECT_THAT(updates, ::testing::ElementsAre("first", "second", "third"));
+
+  // Server keeps working after subscriber is gone, including for other requests
+  server->Publish("fourth");
+
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("ok"));
+
+  // Subscriber stops waiting when server stops
+  updates.clear();
+
+  sent = util::ReceiveRemoteUpdates(path, "subscribe", [&](const std::string& update) {
+    updates.push_back(update);
+    server->Stop();
+    return true;
+  });
+
+  EXPECT_TRUE(sent);
+  EXPECT_THAT(updates, ::testing::ElementsAre("fourth"));
+
+  // Request to subscribe is never sent to handler
+  EXPECT_THAT(requests, ::testing::ElementsAre("next"));
+
+  // Nobody is listening anymore
+  EXPECT_FALSE(
+      util::ReceiveRemoteUpdates(path, "subscribe", [](const std::string&) { return true; }));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, SubscribeWithoutSupportFromServer) {
+  auto server = util::RemoteServer::Create(
+      path, [](const std::string& request) { return "unknown command " + request; });
+  ASSERT_NE(server, nullptr);
+
+  // It is handled as any other request: a single reply is sent and connection is closed
+  std::vector<std::string> updates;
+
+  bool sent = util::ReceiveRemoteUpdates(path, "subscribe", [&](const std::string& update) {
+    updates.push_back(update);
+    return true;
+  });
+
+  EXPECT_TRUE(sent);
+  EXPECT_THAT(updates, ::testing::ElementsAre("unknown command subscribe"));
 }
 
 /* ********************************************************************************************** */

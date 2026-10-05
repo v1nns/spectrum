@@ -96,6 +96,24 @@ A running `spectrum` may be controlled from another terminal (or from a script, 
 | `seek-forward` / `seek-backward` | Seek forward / backward |
 | `volume-up` / `volume-down` / `mute` | Volume up / down / mute |
 | `repeat` / `shuffle` | Change repeat mode (off, all, one) / toggle shuffle |
+| `status` | Print what is playing (nothing changes on player) |
+| `subscribe` | Same as `status`, but keeps running and prints it again every time something changes |
+
+By default, `status` is printed as JSON in a single line, useful for scripts and status bars:
+
+```bash
+$ spectrum -r status
+{"artist":"NIKITO","duration":123,"muted":false,"position":42,"repeat":"off","shuffle":false,"state":"playing","title":"Bounce","volume":80}
+```
+
+Use `-f <text>` to print it as text instead, where each field name between braces is replaced by its value (`state` is `playing`, `paused` or `stopped`; `position` and `duration` are printed as time):
+
+```bash
+$ spectrum -r status -f "{artist} - {title} [{position}/{duration}]"
+NIKITO - Bounce [00:42/02:03]
+```
+
+With `subscribe`, a status bar does not need to ask for status from time to time: one line is printed right away and another one on every change (while playing, that is once per second, because of `position`), until the running instance exits. It also accepts `-f <text>`, and then a line is printed only when that text changes.
 
 When more than one instance is running, only the first one started receives the commands.
 

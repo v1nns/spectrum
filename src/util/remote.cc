@@ -7,6 +7,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -20,10 +21,11 @@ namespace util {
 
 namespace {
 
-constexpr int kInvalidFd = -1;                //!< File descriptor not opened
-constexpr int kMaxPendingConnections = 4;     //!< Connections waiting to be accepted
-constexpr std::size_t kMaxMessageSize = 256;  //!< Maximum size for a request or a reply
-constexpr char kMessageEnd = '\n';            //!< Every request and reply is a single line
+constexpr int kInvalidFd = -1;                   //!< File descriptor not opened
+constexpr int kMaxPendingConnections = 4;        //!< Connections waiting to be accepted
+constexpr std::size_t kMaxSubscribers = 16;      //!< Connections kept open at the same time
+constexpr std::size_t kReceiveBufferSize = 256;  //!< Size of each chunk read from socket
+constexpr char kMessageEnd = '\n';               //!< Every request and reply is a single line
 
 //! Only the current user may access the socket and (when created by us) its directory
 constexpr mode_t kSocketMode = S_IRUSR | S_IWUSR;
@@ -94,14 +96,16 @@ int Connect(const std::string& path) {
 
 /* ********************************************************************************************** */
 
-//! Send a single line of text
-bool SendLine(int fd, const std::string& content) {
+//! Send a single line of text (optionally, fail instead of waiting for the other side to read it)
+bool SendLine(int fd, const std::string& content, bool wait = true) {
   const std::string message = content + kMessageEnd;
   std::size_t sent = 0;
 
+  // Do not raise a signal when the other side has already closed its connection
+  const int flags = wait ? MSG_NOSIGNAL : MSG_NOSIGNAL | MSG_DONTWAIT;
+
   while (sent < message.size()) {
-    // Do not raise a signal when the other side has already closed its connection
-    ssize_t count = send(fd, message.data() + sent, message.size() - sent, MSG_NOSIGNAL);
+    ssize_t count = send(fd, message.data() + sent, message.size() - sent, flags);
 
     if (count < 0 && errno == EINTR) continue;
     if (count <= 0) return false;
@@ -114,12 +118,14 @@ bool SendLine(int fd, const std::string& content) {
 
 /* ********************************************************************************************** */
 
-//! Receive a single line of text (or nothing, if the other side took too long or closed before it)
-std::optional<std::string> ReceiveLine(int fd, std::chrono::milliseconds timeout) {
+//! Receive a single line of text (or nothing, if the other side took too long, closed before it or
+//! sent more than the maximum size)
+std::optional<std::string> ReceiveLine(int fd, std::chrono::milliseconds timeout,
+                                       std::size_t max_size) {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   std::string line;
 
-  while (line.size() < kMaxMessageSize) {
+  while (line.size() < max_size) {
     const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
         deadline - std::chrono::steady_clock::now());
     if (remaining.count() <= 0) return std::nullopt;
@@ -130,7 +136,7 @@ std::optional<std::string> ReceiveLine(int fd, std::chrono::milliseconds timeout
     if (ready < 0 && errno == EINTR) continue;
     if (ready <= 0) return std::nullopt;
 
-    std::array<char, kMaxMessageSize> buffer;
+    std::array<char, kReceiveBufferSize> buffer;
     ssize_t count = recv(fd, buffer.data(), buffer.size(), 0);
 
     if (count < 0 && errno == EINTR) continue;
@@ -173,7 +179,7 @@ std::optional<std::string> SendRemoteRequest(const std::string& path, const std:
   if (fd == kInvalidFd) return std::nullopt;
 
   std::optional<std::string> reply;
-  if (SendLine(fd, request)) reply = ReceiveLine(fd, timeout);
+  if (SendLine(fd, request)) reply = ReceiveLine(fd, timeout, kMaxRemoteReplySize);
 
   Close(fd);
   return reply;
@@ -181,15 +187,56 @@ std::optional<std::string> SendRemoteRequest(const std::string& path, const std:
 
 /* ********************************************************************************************** */
 
-RemoteServer::RemoteServer(const std::string& path, int socket_fd, Handler handler)
-    : path_{path},
-      socket_fd_{socket_fd},
-      wake_fd_{kInvalidFd, kInvalidFd},
-      handler_{std::move(handler)} {}
+bool ReceiveRemoteUpdates(const std::string& path, const std::string& request,
+                          const std::function<bool(const std::string&)>& on_update) {
+  // Do not trust a socket that could have been created by someone else
+  if (!IsPrivateDirectory(GetDirectory(path))) return false;
+
+  int fd = Connect(path);
+  if (fd == kInvalidFd) return false;
+
+  bool receiving = SendLine(fd, request);
+  const bool sent = receiving;
+  std::string received;
+
+  // There is no time limit here, as the next update is sent only when something changes
+  while (receiving) {
+    std::array<char, kReceiveBufferSize> buffer;
+    ssize_t count = recv(fd, buffer.data(), buffer.size(), 0);
+
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0) break;
+
+    received.append(buffer.data(), static_cast<std::size_t>(count));
+
+    // More than one update may be received at once
+    std::size_t end;
+    while (receiving && (end = received.find(kMessageEnd)) != std::string::npos) {
+      receiving = on_update(received.substr(0, end));
+      received.erase(0, end + 1);
+    }
+
+    if (received.size() > kMaxRemoteReplySize) break;
+  }
+
+  Close(fd);
+  return sent;
+}
 
 /* ********************************************************************************************** */
 
-std::unique_ptr<RemoteServer> RemoteServer::Create(const std::string& path, Handler handler) {
+RemoteServer::RemoteServer(const std::string& path, int socket_fd, Handler handler,
+                           const std::string& subscription)
+    : path_{path},
+      socket_fd_{socket_fd},
+      wake_fd_{kInvalidFd, kInvalidFd},
+      handler_{std::move(handler)},
+      subscription_{subscription} {}
+
+/* ********************************************************************************************** */
+
+std::unique_ptr<RemoteServer> RemoteServer::Create(const std::string& path, Handler handler,
+                                                   const std::string& subscription) {
   sockaddr_un address;
   if (!FillAddress(path, address)) {
     ERROR("Invalid path for remote control socket=", std::quoted(path));
@@ -245,14 +292,15 @@ std::unique_ptr<RemoteServer> RemoteServer::Create(const std::string& path, Hand
   // Simply extend the RemoteServer class, as we do not want to expose the default constructor,
   // neither do we want to use std::make_unique explicitly calling operator new()
   struct MakeUniqueEnabler : public RemoteServer {
-    explicit MakeUniqueEnabler(const std::string& p, int f, Handler h)
-        : RemoteServer(p, f, std::move(h)) {}
+    explicit MakeUniqueEnabler(const std::string& p, int f, Handler h, const std::string& s)
+        : RemoteServer(p, f, std::move(h), s) {}
   };
 
   std::unique_ptr<RemoteServer> server =
-      std::make_unique<MakeUniqueEnabler>(path, fd, std::move(handler));
+      std::make_unique<MakeUniqueEnabler>(path, fd, std::move(handler), subscription);
 
-  if (pipe2(server->wake_fd_.data(), O_CLOEXEC) != 0) {
+  // Nobody waits to write on pipe, as it may be done by threads that must not be blocked
+  if (pipe2(server->wake_fd_.data(), O_CLOEXEC | O_NONBLOCK) != 0) {
     ERROR("Cannot create pipe for remote control, error=", std::strerror(errno));
     return nullptr;
   }
@@ -271,6 +319,8 @@ RemoteServer::~RemoteServer() { Stop(); }
 
 void RemoteServer::Stop() {
   if (thread_.joinable()) {
+    stopping_ = true;
+
     // Any content is enough to wake up thread
     const char wake = kMessageEnd;
     while (write(wake_fd_[kPipeWrite], &wake, sizeof(wake)) < 0 && errno == EINTR) {
@@ -278,6 +328,10 @@ void RemoteServer::Stop() {
 
     thread_.join();
   }
+
+  // Subscribers stop waiting for content when their connection is closed
+  for (int& subscriber : subscribers_) Close(subscriber);
+  subscribers_.clear();
 
   // Socket file is removed only by its owner
   if (socket_fd_ != kInvalidFd) unlink(path_.c_str());
@@ -289,16 +343,40 @@ void RemoteServer::Stop() {
 
 /* ********************************************************************************************** */
 
+void RemoteServer::Publish(const std::string& content) {
+  {
+    std::scoped_lock lock(publish_mutex_);
+    if (content == published_) return;
+
+    published_ = content;
+
+    // Thread was already woken up to send the previous content, so it sends this one instead
+    if (pending_) return;
+    pending_ = true;
+  }
+
+  // Any content is enough to wake up thread
+  const char wake = kMessageEnd;
+  while (write(wake_fd_[kPipeWrite], &wake, sizeof(wake)) < 0 && errno == EINTR) {
+  }
+}
+
+/* ********************************************************************************************** */
+
 void RemoteServer::Loop() {
   util::Logger::SetThreadName("remote");
 
-  // Position of each file descriptor in the list to wait for
+  // Position of each file descriptor in the list to wait for (followed by all subscribers)
   enum Polled { Socket, Wake, Total };
 
   while (true) {
-    std::array<pollfd, Polled::Total> fds{};
+    std::vector<pollfd> fds(Polled::Total);
     fds[Polled::Socket] = pollfd{.fd = socket_fd_, .events = POLLIN, .revents = 0};
     fds[Polled::Wake] = pollfd{.fd = wake_fd_[kPipeRead], .events = POLLIN, .revents = 0};
+
+    for (int subscriber : subscribers_) {
+      fds.push_back(pollfd{.fd = subscriber, .events = POLLIN, .revents = 0});
+    }
 
     if (poll(fds.data(), fds.size(), /*timeout=*/-1) < 0) {
       if (errno == EINTR) continue;
@@ -307,8 +385,22 @@ void RemoteServer::Loop() {
       break;
     }
 
-    // Received command to stop
-    if (fds[Polled::Wake].revents != 0) break;
+    if (fds[Polled::Wake].revents != 0) {
+      // Received command to stop
+      if (stopping_) break;
+
+      // Otherwise there is content to send, so discard what was written just to wake up thread
+      std::array<char, kReceiveBufferSize> discarded;
+      while (read(wake_fd_[kPipeRead], discarded.data(), discarded.size()) < 0 && errno == EINTR) {
+      }
+    }
+
+    // Nothing is expected from a subscriber after its request, so its connection was closed
+    for (std::size_t index = Polled::Total; index < fds.size(); index++) {
+      if (fds[index].revents != 0) RemoveSubscriber(fds[index].fd);
+    }
+
+    SendPublished();
 
     if (fds[Polled::Socket].revents != 0) HandleConnection();
   }
@@ -320,12 +412,75 @@ void RemoteServer::HandleConnection() {
   int client = accept4(socket_fd_, nullptr, nullptr, SOCK_CLOEXEC);
   if (client == kInvalidFd) return;
 
-  if (auto request = ReceiveLine(client, kRemoteTimeout); request) {
-    INFO("Received remote request=", std::quoted(*request));
+  if (auto request = ReceiveLine(client, kRemoteTimeout, kMaxRemoteRequestSize); request) {
+    LOG("Received remote request=", std::quoted(*request));
+
+    if (!subscription_.empty() && *request == subscription_) {
+      AddSubscriber(client);
+      return;
+    }
+
     SendLine(client, handler_(*request));
   }
 
   Close(client);
+}
+
+/* ********************************************************************************************** */
+
+void RemoteServer::AddSubscriber(int client) {
+  if (subscribers_.size() >= kMaxSubscribers) {
+    WARN("Refused remote subscriber, as there are already ", subscribers_.size(), " of them");
+    SendLine(client, "too many subscribers");
+    Close(client);
+    return;
+  }
+
+  std::string content;
+  {
+    std::scoped_lock lock(publish_mutex_);
+    content = published_;
+  }
+
+  // Do not wait for the next change to send something
+  if (!content.empty() && !SendLine(client, content)) {
+    Close(client);
+    return;
+  }
+
+  subscribers_.push_back(client);
+  INFO("Added remote subscriber, total=", subscribers_.size());
+}
+
+/* ********************************************************************************************** */
+
+void RemoteServer::RemoveSubscriber(int client) {
+  auto subscriber = std::find(subscribers_.begin(), subscribers_.end(), client);
+  if (subscriber == subscribers_.end()) return;
+
+  Close(*subscriber);
+  subscribers_.erase(subscriber);
+
+  INFO("Removed remote subscriber, total=", subscribers_.size());
+}
+
+/* ********************************************************************************************** */
+
+void RemoteServer::SendPublished() {
+  std::string content;
+  {
+    std::scoped_lock lock(publish_mutex_);
+    if (!pending_) return;
+
+    pending_ = false;
+    content = published_;
+  }
+
+  // Copy is used because list changes when a subscriber is removed
+  for (int subscriber : std::vector<int>{subscribers_}) {
+    // A subscriber that is not reading what it receives would block this thread
+    if (!SendLine(subscriber, content, /*wait=*/false)) RemoveSubscriber(subscriber);
+  }
 }
 
 }  // namespace util
