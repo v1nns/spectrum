@@ -90,6 +90,7 @@ A running `spectrum` may be controlled from another terminal (or from a script, 
 | Command | Action |
 | --- | --- |
 | `play-pause` | Play selected song, or pause/resume the current one |
+| `play` / `pause` | Same as above, but without toggling (useful for scripts) |
 | `stop` | Stop current song |
 | `previous` / `next` | Skip to previous / next song |
 | `seek-forward` / `seek-backward` | Seek forward / backward |

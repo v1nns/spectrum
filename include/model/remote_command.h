@@ -21,6 +21,8 @@ namespace model {
  */
 enum class RemoteCommand : std::uint8_t {
   PlayOrPause,     //!< Play selected song, or pause/resume current one
+  Play,            //!< Play selected song, or resume current one (nothing changes if playing)
+  Pause,           //!< Pause current song (nothing changes if not playing)
   Stop,            //!< Stop current song
   SkipToPrevious,  //!< Skip to previous song from queue
   SkipToNext,      //!< Skip to next song from queue
@@ -34,8 +36,10 @@ enum class RemoteCommand : std::uint8_t {
 };
 
 //! All remote commands with the name used in command-line
-inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 11> kRemoteCommands{{
+inline constexpr std::array<std::pair<RemoteCommand, std::string_view>, 13> kRemoteCommands{{
     {RemoteCommand::PlayOrPause, "play-pause"},
+    {RemoteCommand::Play, "play"},
+    {RemoteCommand::Pause, "pause"},
     {RemoteCommand::Stop, "stop"},
     {RemoteCommand::SkipToPrevious, "previous"},
     {RemoteCommand::SkipToNext, "next"},

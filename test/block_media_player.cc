@@ -1202,4 +1202,52 @@ TEST_F(MediaPlayerTest, RemoteCommandsWhilePlaying) {
   }
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, RemoteCommandsToPlayAndPauseDoNotToggle) {
+  using Identifier = interface::CustomEvent::Identifier;
+  using model::RemoteCommand;
+  using State = model::Song::MediaState;
+
+  const auto set_state = [this](State state) {
+    Process(interface::CustomEvent::UpdateSongState(
+        model::Song::CurrentInformation{.state = state, .position = 10}));
+  };
+
+  const auto expect_event = [this](Identifier id) {
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id, id)));
+  };
+
+  // Without a song: nothing to pause, and play starts the selected song
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  Process(interface::CustomEvent::RunRemoteCommand(RemoteCommand::Pause));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  expect_event(Identifier::PlaySong);
+  Process(interface::CustomEvent::RunRemoteCommand(RemoteCommand::Play));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // While playing: play changes nothing, and pause is sent to player
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{.duration = 146}));
+  set_state(State::Play);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  Process(interface::CustomEvent::RunRemoteCommand(RemoteCommand::Play));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  expect_event(Identifier::PauseSong);
+  Process(interface::CustomEvent::RunRemoteCommand(RemoteCommand::Pause));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // While paused: pause changes nothing, and play resumes song
+  set_state(State::Pause);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  Process(interface::CustomEvent::RunRemoteCommand(RemoteCommand::Pause));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  expect_event(Identifier::ResumeSong);
+  Process(interface::CustomEvent::RunRemoteCommand(RemoteCommand::Play));
+}
+
 }  // namespace

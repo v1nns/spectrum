@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -24,6 +25,11 @@ constexpr int kMaxPendingConnections = 4;     //!< Connections waiting to be acc
 constexpr std::size_t kMaxMessageSize = 256;  //!< Maximum size for a request or a reply
 constexpr char kMessageEnd = '\n';            //!< Every request and reply is a single line
 
+//! Only the current user may access the socket and (when created by us) its directory
+constexpr mode_t kSocketMode = S_IRUSR | S_IWUSR;
+constexpr mode_t kDirectoryMode = S_IRWXU;
+constexpr mode_t kAccessByOthers = S_IRWXG | S_IRWXO;
+
 //! Indexes for pipe file descriptors
 constexpr int kPipeRead = 0;
 constexpr int kPipeWrite = 1;
@@ -36,6 +42,26 @@ void Close(int& fd) {
 
   close(fd);
   fd = kInvalidFd;
+}
+
+/* ********************************************************************************************** */
+
+//! Get directory where socket is located
+std::string GetDirectory(const std::string& socket_path) {
+  return std::filesystem::path{socket_path}.parent_path().string();
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Check if it is a real directory (not a link to one) that belongs to the current user and
+ * nobody else can access. Otherwise, another user could replace the socket to receive commands
+ */
+bool IsPrivateDirectory(const std::string& directory) {
+  struct stat info;
+  if (lstat(directory.c_str(), &info) != 0) return false;
+
+  return S_ISDIR(info.st_mode) && info.st_uid == geteuid() && (info.st_mode & kAccessByOthers) == 0;
 }
 
 /* ********************************************************************************************** */
@@ -132,13 +158,17 @@ std::string GetRemoteSocketPath() {
     return (std::filesystem::path{runtime} / "spectrum.sock").string();
   }
 
-  return "/tmp/spectrum-" + std::to_string(getuid()) + ".sock";
+  // As this directory is shared by all users, socket is created inside a private one
+  return "/tmp/spectrum-" + std::to_string(geteuid()) + "/spectrum.sock";
 }
 
 /* ********************************************************************************************** */
 
 std::optional<std::string> SendRemoteRequest(const std::string& path, const std::string& request,
                                              std::chrono::milliseconds timeout) {
+  // Do not trust a socket that could have been created by someone else
+  if (!IsPrivateDirectory(GetDirectory(path))) return std::nullopt;
+
   int fd = Connect(path);
   if (fd == kInvalidFd) return std::nullopt;
 
@@ -166,6 +196,18 @@ std::unique_ptr<RemoteServer> RemoteServer::Create(const std::string& path, Hand
     return nullptr;
   }
 
+  // Create directory when it does not exist yet (it is fine to fail here, as it is checked next)
+  const std::string directory = GetDirectory(path);
+  mkdir(directory.c_str(), kDirectoryMode);
+
+  if (!IsPrivateDirectory(directory)) {
+    ERROR(
+        "Directory for remote control socket must belong to (and be accessible only by) the "
+        "current user, path=",
+        std::quoted(directory));
+    return nullptr;
+  }
+
   int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (fd == kInvalidFd) {
     ERROR("Cannot create remote control socket, error=", std::strerror(errno));
@@ -189,6 +231,9 @@ std::unique_ptr<RemoteServer> RemoteServer::Create(const std::string& path, Hand
     unlink(path.c_str());
     result = bind(fd, generic, sizeof(address));
   }
+
+  // Nobody is able to connect before listen(), so there is no window with default permissions
+  if (result == 0) result = chmod(path.c_str(), kSocketMode);
 
   if (result != 0 || listen(fd, kMaxPendingConnections) != 0) {
     ERROR("Cannot listen on remote control socket=", std::quoted(path),

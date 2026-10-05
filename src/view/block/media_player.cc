@@ -496,10 +496,21 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
 void MediaPlayer::HandleRemoteCommand(model::RemoteCommand command) {
   LOG("Handle remote command=", command);
   const keybinding::Key* key = nullptr;
+  const bool playing = song_.curr_info.state == model::Song::MediaState::Play;
 
   switch (command) {
     case model::RemoteCommand::PlayOrPause:
       key = &keybinding::MediaPlayer::PlayOrPause;
+      break;
+
+    case model::RemoteCommand::Play:
+      // Unlike the key, it does not toggle: song already playing is not paused
+      if (!playing) key = &keybinding::MediaPlayer::PlayOrPause;
+      break;
+
+    case model::RemoteCommand::Pause:
+      // Unlike the key, it does not toggle: song already paused is not resumed
+      if (playing) key = &keybinding::MediaPlayer::PlayOrPause;
       break;
 
     case model::RemoteCommand::Stop:

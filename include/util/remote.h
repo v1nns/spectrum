@@ -21,14 +21,15 @@ inline constexpr std::chrono::milliseconds kRemoteTimeout{1000};
 
 /**
  * @brief Get full path to socket used for remote control, which is "$XDG_RUNTIME_DIR/spectrum.sock"
- * or, when that is not set, "/tmp/spectrum-<uid>.sock"
+ * or, when that is not set, "/tmp/spectrum-<uid>/spectrum.sock"
  * @return String containing socket path
  */
 std::string GetRemoteSocketPath();
 
 /**
  * @brief Send a single request to the running instance and wait for its reply
- * @param path Socket path
+ * @param path Socket path (its directory must be accessible only by the current user, otherwise
+ * request is not sent, as someone else could be listening on it)
  * @param request Request (a single line of text)
  * @param timeout Maximum time to wait for reply
  * @return Reply from running instance (or nothing, if there is no instance listening on socket)
@@ -56,10 +57,11 @@ class RemoteServer {
  public:
   /**
    * @brief Factory method: Create socket and start listening on it using a new thread
-   * @param path Socket path
+   * @param path Socket path (its directory is created when it does not exist yet, and it must be
+   * accessible only by the current user)
    * @param handler Callback to handle each request
    * @return RemoteServer unique instance (or null, if socket is already used by another instance
-   * or could not be created)
+   * or could not be created in a safe way)
    */
   static std::unique_ptr<RemoteServer> Create(const std::string& path, Handler handler);
 

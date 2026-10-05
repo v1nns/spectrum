@@ -389,7 +389,7 @@ TEST(RemoteCommandTest, ParseAndPrintNames) {
   EXPECT_FALSE(model::ParseRemoteCommand("Next").has_value());
   EXPECT_FALSE(model::ParseRemoteCommand("explode").has_value());
 
-  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::StartsWith("play-pause, stop, "));
+  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::StartsWith("play-pause, play, pause, "));
 }
 
 /* ********************************************************************************************** */
@@ -400,13 +400,22 @@ TEST(RemoteCommandTest, ParseAndPrintNames) {
 class RemoteTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    path = (std::filesystem::temp_directory_path() / "spectrum_remote_test.sock").string();
-    std::filesystem::remove(path);
+    directory = std::filesystem::temp_directory_path() / "spectrum_remote_test";
+    std::filesystem::remove_all(directory);
+
+    path = (directory / "spectrum.sock").string();
   }
 
-  void TearDown() override { std::filesystem::remove(path); }
+  void TearDown() override { std::filesystem::remove_all(directory); }
 
-  std::string path;  //!< Socket path
+  //! Create directory for socket with the given permissions
+  void CreateDirectory(std::filesystem::perms permissions) {
+    std::filesystem::create_directories(directory);
+    std::filesystem::permissions(directory, permissions);
+  }
+
+  std::filesystem::path directory;  //!< Directory for socket
+  std::string path;                 //!< Socket path
 };
 
 /* ********************************************************************************************** */
@@ -419,6 +428,11 @@ TEST_F(RemoteTest, SendRequestAndReceiveReply) {
     return "reply to " + request;
   });
   ASSERT_NE(server, nullptr);
+
+  // Directory is created by server, and both of them are accessible only by the current user
+  using std::filesystem::perms;
+  EXPECT_EQ(std::filesystem::status(directory).permissions(), perms::owner_all);
+  EXPECT_EQ(std::filesystem::status(path).permissions(), perms::owner_read | perms::owner_write);
 
   auto reply = util::SendRemoteRequest(path, "next");
   ASSERT_TRUE(reply.has_value());
@@ -454,6 +468,7 @@ TEST_F(RemoteTest, OnlyFirstInstanceListens) {
 
 TEST_F(RemoteTest, ReplaceSocketLeftByAnotherInstance) {
   // Socket file without anyone listening on it, as left by an instance that did not exit properly
+  CreateDirectory(std::filesystem::perms::owner_all);
   std::ofstream(path) << "";
   ASSERT_TRUE(std::filesystem::exists(path));
   EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
@@ -464,6 +479,38 @@ TEST_F(RemoteTest, ReplaceSocketLeftByAnotherInstance) {
   auto reply = util::SendRemoteRequest(path, "next");
   ASSERT_TRUE(reply.has_value());
   EXPECT_THAT(*reply, StrEq("ok"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, DirectoryAccessibleByOthers) {
+  using std::filesystem::perms;
+  const auto handler = [](const std::string&) { return "ok"; };
+
+  // Someone else could replace the socket in this directory, so it is not used
+  CreateDirectory(perms::owner_all | perms::group_all | perms::others_all);
+  EXPECT_EQ(util::RemoteServer::Create(path, handler), nullptr);
+  EXPECT_FALSE(std::filesystem::exists(path));
+
+  // Even when there is a socket listening on it, request is not sent
+  std::filesystem::permissions(directory, perms::owner_all);
+  auto server = util::RemoteServer::Create(path, handler);
+  ASSERT_NE(server, nullptr);
+  ASSERT_TRUE(util::SendRemoteRequest(path, "next").has_value());
+
+  std::filesystem::permissions(directory, perms::owner_all | perms::others_exec);
+  EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+
+  // Same for a link to a directory
+  std::filesystem::permissions(directory, perms::owner_all);
+  const auto link = std::filesystem::temp_directory_path() / "spectrum_remote_test_link";
+  std::filesystem::remove(link);
+  std::filesystem::create_directory_symlink(directory, link);
+
+  EXPECT_FALSE(util::SendRemoteRequest((link / "spectrum.sock").string(), "next").has_value());
+  EXPECT_EQ(util::RemoteServer::Create((link / "other.sock").string(), handler), nullptr);
+
+  std::filesystem::remove(link);
 }
 
 /* ********************************************************************************************** */
@@ -490,7 +537,8 @@ TEST(RemotePathTest, SocketPath) {
   EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::StartsWith("/tmp/spectrum-"));
 
   unsetenv("XDG_RUNTIME_DIR");
-  EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::StartsWith("/tmp/spectrum-"));
+  EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::AllOf(::testing::StartsWith("/tmp/spectrum-"),
+                                                            ::testing::EndsWith("/spectrum.sock")));
 
   if (original) setenv("XDG_RUNTIME_DIR", original->c_str(), 1);
 }
