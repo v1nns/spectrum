@@ -113,6 +113,22 @@ void MediaController::Exit() {
 
 /* ********************************************************************************************** */
 
+model::PlayerStatus MediaController::GetStatus() const {
+  std::scoped_lock lock(status_mutex_);
+  return status_;
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::SetStatusListener(StatusListener listener) {
+  std::scoped_lock lock(status_mutex_);
+  status_listener_ = std::move(listener);
+
+  if (status_listener_) status_listener_(status_);
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::AnalysisHandler() {
   util::Logger::SetThreadName("analysis");
   LOG("Start analysis handler thread");
@@ -239,6 +255,8 @@ void MediaController::Stop() {
 /* ********************************************************************************************** */
 
 void MediaController::SetVolume(model::Volume value) {
+  UpdateStatus([&value](model::PlayerStatus& status) { status.volume = value; });
+
   auto player = GetPlayer();
   if (!player) return;
 
@@ -318,6 +336,8 @@ void MediaController::SkipToPreviousSong() {
 /* ********************************************************************************************** */
 
 void MediaController::SetRepeatMode(model::RepeatMode mode) {
+  UpdateStatus([mode](model::PlayerStatus& status) { status.repeat = mode; });
+
   auto player = GetPlayer();
   if (!player) return;
 
@@ -327,6 +347,8 @@ void MediaController::SetRepeatMode(model::RepeatMode mode) {
 /* ********************************************************************************************** */
 
 void MediaController::SetShuffle(bool enabled) {
+  UpdateStatus([enabled](model::PlayerStatus& status) { status.shuffle = enabled; });
+
   auto player = GetPlayer();
   if (!player) return;
 
@@ -337,6 +359,15 @@ void MediaController::SetShuffle(bool enabled) {
 
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimation);
+
+  // Settings chosen by user are kept, as they do not depend on song
+  UpdateStatus([](model::PlayerStatus& status) {
+    status.state = model::Song::MediaState::Empty;
+    status.artist.clear();
+    status.title.clear();
+    status.position = 0;
+    status.duration = 0;
+  });
 
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
@@ -353,6 +384,19 @@ void MediaController::NotifySongInformation(const model::Song& info) {
   // Bars must rise smoothly when the new song starts
   fade_in_pending_ = true;
 
+  UpdateStatus([&info](model::PlayerStatus& status) {
+    // Song starts playing right after being loaded
+    status.state = model::Song::MediaState::Play;
+    status.artist = info.artist;
+    status.position = 0;
+    status.duration = info.duration;
+
+    // Without a title in metadata, use the same as UI to identify song
+    status.title = !info.title.empty()            ? info.title
+                   : info.stream_info.has_value() ? info.stream_info->base_url
+                                                  : info.filepath.filename().string();
+  });
+
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
 
@@ -365,6 +409,11 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& curr_info) {
+  UpdateStatus([&curr_info](model::PlayerStatus& status) {
+    status.state = curr_info.state;
+    status.position = curr_info.position;
+  });
+
   if (curr_info.state == model::Song::MediaState::Pause ||
       curr_info.state == model::Song::MediaState::Finished) {
     // Enqueue animation to thread

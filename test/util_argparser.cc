@@ -312,6 +312,43 @@ TEST_F(ArgparserTest, ParseMultipleExpectedArgs) {
 
 /* ********************************************************************************************** */
 
+TEST_F(ArgparserTest, ParseExpectedArgWithMultipleValues) {
+  const ExpectedArguments expected{
+      Argument{.name = "remote",
+               .choices = {"-r", "--remote"},
+               .description = "Send command",
+               .is_multiple = true},
+      Argument{.name = "format", .choices = {"-f", "--format"}, .description = "Format output"},
+  };
+
+  // Everything until the next option is a single value, including what looks like an option
+  SetupCommandArguments({"-r", "volume", "-5", "--format", "{volume}"});
+  Parser argparser = util::ArgumentParser::Configure(expected);
+  ParsedArguments parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  EXPECT_EQ(parsed_args, (ParsedArguments{{{"remote", "volume -5"}, {"format", "{volume}"}}}));
+
+  SetupCommandArguments({"-f", "{title}", "-r", "play", "/path/with some", "spaces.mp3"});
+  parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  EXPECT_EQ(
+      parsed_args,
+      (ParsedArguments{{{"remote", "play /path/with some spaces.mp3"}, {"format", "{title}"}}}));
+
+  // A single value is still accepted, and only this argument takes more than one
+  SetupCommandArguments({"-r", "next"});
+  parsed_args = argparser->Parse(argv.size(), argv.data());
+
+  EXPECT_EQ(parsed_args, (ParsedArguments{{{"remote", "next"}}}));
+  EXPECT_TRUE(buffer.str().empty());
+
+  SetupCommandArguments({"-f", "{title}", "other"});
+  EXPECT_THROW(argparser->Parse(argv.size(), argv.data()), util::parsing_error);
+  EXPECT_EQ(buffer.str(), "spectrum: invalid option [other]\n");
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(ArgparserTest, ParseEmptyExpectedArgs) {
   SetupCommandArguments({});
 

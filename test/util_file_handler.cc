@@ -8,16 +8,21 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "general/utils.h"
+#include "model/player_status.h"
 #include "model/playlist.h"
+#include "model/remote_command.h"
 #include "model/settings.h"
 #include "model/song.h"
 #include "model/stream_info.h"
 #include "util/file_handler.h"
 #include "util/process.h"
+#include "util/remote.h"
 #include "util/sink.h"
 
 namespace {
@@ -372,6 +377,447 @@ TEST(ProcessTest, KillProcessWhenCanceled) {
   EXPECT_TRUE(result->canceled);
   EXPECT_FALSE(result->timed_out);
   EXPECT_LT(elapsed, std::chrono::seconds(2));
+}
+
+/* ********************************************************************************************** */
+
+TEST(RemoteCommandTest, ParseAndPrintNames) {
+  for (const auto& [command, name] : model::kRemoteCommands) {
+    EXPECT_EQ(model::ParseRemoteCommand(name), command) << name;
+    EXPECT_EQ(model::GetRemoteCommandName(command), name);
+  }
+
+  EXPECT_FALSE(model::ParseRemoteCommand("").has_value());
+  EXPECT_FALSE(model::ParseRemoteCommand("Next").has_value());
+  EXPECT_FALSE(model::ParseRemoteCommand("explode").has_value());
+
+  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::StartsWith("play-pause, play, pause, "));
+
+  // Status is not a command, but it is also available from command-line
+  EXPECT_FALSE(model::ParseRemoteCommand(model::kRemoteStatusQuery).has_value());
+  EXPECT_FALSE(model::ParseRemoteCommand(model::kRemoteSubscribeQuery).has_value());
+  EXPECT_THAT(model::GetRemoteCommandNames(), ::testing::EndsWith(", quit, status, subscribe"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(RemoteCommandTest, ParseRequestWithValue) {
+  using model::RemoteCommand;
+  using model::RemoteNumber;
+  using model::RemoteRequest;
+  using model::RepeatMode;
+
+  std::string error;
+
+  const auto parse = [&error](const std::string& text) {
+    error.clear();
+    return model::ParseRemoteRequest(text, error);
+  };
+
+  //! Text that must be accepted, with the request expected from it
+  const std::vector<std::pair<std::string, RemoteRequest>> valid{
+      {"next", RemoteCommand::SkipToNext},
+      {"  quit  ", RemoteCommand::Quit},
+      {"volume 50", {RemoteCommand::SetVolume, RemoteNumber{50, false}}},
+      {"volume 0", {RemoteCommand::SetVolume, RemoteNumber{0, false}}},
+      {"volume   100", {RemoteCommand::SetVolume, RemoteNumber{100, false}}},
+      {"volume +5", {RemoteCommand::SetVolume, RemoteNumber{5, true}}},
+      {"volume -150", {RemoteCommand::SetVolume, RemoteNumber{-150, true}}},
+      {"seek 90", {RemoteCommand::Seek, RemoteNumber{90, false}}},
+      {"seek 1:30", {RemoteCommand::Seek, RemoteNumber{90, false}}},
+      {"seek 90:00", {RemoteCommand::Seek, RemoteNumber{5400, false}}},
+      {"seek 1:02:03", {RemoteCommand::Seek, RemoteNumber{3723, false}}},
+      {"seek +10", {RemoteCommand::Seek, RemoteNumber{10, true}}},
+      {"seek -1:05", {RemoteCommand::Seek, RemoteNumber{-65, true}}},
+      {"repeat", RemoteCommand::ToggleRepeat},
+      {"repeat off", {RemoteCommand::ToggleRepeat, RepeatMode::Off}},
+      {"repeat all", {RemoteCommand::ToggleRepeat, RepeatMode::All}},
+      {"repeat one", {RemoteCommand::ToggleRepeat, RepeatMode::One}},
+      {"shuffle", RemoteCommand::ToggleShuffle},
+      {"shuffle on", {RemoteCommand::ToggleShuffle, true}},
+      {"shuffle off", {RemoteCommand::ToggleShuffle, false}},
+      {"play", RemoteCommand::Play},
+      {"play /path/with  some spaces.mp3 ",
+       {RemoteCommand::Play, std::string{"/path/with  some spaces.mp3"}}},
+      {"play https://www.youtube.com/watch?v=abc",
+       {RemoteCommand::Play, std::string{"https://www.youtube.com/watch?v=abc"}}},
+  };
+
+  for (const auto& [text, expected] : valid) {
+    auto request = parse(text);
+    ASSERT_TRUE(request.has_value()) << text << ": " << error;
+    EXPECT_EQ(*request, expected) << text;
+    EXPECT_THAT(error, IsEmpty());
+
+    // Request is sent as text to the running instance, which must get the same from it
+    std::ostringstream sent;
+    sent << *request;
+
+    auto received = parse(sent.str());
+    ASSERT_TRUE(received.has_value()) << sent.str() << ": " << error;
+    EXPECT_EQ(*received, expected) << sent.str();
+  }
+
+  //! Text that must be refused, with part of the reason for it
+  const std::vector<std::pair<std::string, std::string>> invalid{
+      {"", "unknown command \"\""},
+      {"explode now", "unknown command \"explode\""},
+      {"next 2", "command \"next\" does not accept a value"},
+      {"quit now", "command \"quit\" does not accept a value"},
+      {"volume", "missing value for command \"volume\""},
+      {"volume 101", "invalid value \"101\" for command \"volume\""},
+      {"volume 5%", "invalid value \"5%\""},
+      {"volume + 5", "invalid value \"+ 5\""},
+      {"volume 1234567", "invalid value \"1234567\""},
+      {"seek", "missing value for command \"seek\""},
+      {"seek 1:60", "invalid value \"1:60\" for command \"seek\""},
+      {"seek 1:2:3:4", "invalid value \"1:2:3:4\""},
+      {"seek 1:", "invalid value \"1:\""},
+      {"seek abc", "invalid value \"abc\""},
+      {"repeat two", "invalid value \"two\" for command \"repeat\" (expected off, all or one)"},
+      {"shuffle yes", "invalid value \"yes\" for command \"shuffle\" (expected on or off)"},
+  };
+
+  for (const auto& [text, reason] : invalid) {
+    EXPECT_FALSE(parse(text).has_value()) << text;
+    EXPECT_THAT(error, ::testing::HasSubstr(reason)) << text;
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST(PlayerStatusTest, ConvertToJson) {
+  // Nothing is playing
+  EXPECT_THAT(model::to_json(model::PlayerStatus{}),
+              StrEq(R"({"artist":"","duration":0,"muted":false,"position":0,"repeat":"off",)"
+                    R"("shuffle":false,"state":"stopped","title":"","volume":100})"));
+
+  model::PlayerStatus status{
+      .state = model::Song::MediaState::Play,
+      .artist = "Deko \"Tok\"",
+      .title = "First line\nSecond line",
+      .position = 75,
+      .duration = 3725,
+      .volume = model::Volume{0.35F},
+      .repeat = model::RepeatMode::All,
+      .shuffle = true,
+  };
+  status.volume.ToggleMute();
+
+  // Always a single line, no matter the content
+  EXPECT_THAT(
+      model::to_json(status),
+      StrEq(R"({"artist":"Deko \"Tok\"","duration":3725,"muted":true,"position":75,"repeat":"all",)"
+            R"("shuffle":true,"state":"playing","title":"First line\nSecond line","volume":35})"));
+
+  status.state = model::Song::MediaState::Pause;
+  EXPECT_THAT(model::to_json(status), ::testing::HasSubstr(R"("state":"paused")"));
+
+  // Invalid text from metadata is replaced
+  status.title = "Invalid \xff text";
+  EXPECT_THAT(model::to_json(status),
+              ::testing::HasSubstr("\"title\":\"Invalid \xEF\xBF\xBD text\""));
+}
+
+/* ********************************************************************************************** */
+
+TEST(PlayerStatusTest, FormatAsText) {
+  model::PlayerStatus status{
+      .state = model::Song::MediaState::Play,
+      .artist = "Deko",
+      .title = "Use {volume} wisely",
+      .position = 75,
+      .duration = 3725,
+      .volume = model::Volume{0.35F},
+      .repeat = model::RepeatMode::One,
+      .shuffle = true,
+  };
+
+  const std::string json = model::to_json(status);
+
+  // Without a format, it is kept as JSON
+  auto text = model::format_status(json, std::nullopt);
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq(json));
+
+  // Values are not formatted again, even when they look like a field
+  text = model::format_status(json, "{artist} - {title} [{position}/{duration}]");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq("Deko - Use {volume} wisely [01:15/01:02:05]"));
+
+  text = model::format_status(json, "{state} vol:{volume}% muted:{muted} {repeat} {shuffle}");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq("playing vol:35% muted:off one on"));
+
+  // Anything that is not a field is kept
+  text = model::format_status(json, "{unknown} {{state}} {state {artist");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq("{unknown} {playing} {state {artist"));
+
+  text = model::format_status(json, "");
+  ASSERT_TRUE(text.has_value());
+  EXPECT_THAT(*text, StrEq(""));
+
+  // Reply from running instance is an error message
+  EXPECT_FALSE(model::format_status("unknown command \"status\"", "{title}").has_value());
+  EXPECT_FALSE(model::format_status("ok", std::nullopt).has_value());
+  EXPECT_FALSE(model::format_status("\"text\"", "{title}").has_value());
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with RemoteServer class (using a socket in a temporary directory)
+ */
+class RemoteTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    directory = std::filesystem::temp_directory_path() / "spectrum_remote_test";
+    std::filesystem::remove_all(directory);
+
+    path = (directory / "spectrum.sock").string();
+  }
+
+  void TearDown() override { std::filesystem::remove_all(directory); }
+
+  //! Create directory for socket with the given permissions
+  void CreateDirectory(std::filesystem::perms permissions) {
+    std::filesystem::create_directories(directory);
+    std::filesystem::permissions(directory, permissions);
+  }
+
+  std::filesystem::path directory;  //!< Directory for socket
+  std::string path;                 //!< Socket path
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, SendRequestAndReceiveReply) {
+  std::vector<std::string> received;
+
+  auto server = util::RemoteServer::Create(path, [&received](const std::string& request) {
+    received.push_back(request);
+    return "reply to " + request;
+  });
+  ASSERT_NE(server, nullptr);
+
+  // Directory is created by server, and both of them are accessible only by the current user
+  using std::filesystem::perms;
+  EXPECT_EQ(std::filesystem::status(directory).permissions(), perms::owner_all);
+  EXPECT_EQ(std::filesystem::status(path).permissions(), perms::owner_read | perms::owner_write);
+
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("reply to next"));
+
+  reply = util::SendRemoteRequest(path, "stop");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("reply to stop"));
+
+  // Socket is removed when server stops, and nobody replies anymore
+  server->Stop();
+  EXPECT_THAT(received, ::testing::ElementsAre("next", "stop"));
+  EXPECT_FALSE(std::filesystem::exists(path));
+  EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, ReplyBiggerThanRequest) {
+  std::string content(util::kMaxRemoteRequestSize + 1, 'a');
+
+  auto server =
+      util::RemoteServer::Create(path, [&content](const std::string&) { return content; });
+  ASSERT_NE(server, nullptr);
+
+  // Player status does not fit in the size accepted for a request
+  auto reply = util::SendRemoteRequest(path, "status");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq(content));
+
+  // Request is discarded by server when it is too big
+  EXPECT_FALSE(util::SendRemoteRequest(path, content).has_value());
+
+  // And so is the reply by client
+  content.assign(util::kMaxRemoteReplySize * 2, 'a');
+  EXPECT_FALSE(util::SendRemoteRequest(path, "status").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, PublishToSubscriber) {
+  std::vector<std::string> requests;
+
+  auto server = util::RemoteServer::Create(
+      path,
+      [&requests](const std::string& request) {
+        requests.push_back(request);
+        return "ok";
+      },
+      "subscribe");
+  ASSERT_NE(server, nullptr);
+
+  server->Publish("first");
+
+  // Last content published is received right away, and then every new one (each one published
+  // here only after receiving the previous, otherwise just the last of them would be sent)
+  std::vector<std::string> updates;
+
+  bool sent = util::ReceiveRemoteUpdates(path, "subscribe", [&](const std::string& update) {
+    updates.push_back(update);
+
+    if (update == "first") {
+      server->Publish("first");
+      server->Publish("second");
+    } else if (update == "second") {
+      server->Publish("third");
+    }
+
+    // Stop receiving
+    return update != "third";
+  });
+
+  EXPECT_TRUE(sent);
+  EXPECT_THAT(updates, ::testing::ElementsAre("first", "second", "third"));
+
+  // Server keeps working after subscriber is gone, including for other requests
+  server->Publish("fourth");
+
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("ok"));
+
+  // Subscriber stops waiting when server stops
+  updates.clear();
+
+  sent = util::ReceiveRemoteUpdates(path, "subscribe", [&](const std::string& update) {
+    updates.push_back(update);
+    server->Stop();
+    return true;
+  });
+
+  EXPECT_TRUE(sent);
+  EXPECT_THAT(updates, ::testing::ElementsAre("fourth"));
+
+  // Request to subscribe is never sent to handler
+  EXPECT_THAT(requests, ::testing::ElementsAre("next"));
+
+  // Nobody is listening anymore
+  EXPECT_FALSE(
+      util::ReceiveRemoteUpdates(path, "subscribe", [](const std::string&) { return true; }));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, SubscribeWithoutSupportFromServer) {
+  auto server = util::RemoteServer::Create(
+      path, [](const std::string& request) { return "unknown command " + request; });
+  ASSERT_NE(server, nullptr);
+
+  // It is handled as any other request: a single reply is sent and connection is closed
+  std::vector<std::string> updates;
+
+  bool sent = util::ReceiveRemoteUpdates(path, "subscribe", [&](const std::string& update) {
+    updates.push_back(update);
+    return true;
+  });
+
+  EXPECT_TRUE(sent);
+  EXPECT_THAT(updates, ::testing::ElementsAre("unknown command subscribe"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, OnlyFirstInstanceListens) {
+  auto first = util::RemoteServer::Create(path, [](const std::string&) { return "first"; });
+  ASSERT_NE(first, nullptr);
+
+  auto second = util::RemoteServer::Create(path, [](const std::string&) { return "second"; });
+  EXPECT_EQ(second, nullptr);
+
+  // First instance keeps its socket
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("first"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, ReplaceSocketLeftByAnotherInstance) {
+  // Socket file without anyone listening on it, as left by an instance that did not exit properly
+  CreateDirectory(std::filesystem::perms::owner_all);
+  std::ofstream(path) << "";
+  ASSERT_TRUE(std::filesystem::exists(path));
+  EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+
+  auto server = util::RemoteServer::Create(path, [](const std::string&) { return "ok"; });
+  ASSERT_NE(server, nullptr);
+
+  auto reply = util::SendRemoteRequest(path, "next");
+  ASSERT_TRUE(reply.has_value());
+  EXPECT_THAT(*reply, StrEq("ok"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, DirectoryAccessibleByOthers) {
+  using std::filesystem::perms;
+  const auto handler = [](const std::string&) { return "ok"; };
+
+  // Someone else could replace the socket in this directory, so it is not used
+  CreateDirectory(perms::owner_all | perms::group_all | perms::others_all);
+  EXPECT_EQ(util::RemoteServer::Create(path, handler), nullptr);
+  EXPECT_FALSE(std::filesystem::exists(path));
+
+  // Even when there is a socket listening on it, request is not sent
+  std::filesystem::permissions(directory, perms::owner_all);
+  auto server = util::RemoteServer::Create(path, handler);
+  ASSERT_NE(server, nullptr);
+  ASSERT_TRUE(util::SendRemoteRequest(path, "next").has_value());
+
+  std::filesystem::permissions(directory, perms::owner_all | perms::others_exec);
+  EXPECT_FALSE(util::SendRemoteRequest(path, "next").has_value());
+
+  // Same for a link to a directory
+  std::filesystem::permissions(directory, perms::owner_all);
+  const auto link = std::filesystem::temp_directory_path() / "spectrum_remote_test_link";
+  std::filesystem::remove(link);
+  std::filesystem::create_directory_symlink(directory, link);
+
+  EXPECT_FALSE(util::SendRemoteRequest((link / "spectrum.sock").string(), "next").has_value());
+  EXPECT_EQ(util::RemoteServer::Create((link / "other.sock").string(), handler), nullptr);
+
+  std::filesystem::remove(link);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, InvalidSocketPath) {
+  const std::string too_long(512, 'a');
+
+  EXPECT_EQ(util::RemoteServer::Create("", [](const std::string&) { return ""; }), nullptr);
+  EXPECT_EQ(util::RemoteServer::Create(too_long, [](const std::string&) { return ""; }), nullptr);
+  EXPECT_FALSE(util::SendRemoteRequest(too_long, "next").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST(RemotePathTest, SocketPath) {
+  std::optional<std::string> original;
+  if (const char* runtime = std::getenv("XDG_RUNTIME_DIR"); runtime) original = runtime;
+
+  setenv("XDG_RUNTIME_DIR", "/run/user/1234", 1);
+  EXPECT_THAT(util::GetRemoteSocketPath(), StrEq("/run/user/1234/spectrum.sock"));
+
+  // Relative path is ignored
+  setenv("XDG_RUNTIME_DIR", "relative/dir", 1);
+  EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::StartsWith("/tmp/spectrum-"));
+
+  unsetenv("XDG_RUNTIME_DIR");
+  EXPECT_THAT(util::GetRemoteSocketPath(), ::testing::AllOf(::testing::StartsWith("/tmp/spectrum-"),
+                                                            ::testing::EndsWith("/spectrum.sock")));
+
+  if (original) setenv("XDG_RUNTIME_DIR", original->c_str(), 1);
 }
 
 /* ********************************************************************************************** */

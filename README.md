@@ -83,6 +83,47 @@ To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be i
 | <kbd>t</kbd> | Choose theme |
 | <kbd>q</kbd> | Quit |
 
+### Remote control
+
+A running `spectrum` may be controlled from another terminal (or from a script, a window manager keybinding, etc.) with `spectrum -r <command>`, for example `spectrum -r next`. Available commands:
+
+| Command | Action |
+| --- | --- |
+| `play-pause` | Play selected song, or pause/resume the current one |
+| `play` / `pause` | Same as above, but without toggling (useful for scripts) |
+| `play <target>` | Play a file (followed by the other ones from its directory), a directory, a YouTube URL or a saved playlist (by its name) |
+| `stop` | Stop current song |
+| `previous` / `next` | Skip to previous / next song |
+| `seek-forward` / `seek-backward` | Seek forward / backward |
+| `seek <position>` | Seek to a position (`90` or `1:30`), or by some seconds from the current one (`+10` or `-10`) |
+| `volume-up` / `volume-down` / `mute` | Volume up / down / mute |
+| `volume <level>` | Set volume (from `0` to `100`), or change it (`+5` or `-5`) |
+| `repeat` / `shuffle` | Change repeat mode (off, all, one) / toggle shuffle |
+| `repeat <off\|all\|one>` / `shuffle <on\|off>` | Set repeat mode / shuffle, without toggling |
+| `quit` | Exit from the running instance |
+| `status` | Print what is playing (nothing changes on player) |
+| `subscribe` | Same as `status`, but keeps running and prints it again every time something changes |
+
+A command and its value may be written as separate words or as a single one, so `spectrum -r volume 50` is the same as `spectrum -r "volume 50"`.
+
+By default, `status` is printed as JSON in a single line, useful for scripts and status bars:
+
+```bash
+$ spectrum -r status
+{"artist":"NIKITO","duration":123,"muted":false,"position":42,"repeat":"off","shuffle":false,"state":"playing","title":"Bounce","volume":80}
+```
+
+Use `-f <text>` to print it as text instead, where each field name between braces is replaced by its value (`state` is `playing`, `paused` or `stopped`; `position` and `duration` are printed as time):
+
+```bash
+$ spectrum -r status -f "{artist} - {title} [{position}/{duration}]"
+NIKITO - Bounce [00:42/02:03]
+```
+
+With `subscribe`, a status bar does not need to ask for status from time to time: one line is printed right away and another one on every change (while playing, that is once per second, because of `position`), until the running instance exits. It also accepts `-f <text>`, and then a line is printed only when that text changes.
+
+When more than one instance is running, only the first one started receives the commands.
+
 ### Files
 
 Playlists and settings (volume, theme and visualizer animation) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).

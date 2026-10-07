@@ -35,6 +35,9 @@ struct Argument {
   std::string description;                       //!< Detailed description
   bool is_empty = false;                         //!< Argument expects a value to be parsed
 
+  //! Everything until the next option is part of the value (joined by space), e.g. "volume +5"
+  bool is_multiple = false;
+
   //! Overloaded operator
   friend bool operator<(const Argument& lhs, const Argument& rhs) { return lhs.name < rhs.name; }
 };

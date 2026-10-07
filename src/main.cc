@@ -5,6 +5,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
+#include <iostream>
+#include <optional>
+#include <sstream>
 #include <string>
 #include <system_error>
 
@@ -12,9 +15,13 @@
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
+#include "middleware/remote_playlist.h"
+#include "model/player_status.h"
+#include "model/remote_command.h"
 #include "util/arg_parser.h"
 #include "util/file_handler.h"
 #include "util/logger.h"
+#include "util/remote.h"
 #include "view/base/terminal.h"
 
 /**
@@ -24,7 +31,16 @@ struct Settings {
   std::string log_path = "";     //!< Path to log file (empty if logging is disabled)
   std::string initial_dir = "";  //!< Initial directory to list in "files" block
   bool verbose_logging = false;  //!< Enable verbose log messages
+
+  //! Command to send to the running instance (when filled, a new instance is not started)
+  std::optional<std::string> remote_command;
+
+  //! Text with fields to print player status (when empty, it is printed as JSON)
+  std::optional<std::string> remote_format;
 };
+
+//! Reply sent to remote instance when its command was accepted
+static constexpr char kRemoteReplyOk[] = "ok";
 
 /**
  * @brief Command-line argument parsing
@@ -59,11 +75,33 @@ bool parse(int argc, char** argv, Settings& options) {
             .description = "Enable verbose logging messages",
             .is_empty = true,
         },
+        Argument{
+            .name = "remote",
+            .choices = {"-r", "--remote"},
+            .description =
+                "Send command to the running instance (" + model::GetRemoteCommandNames() + ")",
+            .is_multiple = true,
+        },
+        Argument{
+            .name = "format",
+            .choices = {"-f", "--format"},
+            .description = "Print status from the running instance using this text instead of "
+                           "JSON (e.g. \"{artist} - {title}\")",
+        },
     };
 
     // Configure argument parser and run to get parsed arguments
     Parser arg_parser = util::ArgumentParser::Configure(expected_args);
     ParsedArguments parsed_args = arg_parser->Parse(argc, argv);
+
+    // Command is handled by the running instance, so nothing else is used (not even logging)
+    if (auto& remote = parsed_args["remote"]; remote) {
+      options.remote_command = remote->get_string();
+      if (auto& format = parsed_args["format"]; format)
+        options.remote_format = format->get_string();
+
+      return true;
+    }
 
     // Check if contains filepath for logging (otherwise, use default path)
     if (auto& logging_path = parsed_args["log"]; logging_path) {
@@ -104,12 +142,135 @@ bool parse(int argc, char** argv, Settings& options) {
 
 /* ********************************************************************************************** */
 
+/**
+ * @brief Print status from the running instance every time it changes, until that instance exits
+ *
+ * @param format Text with fields to print status (if empty, it is printed as received, in JSON)
+ * @return EXIT_SUCCESS if status was received from the running instance, otherwise EXIT_FAILURE
+ */
+int print_remote_status_updates(const std::optional<std::string>& format) {
+  bool failed = false;
+  std::optional<std::string> printed;
+
+  auto print = [&format, &failed, &printed](const std::string& update) {
+    auto status = model::format_status(update, format);
+
+    // Anything other than status is an error message
+    if (!status) {
+      std::cerr << "spectrum: " << update << "\n";
+      failed = true;
+      return false;
+    }
+
+    // Nothing new to print when the change was on a field not used by text
+    if (status == printed) return true;
+    printed = status;
+
+    // Whoever is reading it (e.g. a status bar) must receive each update right away
+    std::cout << *status << std::endl;
+    return std::cout.good();
+  };
+
+  bool sent = util::ReceiveRemoteUpdates(util::GetRemoteSocketPath(),
+                                         std::string{model::kRemoteSubscribeQuery}, print);
+
+  if (!sent) {
+    std::cerr << "spectrum: there is no running instance to control\n";
+    return EXIT_FAILURE;
+  }
+
+  return failed ? EXIT_FAILURE : EXIT_SUCCESS;
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Send command to the running instance (or ask for its status, which is printed)
+ *
+ * @param command Command name
+ * @param format Text with fields to print status (if empty, it is printed as received, in JSON)
+ * @return EXIT_SUCCESS if command was accepted by the running instance, otherwise EXIT_FAILURE
+ */
+int send_remote_command(const std::string& command, const std::optional<std::string>& format) {
+  if (command == model::kRemoteSubscribeQuery) return print_remote_status_updates(format);
+
+  const bool is_query = command == model::kRemoteStatusQuery;
+  std::string request = command;
+
+  if (!is_query) {
+    std::string error;
+    auto parsed = model::ParseRemoteRequest(command, error);
+
+    if (!parsed) {
+      std::cerr << "spectrum: " << error;
+
+      // Command exists when error is about its value, so there is no reason to list all of them
+      if (!model::ParseRemoteCommand(command.substr(0, command.find(' ')))) {
+        std::cerr << " (available: " << model::GetRemoteCommandNames() << ")";
+      }
+
+      std::cerr << "\n";
+      return EXIT_FAILURE;
+    }
+
+    // Running instance has another working directory, so it must receive the full path. Anything
+    // that does not exist here is sent as it is (e.g. name of a playlist)
+    if (auto* target = std::get_if<std::string>(&parsed->value);
+        target && !middleware::IsRemoteUrl(*target)) {
+      std::error_code failure;
+
+      if (auto path = std::filesystem::absolute(*target, failure);
+          !failure && std::filesystem::exists(path, failure)) {
+        *target = path.lexically_normal().string();
+      }
+    }
+
+    // Send it in a single format, no matter how it was written
+    std::ostringstream text;
+    text << *parsed;
+    request = text.str();
+  }
+
+  auto reply = util::SendRemoteRequest(util::GetRemoteSocketPath(), request);
+
+  if (!reply) {
+    std::cerr << "spectrum: there is no running instance to control\n";
+    return EXIT_FAILURE;
+  }
+
+  if (is_query) {
+    // Anything other than status is an error message
+    auto status = model::format_status(*reply, format);
+
+    if (!status) {
+      std::cerr << "spectrum: " << *reply << "\n";
+      return EXIT_FAILURE;
+    }
+
+    std::cout << *status << "\n";
+    return EXIT_SUCCESS;
+  }
+
+  if (*reply != kRemoteReplyOk) {
+    std::cerr << "spectrum: " << *reply << "\n";
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/* ********************************************************************************************** */
+
 int main(int argc, char** argv) {
   // In case of getting some unexpected argument or some other error: do not execute the program
   Settings options;
   if (!parse(argc, argv, options)) {
     return EXIT_SUCCESS;
   }
+
+  // Instead of starting a new instance, just send command to the one already running
+  if (options.remote_command)
+    return send_remote_command(*options.remote_command, options.remote_format);
 
   // Write some information useful to understand any issue reported from this log
   util::Logger::SetThreadName("ui");
@@ -162,8 +323,47 @@ int main(int argc, char** argv) {
     screen.ExitLoopClosure()();
   });
 
+  // Listen for commands sent by other instances (only the first instance running does it)
+  auto remote = util::RemoteServer::Create(
+      util::GetRemoteSocketPath(),
+      [&terminal, &middleware, &file_handler](const std::string& request) -> std::string {
+        // Status is read directly from this thread, without waiting for UI
+        if (request == model::kRemoteStatusQuery) return model::to_json(middleware->GetStatus());
+
+        // Not written for status, as it may be requested many times (e.g. by a status bar)
+        INFO("Received remote command=", std::quoted(request));
+
+        std::string error;
+        auto command = model::ParseRemoteRequest(request, error);
+        if (!command) return error;
+
+        // Unlike the other commands, this one does not depend on anything from UI
+        if (const auto* target = std::get_if<std::string>(&command->value); target) {
+          auto playlist = middleware::CreateRemotePlaylist(*target, file_handler);
+          if (!playlist) return "nothing to play was found for \"" + *target + "\"";
+
+          terminal->SendEvent(interface::CustomEvent::NotifyPlaylistSelection(*playlist));
+          return kRemoteReplyOk;
+        }
+
+        terminal->SendEvent(interface::CustomEvent::RunRemoteCommand(*command));
+        return kRemoteReplyOk;
+      },
+      std::string{model::kRemoteSubscribeQuery});
+
+  // Every change on status is sent to the instances that asked to receive it
+  if (remote) {
+    middleware->SetStatusListener(
+        [&remote](const model::PlayerStatus& status) { remote->Publish(model::to_json(status)); });
+  }
+
   // Start GUI loop and clear screen after exit
   screen.Loop(terminal);
+
+  if (remote) {
+    middleware->SetStatusListener(nullptr);
+    remote->Stop();
+  }
   screen.ResetPosition(true);
 
   return EXIT_SUCCESS;

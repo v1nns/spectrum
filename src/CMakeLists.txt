@@ -81,13 +81,16 @@ target_sources(
           audio/lyric/lyric_finder.cc
           # middleware
           middleware/media_controller.cc
+          middleware/remote_playlist.cc
           # model
           model/audio_filter.cc
           model/block_identifier.cc
           model/bar_animation.cc
+          model/player_status.cc
           model/playlist.cc
           model/playlist_operation.cc
           model/question_data.cc
+          model/remote_command.cc
           model/song.cc
           model/stream_info.cc
           # view
@@ -128,6 +131,7 @@ target_sources(
           util/file_handler.cc
           util/logger.cc
           util/process.cc
+          util/remote.cc
           util/sink.cc)
 
 target_include_directories(
