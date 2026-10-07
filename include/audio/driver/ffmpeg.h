@@ -255,8 +255,21 @@ class FFmpeg final : public audio::Decoder {
    *
    * @param samples Maximum number of samples to send to Audio Player API callback
    * @param callback Audio Player API callback
+   * @param flush Signal end of stream to filtergraph (instead of sending decoded frame), to pull
+   * the last samples from it
    */
-  void ProcessFrame(int samples, AudioCallback& callback);
+  void ProcessFrame(int samples, AudioCallback& callback, bool flush = false);
+
+  /**
+   * @brief Flush frames still buffered by decoder and filtergraph after reaching the end of input
+   * stream, sending them to Player API callback
+   *
+   * @param samples Maximum number of samples to send to Audio Player API callback
+   * @param callback Audio Player API callback
+   * @return true if song position has changed while flushing (so decoding must be resumed), false
+   * otherwise
+   */
+  bool Flush(int samples, AudioCallback& callback);
 
   /* ******************************************************************************************** */
   //! Variables

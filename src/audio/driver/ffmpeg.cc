@@ -379,11 +379,30 @@ error::Code FFmpeg::CreateFilterAformat(const char* name) {
                                AV_CH_LAYOUT_STEREO);
 #endif
 
-  // Set filter options through the AVOptions API
-  av_opt_set(aformat_ctx, "channel_layout", ch_layout.data(), AV_OPT_SEARCH_CHILDREN);
-  av_opt_set(aformat_ctx, "sample_fmts", av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
-             AV_OPT_SEARCH_CHILDREN);
-  av_opt_set_int(aformat_ctx, "sample_rate", kSampleRate, AV_OPT_SEARCH_CHILDREN);
+  std::string sample_rate = std::to_string(kSampleRate);
+
+  // Set filter options through the AVOptions API (as lists with a single value, in string format,
+  // which is accepted by all FFmpeg versions)
+  if (int result =
+          av_opt_set(aformat_ctx, "channel_layouts", ch_layout.data(), AV_OPT_SEARCH_CHILDREN);
+      result < 0) {
+    ERROR("Cannot set channel layout for the aformat filter, error=", ErrorToString(result));
+    return error::kUnknownError;
+  }
+
+  if (int result = av_opt_set(aformat_ctx, "sample_fmts", av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
+                              AV_OPT_SEARCH_CHILDREN);
+      result < 0) {
+    ERROR("Cannot set sample format for the aformat filter, error=", ErrorToString(result));
+    return error::kUnknownError;
+  }
+
+  if (int result =
+          av_opt_set(aformat_ctx, "sample_rates", sample_rate.c_str(), AV_OPT_SEARCH_CHILDREN);
+      result < 0) {
+    ERROR("Cannot set sample rate for the aformat filter, error=", ErrorToString(result));
+    return error::kUnknownError;
+  }
 
   // Initialize filter
   if (int result = avfilter_init_str(aformat_ctx, nullptr); result < 0) {
@@ -653,53 +672,86 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   AVFrame* frame = shared_context_.frame_decoded.get();
   int64_t song_duration = (input_stream_->duration / AV_TIME_BASE);
 
-  // Read audio raw data from input stream
-  while (av_read_frame(input_stream_.get(), packet) >= 0 && shared_context_.KeepDecoding()) {
-    // If not the same stream index, we should not try to decode it
-    if (packet->stream_index != stream_index_) {
-      av_packet_unref(packet);
-      continue;
-    }
-
-    // Send packet to decoder
-    if (auto result = avcodec_send_packet(decoder_.get(), packet); result < 0) {
-      // It is not actually an error, this kind of situation may happen when seek frame is used
-      if (result == AVERROR_INVALIDDATA && shared_context_.position == song_duration) {
-        break;
+  // Read audio raw data from input stream. Once it ends, flush what is still buffered internally,
+  // and in case of seeking to a new position in the meantime, get back to reading
+  do {
+    while (av_read_frame(input_stream_.get(), packet) >= 0 && shared_context_.KeepDecoding()) {
+      // If not the same stream index, we should not try to decode it
+      if (packet->stream_index != stream_index_) {
+        av_packet_unref(packet);
+        continue;
       }
 
-      ERROR("Cannot decode song, error=", ErrorToString(result));
-      return error::kDecodeFileFailed;
-    }
-
-    // Receive frames from decoder
-    while (avcodec_receive_frame(decoder_.get(), frame) >= 0 && shared_context_.KeepDecoding()) {
-      // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
-      shared_context_.position = packet->pts / shared_context_.time_base.den;
-
-      // UI sent event to update audio filters with new parameters, so it is necessary to reset it
-      if (shared_context_.reset_filters) {
-        shared_context_.reset_filters = false;
-
-        // Old filtergraph was already released, so there is nothing left to process this frame
-        if (ConfigureFilters() != error::kSuccess) {
-          ERROR("Cannot reconfigure filtergraph with updated audio filters");
-          shared_context_.err_code = error::kEqualizerFailed;
+      // Send packet to decoder
+      if (auto result = avcodec_send_packet(decoder_.get(), packet); result < 0) {
+        // It is not actually an error, this kind of situation may happen when seek frame is used
+        if (result == AVERROR_INVALIDDATA && shared_context_.position == song_duration) {
           break;
         }
+
+        ERROR("Cannot decode song, error=", ErrorToString(result));
+        return error::kDecodeFileFailed;
       }
 
-      // Pass decoded frame to be processed by filtergraph. And in case of error while processing
-      // frame, shared_context_.KeepDecoding() will return false, so do not worry about it
-      ProcessFrame(samples, callback);
+      // Receive frames from decoder
+      while (avcodec_receive_frame(decoder_.get(), frame) >= 0 && shared_context_.KeepDecoding()) {
+        // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
+        shared_context_.position = packet->pts / shared_context_.time_base.den;
 
-      shared_context_.ClearFrames();
+        // UI sent event to update audio filters with new parameters, so it is necessary to reset it
+        if (shared_context_.reset_filters) {
+          shared_context_.reset_filters = false;
+
+          // Old filtergraph was already released, so there is nothing left to process this frame
+          if (ConfigureFilters() != error::kSuccess) {
+            ERROR("Cannot reconfigure filtergraph with updated audio filters");
+            shared_context_.err_code = error::kEqualizerFailed;
+            break;
+          }
+        }
+
+        // Pass decoded frame to be processed by filtergraph. And in case of error while processing
+        // frame, shared_context_.KeepDecoding() will return false, so do not worry about it
+        ProcessFrame(samples, callback);
+
+        shared_context_.ClearFrames();
+      }
+
+      shared_context_.ClearPacket();
     }
-
-    shared_context_.ClearPacket();
-  }
+  } while (Flush(samples, callback));
 
   return shared_context_.err_code;
+}
+
+/* ********************************************************************************************** */
+
+bool FFmpeg::Flush(int samples, AudioCallback& callback) {
+  AVFrame* frame = shared_context_.frame_decoded.get();
+  int64_t old_position = shared_context_.position;
+
+  // Seeking is handled by ProcessFrame, here it only matters to know that it has happened
+  auto keep_flushing = [this, old_position]() {
+    return shared_context_.position == old_position && shared_context_.KeepDecoding();
+  };
+
+  // Nothing to flush when decoding was stopped (by user or by some error)
+  if (!keep_flushing()) return false;
+
+  // Enter draining mode, to receive frames that are still buffered by decoder
+  avcodec_send_packet(decoder_.get(), nullptr);
+
+  while (keep_flushing() && avcodec_receive_frame(decoder_.get(), frame) >= 0) {
+    ProcessFrame(samples, callback);
+    shared_context_.ClearFrames();
+  }
+
+  // Signal end of stream to filtergraph, to pull the last samples (as they are not enough to fill
+  // an entire buffer, they are still held by sink)
+  if (keep_flushing()) ProcessFrame(samples, callback, true);
+
+  bool seek_frame = shared_context_.position != old_position;
+  return seek_frame && shared_context_.KeepDecoding();
 }
 
 /* ********************************************************************************************** */
@@ -780,7 +832,7 @@ error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset& filters) {
 
 /* ********************************************************************************************** */
 
-void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
+void FFmpeg::ProcessFrame(int samples, AudioCallback& callback, bool flush) {
   // Get source and sinks
   AVFilterContext* source = buffersrc_ctx_.get();
   AVFilterContext* sink = buffersink_ctx_.get();
@@ -791,8 +843,9 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
   AVFrame* filtered = shared_context_.frame_filtered.get();
   AVFrame* analysis = shared_context_.frame_analysis.get();
 
-  // Push the audio data from decoded frame into the filtergraph
-  if (av_buffersrc_add_frame_flags(source, decoded, AV_BUFFERSRC_FLAG_KEEP_REF) < 0) {
+  // Push the audio data from decoded frame into the filtergraph (or signal end of stream instead)
+  if (av_buffersrc_add_frame_flags(source, flush ? nullptr : decoded, AV_BUFFERSRC_FLAG_KEEP_REF) <
+      0) {
     ERROR("Cannot feed audio filtergraph");
     shared_context_.err_code = error::kDecodeFileFailed;
     return;
@@ -819,8 +872,9 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
     av_frame_unref(filtered);
     av_frame_unref(analysis);
 
-    // Check if EQ has updated or song position has changed
-    if (shared_context_.reset_filters || shared_context_.position != old_position) {
+    // Check if EQ has updated or song position has changed (when flushing, there is no next frame
+    // to apply updated EQ, so just keep pulling)
+    if ((shared_context_.reset_filters && !flush) || shared_context_.position != old_position) {
       seek_frame = shared_context_.position != old_position;
       break;
     }
@@ -847,6 +901,9 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback) {
       ERROR("Cannot seek frame in song");
       shared_context_.err_code = error::kSeekFrameFailed;
     }
+
+    // Filtergraph does not accept frames after end of stream, so it must be created again
+    if (flush) shared_context_.reset_filters = true;
   }
 }
 
