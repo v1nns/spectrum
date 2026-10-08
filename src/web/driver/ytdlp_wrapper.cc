@@ -1,5 +1,6 @@
 #include "web/driver/ytdlp_wrapper.h"
 
+#include <cmath>
 #include <cstdint>
 #include <iomanip>
 #include <string>
@@ -13,6 +14,8 @@
 namespace driver {
 
 namespace {
+
+constexpr double kBitsPerKilobit = 1000;  //!< To convert bit rate from kbps to bps
 
 //! Get value from JSON entry, or fallback if it does not exist, is null or has an unexpected type
 template <typename T>
@@ -246,6 +249,12 @@ void YtDlpWrapper::FillStreamInfo(const nlohmann::json& entry, uint32_t duration
   // Any field may be missing or null (e.g. HLS entries have no codec, channels or filesize)
   song.num_channels = GetOr<uint16_t>(entry, "audio_channels", 2);
   song.duration = duration;
+
+  // Audio bit rate is informed in kbps, and it is the only source for it when codec does not
+  // inform it in its stream (e.g. Opus)
+  if (double bit_rate = GetOr<double>(entry, "abr", 0); bit_rate > 0) {
+    song.bit_rate = static_cast<uint32_t>(std::lround(bit_rate * kBitsPerKilobit));
+  }
 
   model::StreamInfo& info = *song.stream_info;
 

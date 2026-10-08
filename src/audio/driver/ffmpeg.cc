@@ -589,6 +589,19 @@ error::Code FFmpeg::ConnectFilters() {
 
 /* ********************************************************************************************** */
 
+bool FFmpeg::IsOnlyAudioStream() const {
+  for (unsigned int i = 0; i < input_stream_->nb_streams; i++) {
+    const AVStream* stream = input_stream_->streams[i];
+
+    const bool is_picture = (stream->disposition & AV_DISPOSITION_ATTACHED_PIC) != 0;
+    if (static_cast<int>(i) != stream_index_ && !is_picture) return false;
+  }
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
 void FFmpeg::FillAudioInformation(model::Song& audio_info) {
   LOG("Fill song structure with audio information");
 
@@ -615,7 +628,16 @@ void FFmpeg::FillAudioInformation(model::Song& audio_info) {
   audio_info.num_channels = static_cast<uint16_t>(audio_stream->channels);
 #endif
   audio_info.sample_rate = static_cast<uint32_t>(audio_stream->sample_rate);
-  audio_info.bit_rate = static_cast<uint32_t>(audio_stream->bit_rate);
+
+  // Not every codec informs bit rate in its stream (e.g. FLAC and Opus). In this case, keep the one
+  // already known (from streaming information), or use the one from the whole file when there is
+  // nothing else in it besides this audio stream (and pictures, like an album cover)
+  if (audio_stream->bit_rate > 0) {
+    audio_info.bit_rate = static_cast<uint32_t>(audio_stream->bit_rate);
+  } else if (audio_info.bit_rate == 0 && input_stream_->bit_rate > 0 && IsOnlyAudioStream()) {
+    audio_info.bit_rate = static_cast<uint32_t>(input_stream_->bit_rate);
+  }
+
   // Use bit depth from source (e.g. 16 or 24 bits for FLAC/WAV), not from the decoded sample format
   // (which is 32 bits float for lossy codecs like MP3). For lossy codecs, it stays 0 (not
   // applicable)

@@ -88,6 +88,13 @@ class FFmpeg final : public audio::Decoder {
    */
   void FillAudioInformation(model::Song& audio_info);
 
+  /**
+   * @brief Check if audio stream being decoded is the only content from input (ignoring pictures
+   * attached to it, like an album cover)
+   * @return true if there is no other stream (like video or another audio), false otherwise
+   */
+  bool IsOnlyAudioStream() const;
+
   /* ******************************************************************************************** */
  public:
   /**

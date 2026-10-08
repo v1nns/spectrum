@@ -125,12 +125,36 @@ TEST_F(YtDlpWrapperTest, FillStreamInfoWithMissingFields) {
   ASSERT_TRUE(song.stream_info.has_value());
   EXPECT_THAT(song.num_channels, Eq(2));
   EXPECT_THAT(song.duration, Eq(212));
+  EXPECT_THAT(song.bit_rate, Eq(0));
   EXPECT_THAT(song.stream_info->codec, StrEq("m3u8_native"));
   EXPECT_THAT(song.stream_info->extension, IsEmpty());
   EXPECT_THAT(song.stream_info->filesize, Eq(0));
   EXPECT_THAT(song.stream_info->streaming_url, StrEq("https://stream"));
   EXPECT_THAT(song.stream_info->base_url, StrEq("https://youtu.be/dQw4w9WgXcQ"));
   EXPECT_THAT(song.stream_info->http_header.size(), Eq(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, FillStreamInfoWithAudioBitRate) {
+  // Bit rate is informed in kbps (and codec like Opus does not inform it in its own stream)
+  auto entry = nlohmann::json::parse(R"({
+    "format_id": "251", "url": "https://stream", "protocol": "https", "acodec": "opus",
+    "audio_ext": "webm", "audio_channels": 2, "abr": 128.956
+  })");
+
+  model::Song song{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/dQw4w9WgXcQ"}};
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.bit_rate, Eq(128956));
+  EXPECT_THAT(song.stream_info->codec, StrEq("opus"));
+
+  // Value with unexpected type is not used
+  entry["abr"] = "high";
+  song.bit_rate = 0;
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.bit_rate, Eq(0));
 }
 
 /* ********************************************************************************************** */
