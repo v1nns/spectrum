@@ -214,7 +214,7 @@ Theme MakeTheme(const Palette& p) {
       .artist = p.subtext,
       .field = p.muted,
       .value = p.text,
-      .value_empty = p.muted,
+      .value_empty = p.subtext,
   };
 
   theme.visualizer.text = p.text;
