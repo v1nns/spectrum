@@ -131,7 +131,7 @@ class Dialog {
   std::shared_ptr<EventDispatcher> GetDispatcher() const;
 
   //! Calculate dialog size (including border) for the given terminal size
-  [[nodiscard]] ftxui::Dimensions CalculateSize(const ftxui::Dimensions& curr_size) const;
+  [[nodiscard]] virtual ftxui::Dimensions CalculateSize(const ftxui::Dimensions& curr_size) const;
 
   //! Change minimum number of lines for dialog content (border is added automatically)
   void SetMinimumLines(int lines) { size_.min_line = lines + kBorderSize; }

@@ -2376,6 +2376,65 @@ TEST_F(HelpDialogTest, ContainsAllKeybindings) {
   EXPECT_THAT(content, HasSubstr("Remove song from playlist"));
   EXPECT_THAT(content, HasSubstr("Save playlist"));
   EXPECT_THAT(content, HasSubstr("Go to previous/next page"));
+
+  // Keybindings from pickers have a section of their own
+  EXPECT_THAT(content, HasSubstr("theme and animation pickers"));
+  EXPECT_THAT(content, HasSubstr("Preview entry"));
+  EXPECT_THAT(content, HasSubstr("Keep entry"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ShowKeybindingsInTwoColumnsWhenTheyFit) {
+  // Find line (from content rendered) containing the given text
+  auto find_line = [](const std::string& rendered, const std::string& text) {
+    std::istringstream lines{rendered};
+    for (std::string line; std::getline(lines, line);) {
+      if (line.find(text) != std::string::npos) return line;
+    }
+
+    return std::string{};
+  };
+
+  // With the default size from tests, there is space for a single column: the section about
+  // playlists is not even visible
+  help_dialog->Show();
+
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("1-10 of"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Show playlists")));
+
+  // In a wider (and taller) terminal, content continues in a second column
+  size = ftxui::Dimensions{.dimx = 140, .dimy = 42};
+  screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("1-54 of"));
+
+  // So the first entry from both columns are in the same line
+  const std::string line = find_line(rendered, "Show this help");
+  EXPECT_THAT(line, HasSubstr("playlists"));
+
+  // And content is scrolled by everything that is visible
+  dialog->OnEvent(ftxui::Event::PageDown);
+  rendered = Render();
+
+  EXPECT_THAT(rendered, HasSubstr("Toggle shuffle"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Show this help")));
+
+  // Dialog still fits in terminal with two columns (its border is rendered in both sides)
+  dialog->OnEvent(ftxui::Event::Home);
+  const std::string top = find_line(Render(), "╔");
+  EXPECT_THAT(top, HasSubstr("╗"));
+  EXPECT_LT(ftxui::string_width(top), size.dimx);
+
+  // A terminal that is not wide enough for both columns keeps a single one
+  size = ftxui::Dimensions{.dimx = 120, .dimy = 42};
+  screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("1-27 of"));
+  EXPECT_THAT(find_line(rendered, "Show this help"), Not(HasSubstr("playlists")));
 }
 
 /* ********************************************************************************************** */
