@@ -423,7 +423,37 @@ class AudioEqualizer : public TabItem {
              ftxui::reflect(Box());
     }
 
+    /**
+     * @brief Handles an event (from keyboard)
+     * @param event Received event from screen
+     * @return true if event was handled, otherwise false
+     */
+    bool OnEvent(const ftxui::Event& event) override {
+      // Close list of presets, keeping focus on this element
+      if (opened && event == keybinding::Navigation::Escape) {
+        Close();
+        return true;
+      }
+
+      return false;
+    }
+
    private:
+    //! Open list of presets, with focus on the current one
+    void Open() {
+      auto it = std::find(presets.begin(), presets.end(), *preset_name);
+
+      // Note: +1 is used to ignore the title index
+      entry_focused = it != presets.end() ? static_cast<int>(it - presets.begin()) + 1 : 0;
+      opened = true;
+    }
+
+    //! Close list of presets, with focus back on title
+    void Close() {
+      entry_focused = 0;
+      opened = false;
+    }
+
     //! Render label and current preset
     ftxui::Element RenderTitle() {
       using ftxui::EQUAL;
@@ -453,13 +483,13 @@ class AudioEqualizer : public TabItem {
       if (event == keybinding::Navigation::Space || event == keybinding::Navigation::Return) {
         // Open element
         if (!opened) {
-          opened = true;
+          Open();
           return false;
         }
 
         // Close element
         if (entry_focused == 0) {
-          opened = false;
+          Close();
           return false;
         }
 
@@ -528,7 +558,11 @@ class AudioEqualizer : public TabItem {
         if (boxes[i].Contain(event.mouse().x, event.mouse().y)) {
           if (i == 0) {
             // Click on title, so change opened state
-            opened = !opened;
+            if (opened) {
+              Close();
+            } else {
+              Open();
+            }
           } else {
             // Otherwise, it is a click on preset, so fix offset and use it to update current preset
             --i;

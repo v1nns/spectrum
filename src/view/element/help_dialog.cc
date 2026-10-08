@@ -148,7 +148,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {jk, "Cycle presets (picker closed)"},
            {ToString(keybinding::Equalizer::ApplyFilters), "Apply equalizer settings"},
            {ToString(keybinding::Equalizer::ResetFilters), "Reset equalizer settings"},
-           {ToString(Navigation::Escape), "Remove focus from element"},
+           {ToString(Navigation::Escape), "Close preset picker or remove focus from element"},
        }},
       {Section::Lyrics,
        "lyrics",

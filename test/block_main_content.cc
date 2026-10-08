@@ -1298,7 +1298,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Using keybindings for navigation, open preset picker
-  std::string typed{"lh jjjjjjj"};
+  std::string typed{"lh jjjjjj"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1352,12 +1352,12 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
 │  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
 │  │○ Bass Boost  ┃│                                                                          │
 │  │○ Classical   ┃││       │       │       │       │       │       │       │       │         │
-│  │○ Dance       ┃│▄▄     ▃▃▃      │       │      ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
-│  │◉ Electronic  ┃│▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │○ Dance       ┃│▄▄     ▃▃▃      │       │      ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │◉ Electronic  ┃│▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
 │  │○ Hip-Hop     ┃││       │      ▅▅▅      │       │       │       │       │       │         │
 │  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
 │  │○ Loudness     │                                                                          │
-│  │○ Pop          │3      +2      -2       0      +1      +3      +1      +2      +2         │
+│  │○ Pop          │3      +2      -2       0      +1      +1      +1      +2      +2         │
 │  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
@@ -1408,6 +1408,47 @@ TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, OpenPresetPickerOnCurrentPresetAndCloseIt) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Set focus on tab item 2, focus the preset picker and go to the second preset after "Custom"
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  std::string typed{"lhjj"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  EXPECT_THAT(render(), HasSubstr("→ Acoustic"));
+
+  // Open list, which starts from current preset: the next entry is the one right after it
+  typed = " j ";
+  utils::QueueCharacterEvents(*block, typed);
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("↓ Bass Boost"));
+  EXPECT_THAT(rendered, HasSubstr("◉ Bass Boost"));
+
+  // Close list without removing focus from picker, so the next key still changes preset
+  block->OnEvent(ftxui::Event::Escape);
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("→ Bass Boost"));
+  EXPECT_THAT(rendered, Not(HasSubstr("◉")));
+
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("→ Classical"));
+
+  // With list closed, the same key removes focus from picker
+  block->OnEvent(ftxui::Event::Escape);
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("→ Classical"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));
@@ -1424,7 +1465,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Pop"
-  std::string typed{"lh jjjjjjjjjjj a"};
+  std::string typed{"lh jjjjjjjjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1505,7 +1546,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Rock"
-  std::string typed{"lh jjjjjjjjjjjj a"};
+  std::string typed{"lh jjjjjjjjjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1635,7 +1676,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<model::EqualizerPreset>(electronic_preset)))));
 
-  typed = "lh jjjjjjj a";
+  typed = "lh jjjjjj a";
   utils::QueueCharacterEvents(*block, typed);
 
   // It is necessary to clear screen, otherwise it will be dirty
@@ -1652,12 +1693,12 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
 │  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
 │  │○ Bass Boost  ┃│                                                                          │
 │  │○ Classical   ┃││       │       │       │       │       │       │       │       │         │
-│  │○ Dance       ┃│▄▄     ▃▃▃      │       │      ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
-│  │◉ Electronic  ┃│▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │○ Dance       ┃│▄▄     ▃▃▃      │       │      ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │◉ Electronic  ┃│▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
 │  │○ Hip-Hop     ┃││       │      ▅▅▅      │       │       │       │       │       │         │
 │  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
 │  │○ Loudness     │                                                                          │
-│  │○ Pop          │3      +2      -2       0      +1      +3      +1      +2      +2         │
+│  │○ Pop          │3      +2      -2       0      +1      +1      +1      +2      +2         │
 │  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
