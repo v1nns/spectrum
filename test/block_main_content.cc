@@ -503,6 +503,39 @@ TEST_F(MainContentTest, PickAnimationWithMouse) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, ChangeBarWidthWithAnimationPickerOpen) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Select another animation, without choosing it
+  block->OnEvent(ftxui::Event::Character('a'));
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  // Bar width is saved, but not the animation (as it is only a preview, which may be cancelled)
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::animation, Eq(std::nullopt)),
+                                 Field(&model::Settings::bar_width, Optional(3)))))
+      .WillOnce(Return(true));
+  block->OnEvent(ftxui::Event::Character('.'));
+
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  // Nothing else is saved when picker is cancelled
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+  block->OnEvent(ftxui::Event::Escape);
+
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  // With picker closed, animation is saved along with bar width
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::animation,
+                                       Optional(model::BarAnimation::HorizontalMirror)),
+                                 Field(&model::Settings::bar_width, Optional(4)))))
+      .WillOnce(Return(true));
+  block->OnEvent(ftxui::Event::Character('.'));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
   EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);

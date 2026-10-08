@@ -222,7 +222,11 @@ void SpectrumVisualizer::SetAnimation(model::BarAnimation animation) {
 void SpectrumVisualizer::SaveSettings() const {
   if (!file_handler_) return;
 
-  model::Settings settings{.animation = curr_anim_, .bar_width = gauge_width_};
+  model::Settings settings{.bar_width = gauge_width_};
+
+  // While picker is open, current animation is only a preview (it may still be cancelled)
+  if (!picker_.IsVisible()) settings.animation = curr_anim_;
+
   if (!file_handler_->SaveSettings(settings)) ERROR("Cannot save visualizer settings");
 }
 

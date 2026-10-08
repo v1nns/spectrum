@@ -111,7 +111,8 @@ class SpectrumVisualizer : public TabItem {
   //! Change current animation and notify terminal (to recalculate number of bars)
   void SetAnimation(model::BarAnimation animation);
 
-  //! Save current animation and bar width, so they are restored on next run
+  //! Save current animation (unless it is being previewed by picker) and bar width, so they are
+  //! restored on next run
   void SaveSettings() const;
 
   //! Utility to create UI gauge
