@@ -6,12 +6,12 @@
 #ifndef INCLUDE_VIEW_ELEMENT_UTIL_H_
 #define INCLUDE_VIEW_ELEMENT_UTIL_H_
 
+#include <algorithm>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/box.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <ftxui/screen/string.hpp>
-#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -149,6 +149,52 @@ class FitOrFallback : public ftxui::Node {
 //! Render preferred element if it fits in the available width, otherwise render fallback element
 inline ftxui::Element fit_or_fallback(ftxui::Element preferred, ftxui::Element fallback) {
   return std::make_shared<FitOrFallback>(std::move(preferred), std::move(fallback));
+}
+
+/**
+ * @brief Node that renders elements side by side, with the same space between them (and also
+ * before the first one and after the last one). Columns that cannot be shared equally are split
+ * between both ends, so distance from one element to the next is always the same
+ */
+class SpacedRow : public ftxui::Node {
+ public:
+  explicit SpacedRow(ftxui::Elements children) : ftxui::Node(std::move(children)) {}
+
+  void ComputeRequirement() override {
+    requirement_ = ftxui::Requirement{};
+
+    for (const auto& child : children_) {
+      child->ComputeRequirement();
+
+      requirement_.min_x += child->requirement().min_x;
+      requirement_.min_y = std::max(requirement_.min_y, child->requirement().min_y);
+    }
+  }
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+
+    const int width = box.x_max - box.x_min + 1;
+    const int spaces = static_cast<int>(children_.size()) + 1;
+    const int available = std::max(0, width - requirement_.min_x);
+    const int gap = available / spaces;
+
+    int x = box.x_min + gap + ((available % spaces) / 2);
+
+    for (const auto& child : children_) {
+      ftxui::Box child_box = box;
+      child_box.x_min = x;
+      child_box.x_max = x + child->requirement().min_x - 1;
+      child->SetBox(child_box);
+
+      x = child_box.x_max + 1 + gap;
+    }
+  }
+};
+
+//! Render elements side by side, with the same space between them
+inline ftxui::Element spaced_row(ftxui::Elements elements) {
+  return std::make_shared<SpacedRow>(std::move(elements));
 }
 
 }  // namespace interface

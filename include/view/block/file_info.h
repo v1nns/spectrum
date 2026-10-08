@@ -26,7 +26,7 @@ namespace interface {
  */
 class FileInfo : public Block {
   static constexpr int kMaxColumns = kLeftColumnWidth;  //!< Maximum columns for Component
-  static constexpr int kMaxRows = 15;                   //!< Maximum rows for Component
+  static constexpr int kMaxRows = 11;                   //!< Maximum rows for Component
   static constexpr int kFieldColumns = 9;  //!< Columns for field name (and space after it)
 
   static constexpr std::string_view kUnknown = "—";  //!< Value not informed by song or player

@@ -488,6 +488,10 @@ void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
   std::vector<double> bars(data);
 
   for (double i = 0; i < 80; i++) {
+    // Number of bars may be changed in the meantime (e.g. terminal is resized), and these bars
+    // are not the ones expected by UI anymore, so just cancel animation
+    if (static_cast<int>(bars.size()) != analyzer_->GetOutputSize()) break;
+
     // Each time this loop is executed, it will reduce spectrum bar values to 75% based on its
     // previous values (this value was decided based on feeling :P)
     std::transform(bars.begin(), bars.end(), bars.begin(), [](double x) {
@@ -505,7 +509,8 @@ void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
     if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
   }
 
-  bars = std::vector(data.size(), 0.001);
+  // Always finish with the number of bars currently expected by UI
+  bars = std::vector(static_cast<size_t>(analyzer_->GetOutputSize()), 0.001);
   auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
   dispatcher->SendEvent(event);
 }
@@ -523,6 +528,10 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
   bars.reserve(data.size());
 
   for (double i = 1; i <= kStep; i++) {
+    // Number of bars may be changed while song was paused (e.g. terminal is resized), and these
+    // bars are not the ones expected by UI anymore, so just skip animation
+    if (static_cast<int>(data.size()) != analyzer_->GetOutputSize()) break;
+
     // Each time this loop is executed, it will increase spectrum bar values in a step of 1/20
     // based on its previous values (this value was also decided based on feeling)
     for (const auto& value : data) bars.push_back(value * (i / kStep));

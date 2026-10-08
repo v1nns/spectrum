@@ -3,6 +3,7 @@
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -710,6 +711,92 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
   testing::RunAsyncTest({analysis, client});
 }
+
+TEST_F(MediaControllerTest, CancelClearAnimationWhenNumberOfBarsChanges) {
+  constexpr int kSampleSize = 16;
+  constexpr int kNewNumberBars = kNumberBars / 2;
+
+  // Number of bars expected by UI, changed while animation is running (e.g. terminal is resized)
+  std::atomic<int> number_bars = kNumberBars;
+
+  model::Song::CurrentInformation info{
+      .state = model::Song::MediaState::Pause,
+      .position = 12,
+  };
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Invoke([&]() {
+      return number_bars.load();
+    }));
+
+    EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
+        .WillOnce(Invoke([&](double*, int, double* output) {
+          std::fill(output, output + kNumberBars, 1.0);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                             interface::CustomEvent::Identifier::UpdateSongState)));
+
+    // Bars sent to UI: result from analysis, first step from animation and, as number of bars is
+    // changed right after it, animation is canceled with the new number of bars
+    const std::vector<double> result(kNumberBars, 1.0);
+    const std::vector<double> first_step(kNumberBars, 0.75);
+    const std::vector<double> second_step(kNumberBars, 0.75 * 0.75);
+    const std::vector<double> last_update(kNewNumberBars, 0.001);
+
+    auto draw = [](const std::vector<double>& bars) {
+      return AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::DrawAudioSpectrum),
+          Field(&interface::CustomEvent::content,
+                VariantWith<std::vector<double>>(ElementsAreArray(bars))));
+    };
+
+    EXPECT_CALL(*dispatcher, SendEvent(draw(second_step))).Times(0);
+
+    {
+      InSequence seq;
+
+      EXPECT_CALL(*dispatcher, SendEvent(draw(result)))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(2); }));
+
+      EXPECT_CALL(*dispatcher, SendEvent(draw(first_step)))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { number_bars = kNewNumberBars; }));
+
+      EXPECT_CALL(*dispatcher, SendEvent(draw(last_update)))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(3); }));
+    }
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetInterfaceNotifier();
+
+    // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
+    syncer.WaitForStep(1);
+    std::vector<int16_t> buffer(kSampleSize, 1);
+    notifier->SendAudioRaw(buffer.data(), buffer.size());
+
+    // Send a Pause notification to run ClearAnimation
+    syncer.WaitForStep(2);
+    notifier->NotifySongState(info);
+
+    // Wait for Analysis to finish before exiting from controller
+    syncer.WaitForStep(3);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+}
+
+/* ********************************************************************************************** */
 
 TEST_F(MediaControllerTest, AnalysisAndRegainAnimation) {
   int sample_size = 16;

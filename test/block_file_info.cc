@@ -17,7 +17,7 @@ class FileInfoTest : public ::BlockTest {
  protected:
   void SetUp() override {
     // Create a custom screen with fixed size
-    screen = std::make_unique<ftxui::Screen>(32, 15);
+    screen = std::make_unique<ftxui::Screen>(32, 11);
 
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
@@ -49,10 +49,6 @@ TEST_F(FileInfoTest, InitialRender) {
 │                              │
 │                              │
 │                              │
-│                              │
-│                              │
-│                              │
-│                              │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -73,7 +69,7 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
   };
 
   // Use the whole block width (content + border)
-  screen = std::make_unique<ftxui::Screen>(38, 15);
+  screen = std::make_unique<ftxui::Screen>(38, 11);
 
   // Process custom event on block
   auto event = interface::CustomEvent::UpdateSongInfo(audio);
@@ -101,10 +97,6 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 │length   02:03                      │
 │output   96 kHz / 32 bits           │
 │device   front:CARD=DAC,DEV=0       │
-│                                    │
-│                                    │
-│                                    │
-│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -149,10 +141,6 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 │                              │
 │                              │
 │                              │
-│                              │
-│                              │
-│                              │
-│                              │
 ╰──────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -162,7 +150,7 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 
 TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
   // Use the whole block width (content + border)
-  screen = std::make_unique<ftxui::Screen>(38, 15);
+  screen = std::make_unique<ftxui::Screen>(38, 11);
 
   const model::Song audio{
       .filepath = "/music/Zzqx Unknown Artist - No Such Song Qwerty.mp3",
@@ -195,7 +183,7 @@ TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
 
 TEST_F(FileInfoTest, UpdateAudioOutput) {
   // Use the whole block width (content + border)
-  screen = std::make_unique<ftxui::Screen>(38, 15);
+  screen = std::make_unique<ftxui::Screen>(38, 11);
 
   Process(interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = "/music/song.flac"}));
   Process(interface::CustomEvent::UpdateAudioOutput(model::AudioOutput{.device = "default"}));
@@ -231,7 +219,7 @@ TEST_F(FileInfoTest, UpdateAudioOutput) {
 
 TEST_F(FileInfoTest, ShowLossySongWithLongDuration) {
   // Use the whole block width (content + border)
-  screen = std::make_unique<ftxui::Screen>(38, 15);
+  screen = std::make_unique<ftxui::Screen>(38, 11);
 
   // Lossy formats (e.g. MP3) do not have bit depth, so decoder reports it as zero
   const model::Song audio{

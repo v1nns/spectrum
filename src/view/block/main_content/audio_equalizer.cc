@@ -42,20 +42,17 @@ ftxui::Element AudioEqualizer::Render() {
   auto build = [this](bool compact) {
     ftxui::Elements elements;
 
-    // Picker surrounded by fillers, then each bar followed by a filler
-    elements.reserve(3 + (2 * bars_.size()));
+    // Picker, then each bar (all of them with the same space in between)
+    elements.reserve(1 + bars_.size());
 
-    elements.push_back(ftxui::filler());
     elements.push_back(picker_.Render());
-    elements.push_back(ftxui::filler());
 
     // Iterate through all frequency bars
     for (auto& bar : bars_) {
       elements.push_back(bar.Draw(compact));
-      elements.push_back(ftxui::filler());
     }
 
-    return ftxui::hbox(elements);
+    return spaced_row(std::move(elements));
   };
 
   return ftxui::vbox({
