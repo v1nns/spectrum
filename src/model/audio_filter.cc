@@ -1,6 +1,9 @@
 #include "model/audio_filter.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <complex>
 #include <string>
 #include <tuple>
 
@@ -26,48 +29,87 @@ bool operator!=(const AudioFilter& lhs, const AudioFilter& rhs) { return !(lhs =
 /* ********************************************************************************************** */
 
 EqualizerPresets AudioFilter::CreatePresets() {
-  return EqualizerPresets{
-      {
-          "Custom",
-          {AudioFilter{.frequency = 32, .modifiable = true},
-           AudioFilter{.frequency = 64, .modifiable = true},
-           AudioFilter{.frequency = 125, .modifiable = true},
-           AudioFilter{.frequency = 250, .modifiable = true},
-           AudioFilter{.frequency = 500, .modifiable = true},
-           AudioFilter{.frequency = 1000, .modifiable = true},
-           AudioFilter{.frequency = 2000, .modifiable = true},
-           AudioFilter{.frequency = 4000, .modifiable = true},
-           AudioFilter{.frequency = 8000, .modifiable = true},
-           AudioFilter{.frequency = 16000, .modifiable = true}},
-      },
+  //! Gain for each frequency from a preset
+  using Gains = std::array<double, equalizer::kFiltersPerPreset>;
 
-      {
-          "Electronic",
-          {AudioFilter{.frequency = 32, .gain = 2}, AudioFilter{.frequency = 64, .gain = 3},
-           AudioFilter{.frequency = 125, .gain = 2}, AudioFilter{.frequency = 250, .gain = -2},
-           AudioFilter{.frequency = 500, .gain = 0}, AudioFilter{.frequency = 1000, .gain = 1},
-           AudioFilter{.frequency = 2000, .gain = 3}, AudioFilter{.frequency = 4000, .gain = 1},
-           AudioFilter{.frequency = 8000, .gain = 2}, AudioFilter{.frequency = 16000, .gain = 2}},
-      },
+  //! Frequencies used by every preset
+  static constexpr Gains kFrequencies{32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
 
-      {
-          "Pop",
-          {AudioFilter{.frequency = 32, .gain = 1}, AudioFilter{.frequency = 64, .gain = 2},
-           AudioFilter{.frequency = 125, .gain = 1}, AudioFilter{.frequency = 250, .gain = 0},
-           AudioFilter{.frequency = 500, .gain = 0}, AudioFilter{.frequency = 1000, .gain = 2},
-           AudioFilter{.frequency = 2000, .gain = 1}, AudioFilter{.frequency = 4000, .gain = 1},
-           AudioFilter{.frequency = 8000, .gain = 2}, AudioFilter{.frequency = 16000, .gain = 3}},
-      },
+  //! Create preset using the given gains (only the preset for user may have its gains modified)
+  auto create = [](const Gains& gains, bool modifiable = false) {
+    EqualizerPreset preset;
 
-      {
-          "Rock",
-          {AudioFilter{.frequency = 32, .gain = 1}, AudioFilter{.frequency = 64, .gain = 2},
-           AudioFilter{.frequency = 125, .gain = 1}, AudioFilter{.frequency = 250, .gain = -1},
-           AudioFilter{.frequency = 500, .gain = -3}, AudioFilter{.frequency = 1000, .gain = -1},
-           AudioFilter{.frequency = 2000, .gain = 0}, AudioFilter{.frequency = 4000, .gain = 1},
-           AudioFilter{.frequency = 8000, .gain = 2}, AudioFilter{.frequency = 16000, .gain = 3}},
-      },
+    for (size_t i = 0; i < preset.size(); i++) {
+      preset.at(i) = AudioFilter{
+          .frequency = kFrequencies.at(i), .gain = gains.at(i), .modifiable = modifiable};
+    }
+
+    return preset;
   };
+
+  return EqualizerPresets{
+      {std::string{equalizer::kCustomPreset}, create({}, /*modifiable=*/true)},
+      {"Acoustic", create({2, 2, 1, 0, 1, 1, 2, 2, 2, 1})},
+      {"Bass Boost", create({4, 3, 2, 1, 0, 0, 0, 0, 0, 0})},
+      {"Classical", create({2, 2, 1, 1, -1, -1, 0, 1, 2, 2})},
+      {"Dance", create({2, 4, 3, 0, -1, 0, 2, 2, 1, 0})},
+      {"Electronic", create({2, 3, 2, -2, 0, 1, 3, 1, 2, 2})},
+      {std::string{equalizer::kFlatPreset}, create({})},
+      {"Hip-Hop", create({4, 3, 1, 2, -1, -1, 1, 0, 1, 2})},
+      {"Jazz", create({3, 2, 1, 2, -2, -2, 0, 1, 2, 3})},
+      {"Loudness", create({4, 3, 0, 0, -1, 0, -1, -2, 3, 1})},
+      {"Pop", create({-1, -1, 0, 1, 2, 2, 1, 0, -1, -1})},
+      {"Rock", create({1, 2, 1, -1, -3, -1, 0, 1, 2, 3})},
+      {"Treble Boost", create({0, 0, 0, 0, 0, 0, 1, 2, 3, 4})},
+      {"Vocal", create({-2, -2, -1, 1, 2, 2, 2, 1, 0, -1})},
+  };
+}
+
+/* ********************************************************************************************** */
+
+double AudioFilter::CalculatePeakGain(const std::vector<AudioFilter>& filters, double sample_rate) {
+  static constexpr double kPi = 3.14159265358979323846;
+  static constexpr double kMinFrequency = 20;     // Lowest frequency to check
+  static constexpr double kMaxFrequency = 20000;  // Highest frequency to check
+  static constexpr int kPoints = 256;             // Frequencies to check (in a logarithmic scale)
+
+  // Response from a single filter, which is a peaking equalizer (the same one created by decoder)
+  auto response = [sample_rate](const AudioFilter& filter, const std::complex<double>& z) {
+    const double amplitude = std::pow(10.0, filter.gain / 40.0);
+    const double omega = 2.0 * kPi * filter.frequency / sample_rate;
+    const double alpha = std::sin(omega) / (2.0 * filter.Q);
+    const double cosine = -2.0 * std::cos(omega);
+
+    return ((1.0 + (alpha * amplitude)) + (cosine * z) + ((1.0 - (alpha * amplitude)) * z * z)) /
+           ((1.0 + (alpha / amplitude)) + (cosine * z) + ((1.0 - (alpha / amplitude)) * z * z));
+  };
+
+  // There is nothing above half of sample rate
+  const double max_frequency = std::min(kMaxFrequency, sample_rate / 2.0);
+  if (sample_rate <= 0 || max_frequency <= kMinFrequency) return 0;
+
+  const double step = std::pow(max_frequency / kMinFrequency, 1.0 / (kPoints - 1));
+  double frequency = kMinFrequency;
+  double peak = 1.0;
+
+  for (int i = 0; i < kPoints; i++, frequency *= step) {
+    const std::complex<double> z =
+        std::exp(std::complex<double>(0.0, -2.0 * kPi * frequency / sample_rate));
+
+    // Filters are used one after the other, so their responses are multiplied
+    std::complex<double> total{1.0, 0.0};
+
+    for (const auto& filter : filters) {
+      // Filter for half of sample rate (or above it) does not change anything
+      if (filter.gain == 0 || filter.Q <= 0 || filter.frequency >= sample_rate / 2.0) continue;
+
+      total *= response(filter, z);
+    }
+
+    peak = std::max(peak, std::abs(total));
+  }
+
+  return 20.0 * std::log10(peak);
 }
 
 /* ********************************************************************************************** */

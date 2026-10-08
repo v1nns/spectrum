@@ -228,13 +228,14 @@ Theme MakeTheme(const Palette& p) {
 
   theme.equalizer = Theme::Equalizer{
       .text = p.text,
+      .label = p.muted,
       .bar = State{.foreground = p.accent, .background = p.overlay},
       .bar_hovered = State{.foreground = p.accent_alt, .background = p.muted},
       .bar_focused = State{.foreground = p.red, .background = p.muted},
       .button =
           ButtonStates{
               .normal = State{.foreground = p.text, .border = p.text},
-              .focused = State{.border = p.accent},
+              .focused = State{.foreground = p.accent, .border = p.accent},
               .pressed = State{.foreground = p.accent, .background = p.surface, .border = p.accent},
               .disabled = State{.foreground = p.muted, .border = p.muted},
               .highlight = State{.foreground = p.red},

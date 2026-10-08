@@ -38,27 +38,71 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 /* ********************************************************************************************** */
 
 ftxui::Element AudioEqualizer::Render() {
-  // EQ picker + frequency bars (compact version uses shorter labels, to fit in narrow terminals)
-  auto build = [this](bool compact) {
-    ftxui::Elements elements;
+  ftxui::Element margin = ftxui::text(std::string(kMarginColumns, ' '));
 
-    // Picker, then each bar (all of them with the same space in between)
-    elements.reserve(1 + bars_.size());
+  // Frequency bars, all of them with the same space in between
+  ftxui::Elements bars;
+  bars.reserve(bars_.size());
 
-    elements.push_back(picker_.Render());
+  for (auto& bar : bars_) bars.push_back(bar.Render());
 
-    // Iterate through all frequency bars
-    for (auto& bar : bars_) {
-      elements.push_back(bar.Draw(compact));
-    }
-
-    return spaced_row(std::move(elements));
-  };
-
-  return ftxui::vbox({
-      fit_or_fallback(build(false), build(true)) | ftxui::flex_grow,
-      ftxui::hbox(btn_apply_->Render(), btn_reset_->Render()) | ftxui::center,
+  ftxui::Element content = ftxui::vbox({
+      ftxui::text(""),
+      ftxui::hbox({
+          margin,
+          picker_.Render(),
+          ftxui::filler(),
+          btn_apply_->Render(),
+          ftxui::text(" "),
+          btn_reset_->Render(),
+          margin,
+      }),
+      ftxui::text(""),
+      ftxui::hbox({
+          margin,
+          RenderScale(),
+          spaced_row(std::move(bars)) | ftxui::xflex_grow,
+          margin,
+      }) | ftxui::yflex_grow,
+      ftxui::text(""),
   });
+
+  if (!picker_.opened) return content;
+
+  // List of presets is shown above everything else, starting from the same place used by picker
+  return ftxui::dbox({
+      content,
+      ftxui::vbox({
+          ftxui::text(""),
+          ftxui::hbox({margin, picker_.RenderOpened()}),
+      }),
+  });
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element AudioEqualizer::RenderScale() const {
+  // Maximum and minimum values for gain (e.g. "+12" and "-12")
+  static const std::string kMaxGain =
+      "+" + util::to_string_with_precision(model::AudioFilter::kMaxGain, 0);
+  static const std::string kMinGain =
+      util::to_string_with_precision(model::AudioFilter::kMinGain, 0);
+
+  // Same lines used by a frequency bar, so each value is in the same line as the gain it means
+  return ftxui::vbox({
+             ftxui::text("Hz"),
+             ftxui::text(""),
+             ftxui::vbox({
+                 ftxui::text(kMaxGain),
+                 ftxui::filler(),
+                 ftxui::text("0") | ftxui::align_right,
+                 ftxui::filler(),
+                 ftxui::text(kMinGain),
+             }) | ftxui::yflex_grow,
+             ftxui::text(""),
+             ftxui::text("dB"),
+         }) |
+         ftxui::color(GetTheme().equalizer.label);
 }
 
 /* ********************************************************************************************** */
@@ -114,7 +158,7 @@ bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 void AudioEqualizer::CreateButtons() {
   auto style = Button::Style{
       .colors = [] { return GetTheme().equalizer.button; },
-      .width = 15,
+      .delimiters = Button::Delimiters{"[", "]"},
   };
 
   btn_apply_ = Button::make_button(

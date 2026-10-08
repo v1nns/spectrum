@@ -8,11 +8,17 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdlib>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "ftxui/component/component.hpp"
+#include "ftxui/dom/node.hpp"
+#include "ftxui/screen/screen.hpp"
 #include "model/audio_filter.h"
 #include "util/formatter.h"
 #include "view/base/element.h"
@@ -32,11 +38,99 @@ class MainContentTest;
 namespace interface {
 
 /**
+ * @brief Node that renders a vertical slider for gain: a thin track with a knob placed according
+ * to gain, which is in the middle of track when there is no gain (marked by a tick), at its top
+ * with the maximum gain and at its bottom with the minimum one
+ */
+class GainSlider : public ftxui::Node {
+  static constexpr int kMinLines = 3;       //!< Line for no gain and one line for each direction
+  static constexpr int kLevelsPerLine = 8;  //!< Knob is moved in eighths of a line
+
+ public:
+  static constexpr int kColumns = 3;  //!< Track uses the column in the middle, knob uses them all
+
+  /**
+   * @brief Construct a new slider
+   * @param gain Value for gain
+   * @param colors Foreground for knob (and track between it and no gain), background for track
+   */
+  GainSlider(double gain, const Theme::State& colors) : gain_{gain}, colors_{colors} {}
+
+  void ComputeRequirement() override {
+    requirement_.min_x = kColumns;
+    requirement_.min_y = kMinLines;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    // Block elements, each one filling a line from its bottom (index is the level)
+    static constexpr std::array<std::string_view, kLevelsPerLine + 1> kBlocks{
+        " ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█",
+    };
+
+    const int height = box_.y_max - box_.y_min + 1;
+    if (height < kMinLines) return;
+
+    // Line for no gain, and where knob starts (in levels, counted from the top of slider)
+    const int zero = (height - 1) / 2;
+
+    auto levels = [this](double limit, int lines) {
+      const double ratio = std::clamp(gain_ / limit, 0.0, 1.0);
+      return static_cast<int>(std::round(ratio * lines * kLevelsPerLine));
+    };
+
+    const int knob = (zero * kLevelsPerLine) - levels(model::AudioFilter::kMaxGain, zero) +
+                     levels(model::AudioFilter::kMinGain, height - 1 - zero);
+
+    const int track = box_.x_min + ((box_.x_max - box_.x_min) / 2);
+
+    for (int line = 0; line < height; line++) {
+      // Part of this line used by knob (which may be placed between two lines)
+      const int top = line * kLevelsPerLine;
+      const int begin = std::clamp(knob - top, 0, kLevelsPerLine);
+      const int end = std::clamp(knob + kLevelsPerLine - top, 0, kLevelsPerLine);
+
+      // Track is highlighted from the line for no gain until the knob
+      const bool filled = (line > zero && top < knob) || (line < zero && top > knob);
+
+      for (int x = box_.x_min; x <= box_.x_max; x++) {
+        auto& pixel = screen.PixelAt(x, box_.y_min + line);
+
+        if (end > begin) {
+          pixel.foreground_color = colors_.foreground;
+
+          if (end == kLevelsPerLine) {
+            // Knob uses the bottom of this line, which is exactly what a block element does
+            pixel.character = kBlocks.at(kLevelsPerLine - begin);
+          } else {
+            // Knob uses the top of this line and there is no block element for that, so draw the
+            // part that must stay empty and swap its colors
+            pixel.character = kBlocks.at(kLevelsPerLine - end);
+            pixel.inverted = true;
+          }
+        } else if (line == zero) {
+          pixel.character = x == track ? "┼" : "─";
+          pixel.foreground_color = colors_.background;
+        } else if (x == track) {
+          pixel.character = filled ? "┃" : "│";
+          pixel.foreground_color = filled ? colors_.foreground : colors_.background;
+        }
+      }
+    }
+  }
+
+ private:
+  double gain_;          //!< Value for gain
+  Theme::State colors_;  //!< Colors for slider
+};
+
+/**
  * @brief Component to control multiple frequency bars, in order to setup audio equalization
  */
 class AudioEqualizer : public TabItem {
-  static constexpr std::string_view kTabName = "equalizer";        //!< Tab title
-  static constexpr std::string_view kModifiablePreset = "Custom";  //!< Only preset modifiable
+  static constexpr std::string_view kTabName = "equalizer";  //!< Tab title
+  //! Only preset modifiable
+  static constexpr std::string_view kModifiablePreset = model::equalizer::kCustomPreset;
+  static constexpr int kMarginColumns = 2;  //!< Empty columns on both sides of content
 
  public:
   /**
@@ -94,6 +188,9 @@ class AudioEqualizer : public TabItem {
   //! Update UI components state based on internal cache
   void UpdateButtonState();
 
+  //! Render scale for gain, shown before frequency bars (with units for frequency and gain)
+  ftxui::Element RenderScale() const;
+
   //! Link current EQ settings to UI components
   void LinkPresetToInterface(model::EqualizerPreset& preset);
 
@@ -111,9 +208,8 @@ class AudioEqualizer : public TabItem {
   //! Internal structures
 
   struct FrequencyBar final : public Element {
-    static constexpr int kMaxGainLength = 8;      //!< Maximum length in the input box for gain
-    static constexpr int kCompactGainLength = 4;  //!< Same as above, but when space is limited
-    static constexpr int kKiloHertz = 1000;       //!< Used to format frequency in compact mode
+    static constexpr int kColumns = 5;       //!< Columns for the whole element (labels included)
+    static constexpr int kKiloHertz = 1000;  //!< Used to format frequency
 
     //! Style for frequency bar
     using BarStyle = Theme::State;
@@ -121,73 +217,46 @@ class AudioEqualizer : public TabItem {
     model::AudioFilter* filter;  //!< Audio frequency filters for equalization
 
     /**
-     * @brief Render frequency bar
+     * @brief Render frequency bar as a slider for its gain, with its frequency above it and its
+     * gain below it
      * @return UI element
      */
-    ftxui::Element Render() override { return Draw(false); }
-
-    /**
-     * @brief Render frequency bar
-     * @param compact Use shorter labels (without units), for when there is not much space available
-     * @return UI element
-     */
-    ftxui::Element Draw(bool compact) {
+    ftxui::Element Render() override {
       using ftxui::EQUAL;
       using ftxui::WIDTH;
 
-      constexpr auto empty_line = []() { return ftxui::text(""); };
-
-      constexpr auto gen_slider = [&](float value, const BarStyle& style) {
-        ftxui::Decorator color = ftxui::bgcolor(style.background) | ftxui::color(style.foreground);
-
-        return ftxui::hbox({
-                   ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
-                   ftxui::gaugeUp(value) | ftxui::yflex_grow | color,
-               }) |
-               ftxui::hcenter | ftxui::yflex_grow;
-      };
-
-      // Get gain value and choose style
-      float gain = filter->GetGainAsPercentage();
+      // Choose style
       const auto& theme = GetTheme().equalizer;
-      const BarStyle* style;
+      const bool highlighted = IsFocused() || IsHovered();
+      const BarStyle& style = IsFocused()   ? theme.bar_focused
+                              : IsHovered() ? theme.bar_hovered
+                                            : theme.bar;
 
-      style = IsFocused() ? &theme.bar_focused : IsHovered() ? &theme.bar_hovered : &theme.bar;
+      ftxui::Decorator label =
+          highlighted ? ftxui::color(style.foreground) | ftxui::bold : ftxui::color(theme.text);
+
+      ftxui::Element bar = std::make_shared<GainSlider>(filter->gain, style) |
+                           ftxui::size(WIDTH, EQUAL, GainSlider::kColumns) | ftxui::hcenter |
+                           ftxui::yflex_grow | ftxui::reflect(Box());
 
       return ftxui::vbox({
-          // title
-          empty_line(),
-          ftxui::text(compact ? GetCompactFrequency() : filter->GetFrequency()) |
-              ftxui::color(GetTheme().equalizer.text) | ftxui::hcenter,
-          empty_line(),
-
-          // frequency gauge
-          gen_slider(gain, *style) | ftxui::reflect(Box()),
-
-          // gain input
-          empty_line(),
-          ftxui::text(compact ? GetCompactGain() : filter->GetGain()) |
-              ftxui::color(GetTheme().equalizer.text) | ftxui::hcenter |
-              ftxui::size(WIDTH, EQUAL, compact ? kCompactGainLength : kMaxGainLength),
-          empty_line(),
-      });
+                 ftxui::text(GetFrequency()) | label | ftxui::hcenter,
+                 ftxui::text(""),
+                 bar,
+                 ftxui::text(""),
+                 ftxui::text(GetGain()) | label | ftxui::hcenter,
+             }) |
+             ftxui::size(WIDTH, EQUAL, kColumns);
     }
 
-    //! Format gain without unit, centered in the input box
-    [[nodiscard]] std::string GetCompactGain() const {
-      std::string gain = util::to_string_with_precision(filter->gain, 0);
-
-      const int padding = kCompactGainLength - static_cast<int>(gain.size());
-      if (padding <= 0) {
-        return gain;
-      }
-
-      const int left = padding / 2;
-      return std::string(left, ' ') + gain + std::string(padding - left, ' ');
+    //! Format gain without unit, with a sign when it is increased (e.g. "+3", "0" and "-2")
+    [[nodiscard]] std::string GetGain() const {
+      const std::string gain = util::to_string_with_precision(filter->gain, 0);
+      return filter->gain > 0 ? "+" + gain : gain;
     }
 
     //! Format frequency without unit (e.g. "125" for 125 Hz and "16k" for 16 kHz)
-    [[nodiscard]] std::string GetCompactFrequency() const {
+    [[nodiscard]] std::string GetFrequency() const {
       const auto frequency = static_cast<int>(filter->frequency);
 
       return frequency < kKiloHertz ? std::to_string(frequency)
@@ -252,8 +321,16 @@ class AudioEqualizer : public TabItem {
   /* ******************************************************************************************** */
 
   struct GenrePicker final : public Element {
-    static constexpr int kMaxHeight = 8;  //!< Maximum height for this element
-    static constexpr int kMaxWidth = 13;  //!< Maximum width for this element
+    static constexpr int kMaxWidth = 12;      //!< Maximum width for a preset name
+    static constexpr int kPrefixColumns = 2;  //!< Used by what is shown before a preset name
+    static constexpr int kScrollColumns = 1;  //!< Used by scroll indicator from list of presets
+
+    static constexpr std::string_view kLabel = "preset ";    //!< Shown before current preset
+    static constexpr std::string_view kPrefixClosed = "→ ";  //!< Shown while list is closed
+    static constexpr std::string_view kPrefixOpened = "↓ ";  //!< Shown while list is opened
+
+    //! Columns for title (label, prefix and name from current preset)
+    static constexpr int kTitleWidth = static_cast<int>(kLabel.size()) + kPrefixColumns + kMaxWidth;
 
     std::vector<model::MusicGenre> presets;  //!< All available presets
     int entry_focused = 0;                   //!< Index for entry selected (title + presets list)
@@ -286,59 +363,88 @@ class AudioEqualizer : public TabItem {
     }
 
     /**
-     * @brief Render music genre EQ picker
+     * @brief Render current preset in a single line (while list is opened, only the space for it,
+     * as the whole element is rendered above everything else by RenderOpened)
      * @return UI element
      */
     ftxui::Element Render() override {
       using ftxui::EQUAL;
-      using ftxui::HEIGHT;
+      using ftxui::WIDTH;
+
+      if (opened) return ftxui::text("") | ftxui::size(WIDTH, EQUAL, kTitleWidth);
+
+      return RenderTitle() | ftxui::reflect(Box());
+    }
+
+    /**
+     * @brief Render current preset with the list of presets right below it
+     * @return UI element
+     */
+    ftxui::Element RenderOpened() {
+      using ftxui::EQUAL;
       using ftxui::WIDTH;
 
       ftxui::Elements entries;
+      entries.reserve(presets.size());
 
-      auto prefix = ftxui::text(opened ? "↓ " : "→ ");
+      // Note: +1 or -1 below are used to ignore the title index
+      for (int i = 0; i < presets.size(); i++) {
+        bool active = presets[i] == *preset_name;
+        bool is_focused =
+            (IsFocused() && i == (entry_focused - 1)) || (IsHovered() && i == (entry_hovered - 1));
+
+        auto state = ftxui::EntryState{
+            presets[i],
+            active,
+            active,
+            is_focused,
+        };
+
+        // Entry focused (or the one from current preset) is always kept visible, as not all
+        // entries may fit in the space available for list
+        const bool visible = entry_focused > 0 ? i == (entry_focused - 1) : active;
+
+        entries.push_back(ftxui::RadioboxOption::Simple().transform(state) |
+                          (visible ? ftxui::focus : ftxui::nothing) | ftxui::reflect(boxes[i + 1]));
+      }
+
+      // As list is rendered above other elements, it must fill its own background (with the one
+      // from screen, which may not be the one from terminal)
+      ftxui::Element list = ftxui::vbox(entries) | ftxui::vscroll_indicator | ftxui::yframe |
+                            ftxui::size(WIDTH, EQUAL, kPrefixColumns + kMaxWidth + kScrollColumns) |
+                            ftxui::color(GetTheme().equalizer.text) | ftxui::border |
+                            ftxui::bgcolor(GetTheme().screen.background);
+
+      // List uses only the columns it needs, instead of all the ones used by title
+      return ftxui::vbox({
+                 RenderTitle(),
+                 ftxui::hbox({list | ftxui::clear_under, ftxui::filler()}),
+             }) |
+             ftxui::reflect(Box());
+    }
+
+   private:
+    //! Render label and current preset
+    ftxui::Element RenderTitle() {
+      using ftxui::EQUAL;
+      using ftxui::WIDTH;
+
+      const auto& theme = GetTheme().equalizer;
+
+      auto prefix = ftxui::text(std::string{opened ? kPrefixOpened : kPrefixClosed});
       auto title = ftxui::text(*preset_name);
 
       if ((IsFocused() && entry_focused == 0) || title_hovered) {
         title |= ftxui::inverted;
       }
 
-      entries.reserve(opened ? presets.size() + 2 : 1);  // presets + title + separator
-      entries.push_back(ftxui::hbox({prefix, title}) | ftxui::reflect(boxes[0]));
-
-      if (opened) {
-        entries.push_back(ftxui::separator());
-
-        // Note: +1 or -1 below are used to ignore the title index
-        for (int i = 0; i < presets.size(); i++) {
-          bool active = presets[i] == *preset_name;
-          bool is_focused = (IsFocused() && i == (entry_focused - 1)) ||
-                            (IsHovered() && i == (entry_hovered - 1));
-
-          auto state = ftxui::EntryState{
-              presets[i],
-              active,
-              active,
-              is_focused,
-          };
-
-          entries.push_back(ftxui::RadioboxOption::Simple().transform(state) |
-                            ftxui::reflect(boxes[i + 1]));
-        }
-      }
-
-      auto content = ftxui::vbox(entries) | ftxui::size(WIDTH, EQUAL, kMaxWidth);
-      if (opened) content |= ftxui::size(HEIGHT, EQUAL, kMaxHeight);
-
-      return ftxui::vbox({
-                 ftxui::filler(),
-                 content | ftxui::center | ftxui::border | ftxui::reflect(Box()),
-                 ftxui::filler(),
+      return ftxui::hbox({
+                 ftxui::text(std::string{kLabel}) | ftxui::color(theme.label),
+                 ftxui::hbox({prefix, title}) | ftxui::color(theme.text),
              }) |
-             ftxui::color(GetTheme().equalizer.text);
+             ftxui::size(WIDTH, EQUAL, kTitleWidth) | ftxui::reflect(boxes[0]);
     }
 
-   private:
     /**
      * @brief Handles an action key event (arrow keys or hjkl)
      * @param event Received event from screen

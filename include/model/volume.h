@@ -98,12 +98,16 @@ inline std::string to_string(const Volume& arg) {
   return std::move(ss).str();
 }
 
+//! Level (in decibels) reduced from any volume, so maximum volume is not the full scale
+static constexpr float kVolumeReference = 6.0F;
+
 /**
  * @brief Convert Volume to decibel scale for FFmpeg
  * @param arg Volume struct
+ * @param gain Gain (in decibels) added to volume, which must not be higher than kVolumeReference
  * @return std::string Volume in decibels (e.g., "-20.00dB")
  */
-inline std::string to_string_db(const Volume& arg) {
+inline std::string to_string_db(const Volume& arg, float gain = 0.0F) {
   float linear = static_cast<float>(arg);
   if (linear <= 0.0f) {
     return "-100dB";  // Effectively silent
@@ -111,7 +115,7 @@ inline std::string to_string_db(const Volume& arg) {
 
   // Apply -6dB reference adjustment to match streaming service loudness normalization
   // This compensates for hot-mastered tracks and provides more reasonable volume range
-  float db = 20.0f * log10f(linear) - 6.0f;
+  float db = 20.0f * log10f(linear) - kVolumeReference + gain;
 
   std::ostringstream ss;
   ss << std::fixed << std::setprecision(2) << db << "dB";

@@ -114,44 +114,6 @@ inline std::string shorten_path(const std::string& path, int max_columns) {
 }
 
 /**
- * @brief Node that renders the preferred element only if it fits in the width given by parent,
- * otherwise renders the fallback element. It requests only the fallback size from its parent, so
- * it never forces other elements (e.g. neighbour blocks) to shrink
- */
-class FitOrFallback : public ftxui::Node {
-  static constexpr int kPreferred = 0;  //!< Index for preferred element
-  static constexpr int kFallback = 1;   //!< Index for fallback element
-
- public:
-  FitOrFallback(ftxui::Element preferred, ftxui::Element fallback)
-      : ftxui::Node({std::move(preferred), std::move(fallback)}) {}
-
-  void ComputeRequirement() override {
-    ftxui::Node::ComputeRequirement();
-    requirement_ = children_.at(kFallback)->requirement();
-  }
-
-  void SetBox(ftxui::Box box) override {
-    ftxui::Node::SetBox(box);
-
-    const int width = box.x_max - box.x_min + 1;
-    active_ = width >= children_.at(kPreferred)->requirement().min_x ? kPreferred : kFallback;
-
-    children_.at(active_)->SetBox(box);
-  }
-
-  void Render(ftxui::Screen& screen) override { children_.at(active_)->Render(screen); }
-
- private:
-  int active_ = kPreferred;  //!< Element chosen to be rendered
-};
-
-//! Render preferred element if it fits in the available width, otherwise render fallback element
-inline ftxui::Element fit_or_fallback(ftxui::Element preferred, ftxui::Element fallback) {
-  return std::make_shared<FitOrFallback>(std::move(preferred), std::move(fallback));
-}
-
-/**
  * @brief Node that renders elements side by side, with the same space between them (and also
  * before the first one and after the last one). Columns that cannot be shared equally are split
  * between both ends, so distance from one element to the next is always the same

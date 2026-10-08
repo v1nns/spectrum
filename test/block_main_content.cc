@@ -962,18 +962,18 @@ TEST_F(MainContentTest, RenderEqualizer) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                       32     64    125    250    500     1k     2k     4k     8k    16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│    ╭─────────────╮                                                                          │
-│    │→ Custom     │                                                                          │
-│    ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│                       ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                       0      0      0      0      0      0      0      0      0      0      │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │       │       │       │       │       │       │       │         │
+│    0     ███     ███     ███     ███     ███     ███     ███     ███     ███     ███        │
+│           │       │       │       │       │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0       0       0       0       0       0       0       0       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -982,7 +982,7 @@ TEST_F(MainContentTest, RenderEqualizer) {
 /* ********************************************************************************************** */
 
 TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
-  // With enough width, labels contain their units
+  // With more width, frequency bars are just more distant from each other
   screen = std::make_unique<ftxui::Screen>(140, 15);
 
   block->OnEvent(ftxui::Event::Character('2'));
@@ -990,9 +990,104 @@ TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
   ftxui::Render(*screen, block->Render());
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("32 Hz"));
-  EXPECT_THAT(rendered, HasSubstr("16 kHz"));
-  EXPECT_THAT(rendered, HasSubstr("0 dB"));
+  // Units are shown only once, before the first frequency bar
+  EXPECT_THAT(rendered, HasSubstr("│  Hz           32          64          125"));
+  EXPECT_THAT(rendered, HasSubstr("│  dB            0           0           0"));
+  EXPECT_THAT(rendered, HasSubstr("[Apply] [Reset]  │"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RenderEqualizerWithGainAtLimits) {
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Increase gain from first frequency bar beyond its maximum, and decrease the second one beyond
+  // its minimum
+  constexpr int kSteps = 15;
+
+  block->OnEvent(ftxui::Event::ArrowRight);
+  for (int i = 0; i < kSteps; i++) block->OnEvent(ftxui::Event::ArrowUp);
+
+  block->OnEvent(ftxui::Event::ArrowRight);
+  for (int i = 0; i < kSteps; i++) block->OnEvent(ftxui::Event::ArrowDown);
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // Each knob stops at the line with its limit, and not beyond it
+  EXPECT_THAT(rendered, HasSubstr(R"(
+│                                                                                             │
+│  +12     ███      │       │       │       │       │       │       │       │       │         │
+│           ┃       │       │       │       │       │       │       │       │       │         │
+│    0     ─┼─     ─┼─     ███     ███     ███     ███     ███     ███     ███     ███        │
+│           │       ┃       │       │       │       │       │       │       │       │         │
+│  -12      │      ███      │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      +12     -12      0       0       0       0       0       0       0       0         │
+)"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(EqualizerPresetTest, PresetsForAnyMusicComeFirst) {
+  const auto presets = model::AudioFilter::CreatePresets();
+
+  std::vector<std::string> names;
+  for (const auto& [name, preset] : presets) names.push_back(name);
+
+  // Preset modified by user and the one without any gain, then all the others ordered by name
+  const std::vector<std::string> expected{
+      "Custom",  "Flat", "Acoustic", "Bass Boost", "Classical", "Dance",        "Electronic",
+      "Hip-Hop", "Jazz", "Loudness", "Pop",        "Rock",      "Treble Boost", "Vocal",
+  };
+
+  EXPECT_EQ(names, expected);
+
+  // Only the preset for user may be modified, and it starts without any gain (like Flat)
+  for (const auto& [name, preset] : presets) {
+    for (const auto& filter : preset) {
+      EXPECT_EQ(filter.modifiable, name == "Custom") << name;
+      if (name == "Custom" || name == "Flat") {
+        EXPECT_EQ(filter.gain, 0) << name;
+      }
+    }
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST(EqualizerPresetTest, CalculatePeakGain) {
+  constexpr double kSampleRate = 44100;
+  constexpr double kTolerance = 0.1;
+
+  auto presets = model::AudioFilter::CreatePresets();
+
+  auto peak = [&](const std::string& name, double sample_rate) {
+    const auto& preset = presets[name];
+    return model::AudioFilter::CalculatePeakGain({preset.begin(), preset.end()}, sample_rate);
+  };
+
+  // Nothing is amplified without any gain
+  EXPECT_DOUBLE_EQ(peak("Flat", kSampleRate), 0);
+
+  // Filters for nearby frequencies add up, so peak is higher than the highest gain (+4 dB)
+  EXPECT_NEAR(peak("Bass Boost", kSampleRate), 4.7, kTolerance);
+  EXPECT_NEAR(peak("Treble Boost", kSampleRate), 4.2, kTolerance);
+
+  // Frequencies attenuated do not matter, only the ones amplified
+  EXPECT_NEAR(peak("Pop", kSampleRate), 2.6, kTolerance);
+
+  // A single filter amplifies its own frequency by its gain
+  model::AudioFilter single{.frequency = 1000, .gain = 6};
+  EXPECT_NEAR(model::AudioFilter::CalculatePeakGain({single}, kSampleRate), 6.0, kTolerance);
+
+  // And a filter that only attenuates never needs any compensation
+  single.gain = -6;
+  EXPECT_DOUBLE_EQ(model::AudioFilter::CalculatePeakGain({single}, kSampleRate), 0);
+
+  // Filters above half of sample rate are ignored, and an invalid sample rate is not an error
+  EXPECT_NEAR(peak("Treble Boost", 16000), 1.6, 1.0);
+  EXPECT_DOUBLE_EQ(peak("Bass Boost", 0), 0);
 }
 
 /* ********************************************************************************************** */
@@ -1107,18 +1202,18 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                       32     64    125    250    500     1k     2k     4k     8k    16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│    ╭─────────────╮                                                     ▂▂                   │
-│    │→ Custom     │           ▇▇                                        ██                   │
-│    ╰─────────────╯    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██     ██     │
-│                       ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                       0      5      0      -2     0      -3     0      7      0      0      │
+│  +12      │       │       │       │       │       │       │      ▁▁▁      │       │         │
+│           │      ▇▇▇      │       │       │       │       │      ▁▁▁      │       │         │
+│    0     ███     ▇▇▇     ███     ▅▅▅     ███     ▄▄▄     ███     ─┼─     ███     ███        │
+│           │       │       │      ▅▅▅      │      ▄▄▄      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0      +5       0      -2       0      -3       0      +7       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1141,18 +1236,18 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                       32     64    125    250    500     1k     2k     4k     8k    16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│    ╭─────────────╮                                                                          │
-│    │→ Custom     │                         ▇▇                                               │
-│    ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│                       ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                       0      0      0      5      0      0      0      0      0      0      │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │      ▇▇▇      │       │       │       │       │       │         │
+│    0     ███     ███     ███     ▇▇▇     ███     ███     ███     ███     ███     ███        │
+│           │       │       │       │       │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0       0       0      +5       0       0       0       0       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1171,6 +1266,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   // And try to apply EQ
   block->OnEvent(ftxui::Event::Character('a'));
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
@@ -1178,18 +1274,18 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                       32     64    125    250    500     1k     2k     4k     8k    16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│    ╭─────────────╮                                                                          │
-│    │→ Custom     │                                                                          │
-│    ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│                       ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                       0      0      0      0      0      0      0      0      0      0      │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │       │       │       │       │       │       │       │         │
+│    0     ███     ███     ███     ███     ███     ███     ███     ███     ███     ███        │
+│           │       │       │       │       │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0       0       0       0       0       0       0       0       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1202,7 +1298,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Using keybindings for navigation, open preset picker
-  std::string typed{"lh jj"};
+  std::string typed{"lh jjjjjjj"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1211,19 +1307,19 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Custom     │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │◉ Custom     │                                                                          │
-│    │○ Electronic │                                                                          │
-│    │○ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    0      0      0      0      0      0      0      0      0      0      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Custom                                                           [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Bass Boost  ┃│                                                                          │
+│  │○ Classical   ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Dance       ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Electronic  ┃│██     ███     ███     ███     ███     ███     ███     ███     ███        │
+│  │○ Hip-Hop     ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Loudness     │                                                                          │
+│  │○ Pop          │0       0       0       0       0       0       0       0       0         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1243,25 +1339,26 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   typed = " a";
   utils::QueueCharacterEvents(*block, typed);
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Electronic │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │○ Custom     │                                                                          │
-│    │◉ Electronic │    ▃▃     ▄▄     ▃▃                   ▂▂     ▄▄     ▂▂     ▃▃     ▃▃     │
-│    │○ Pop        │    ██     ██     ██     ▆▆     ██     ██     ██     ██     ██     ██     │
-│    │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    2      3      2      -2     0      1      3      1      2      2      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Electronic                                                       [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Bass Boost  ┃│                                                                          │
+│  │○ Classical   ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Dance       ┃│▄▄     ▃▃▃      │       │      ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │◉ Electronic  ┃│▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │○ Hip-Hop     ┃││       │      ▅▅▅      │       │       │       │       │       │         │
+│  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Loudness     │                                                                          │
+│  │○ Pop          │3      +2      -2       0      +1      +3      +1      +2      +2         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1283,16 +1380,16 @@ TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
   ftxui::Render(*screen, block->Render());
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("→ Electronic"));
+  EXPECT_THAT(rendered, HasSubstr("→ Flat"));
 
   // Go back twice, which must wrap around to the last preset
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Character('k'));
 
-  // Setup expectation to check that will send audio filters matching Rock EQ
+  // Setup expectation to check that will send audio filters matching Vocal EQ
   using model::AudioFilter;
   using model::EqualizerPreset;
-  EqualizerPreset audio_filters{AudioFilter::CreatePresets()["Rock"]};
+  EqualizerPreset audio_filters{AudioFilter::CreatePresets()["Vocal"]};
 
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,
@@ -1306,7 +1403,7 @@ TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
   ftxui::Render(*screen, block->Render());
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("→ Rock"));
+  EXPECT_THAT(rendered, HasSubstr("→ Vocal"));
 }
 
 /* ********************************************************************************************** */
@@ -1327,7 +1424,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Pop"
-  std::string typed{"lh jjj a"};
+  std::string typed{"lh jjjjjjjjjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1336,19 +1433,19 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Pop        │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │○ Custom     │                                                                          │
-│    │○ Electronic │    ▂▂     ▃▃     ▂▂                   ▃▃     ▂▂     ▂▂     ▃▃     ▄▄     │
-│    │◉ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    1      2      1      0      0      2      1      1      2      3      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Pop                                                              [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Dance        │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Electronic   │                                                                          │
+│  │○ Hip-Hop      ││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ┃││       │      ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁      │       │       │         │
+│  │○ Loudness    ┃│▇▇     ███     ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁     ███     ▇▇▇     ▇▇▇        │
+│  │◉ Pop         ┃│▇▇      │       │       │       │       │       │      ▇▇▇     ▇▇▇        │
+│  │○ Rock        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Treble Boost┃│                                                                          │
+│  │○ Vocal       ┃│1       0      +1      +2      +2      +1       0      -1      -1         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1365,25 +1462,26 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   typed = "llkkljllkka";
   utils::QueueCharacterEvents(*block, typed);
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Pop        │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │○ Custom     │                                                                          │
-│    │○ Electronic │    ▂▂     ▃▃     ▂▂                   ▃▃     ▂▂     ▂▂     ▃▃     ▄▄     │
-│    │◉ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    1      2      1      0      0      2      1      1      2      3      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Pop                                                              [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Dance        │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Electronic   │                                                                          │
+│  │○ Hip-Hop      ││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ┃││       │      ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁      │       │       │         │
+│  │○ Loudness    ┃│▇▇     ███     ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁     ███     ▇▇▇     ▇▇▇        │
+│  │◉ Pop         ┃│▇▇      │       │       │       │       │       │      ▇▇▇     ▇▇▇        │
+│  │○ Rock        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Treble Boost┃│                                                                          │
+│  │○ Vocal       ┃│1       0      +1      +2      +2      +1       0      -1      -1         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1407,7 +1505,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Rock"
-  std::string typed{"lh jjjj a"};
+  std::string typed{"lh jjjjjjjjjjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1416,19 +1514,19 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Rock       │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │○ Custom     │                                                                          │
-│    │○ Electronic │    ▂▂     ▃▃     ▂▂                                 ▂▂     ▃▃     ▄▄     │
-│    │○ Pop        │    ██     ██     ██     ▇▇     ▄▄     ▇▇     ██     ██     ██     ██     │
-│    │◉ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    1      2      1      -1     -3     -1     0      1      2      3      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Rock                                                             [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Dance        │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Electronic   │                                                                          │
+│  │○ Hip-Hop      ││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ┃│▃▃     ▁▁▁      │       │       │       │      ▁▁▁     ▃▃▃     ▄▄▄        │
+│  │○ Loudness    ┃│▃▃     ▁▁▁     ▇▇▇     ▄▄▄     ▇▇▇     ███     ▁▁▁     ▃▃▃     ▄▄▄        │
+│  │○ Pop         ┃││       │      ▇▇▇     ▄▄▄     ▇▇▇      │       │       │       │         │
+│  │◉ Rock        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Treble Boost┃│                                                                          │
+│  │○ Vocal       ┃│2      +1      -1      -3      -1       0      +1      +2      +3         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1444,25 +1542,26 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   // Attempt to reset EQ
   block->OnEvent(ftxui::Event::Character('r'));
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Rock       │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │○ Custom     │                                                                          │
-│    │○ Electronic │    ▂▂     ▃▃     ▂▂                                 ▂▂     ▃▃     ▄▄     │
-│    │○ Pop        │    ██     ██     ██     ▇▇     ▄▄     ▇▇     ██     ██     ██     ██     │
-│    │◉ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    1      2      1      -1     -3     -1     0      1      2      3      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Rock                                                             [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Dance        │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Electronic   │                                                                          │
+│  │○ Hip-Hop      ││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ┃│▃▃     ▁▁▁      │       │       │       │      ▁▁▁     ▃▃▃     ▄▄▄        │
+│  │○ Loudness    ┃│▃▃     ▁▁▁     ▇▇▇     ▄▄▄     ▇▇▇     ███     ▁▁▁     ▃▃▃     ▄▄▄        │
+│  │○ Pop         ┃││       │      ▇▇▇     ▄▄▄     ▇▇▇      │       │       │       │         │
+│  │◉ Rock        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Treble Boost┃│                                                                          │
+│  │○ Vocal       ┃│2      +1      -1      -3      -1       0      +1      +2      +3         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1508,18 +1607,18 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
 │                                                                                             │
-│                       32     64    125    250    500     1k     2k     4k     8k    16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│    ╭─────────────╮                                                     ▂▂                   │
-│    │→ Custom     │           ▇▇                                        ██                   │
-│    ╰─────────────╯    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██     ██     │
-│                       ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                       0      5      0      -2     0      -3     0      7      0      0      │
+│  +12      │       │       │       │       │       │       │      ▁▁▁      │       │         │
+│           │      ▇▇▇      │       │       │       │       │      ▁▁▁      │       │         │
+│    0     ███     ▇▇▇     ███     ▅▅▅     ███     ▄▄▄     ███     ─┼─     ███     ███        │
+│           │       │       │      ▅▅▅      │      ▄▄▄      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0      +5       0      -2       0      -3       0      +7       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1536,7 +1635,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<model::EqualizerPreset>(electronic_preset)))));
 
-  typed = "lh jj a";
+  typed = "lh jjjjjjj a";
   utils::QueueCharacterEvents(*block, typed);
 
   // It is necessary to clear screen, otherwise it will be dirty
@@ -1547,19 +1646,19 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Electronic │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │○ Custom     │                                                                          │
-│    │◉ Electronic │    ▃▃     ▄▄     ▃▃                   ▂▂     ▄▄     ▂▂     ▃▃     ▃▃     │
-│    │○ Pop        │    ██     ██     ██     ▆▆     ██     ██     ██     ██     ██     ██     │
-│    │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    2      3      2      -2     0      1      3      1      2      2      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Electronic                                                       [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Bass Boost  ┃│                                                                          │
+│  │○ Classical   ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Dance       ┃│▄▄     ▃▃▃      │       │      ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │◉ Electronic  ┃│▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▄▄▄     ▁▁▁     ▃▃▃     ▃▃▃        │
+│  │○ Hip-Hop     ┃││       │      ▅▅▅      │       │       │       │       │       │         │
+│  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Loudness     │                                                                          │
+│  │○ Pop          │3      +2      -2       0      +1      +3      +1      +2      +2         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1572,7 +1671,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
           Field(&interface::CustomEvent::content, VariantWith<EqualizerPreset>(audio_filters)))));
 
   // Switchback to "Custom" preset
-  typed = "k a";
+  typed = "kkkkkk a";
   utils::QueueCharacterEvents(*block, typed);
 
   // It is necessary to clear screen, otherwise it will be dirty
@@ -1583,19 +1682,19 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│    ╭─────────────╮                                                                          │
-│    │↓ Custom     │    32     64    125    250    500     1k     2k     4k     8k    16k     │
-│    ├─────────────┤                                                                          │
-│    │◉ Custom     │                                                     ▂▂                   │
-│    │○ Electronic │           ▇▇                                        ██                   │
-│    │○ Pop        │    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██     ██     │
-│    │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██     ██     │
-│    │             │                                                                          │
-│    │             │    0      5      0      -2     0      -3     0      7      0      0      │
-│    ╰─────────────╯                                                                          │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│                                                                                             │
+│  preset ↓ Custom                                                           [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │◉ Custom      ┃│4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Flat        ┃│                                                                          │
+│  │○ Acoustic    ┃││       │       │       │       │       │      ▁▁▁      │       │         │
+│  │○ Bass Boost  ┃│▇▇      │       │       │       │       │      ▁▁▁      │       │         │
+│  │○ Classical   ┃│▇▇     ███     ▅▅▅     ███     ▄▄▄     ███     ─┼─     ███     ███        │
+│  │○ Dance       ┃││       │      ▅▅▅      │      ▄▄▄      │       │       │       │         │
+│  │○ Electronic   ││       │       │       │       │       │       │       │       │         │
+│  │○ Hip-Hop      │                                                                          │
+│  │○ Jazz         │5       0      -2       0      -3       0      +7       0       0         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

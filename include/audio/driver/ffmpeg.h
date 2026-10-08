@@ -66,11 +66,15 @@ class FFmpeg final : public audio::Decoder {
 
   //! These are ffmpeg-specific filters
   error::Code CreateFilterAbufferSrc();
-  error::Code CreateFilterVolume();
+  error::Code CreateFilterVolume(const char* name, const std::string& value);
   error::Code CreateFilterAformat(const char* name, int sample_rate, AVSampleFormat sample_format);
   error::Code CreateFilterAsplit();
   error::Code CreateFilterAbufferSink(const char* name);
   error::Code CreateFilterEqualizer(const std::string& name, const model::AudioFilter& filter);
+
+  //! Get value for volume filter from playback, which also gives back what was attenuated before
+  //! equalization filters (limited to what is always reduced from volume, to never amplify audio)
+  std::string GetPlaybackVolume() const;
 
   /**
    * @brief Connect all filters created in the filtergraph as a linear chain
@@ -211,13 +215,14 @@ class FFmpeg final : public audio::Decoder {
   static constexpr char kFilterAsplit[] = "asplit";
 
   //! Names for filter instances that exist in both branches from filtergraph (playback/analysis)
+  static constexpr char kVolumePreamp[] = "preamp";
   static constexpr char kAformatPlayback[] = "aformat";
   static constexpr char kAformatAnalysis[] = "aformat_analysis";
   static constexpr char kSinkPlayback[] = "sink";
   static constexpr char kSinkAnalysis[] = "sink_analysis";
 
   static constexpr int kDefaultFilterCount =
-      3;  //!< Number of filters in the main chain without considering equalizer filters
+      4;  //!< Number of filters in the main chain without considering equalizer filters
   static constexpr int kResponseSize = 64;  //!< Response message size from AVFilter command
 
   /* ******************************************************************************************** */
@@ -319,6 +324,10 @@ class FFmpeg final : public audio::Decoder {
 
   using FilterName = std::string;
   std::map<FilterName, model::AudioFilter, std::less<>> audio_filters_;  //!< Equalization filters
+
+  //! Highest gain (in decibels) that equalization filters apply to any frequency. Audio is
+  //! attenuated by it before these filters, otherwise it could be clipped by them
+  double equalizer_peak_ = 0;
 
   DecodingData shared_context_;  //!< Shared context for decoding and equalizing audio data
 

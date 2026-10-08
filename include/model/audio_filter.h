@@ -11,11 +11,35 @@
 #include <map>
 #include <ostream>
 #include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace model {
 
 namespace equalizer {
 static constexpr int kFiltersPerPreset = 10;  //!< Maximum number of audio filters for each preset
+
+static constexpr std::string_view kCustomPreset = "Custom";  //!< Preset modified by user
+static constexpr std::string_view kFlatPreset = "Flat";      //!< Preset without any gain
+
+/**
+ * @brief Order for presets: the one modified by user and the one without any gain come first (as
+ * they are not related to any kind of music), then all the others ordered by name
+ */
+struct PresetOrder {
+  using is_transparent = void;  //!< To search for a preset without creating a string
+
+  bool operator()(std::string_view lhs, std::string_view rhs) const {
+    return std::make_pair(GetGroup(lhs), lhs) < std::make_pair(GetGroup(rhs), rhs);
+  }
+
+ private:
+  //! Presets from a group are always placed before the ones from the next group
+  static constexpr int GetGroup(std::string_view name) {
+    return name == kCustomPreset ? 0 : name == kFlatPreset ? 1 : 2;
+  }
+};
 }  // namespace equalizer
 
 // Forward declaration
@@ -28,7 +52,7 @@ using MusicGenre = std::string;
 using EqualizerPreset = std::array<AudioFilter, equalizer::kFiltersPerPreset>;
 
 //! Map of EQ presets where key is music genre, and value is an EQ preset
-using EqualizerPresets = std::map<MusicGenre, EqualizerPreset, std::less<>>;
+using EqualizerPresets = std::map<MusicGenre, EqualizerPreset, equalizer::PresetOrder>;
 
 /**
  * @brief Class representing an audio filter, more specifically, a Biquad filter. It is a type of
@@ -54,6 +78,16 @@ struct AudioFilter {
    * @return Map of EQ presets
    */
   static EqualizerPresets CreatePresets();
+
+  /**
+   * @brief Calculate the highest gain applied to any frequency when the given filters are used
+   * together (as filters for nearby frequencies add up, it may be higher than the gain from any
+   * of them)
+   * @param filters Audio filters
+   * @param sample_rate Sample rate from audio to be filtered
+   * @return Gain in decibels (never lower than zero, which means that nothing is amplified)
+   */
+  static double CalculatePeakGain(const std::vector<AudioFilter>& filters, double sample_rate);
 
   /**
    * @brief Get audio filter name based on cutoff frequency

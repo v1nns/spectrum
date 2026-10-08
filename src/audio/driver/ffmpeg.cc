@@ -2,9 +2,11 @@
 
 #include <libavutil/error.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <iomanip>
 #include <iterator>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -224,8 +226,24 @@ error::Code FFmpeg::ConfigureFilters() {
   error::Code result = CreateFilterAbufferSrc();
   if (result != error::kSuccess) return result;
 
+  // As equalizer filters may amplify some frequencies beyond the full scale (which means that
+  // audio is clipped by them), attenuate audio by the highest gain from them all
+  std::vector<model::AudioFilter> filters;
+  filters.reserve(audio_filters_.size());
+
+  for (const auto& [name, filter] : audio_filters_) filters.push_back(filter);
+
+  equalizer_peak_ = model::AudioFilter::CalculatePeakGain(filters, decoder_->sample_rate);
+  LOG("Attenuate audio before equalizer filters by ", equalizer_peak_, " dB");
+
+  std::ostringstream preamp;
+  preamp << std::fixed << std::setprecision(2) << (0.0 - equalizer_peak_) << "dB";
+
+  result = CreateFilterVolume(kVolumePreamp, std::move(preamp).str());
+  if (result != error::kSuccess) return result;
+
   // Create and configure volume filter
-  result = CreateFilterVolume();
+  result = CreateFilterVolume(kFilterVolume, GetPlaybackVolume());
   if (result != error::kSuccess) return result;
 
   // Create and configure all equalizer filters
@@ -319,8 +337,15 @@ error::Code FFmpeg::CreateFilterAbufferSrc() {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::CreateFilterVolume() {
-  LOG("Create volume filter with value=", volume_);
+std::string FFmpeg::GetPlaybackVolume() const {
+  const auto gain = static_cast<float>(equalizer_peak_);
+  return model::to_string_db(volume_, std::min(gain, model::kVolumeReference));
+}
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::CreateFilterVolume(const char* name, const std::string& value) {
+  LOG("Create volume filter with name=", name, " and value=", value);
 
   // Find volume filter
   const AVFilter* volume = avfilter_get_by_name(kFilterVolume);
@@ -331,8 +356,7 @@ error::Code FFmpeg::CreateFilterVolume() {
   }
 
   // Create an instance of volume filter
-  AVFilterContext* volume_ctx =
-      avfilter_graph_alloc_filter(filter_graph_.get(), volume, kFilterVolume);
+  AVFilterContext* volume_ctx = avfilter_graph_alloc_filter(filter_graph_.get(), volume, name);
 
   if (!volume_ctx) {
     ERROR("Cannot allocate the volume instance");
@@ -340,7 +364,7 @@ error::Code FFmpeg::CreateFilterVolume() {
   }
 
   // Set filter option using decibel scale for perceptually accurate volume control
-  av_opt_set(volume_ctx, "volume", model::to_string_db(volume_).c_str(), AV_OPT_SEARCH_CHILDREN);
+  av_opt_set(volume_ctx, "volume", value.c_str(), AV_OPT_SEARCH_CHILDREN);
 
   // Initialize filter
   if (int result = avfilter_init_str(volume_ctx, nullptr); result < 0) {
@@ -530,11 +554,12 @@ error::Code FFmpeg::ConnectFilters() {
   AVFilterContext* aformat_analysis =
       avfilter_graph_get_filter(filter_graph_.get(), kAformatAnalysis);
 
-  // Main chain: abuffer -> equalizer filters -> asplit
+  // Main chain: abuffer -> volume (preamp) -> equalizer filters -> asplit
   std::vector<AVFilterContext*> main_chain;
   main_chain.reserve(kDefaultFilterCount + audio_filters_.size());
 
   main_chain.push_back(buffersrc_ctx_.get());
+  main_chain.push_back(avfilter_graph_get_filter(filter_graph_.get(), kVolumePreamp));
 
   for (const auto& [name, filter] : audio_filters_) {
     main_chain.push_back(avfilter_graph_get_filter(filter_graph_.get(), name.c_str()));
@@ -841,7 +866,7 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
   if (!filter_graph_) return error::kSuccess;
 
   // Otherwise, it means that some music is playing, so we gotta update the running filtergraph
-  std::string volume = model::to_string_db(volume_);
+  std::string volume = GetPlaybackVolume();
   LOG("Found volume filter, update value to ", volume);
 
   // Set filter option
