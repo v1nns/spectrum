@@ -810,9 +810,9 @@ ftxui::Element Terminal::GetOverlay() const {
 
   if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
 
-  if (theme_picker_->IsVisible()) return theme_picker_->Render();
+  if (theme_picker_->IsVisible()) return theme_picker_->Render() | ftxui::center;
 
-  if (device_picker_->IsVisible()) return device_picker_->Render();
+  if (device_picker_->IsVisible()) return device_picker_->Render() | ftxui::center;
 
   return ftxui::emptyElement();
 }

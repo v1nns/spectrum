@@ -440,6 +440,69 @@ TEST_F(MainContentTest, PickAnimationWithPreview) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, PickAnimationWithMouse) {
+  using interface::CustomEvent;
+
+  //! Create event for mouse button released at the position where the given text is rendered
+  auto mouse_at = [this](const std::string& text, ftxui::Mouse::Button button) {
+    for (int y = 0; y < screen->dimy(); y++) {
+      for (int x = 0; x + static_cast<int>(text.size()) <= screen->dimx(); x++) {
+        bool found = true;
+        for (size_t i = 0; i < text.size() && found; i++) {
+          found = screen->PixelAt(x + static_cast<int>(i), y).character == text.substr(i, 1);
+        }
+
+        if (found) {
+          return ftxui::Event::Mouse(
+              "", ftxui::Mouse{.button = button, .motion = ftxui::Mouse::Released, .x = x, .y = y});
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Text not found on screen: " << text;
+    return ftxui::Event::Custom;
+  };
+
+  auto animation_changed_to = [](model::BarAnimation animation) {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ChangeBarAnimation),
+                 Field(&CustomEvent::content, VariantWith<model::BarAnimation>(animation)));
+  };
+
+  block->OnEvent(ftxui::Event::Character('a'));
+  ftxui::Render(*screen, block->Render());
+
+  // Wheel moves selection by one animation, changing it right away
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::VerticalMirror)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Line (mirror)", ftxui::Mouse::WheelDown)));
+
+  // Click selects the animation under mouse cursor
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::SpectrumLine)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Line  ", ftxui::Mouse::Left)));
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Line  "));
+
+  // Double-click keeps it, closing picker and saving it
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::Mono)));
+  EXPECT_CALL(*file_handler,
+              SaveSettings(Field(&model::Settings::animation, Optional(model::BarAnimation::Mono))))
+      .WillOnce(Return(true));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Mono  ", ftxui::Mouse::Left)));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("▶")));
+
+  // Without picker, mouse is not handled by visualizer
+  auto outside = ftxui::Event::Mouse("", ftxui::Mouse{.button = ftxui::Mouse::WheelDown,
+                                                      .motion = ftxui::Mouse::Pressed,
+                                                      .x = screen->dimx() / 2,
+                                                      .y = screen->dimy() / 2});
+  EXPECT_FALSE(block->OnEvent(outside));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
   EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);

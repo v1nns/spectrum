@@ -17,6 +17,7 @@
 #include "ftxui/dom/canvas.hpp"
 #include "model/bar_animation.h"
 #include "util/file_handler.h"
+#include "view/element/animation_picker.h"
 #include "view/element/flash_message.h"
 #include "view/element/tab.h"
 
@@ -75,6 +76,13 @@ class SpectrumVisualizer : public TabItem {
   bool OnEvent(const ftxui::Event& event) override;
 
   /**
+   * @brief Handles an event (from mouse)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnMouseEvent(ftxui::Event& event) override;
+
+  /**
    * @brief Handles a custom event
    * @param event Received event (probably sent by Audio thread)
    * @return true if event was handled, otherwise false
@@ -100,10 +108,6 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   // Private methods
  private:
-  //! Animation picker (shown over visualizer, changing animation while selection moves)
-  bool OnPickerEvent(const ftxui::Event& event);
-  ftxui::Element RenderPicker() const;
-
   //! Change current animation and notify terminal (to recalculate number of bars)
   void SetAnimation(model::BarAnimation animation);
 
@@ -158,8 +162,8 @@ class SpectrumVisualizer : public TabItem {
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save visualizer settings
 
-  //! While picker is open, it contains the animation from before opening it (to restore it)
-  std::optional<model::BarAnimation> picker_previous_;
+  //! Animation picker (shown over visualizer, changing animation while selection moves)
+  AnimationPicker picker_;
 };
 
 }  // namespace interface

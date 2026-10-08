@@ -33,7 +33,13 @@ SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
                  }
                },
                kMessageDuration},
-      file_handler_{file_handler} {
+      file_handler_{file_handler},
+      picker_{[this](model::BarAnimation animation) { SetAnimation(animation); },
+              [this](model::BarAnimation animation) {
+                INFO("Selected animation=", model::GetAnimationName(animation));
+                SetAnimation(animation);
+                SaveSettings();
+              }} {
   // Restore settings from last run (ignoring invalid values)
   if (model::Settings settings; file_handler_ && file_handler_->ParseSettings(settings)) {
     if (settings.animation) curr_anim_ = *settings.animation;
@@ -115,44 +121,14 @@ ftxui::Element SpectrumVisualizer::Render() {
   }
 
   // Draw picker (if open) on the upper-left corner, over the animation
-  if (picker_previous_.has_value()) {
+  if (picker_.IsVisible()) {
     bar_visualizer = ftxui::dbox({
         bar_visualizer,
-        ftxui::hbox({RenderPicker(), ftxui::filler()}),
+        ftxui::hbox({ftxui::vbox({picker_.Render(), ftxui::filler()}), ftxui::filler()}),
     });
   }
 
   return bar_visualizer;
-}
-
-/* ********************************************************************************************** */
-
-ftxui::Element SpectrumVisualizer::RenderPicker() const {
-  ftxui::Elements entries;
-
-  for (int i = model::BarAnimation::HorizontalMirror; i < model::BarAnimation::LAST; i++) {
-    const auto animation = static_cast<model::BarAnimation>(i);
-    const bool selected = animation == curr_anim_;
-    const std::string name{model::GetAnimationName(animation)};
-
-    auto entry = ftxui::text((selected ? "▶ " : "  ") + name + " ");
-    entries.push_back(selected ? entry | ftxui::bold | ftxui::color(GetTheme().visualizer.text) |
-                                     ftxui::focus
-                               : entry | ftxui::dim);
-  }
-
-  // Frame keeps selected entry visible when there is not enough space for all of them (otherwise,
-  // picker takes only the height needed for its entries and border)
-  const int max_height = static_cast<int>(entries.size()) + 2;
-
-  return ftxui::vbox({
-      ftxui::window(ftxui::text(" animation "),
-                    ftxui::vbox(std::move(entries)) | ftxui::vscroll_indicator | ftxui::frame) |
-          ftxui::color(GetTheme().screen.foreground) |
-          ftxui::bgcolor(GetTheme().screen.background) | ftxui::clear_under |
-          ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height),
-      ftxui::filler(),
-  });
 }
 
 /* ********************************************************************************************** */
@@ -169,7 +145,16 @@ void SpectrumVisualizer::HideMessage() { message_.Hide(); }
 /* ********************************************************************************************** */
 
 bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
-  if (OnPickerEvent(event)) return true;
+  // While picker is open, it is the first one to handle events
+  if (picker_.OnEvent(event)) return true;
+
+  // Open picker, with current animation selected
+  if (event == keybinding::Visualizer::ChangeAnimation) {
+    LOG("Handle key to open animation picker");
+    picker_.Open(curr_anim_);
+    message_.Hide();
+    return true;
+  }
 
   // Enable/disable fullscreen mode with spectrum visualizer
   if (event == keybinding::Visualizer::ToggleFullscreen) {
@@ -214,49 +199,7 @@ bool SpectrumVisualizer::OnEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-bool SpectrumVisualizer::OnPickerEvent(const ftxui::Event& event) {
-  using Keybind = keybinding::Navigation;
-
-  // Open picker, with current animation selected
-  if (!picker_previous_.has_value()) {
-    if (event != keybinding::Visualizer::ChangeAnimation) return false;
-
-    LOG("Handle key to open animation picker");
-    picker_previous_ = curr_anim_;
-    message_.Hide();
-    return true;
-  }
-
-  // Move selection, changing animation right away (so user can see it while choosing)
-  if (bool next = event == Keybind::ArrowDown || event == Keybind::Down;
-      next || event == Keybind::ArrowUp || event == Keybind::Up) {
-    const int index = curr_anim_ + (next ? 1 : -1);
-
-    if (index >= model::BarAnimation::HorizontalMirror && index < model::BarAnimation::LAST) {
-      SetAnimation(static_cast<model::BarAnimation>(index));
-    }
-
-    return true;
-  }
-
-  // Keep selected animation
-  if (event == Keybind::Return || event == keybinding::Visualizer::ChangeAnimation) {
-    INFO("Selected animation=", model::GetAnimationName(curr_anim_));
-    picker_previous_.reset();
-    SaveSettings();
-    return true;
-  }
-
-  // Go back to the animation from before opening picker
-  if (event == Keybind::Escape) {
-    LOG("Cancel animation picker");
-    SetAnimation(*picker_previous_);
-    picker_previous_.reset();
-    return true;
-  }
-
-  return false;
-}
+bool SpectrumVisualizer::OnMouseEvent(ftxui::Event& event) { return picker_.OnEvent(event); }
 
 /* ********************************************************************************************** */
 

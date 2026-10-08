@@ -2616,9 +2616,9 @@ class ThemePickerTest : public ::testing::Test {
     return false;
   }
 
-  //! Getter for rendered screen
+  //! Getter for rendered screen (with picker placed as terminal does)
   std::string GetRenderedScreen() {
-    ftxui::Render(*screen, picker->Render());
+    ftxui::Render(*screen, picker->Render() | ftxui::center);
     return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
   }
 
@@ -2867,9 +2867,9 @@ class DevicePickerTest : public ::testing::Test {
         .WillOnce(Return(true));
   }
 
-  //! Getter for rendered screen
+  //! Getter for rendered screen (with picker placed as terminal does)
   std::string GetRenderedScreen() {
-    ftxui::Render(*screen, picker->Render());
+    ftxui::Render(*screen, picker->Render() | ftxui::center);
     return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
   }
 
