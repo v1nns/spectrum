@@ -156,7 +156,7 @@ class IconButton : public Button {
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
-  return std::make_shared<IconButton>(on_click, "▶ ", "❙❙", [] { return GetTheme().player.play; });
+  return std::make_shared<IconButton>(on_click, "▶ ", "∥ ", [] { return GetTheme().player.play; });
 }
 
 /* ********************************************************************************************** */
