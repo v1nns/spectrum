@@ -72,18 +72,39 @@ class BaseMenu : public Element {
 
   //! Decorator for custom style to apply on menu entry
   inline MenuEntryOption Colored(const ftxui::Color& c, bool is_bold = false) {
+    using ftxui::bgcolor;
     using ftxui::bold;
     using ftxui::color;
     using ftxui::Decorator;
-    using ftxui::inverted;
     using ftxui::nothing;
+
+    // Selected (or hovered) entry uses the same colors for any type of entry
+    const auto& cursor = GetTheme().menu.cursor;
+    const Decorator on_cursor = Decorator(color(cursor.foreground)) | bgcolor(cursor.background) |
+                                (is_bold ? bold : nothing);
 
     return MenuEntryOption{
         .normal = Decorator(color(c)) | (is_bold ? bold : nothing),
-        .focused = Decorator(color(c)) | (is_bold ? bold : nothing) | inverted,
-        .selected = Decorator(color(c)) | (is_bold ? bold : nothing) | inverted,
-        .selected_focused = Decorator(color(c)) | (is_bold ? bold : nothing) | inverted,
+        .focused = on_cursor,
+        .selected = on_cursor,
+        .selected_focused = on_cursor,
     };
+  }
+
+  /**
+   * @brief Render icon shown before entry: an arrow for the selected one, a note for the one that
+   * is playing (when not selected), or just empty space
+   * @param is_selected Entry is the selected one
+   * @param is_playing Entry is the one playing
+   * @return Icon element
+   */
+  [[nodiscard]] ftxui::Element RenderPrefix(bool is_selected, bool is_playing = false) const {
+    const auto& theme = GetTheme().menu;
+
+    if (is_selected) return ftxui::text("▶ ") | ftxui::color(theme.prefix);
+    if (is_playing) return ftxui::text("♪ ") | ftxui::color(theme.prefix_playing);
+
+    return ftxui::text(std::string(kMaxIconColumns, ' '));
   }
 
   /**

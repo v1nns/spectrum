@@ -2460,9 +2460,10 @@ TEST_F(PlaylistDialogTest, ChangeThemeAfterCreation) {
       .playlist = model::Playlist{},
   });
 
-  // Add first file to playlist
+  // Add first two files to playlist (selected entry uses colors from cursor, so a second song is
+  // needed to check its own color)
   EXPECT_CALL(contains_audio_cb, Call).WillRepeatedly(Return(true));
-  utils::QueueCharacterEvents(*dialog, "j ");
+  utils::QueueCharacterEvents(*dialog, "j j ");
 
   // Dialog was created with default theme
   ftxui::Render(*screen, dialog->Render(size));

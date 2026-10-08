@@ -27,7 +27,6 @@ class FileMenu : public BaseMenu<FileMenu> {
 
   //! Put together all possible styles for an entry in this component
   struct Style {
-    ftxui::Decorator prefix;
     MenuEntryOption directory;
     MenuEntryOption file;
     MenuEntryOption unsupported;

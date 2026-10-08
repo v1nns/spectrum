@@ -185,6 +185,8 @@ Theme MakeTheme(const Palette& p) {
 
   theme.menu = Theme::Menu{
       .prefix = p.accent,
+      .prefix_playing = p.green,
+      .cursor = State{.foreground = p.base, .background = p.accent},
       .title = p.text,
       .search = p.text,
       .directory = p.green,

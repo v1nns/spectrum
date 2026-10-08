@@ -626,6 +626,65 @@ TEST_F(SidebarTest, HighlightSameSongListedTwiceInPlaylist) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, ShowIconOnEntryPlaying) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Load playlists, then show files tab again
+  block->OnEvent(ftxui::Event::F2);
+  block->OnEvent(ftxui::Event::F1);
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = file, .playlist = "Chill mix"}));
+
+  // File playing is the selected one, so it is shown with the icon for selected entry
+  EXPECT_THAT(render(), HasSubstr("▶ audio_player.cc"));
+
+  // After selecting any other file, the one playing is shown with its own icon
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_THAT(render(), HasSubstr("♪ audio_player.cc"));
+
+  // Same thing for playlist
+  block->OnEvent(ftxui::Event::F2);
+  EXPECT_THAT(render(), HasSubstr("▶ Chill mix [1]"));
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_THAT(render(), HasSubstr("♪ Chill mix [1]"));
+
+  // With songs from playlist shown, icon goes to the song that is playing
+  block->OnEvent(ftxui::Event::ArrowUp);
+  block->OnEvent(ftxui::Event::Character(' '));
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+
+  const std::string rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("  Chill mix [1]"));
+  EXPECT_THAT(rendered, HasSubstr("♪   audio_player.cc"));
+
+  // Without any song playing, icon is not shown anymore
+  sidebar->OnCustomEvent(interface::CustomEvent::ClearSongInfo());
+  EXPECT_THAT(render(), Not(HasSubstr("♪")));
+
+  block->OnEvent(ftxui::Event::F1);
+  EXPECT_THAT(render(), Not(HasSubstr("♪")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
   // Setup expectation for event disabling global mode
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
@@ -2474,13 +2533,22 @@ TEST_F(SidebarTest, ChangeThemeAfterCreation) {
   const auto file = utils::MarkerColor(3);
   const auto button = utils::MarkerColor(4);
   const auto playlist = utils::MarkerColor(5);
-  const auto all = {tab, directory, file, button, playlist};
+  const auto cursor = utils::MarkerColor(6);
+  const auto all = {tab, directory, file, button, playlist, cursor};
 
-  model::Playlists data{{model::Playlist{
-      .index = 0,
-      .name = "Chill mix",
-      .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
-  }}};
+  // Selected entry uses colors from cursor, so a second playlist is needed to check its own color
+  model::Playlists data{{
+      model::Playlist{
+          .index = 0,
+          .name = "Chill mix",
+          .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
+      },
+      model::Playlist{
+          .index = 1,
+          .name = "Lofi",
+          .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
+      },
+  }};
 
   EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
       .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
@@ -2496,12 +2564,14 @@ TEST_F(SidebarTest, ChangeThemeAfterCreation) {
   theme.menu.file = file;
   theme.sidebar.button = utils::AllButtonStates(button);
   theme.menu.playlist = playlist;
+  theme.menu.cursor = interface::Theme::State{.foreground = cursor, .background = cursor};
   interface::SetTheme(theme);
 
   ftxui::Render(*screen, block->Render());
   EXPECT_TRUE(utils::HasColor(*screen, tab));
   EXPECT_TRUE(utils::HasColor(*screen, directory));
   EXPECT_TRUE(utils::HasColor(*screen, file));
+  EXPECT_TRUE(utils::HasColor(*screen, cursor));
 
   // Same thing for playlist viewer
   block->OnEvent(ftxui::Event::F2);

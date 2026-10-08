@@ -29,8 +29,6 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 
   //! Put together all possible styles for an entry in this component
   struct EntryStyles {
-    ftxui::Decorator prefix;
-
     struct State {
       MenuEntryOption normal;
       MenuEntryOption playing;
@@ -148,7 +146,8 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
 
   //! Create UI element for a single entry (playlist and song have different styles)
   ftxui::Element CreateEntry(int index, const std::string& text, bool is_highlighted,
-                             bool is_playlist, const std::string& suffix = "");
+                             bool is_playlist, bool show_playing_icon,
+                             const std::string& suffix = "");
 
   //! Shuffle playlist based on given iterator
   model::Playlist ShufflePlaylist(const model::Playlist& playlist,

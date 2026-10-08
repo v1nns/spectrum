@@ -85,9 +85,11 @@ struct Theme {
 
   //! Menus listing files, playlists and songs
   struct Menu {
-    Color prefix;  //!< Icon before entry
-    Color title;   //!< Menu title (e.g. current directory)
-    Color search;  //!< Label and text typed in search input
+    Color prefix;          //!< Icon before selected entry
+    Color prefix_playing;  //!< Icon before entry that is playing
+    State cursor;          //!< Selected (or hovered) entry, no matter its type
+    Color title;           //!< Menu title (e.g. current directory)
+    Color search;          //!< Label and text typed in search input
 
     Color directory;
     Color file;

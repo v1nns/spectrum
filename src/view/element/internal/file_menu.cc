@@ -74,7 +74,6 @@ void FileMenu::UpdateStyleImpl() {
   switch (menu_style_) {
     case menu::Style::Default:
       style_ = Style{
-          .prefix = ftxui::color(theme.menu.prefix),
           .directory = Colored(theme.menu.directory),
           .file = Colored(theme.menu.file),
           .playing = Colored(theme.menu.file_playing),
@@ -83,7 +82,6 @@ void FileMenu::UpdateStyleImpl() {
 
     case menu::Style::Alternative:
       style_ = Style{
-          .prefix = ftxui::color(theme.menu.prefix),
           .directory = Colored(theme.dialog.menu_directory),
           .file = Colored(theme.dialog.menu_file),
           .playing = Colored(theme.dialog.menu_file_playing),
@@ -127,7 +125,7 @@ ftxui::Element FileMenu::RenderImpl() {
 
     const auto& type = GetEntryStyle(entry, is_highlighted);
 
-    auto prefix = ftxui::text(is_selected ? "▶ " : "  ");
+    auto prefix = RenderPrefix(is_selected, is_highlighted);
 
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                          : (is_focused ? type.focused : type.normal);
@@ -141,7 +139,7 @@ ftxui::Element FileMenu::RenderImpl() {
                                                         : FitText(entry.filename().string()));
 
     menu_entries.push_back(ftxui::hbox({
-                               prefix | style_.prefix,
+                               prefix,
                                text | style | ftxui::xflex,
                            }) |
                            max_size | focus_management | ftxui::reflect(boxes[i]));

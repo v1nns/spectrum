@@ -15,7 +15,6 @@ void SongMenu::UpdateStyleImpl() {
   const auto& theme = GetTheme();
 
   style_ = Style{
-      .prefix = ftxui::color(theme.menu.prefix),
       .tag = ftxui::color(theme.dialog.menu_tag) | ftxui::bold,
       .entry = Colored(theme.dialog.menu_song),
   };
@@ -47,7 +46,7 @@ ftxui::Element SongMenu::RenderImpl() {
 
     const auto& type = style_.entry;
 
-    auto prefix = ftxui::text(is_selected ? "▶ " : "  ");
+    auto prefix = RenderPrefix(is_selected);
 
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                          : (is_focused ? type.focused : type.normal);
@@ -66,7 +65,7 @@ ftxui::Element SongMenu::RenderImpl() {
                                 : FitText(GetEntryText(entry), ftxui::string_width(tag_text)));
 
     menu_entries.push_back(ftxui::hbox({
-                               prefix | style_.prefix,
+                               prefix,
                                tag | style_.tag,
                                text | style | ftxui::xflex,
                            }) |
