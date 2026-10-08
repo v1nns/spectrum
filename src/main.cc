@@ -12,6 +12,7 @@
 #include <system_error>
 
 #include "audio/player.h"
+#include "ftxui/component/loop.hpp"
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
@@ -362,8 +363,14 @@ int main(int argc, char** argv) {
         [&remote](const model::PlayerStatus& status) { remote->Publish(model::to_json(status)); });
   }
 
+  // Events posted to screen are discarded while its loop does not exist, so create it and ask
+  // terminal to handle any custom event sent in the meantime (e.g. a warning about something that
+  // has failed on initialization, otherwise it would be shown only after the first key pressed)
+  ftxui::Loop loop(&screen, terminal);
+  screen.PostEvent(ftxui::Event::Custom);
+
   // Start GUI loop and clear screen after exit
-  screen.Loop(terminal);
+  loop.Run();
 
   if (remote) {
     middleware->SetStatusListener(nullptr);
