@@ -1132,6 +1132,58 @@ TEST_F(PlaylistDialogTest, CancelPlaylistImportWhenClosingDialog) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, ShowReasonWhenPlaylistCannotBeImported) {
+  const std::string playlist_url{"https://www.youtube.com/playlist?list=PLabcdefghijklmnop"};
+
+  // Each reason informed by extraction and what is shown for it
+  const std::vector<std::pair<error::Code, std::string>> reasons{
+      {error::kStreamBlocked, "✗ Refused by YouTube"},
+      {error::kStreamUnavailable, "✗ Playlist is not available"},
+      {error::kStreamTimedOut, "✗ Took too long to import"},
+      {error::kStreamFetchFailed, "✗ Cannot import playlist"},
+  };
+
+  for (const auto& [code, message] : reasons) {
+    auto fetch = [code = code](const std::string&, std::vector<model::Song>&,
+                               const std::atomic<bool>*) { return code; };
+
+    dialog = std::make_unique<interface::PlaylistDialog>(
+        dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch);
+
+    // Import finishes in another thread, which asks for a refresh to show its result
+    std::promise<void> refreshed;
+    std::atomic<bool> notified = false;
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                             interface::CustomEvent::Identifier::Refresh)))
+        .WillRepeatedly(Invoke([&](const interface::CustomEvent&) {
+          if (!notified.exchange(true)) refreshed.set_value();
+        }));
+
+    model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+    GetPlaylistDialog()->Open(operation);
+
+    dialog->OnEvent(ftxui::Event::F2);
+    utils::QueueCharacterEvents(*dialog, playlist_url);
+    dialog->OnEvent(ftxui::Event::Return);
+
+    ASSERT_EQ(refreshed.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready)
+        << message;
+
+    // Refresh is received by dialog as an event (from terminal)
+    dialog->OnEvent(ftxui::Event::Custom);
+
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    EXPECT_THAT(GetRenderedScreen(), HasSubstr(message));
+
+    // Wait for thread from import before releasing what is used by it
+    dialog->Close();
+    ::testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  }
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, CannotImportPlaylistWithoutYtDlp) {
   MockFunction<error::Code(const std::string&, std::vector<model::Song>&, const std::atomic<bool>*)>
       fetch;

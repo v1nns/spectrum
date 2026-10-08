@@ -740,9 +740,23 @@ void PlaylistDialog::FinishImport() {
   using Status = UrlInput::Result::Status;
 
   if (code != error::kSuccess || !modified_playlist_.has_value()) {
-    url_input_->SetResult({Status::Rejected, code == error::kStreamFetcherNotFound
-                                                 ? "yt-dlp not found"
-                                                 : "Cannot import playlist"});
+    // Let user know the reason (in a few words, as there is not much space for it)
+    auto reason = [](error::Code error) {
+      switch (error) {
+        case error::kStreamFetcherNotFound:
+          return "yt-dlp not found";
+        case error::kStreamBlocked:
+          return "Refused by YouTube";
+        case error::kStreamUnavailable:
+          return "Playlist is not available";
+        case error::kStreamTimedOut:
+          return "Took too long to import";
+        default:
+          return "Cannot import playlist";
+      }
+    };
+
+    url_input_->SetResult({Status::Rejected, reason(code)});
     return;
   }
 

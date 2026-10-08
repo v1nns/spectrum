@@ -87,12 +87,6 @@ class MainContent : public Block {
   };
 
   /**
-   * @brief Get tab view being displayed
-   * @return Active view
-   */
-  View GetActiveView() const { return static_cast<View>(tab_elem_.active()); }
-
-  /**
    * @brief Get width for a single bar (used for Terminal calculation)
    * @return Audio bar width
    */

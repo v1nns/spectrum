@@ -647,9 +647,18 @@ printf '%s' '{
 TEST_F(YtDlpProgramTest, ExtractPlaylistFails) {
   std::vector<model::Song> songs{CreateSong()};
 
-  // Program fails (e.g. playlist is private)
-  InstallProgram(R"sh(echo "ERROR: The playlist does not exist" >&2; exit 1)sh");
+  // Program fails for a reason that is not known
+  InstallProgram(R"sh(echo "ERROR: Something went wrong" >&2; exit 1)sh");
   EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamFetchFailed);
+
+  // Playlist is not available (e.g. it is private)
+  InstallProgram(R"sh(echo "ERROR: The playlist does not exist" >&2; exit 1)sh");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamUnavailable);
+
+  // Site is refusing requests
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube:tab] Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamBlocked);
 
   // Program prints something that is not a playlist
   InstallProgram("echo unexpected");

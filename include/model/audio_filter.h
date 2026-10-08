@@ -96,24 +96,6 @@ struct AudioFilter {
   std::string GetName() const;
 
   /**
-   * @brief Get cutoff frequency of filter
-   * @return A string containing cutoff frequency
-   */
-  std::string GetFrequency() const;
-
-  /**
-   * @brief Get filter gain of filter
-   * @return A string containing filter gain
-   */
-  std::string GetGain() const;
-
-  /**
-   * @brief Get gain as a percentage considering the min and max values for gain
-   * @return A percentage value of gain (0~1)
-   */
-  float GetGainAsPercentage() const;
-
-  /**
    * @brief Set new value for gain and normalize it based on the range between minimum and maximum
    * @param value New value for gain
    */

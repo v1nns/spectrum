@@ -4,10 +4,9 @@
 #include <array>
 #include <cmath>
 #include <complex>
+#include <sstream>
 #include <string>
 #include <tuple>
-
-#include "util/formatter.h"
 
 namespace model {
 
@@ -118,35 +117,6 @@ std::string AudioFilter::GetName() const {
   std::ostringstream ss;
   ss << "freq_" << frequency;
   return std::move(ss).str();
-}
-
-/* ********************************************************************************************** */
-
-std::string AudioFilter::GetFrequency() const { return util::format_with_prefix(frequency, "Hz"); }
-
-/* ********************************************************************************************** */
-
-std::string AudioFilter::GetGain() const {
-  std::ostringstream ss;
-
-  std::string gain_str{util::to_string_with_precision(gain, 0)};
-
-  // Maximum length for output string to GUI
-  int max_length = gain < 0 ? 6 : 7;
-
-  // Create a dummy margin
-  std::string spaces((max_length - gain_str.length()) / 2, ' ');
-
-  ss << spaces << gain_str << " dB" << spaces;
-  return std::move(ss).str();
-}
-
-/* ********************************************************************************************** */
-
-float AudioFilter::GetGainAsPercentage() const {
-  float value = float(gain - kMinGain) / float(kMaxGain - kMinGain);
-  // in case of gain equals to zero, return a small value for GUI aesthetics
-  return value > 0 ? value : 0.001f;
 }
 
 /* ********************************************************************************************** */

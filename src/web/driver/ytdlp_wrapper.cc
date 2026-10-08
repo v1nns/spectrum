@@ -101,6 +101,11 @@ error::Code YtDlpWrapper::ExtractPlaylist(const std::string& url, std::vector<mo
       ERROR("Could not extract playlist from URL=", url,
             result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
                    : ", program could not be started");
+
+      // Let user know the reason, instead of only that it failed
+      if (result) {
+        return result->timed_out ? error::kStreamTimedOut : GetFailureReason(result->error);
+      }
     }
 
     return error::kStreamFetchFailed;
@@ -159,7 +164,8 @@ error::Code YtDlpWrapper::GetFailureReason(const std::string& error) {
 
   //! Texts printed by program when video cannot be watched by anyone (or only by its owner)
   static constexpr std::array kUnavailable{"Video unavailable"sv, "Private video"sv,
-                                           "has been removed"sv, "is not available"sv};
+                                           "has been removed"sv, "is not available"sv,
+                                           "does not exist"sv};
 
   auto contains = [&error](const auto& texts) {
     return std::any_of(texts.begin(), texts.end(), [&error](std::string_view text) {
