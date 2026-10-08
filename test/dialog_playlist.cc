@@ -2291,7 +2291,7 @@ class HelpDialogTest : public ::DialogTest {
 
     // Then skip empty lines (containing only dialog border)
     auto is_empty = [](std::string text) {
-      const std::string border{"│"};
+      const std::string border{"║"};
       for (auto pos = text.find(border); pos != std::string::npos; pos = text.find(border)) {
         text.erase(pos, border.size());
       }
@@ -2424,8 +2424,8 @@ TEST_F(HelpDialogTest, ShowKeybindingsInTwoColumnsWhenTheyFit) {
 
   // Dialog still fits in terminal with two columns (its border is rendered in both sides)
   dialog->OnEvent(ftxui::Event::Home);
-  const std::string top = find_line(Render(), "╭");
-  EXPECT_THAT(top, HasSubstr("╮"));
+  const std::string top = find_line(Render(), "╔");
+  EXPECT_THAT(top, HasSubstr("╗"));
   EXPECT_LT(ftxui::string_width(top), size.dimx);
 
   // A terminal that is not wide enough for both columns keeps a single one

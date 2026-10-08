@@ -32,7 +32,6 @@ class Dialog {
   struct Style {
     ftxui::Color Theme::Dialog::* background;
     ftxui::Color Theme::Dialog::* foreground;
-    ftxui::BorderStyle border = ftxui::DOUBLE;  //!< Line used to draw border
   };
 
   /**
