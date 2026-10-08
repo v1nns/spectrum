@@ -339,6 +339,14 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   };
   EXPECT_CALL(*audio_ctl, Play(TypedEq<const model::Playlist&>(playlist)));
   notifier->NotifyPlaylistSelection(playlist);
+
+  std::string device{"front:CARD=DAC,DEV=0"};
+  EXPECT_CALL(*audio_ctl, SetAudioDevice(device));
+  notifier->SetAudioDevice(device);
+
+  model::AudioDevices devices{{.name = device, .description = "USB Audio"}};
+  EXPECT_CALL(*audio_ctl, GetAudioDevices()).WillOnce(Return(devices));
+  EXPECT_THAT(notifier->GetAudioDevices(), Eq(devices));
 }
 
 /* ********************************************************************************************** */
@@ -1006,6 +1014,8 @@ class AudioNotifierMock : public audio::Notifier {
   MOCK_METHOD(void, SkipToPreviousSong, (), (override));
   MOCK_METHOD(void, SetRepeatMode, (model::RepeatMode), (override));
   MOCK_METHOD(void, SetShuffle, (bool), (override));
+  MOCK_METHOD(void, SetAudioDevice, (const std::string&), (override));
+  MOCK_METHOD(model::AudioDevices, GetAudioDevices, (), (override));
 };
 
 /**
@@ -1084,6 +1094,7 @@ class TerminalTest : public ::testing::Test {
   bool IsQuestionVisible() const { return terminal->question_dialog_->IsVisible(); }
   bool IsPlaylistDialogVisible() const { return terminal->playlist_dialog_->IsVisible(); }
   bool IsThemePickerVisible() const { return terminal->theme_picker_->IsVisible(); }
+  bool IsDevicePickerVisible() const { return terminal->device_picker_->IsVisible(); }
 
   utils::ThemeGuard guard;  //!< Restore default theme when test finishes
 
@@ -1504,6 +1515,141 @@ TEST_F(TerminalTest, ShowThemePicker) {
 
   EXPECT_TRUE(Send(interface::keybinding::Navigation::Escape));
   EXPECT_FALSE(IsThemePickerVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ChooseDeviceWithPicker) {
+  using interface::keybinding::General;
+  using interface::keybinding::Navigation;
+  using ::testing::_;
+
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  RegisterNotifier();
+
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{
+          {.name = "default", .description = "Default output"},
+          {.name = device, .description = "USB Audio"},
+      }));
+
+  EXPECT_TRUE(Send(General::ChangeAudioDevice));
+  EXPECT_TRUE(IsDevicePickerVisible());
+
+  // First entry is always the one to not choose any device
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, ::testing::HasSubstr("▶ automatic"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr("default               Default output"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr(device + "  USB Audio"));
+
+  // Keys go to picker while it is opened
+  Send(Navigation::Tab);
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  // Nothing is sent to audio thread while selection moves (it does not go beyond last entry)
+  EXPECT_CALL(*notifier, SetAudioDevice(_)).Times(0);
+
+  Send(Navigation::ArrowDown);
+  Send(Navigation::Down);
+  Send(Navigation::Down);
+  HandlePendingEvents();
+  EXPECT_THAT(Render(), ::testing::HasSubstr("▶ " + device));
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // Chosen device is saved and sent to audio thread
+  EXPECT_CALL(*notifier, SetAudioDevice(device));
+  EXPECT_CALL(*file_handler, SaveSettings(::testing::Field(&model::Settings::device, device)))
+      .WillOnce(::testing::Return(true));
+
+  EXPECT_TRUE(Send(Navigation::Return));
+  EXPECT_FALSE(IsDevicePickerVisible());
+  HandlePendingEvents();
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // When opened again, device in use is the selected one
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{
+          {.name = "default", .description = "Default output"},
+          {.name = device, .description = "USB Audio"},
+      }));
+
+  Send(General::ChangeAudioDevice);
+  EXPECT_THAT(Render(), ::testing::HasSubstr("▶ " + device));
+
+  // Choosing the first entry lets audio thread choose device again
+  EXPECT_CALL(*notifier, SetAudioDevice(""));
+  EXPECT_CALL(*file_handler, SaveSettings(::testing::Field(&model::Settings::device, "")))
+      .WillOnce(::testing::Return(true));
+
+  Send(Navigation::Up);
+  Send(Navigation::ArrowUp);
+  Send(Navigation::Up);
+  EXPECT_TRUE(Send(General::ChangeAudioDevice));
+  EXPECT_FALSE(IsDevicePickerVisible());
+  HandlePendingEvents();
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, CancelDevicePicker) {
+  using interface::keybinding::General;
+  using interface::keybinding::Navigation;
+  using ::testing::_;
+
+  RegisterNotifier();
+
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{{.name = "default"}}));
+
+  // Device in use is kept
+  EXPECT_CALL(*notifier, SetAudioDevice(_)).Times(0);
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(Send(General::ChangeAudioDevice));
+  EXPECT_TRUE(IsDevicePickerVisible());
+
+  Send(Navigation::Down);
+  EXPECT_TRUE(Send(Navigation::Escape));
+  EXPECT_FALSE(IsDevicePickerVisible());
+  HandlePendingEvents();
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, DevicePickerIsNotShownWithoutAudioThread) {
+  // There is no one to ask for devices
+  EXPECT_TRUE(Send(interface::keybinding::General::ChangeAudioDevice));
+  EXPECT_FALSE(IsDevicePickerVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, RestoreDeviceFromSettings) {
+  using ::testing::_;
+
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  // Device from last run is already in use by audio thread, so there is nothing to send to it
+  ON_CALL(*file_handler, ParseSettings(_))
+      .WillByDefault(::testing::DoAll(
+          ::testing::SetArgReferee<0>(model::Settings{.device = device}), ::testing::Return(true)));
+  CreateTerminal();
+
+  EXPECT_CALL(*notifier, SetAudioDevice(_)).Times(0);
+  RegisterNotifier();
+  HandlePendingEvents();
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // And it is the selected one in picker (even when it is not the first device)
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{{.name = "default"}, {.name = device}}));
+
+  Send(interface::keybinding::General::ChangeAudioDevice);
+  EXPECT_THAT(Render(), ::testing::HasSubstr("▶ " + device));
 }
 
 /* ********************************************************************************************** */

@@ -81,6 +81,7 @@ To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be i
 | <kbd>R</kbd> / <kbd>x</kbd> | Change repeat mode (off, all, one) / toggle shuffle |
 | <kbd>a</kbd> / <kbd>z</kbd> | Choose visualizer animation / toggle fullscreen |
 | <kbd>t</kbd> | Choose theme |
+| <kbd>O</kbd> | Choose audio output device |
 | <kbd>q</kbd> | Quit |
 
 ### Remote control
@@ -126,7 +127,7 @@ When more than one instance is running, only the first one started receives the 
 
 ### Files
 
-Playlists and settings (volume, theme and visualizer animation) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
+Playlists and settings (volume, theme, audio output device and visualizer animation) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
 
 ## Development :memo:
 

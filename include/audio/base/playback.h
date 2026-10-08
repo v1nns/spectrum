@@ -7,8 +7,10 @@
 #define INCLUDE_AUDIO_BASE_PLAYBACK_H_
 
 #include <cstdint>
+#include <string>
 
 #include "model/application_error.h"
+#include "model/audio_device.h"
 #include "model/volume.h"
 
 namespace audio {
@@ -32,10 +34,17 @@ class Playback {
   //! Public API
 
   /**
-   * @brief Create a Playback Stream
+   * @brief Create a Playback Stream (current one, if any, is released even when it fails)
+   * @param device Name of output device (when empty, the most suitable one is chosen)
    * @return error::Code Playback error converted to application error code
    */
-  virtual error::Code CreatePlaybackStream() = 0;
+  virtual error::Code CreatePlaybackStream(const std::string& device) = 0;
+
+  /**
+   * @brief List output devices available to create a Playback Stream
+   * @return model::AudioDevices Output devices
+   */
+  virtual model::AudioDevices ListDevices() const = 0;
 
   /**
    * @brief Configure Playback Stream parameters (sample format, etc...)

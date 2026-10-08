@@ -39,6 +39,7 @@ static constexpr Code kCorruptedData = 35;
 //! ALSA driver errors
 static constexpr Code kSetupAudioParamsFailed = 50;
 static constexpr Code kPlaybackFailed = 51;
+static constexpr Code kOpenDeviceFailed = 52;
 
 //! FFMPEG driver errors
 static constexpr Code kDecodeFileFailed = 70;
@@ -76,7 +77,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 19> kErrorMap{{
+  static constexpr std::array<Message, 20> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -90,6 +91,7 @@ class ApplicationError {
       {kSetupAudioParamsFailed, Level::Critical, "Cannot set audio parameters"},
       {kPlaybackFailed, Level::Critical,
        "Cannot play audio on output device (was it disconnected?)"},
+      {kOpenDeviceFailed, Level::Warning, "Cannot use audio output device"},
       {kDecodeFileFailed, Level::Warning, "Cannot decode song"},
       {kSeekFrameFailed, Level::Warning, "Cannot seek frame in song"},
       {kEqualizerFailed, Level::Warning, "Cannot apply equalizer settings"},

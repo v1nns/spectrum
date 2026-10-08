@@ -33,10 +33,18 @@ class Alsa final : public audio::Playback {
   /* ******************************************************************************************** */
   //! Public API
   /**
-   * @brief Create a Playback Stream using ALSA API
+   * @brief Create a Playback Stream using ALSA API (current one, if any, is released even when it
+   * fails)
+   * @param device Name of output device (when empty, the most suitable one is chosen)
    * @return error::Code Playback error converted to application error code
    */
-  error::Code CreatePlaybackStream() override;
+  error::Code CreatePlaybackStream(const std::string& device) override;
+
+  /**
+   * @brief List output devices from ALSA API that are meant to be chosen by user
+   * @return model::AudioDevices Output devices
+   */
+  model::AudioDevices ListDevices() const override;
 
   /**
    * @brief Configure Playback Stream parameters (sample format, etc...) using ALSA API
@@ -106,6 +114,8 @@ class Alsa final : public audio::Playback {
   static constexpr int kChannels = 2;
   static constexpr int kSampleRate = 44100;
   static constexpr snd_pcm_format_t kSampleFormat = SND_PCM_FORMAT_S16_LE;
+  static constexpr int kAllowResampling = 1;       //!< Let ALSA convert sample rate, if needed
+  static constexpr unsigned int kLatency = 92900;  //!< Overall latency (in microseconds)
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -130,6 +140,7 @@ class Alsa final : public audio::Playback {
   PcmPlayback playback_handle_;  //! Playback stream handled by ALSA API
   MixerControl mixer_;           //! High level control interface from ALSA API (to manage volume)
   snd_pcm_uframes_t period_size_ = 0;  //! Period size (necessary in order to discover buffer size)
+  bool stream_ready_ = false;          //! Current playback stream is ready to play
 };
 
 }  // namespace driver

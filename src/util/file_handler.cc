@@ -393,6 +393,10 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
         volume != player->end() && volume->is_number_integer()) {
       if (int value = volume->get<int>(); value >= 0 && value <= 100) settings.volume = value;
     }
+
+    if (auto device = player->find("device"); device != player->end() && device->is_string()) {
+      settings.device = device->get<std::string>();
+    }
   }
 
   if (auto interface = parsed.find("interface");
@@ -433,6 +437,7 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
     section("visualizer")["animation"] = static_cast<int>(*settings.animation);
   if (settings.bar_width) section("visualizer")["bar_width"] = *settings.bar_width;
   if (settings.volume) section("player")["volume"] = *settings.volume;
+  if (settings.device) section("player")["device"] = *settings.device;
   if (settings.theme) section("interface")["theme"] = *settings.theme;
 
   std::error_code error;

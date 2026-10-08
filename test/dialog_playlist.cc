@@ -23,7 +23,9 @@
 #include "model/question_data.h"
 #include "model/settings.h"
 #include "util/file_handler.h"
+#include "view/base/custom_event.h"
 #include "view/base/keybinding.h"
+#include "view/element/device_picker.h"
 #include "view/element/error_dialog.h"
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
@@ -1273,9 +1275,9 @@ TEST_F(PlaylistDialogTest, SwitchBetweenFilesAndUrlInput) {
 TEST_F(PlaylistDialogTest, RenameStartsAtEndAndEscapeCancels) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
-      .playlist = model::Playlist{.index = 0,
-                                  .name = "Lofi",
-                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .playlist =
+          model::Playlist{
+              .index = 0, .name = "Lofi", .songs = {model::Song{.filepath = "Love song.mp3"}}},
   };
 
   GetPlaylistDialog()->Open(operation);
@@ -1315,9 +1317,9 @@ TEST_F(PlaylistDialogTest, RenameStartsAtEndAndEscapeCancels) {
 TEST_F(PlaylistDialogTest, RenameWithAccentedCharacters) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
-      .playlist = model::Playlist{.index = 0,
-                                  .name = "",
-                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .playlist =
+          model::Playlist{
+              .index = 0, .name = "", .songs = {model::Song{.filepath = "Love song.mp3"}}},
   };
 
   GetPlaylistDialog()->Open(operation);
@@ -1394,9 +1396,9 @@ TEST_F(PlaylistDialogTest, RenameDeletingWords) {
 TEST_F(PlaylistDialogTest, RejectEmptyAndDuplicatedName) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
-      .playlist = model::Playlist{.index = 0,
-                                  .name = "Lofi",
-                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .playlist =
+          model::Playlist{
+              .index = 0, .name = "Lofi", .songs = {model::Song{.filepath = "Love song.mp3"}}},
       .other_names = {"Chill"},
   };
 
@@ -2550,6 +2552,35 @@ TEST_F(HelpDialogTest, ChangeThemeAfterCreation) {
 
 /* ********************************************************************************************** */
 
+//! Create event for mouse button released at the position where the given text (ASCII only) is
+//! rendered on screen
+ftxui::Event MouseEventAt(ftxui::Screen& screen, const std::string& text,
+                          ftxui::Mouse::Button button) {
+  auto matches = [&](int x, int y) {
+    for (size_t i = 0; i < text.size(); i++) {
+      int column = x + static_cast<int>(i);
+      if (column >= screen.dimx() || screen.PixelAt(column, y).character != text.substr(i, 1)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  for (int y = 0; y < screen.dimy(); y++) {
+    for (int x = 0; x < screen.dimx(); x++) {
+      if (!matches(x, y)) continue;
+
+      return ftxui::Event::Mouse(
+          "", ftxui::Mouse{.button = button, .motion = ftxui::Mouse::Released, .x = x, .y = y});
+    }
+  }
+
+  ADD_FAILURE() << "Text not found on screen: " << text;
+  return ftxui::Event::Custom;
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with ThemePicker class
  */
@@ -2721,6 +2752,247 @@ TEST_F(ThemePickerTest, SelectionStopsAtFirstAndLastTheme) {
   // Any other key is not passed along while picker is open
   EXPECT_TRUE(picker->OnEvent(ftxui::Event::Character('p')));
   EXPECT_TRUE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseWheelPreviewsTheme) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  // Selection moves by one theme, no matter which one is under mouse cursor
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(IsThemeInUse("gruvbox-dark"));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::WheelUp)));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ Catppuccin Mocha"));
+
+  // Mouse outside picker does not change anything (and it is not passed along either)
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::WheelDown, .motion = ftxui::Mouse::Pressed});
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+  EXPECT_TRUE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseClickPreviewsTheme) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  // Theme is applied, but picker stays open and nothing is saved
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsThemeInUse("nord"));
+  EXPECT_TRUE(picker->IsVisible());
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ Nord"));
+
+  // Click on border does not select anything
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "theme", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsThemeInUse("nord"));
+  EXPECT_TRUE(picker->IsVisible());
+
+  // And theme from before opening picker is still restored when it is cancelled
+  EXPECT_TRUE(picker->OnEvent(interface::keybinding::Navigation::Escape));
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseDoubleClickKeepsTheme) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::theme, Optional(Eq("dracula")))))
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Dracula", ftxui::Mouse::Left)));
+  EXPECT_TRUE(picker->IsVisible());
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Dracula", ftxui::Mouse::Left)));
+  EXPECT_FALSE(picker->IsVisible());
+  EXPECT_TRUE(IsThemeInUse("dracula"));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with DevicePicker class
+ */
+class DevicePickerTest : public ::testing::Test {
+ protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(72, 8);
+    dispatcher = std::make_shared<EventDispatcherMock>();
+    file_handler = std::make_shared<NiceMock<FileHandlerMock>>();
+  }
+
+  //! Create picker, as if the given device was saved on last run (empty means no device saved),
+  //! and open it with some devices
+  void CreatePicker(const std::string& saved = "") {
+    if (!saved.empty()) {
+      EXPECT_CALL(*file_handler, ParseSettings(_))
+          .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.device = saved}), Return(true)));
+    }
+
+    picker = std::make_unique<interface::DevicePicker>(dispatcher, file_handler);
+    picker->Open(model::AudioDevices{
+        {.name = "default", .description = "Default output"},
+        {.name = "pulse", .description = "Sound server"},
+        {.name = "front:CARD=DAC,DEV=0", .description = "USB Audio"},
+    });
+  }
+
+  //! Expect the given device to be sent to audio player and saved in settings
+  void ExpectDeviceChosen(const std::string& device) {
+    using interface::CustomEvent;
+
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::SetAudioDevice),
+                                Field(&CustomEvent::content, VariantWith<std::string>(device)))));
+    EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::device, Optional(Eq(device)))))
+        .WillOnce(Return(true));
+  }
+
+  //! Getter for rendered screen
+  std::string GetRenderedScreen() {
+    ftxui::Render(*screen, picker->Render());
+    return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
+  }
+
+  utils::ThemeGuard guard;  //!< Restore default theme when test finishes
+  std::unique_ptr<ftxui::Screen> screen;
+  std::shared_ptr<EventDispatcherMock> dispatcher;
+  std::shared_ptr<NiceMock<FileHandlerMock>> file_handler;
+  std::unique_ptr<interface::DevicePicker> picker;
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, RenderDevices) {
+  // Nothing is sent to audio player when picker is created (it starts with device from settings)
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  CreatePicker("pulse");
+  EXPECT_TRUE(picker->IsVisible());
+
+  // Entries wider than screen are cut, keeping their names visible
+  std::string expected = R"(
+╭ audio output ────────────────────────────────────────────────────────╮
+│  automatic             Default device from system (or the first one  │
+│  default               Default output                                │
+│▶ pulse                 Sound server                                  │
+│  front:CARD=DAC,DEV=0  USB Audio                                     │
+╰──────────────────────────────────────────────────────────────────────╯
+)";
+
+  EXPECT_THAT(GetRenderedScreen(), StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, MouseWheelMovesSelection) {
+  CreatePicker();
+  GetRenderedScreen();
+
+  // Device is changed only when it is chosen
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelDown)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ pulse"));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelUp)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ default"));
+
+  // Selection does not go beyond first and last entries
+  for (int i = 0; i < 5; i++) {
+    EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelDown)));
+  }
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ front:CARD=DAC,DEV=0"));
+
+  for (int i = 0; i < 5; i++) {
+    EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelUp)));
+  }
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ automatic"));
+
+  // Mouse outside picker does not change anything (and it is not passed along either)
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::WheelDown, .motion = ftxui::Mouse::Pressed});
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ automatic"));
+  EXPECT_TRUE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, MouseClickSelectsDevice) {
+  CreatePicker();
+  GetRenderedScreen();
+
+  // Device is selected, but picker stays open and device is not changed
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Sound server", ftxui::Mouse::Left)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ pulse"));
+  EXPECT_TRUE(picker->IsVisible());
+
+  // Click on border does not select anything
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "audio output", ftxui::Mouse::Left)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ pulse"));
+  EXPECT_TRUE(picker->IsVisible());
+
+  EXPECT_TRUE(picker->OnEvent(interface::keybinding::Navigation::Escape));
+  EXPECT_FALSE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, MouseDoubleClickChoosesDevice) {
+  CreatePicker();
+  GetRenderedScreen();
+
+  ExpectDeviceChosen("front:CARD=DAC,DEV=0");
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "USB Audio", ftxui::Mouse::Left)));
+  EXPECT_TRUE(picker->IsVisible());
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "USB Audio", ftxui::Mouse::Left)));
+  EXPECT_FALSE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, ChooseDeviceWithKeyboard) {
+  using Keybind = interface::keybinding::Navigation;
+
+  CreatePicker("pulse");
+
+  // First entry is the one to not choose any device
+  ExpectDeviceChosen("");
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::ArrowUp));
+  EXPECT_TRUE(picker->OnEvent(Keybind::Up));
+  EXPECT_TRUE(picker->OnEvent(Keybind::Return));
+  EXPECT_FALSE(picker->IsVisible());
+
+  // Picker does not handle anything while closed
+  EXPECT_FALSE(picker->OnEvent(Keybind::ArrowDown));
 }
 
 }  // namespace

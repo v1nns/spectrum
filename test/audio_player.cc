@@ -58,24 +58,41 @@ class PlayerTest : public ::testing::Test {
     notifier.reset();
   }
 
-  void Init(bool asynchronous = false) {
+  //! Create player, optionally with an output device chosen by user (which may not be available)
+  void Init(bool asynchronous = false, const std::string& device = "",
+            bool device_available = true) {
     // Create mocks
     PlaybackMock* pb_mock = new PlaybackMock();
     DecoderMock* dc_mock = new DecoderMock();
     StreamFetcherMock* sf_mock = new StreamFetcherMock();
 
+    notifier = std::make_shared<InterfaceNotifierMock>();
+
     // Setup init expectations
     InSequence seq;
 
-    EXPECT_CALL(*pb_mock, CreatePlaybackStream());
+    if (!device_available) {
+      // Playback chooses the device when the one chosen by user cannot be used
+      EXPECT_CALL(*pb_mock, CreatePlaybackStream(device))
+          .WillOnce(Return(error::kOpenDeviceFailed));
+      EXPECT_CALL(*pb_mock, CreatePlaybackStream(""));
+    } else {
+      EXPECT_CALL(*pb_mock, CreatePlaybackStream(device));
+    }
+
     EXPECT_CALL(*pb_mock, ConfigureParameters());
     EXPECT_CALL(*pb_mock, GetPeriodSize());
 
+    // And interface is notified about it as soon as it is registered
+    if (!device_available) {
+      EXPECT_CALL(*notifier, NotifyError(Eq(error::kOpenDeviceFailed), StrEq(device)));
+    }
+
     // Create Player without thread
-    audio_player = audio::Player::Create(/*verbose=*/true, pb_mock, dc_mock, sf_mock, asynchronous);
+    audio_player =
+        audio::Player::Create(/*verbose=*/true, device, pb_mock, dc_mock, sf_mock, asynchronous);
 
     // Register interface notifier to Audio Player
-    notifier = std::make_shared<InterfaceNotifierMock>();
     audio_player->RegisterInterfaceNotifier(notifier);
   }
 
@@ -665,6 +682,280 @@ TEST_F(PlayerTest, ChangeVolume) {
   EXPECT_THAT(player_ctl->GetAudioVolume(), Eq(model::Volume{0.3f}));
 
   // TODO: return error::Code on player API and create a test forcing error on volume change
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, GetAudioDevices) {
+  const model::AudioDevices devices{
+      {.name = "default", .description = "Default output"},
+      {.name = "front:CARD=DAC,DEV=0", .description = "USB Audio"},
+  };
+
+  EXPECT_CALL(*GetPlayback(), ListDevices()).WillOnce(Return(devices));
+  EXPECT_THAT(GetAudioControl()->GetAudioDevices(), Eq(devices));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, CreatePlayerWithDevice) {
+  // Device chosen by user is the only one used to create playback stream
+  Init(/*asynchronous=*/false, "front:CARD=DAC,DEV=0");
+  ::testing::Mock::VerifyAndClearExpectations(GetPlayback());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, CreatePlayerWithUnavailableDevice) {
+  Init(/*asynchronous=*/false, "front:CARD=DAC,DEV=0", /*device_available=*/false);
+  ::testing::Mock::VerifyAndClearExpectations(GetPlayback());
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // Error is notified only once
+  auto other = std::make_shared<InterfaceNotifierMock>();
+  EXPECT_CALL(*other, NotifyError(_, _)).Times(0);
+  audio_player->RegisterInterfaceNotifier(other);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ChangeDeviceWithoutPlaying) {
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+
+    // New playback stream is created and configured on the chosen device
+    InSequence seq;
+    EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetPeriodSize()).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+      return 0;
+    }));
+
+    EXPECT_CALL(*notifier, NotifyError(_, _)).Times(0);
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->SetAudioDevice(device);
+
+    // Wait for Player to change device before client asks to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorChangingDeviceKeepsPreviousOne) {
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+
+    // New device does not support the parameters, so the previous one (chosen by playback, as
+    // nothing was chosen by user until now) is used again
+    InSequence seq;
+    EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kUnknownError));
+    EXPECT_CALL(*playback, CreatePlaybackStream("")).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kOpenDeviceFailed), StrEq(device)))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->SetAudioDevice(device);
+
+    // Wait for Player to notify error before client asks to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingAndChangeDevice) {
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          // Starts playing
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          // Notify other thread to ask to change device and wait for it
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Device is changed and song keeps playing
+          position++;
+          EXPECT_TRUE(callback(0, 0, 0, position));
+
+          return error::kSuccess;
+        }));
+
+    // New playback stream is created without stopping the song
+    EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetPeriodSize());
+    EXPECT_CALL(*playback, Stop()).Times(0);
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(3);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(4);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait until Player starts decoding before client asks to change device
+    syncer.WaitForStep(2);
+    player_ctl->SetAudioDevice(device);
+    syncer.NotifyStep(3);
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingThenPauseAndChangeDevice) {
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare is called again when song is resumed
+    EXPECT_CALL(*playback, Prepare()).Times(2).WillRepeatedly(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          // Starts playing
+          int64_t position = 0;
+          callback(0, 0, 0, position);
+
+          // Notify other thread to ask for pause and wait for it
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Pause, change device and wait to resume
+          position++;
+          EXPECT_TRUE(callback(0, 0, 0, position));
+
+          return error::kSuccess;
+        }));
+
+    using State = model::Song::MediaState;
+
+    EXPECT_CALL(*playback, Pause());
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Play)))
+        .Times(2);
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+
+    // New playback stream is created while song is paused (and it stays paused)
+    EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetPeriodSize()).WillOnce(Invoke([&] {
+      syncer.NotifyStep(5);
+      return 0;
+    }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(6);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait until Player starts decoding before client asks to pause
+    syncer.WaitForStep(2);
+    player_ctl->PauseOrResume();
+    syncer.NotifyStep(3);
+
+    // Change device after player is paused
+    syncer.WaitForStep(4);
+    player_ctl->SetAudioDevice(device);
+
+    // Resume after device is changed
+    syncer.WaitForStep(5);
+    player_ctl->PauseOrResume();
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(6);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
 }
 
 /* ********************************************************************************************** */
@@ -1462,9 +1753,9 @@ TEST_F(PlayerTest, ErrorUpdatingAudioFiltersKeepsPlayingPlaylist) {
     EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
                                .state = model::Song::MediaState::Finished}))
         .Times(2);
-    EXPECT_CALL(*notifier, ClearSongInformation(true))
-        .WillOnce(Return())
-        .WillOnce(Invoke([&] { syncer.NotifyStep(6); }));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Return()).WillOnce(Invoke([&] {
+      syncer.NotifyStep(6);
+    }));
 
     // Notify that expectations are set, and run audio loop
     syncer.NotifyStep(1);

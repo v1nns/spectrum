@@ -18,6 +18,7 @@
 #include "middleware/remote_playlist.h"
 #include "model/player_status.h"
 #include "model/remote_command.h"
+#include "model/settings.h"
 #include "util/arg_parser.h"
 #include "util/file_handler.h"
 #include "util/logger.h"
@@ -288,8 +289,12 @@ int main(int argc, char** argv) {
        " settings=", std::quoted(file_handler.GetSettingsPath()));
   INFO("Terminal size=", terminal_size.dimx, "x", terminal_size.dimy);
 
+  // Audio output device chosen by user on last run (if any) is used since the beginning
+  model::Settings settings;
+  file_handler.ParseSettings(settings);
+
   // Create and initialize a new player
-  auto player = audio::Player::Create(options.verbose_logging);
+  auto player = audio::Player::Create(options.verbose_logging, settings.device.value_or(""));
 
   // Create and initialize a new terminal window
   auto terminal = interface::Terminal::Create(options.initial_dir);

@@ -84,6 +84,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {ToString(General::ExitApplication), "Quit (or close dialog)"},
            {ToString(General::ChangeTheme),
             "Choose theme (↑/↓ preview, Return keep, Escape cancel)"},
+           {ToString(General::ChangeAudioDevice), "Choose audio output device"},
            {"Shift+1", "Focus files/playlists"},
            {"Shift+2", "Focus information"},
            {"Shift+3", "Focus tab viewer"},

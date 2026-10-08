@@ -36,20 +36,22 @@ ThemePicker::ThemePicker(const std::shared_ptr<util::FileHandler>& file_handler)
 
 /* ********************************************************************************************** */
 
-ftxui::Element ThemePicker::Render() const {
+ftxui::Element ThemePicker::Render() {
   const auto& colors = GetTheme().picker;
   const auto& themes = GetThemes();
 
   ftxui::Elements entries;
+  boxes_.resize(themes.size());
 
   for (size_t i = 0; i < themes.size(); i++) {
     const bool selected = i == selected_;
     const std::string name{themes[i].name};
 
     auto entry = ftxui::text((selected ? "▶ " : "  ") + name + " ");
-    entries.push_back(selected
-                          ? entry | ftxui::bold | ftxui::color(colors.entry_selected) | ftxui::focus
-                          : entry | ftxui::color(colors.entry));
+    entry = selected ? entry | ftxui::bold | ftxui::color(colors.entry_selected) | ftxui::focus
+                     : entry | ftxui::color(colors.entry);
+
+    entries.push_back(entry | ftxui::reflect(boxes_[i]));
   }
 
   // Frame keeps selected entry visible when there is not enough space for all of them (otherwise,
@@ -60,7 +62,7 @@ ftxui::Element ThemePicker::Render() const {
                        ftxui::vbox(std::move(entries)) | ftxui::vscroll_indicator | ftxui::frame) |
          ftxui::color(colors.border) | ftxui::bgcolor(GetTheme().screen.background) |
          ftxui::clear_under | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height) |
-         ftxui::center;
+         ftxui::reflect(Box()) | ftxui::center;
 }
 
 /* ********************************************************************************************** */
@@ -70,19 +72,22 @@ bool ThemePicker::OnEvent(const ftxui::Event& event) {
 
   if (!IsVisible()) return false;
 
+  // Picker is shown over all blocks, so mouse is not handled by them either (even outside picker)
+  if (event.is_mouse()) {
+    ftxui::Event mouse_event = event;
+    OnMouseEvent(mouse_event);
+
+    return true;
+  }
+
   // Move selection, changing theme right away (so user can see it while choosing)
   if (bool next = event == Keybind::ArrowDown || event == Keybind::Down;
       next || event == Keybind::ArrowUp || event == Keybind::Up) {
-    if (next && selected_ + 1 < GetThemes().size()) Apply(selected_ + 1);
-    if (!next && selected_ > 0) Apply(selected_ - 1);
+    Move(next);
   }
 
   // Keep selected theme
-  if (event == Keybind::Return || event == keybinding::General::ChangeTheme) {
-    INFO("Selected theme=", GetThemes()[selected_].id);
-    previous_.reset();
-    SaveSettings();
-  }
+  if (event == Keybind::Return || event == keybinding::General::ChangeTheme) Keep();
 
   // Go back to the theme from before opening picker
   if (event == Keybind::Escape || event == Keybind::Close) {
@@ -111,11 +116,58 @@ void ThemePicker::Apply(size_t index) {
 
 /* ********************************************************************************************** */
 
+void ThemePicker::Move(bool next) {
+  if (next && selected_ + 1 < GetThemes().size()) Apply(selected_ + 1);
+  if (!next && selected_ > 0) Apply(selected_ - 1);
+}
+
+/* ********************************************************************************************** */
+
+void ThemePicker::Keep() {
+  INFO("Selected theme=", GetThemes()[selected_].id);
+  previous_.reset();
+  SaveSettings();
+}
+
+/* ********************************************************************************************** */
+
 void ThemePicker::SaveSettings() const {
   if (!file_handler_) return;
 
   model::Settings settings{.theme = std::string{GetThemes()[selected_].id}};
   if (!file_handler_->SaveSettings(settings)) ERROR("Cannot save theme");
+}
+
+/* ********************************************************************************************** */
+
+std::optional<size_t> ThemePicker::GetEntryAt(const ftxui::Mouse& mouse) const {
+  for (size_t i = 0; i < boxes_.size(); i++) {
+    if (boxes_[i].Contain(mouse.x, mouse.y)) return i;
+  }
+
+  return std::nullopt;
+}
+
+/* ********************************************************************************************** */
+
+void ThemePicker::HandleWheel(const ftxui::Mouse::Button& button) {
+  Move(button == ftxui::Mouse::WheelDown);
+}
+
+/* ********************************************************************************************** */
+
+void ThemePicker::HandleClick(ftxui::Event& event) {
+  if (auto index = GetEntryAt(event.mouse()); index) Apply(*index);
+}
+
+/* ********************************************************************************************** */
+
+void ThemePicker::HandleDoubleClick(ftxui::Event& event) {
+  auto index = GetEntryAt(event.mouse());
+  if (!index) return;
+
+  Apply(*index);
+  Keep();
 }
 
 }  // namespace interface

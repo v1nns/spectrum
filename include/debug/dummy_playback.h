@@ -34,7 +34,13 @@ class DummyPlayback : public audio::Playback {
    * @brief Create a Playback Stream
    * @return error::Code Playback error converted to application error code
    */
-  error::Code CreatePlaybackStream() override { return error::kSuccess; }
+  error::Code CreatePlaybackStream(const std::string& device) override { return error::kSuccess; }
+
+  /**
+   * @brief List output devices available to create a Playback Stream
+   * @return model::AudioDevices Output devices
+   */
+  model::AudioDevices ListDevices() const override { return {}; }
 
   /**
    * @brief Configure Playback Stream parameters (sample format, etc...)

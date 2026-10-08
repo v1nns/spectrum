@@ -20,6 +20,7 @@ struct Settings {
   std::optional<BarAnimation> animation;  //!< Spectrum visualizer animation
   std::optional<int> bar_width;           //!< Spectrum visualizer bar width
   std::optional<int> volume;              //!< Player volume (percentage, from 0 to 100)
+  std::optional<std::string> device;      //!< Audio output device (empty to not choose any)
   std::optional<std::string> theme;       //!< Identifier from UI theme
 };
 

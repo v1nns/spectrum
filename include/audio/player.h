@@ -64,6 +64,8 @@ class AudioControl {
   virtual void SkipToPrevious() = 0;
   virtual void SetRepeatMode(model::RepeatMode mode) = 0;
   virtual void SetShuffle(bool enabled) = 0;
+  virtual void SetAudioDevice(const std::string& device) = 0;
+  virtual model::AudioDevices GetAudioDevices() const = 0;
   virtual void Exit() = 0;
 };
 
@@ -89,13 +91,16 @@ class Player : public AudioControl {
   /**
    * @brief Factory method: Create, initialize internal components and return Player object
    * @param verbose Enable verbose logging messages
+   * @param device Name of output device chosen by user (empty to let Playback driver choose it,
+   * which is also done when the chosen one cannot be used)
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
    * @param fetcher Pass streaming fetcher to be used within Audio thread (optional)
    * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(bool verbose, audio::Playback* playback = nullptr,
+  static std::shared_ptr<Player> Create(bool verbose, const std::string& device = "",
+                                        audio::Playback* playback = nullptr,
                                         audio::Decoder* decoder = nullptr,
                                         web::StreamFetcher* fetcher = nullptr,
                                         bool asynchronous = true);
@@ -117,8 +122,9 @@ class Player : public AudioControl {
   /**
    * @brief Initialize internal components for Player object
    * @param asynchronous Run Audio Player as a thread
+   * @param device Name of output device chosen by user (empty to let Playback driver choose it)
    */
-  void Init(bool asynchronous);
+  void Init(bool asynchronous, const std::string& device);
 
   /**
    * @brief Reset all media controls to default value
@@ -170,6 +176,20 @@ class Player : public AudioControl {
    * @return True if command can be executed, False if not
    */
   bool CanSkip(const Command& command);
+
+  /**
+   * @brief Replace playback stream by a new one on the given output device, keeping the current one
+   * when it is not possible (and notifying interface about it)
+   * @param device Name of output device (empty to let Playback driver choose it)
+   */
+  void ChangeDevice(const std::string& device);
+
+  /**
+   * @brief Create playback stream on the given output device and configure its parameters
+   * @param device Name of output device (empty to let Playback driver choose it)
+   * @return error::Code Application error code
+   */
+  error::Code CreatePlaybackStream(const std::string& device);
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -262,6 +282,18 @@ class Player : public AudioControl {
   void SetShuffle(bool enabled) override;
 
   /**
+   * @brief Inform Audio loop to change output device (when it is not possible, current one is kept)
+   * @param device Name of output device (empty to let Playback driver choose it)
+   */
+  void SetAudioDevice(const std::string& device) override;
+
+  /**
+   * @brief Get output devices available to play songs
+   * @return Output devices
+   */
+  model::AudioDevices GetAudioDevices() const override;
+
+  /**
    * @brief Exit from Audio loop
    */
   void Exit() final;
@@ -335,9 +367,11 @@ class Player : public AudioControl {
         // Set state to idle
         state = State::Idle;
 
-        // Re-add to queue only new requests to play song
-        std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue),
-                     [](const Command& c) { return c == Command::Identifier::Play; });
+        // Re-add to queue only new requests to play song or to change output device (as they do
+        // not depend on the song that was playing)
+        std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue), [](const Command& c) {
+          return c == Command::Identifier::Play || c == Command::Identifier::SetDevice;
+        });
       }
     }
 
@@ -455,6 +489,14 @@ class Player : public AudioControl {
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
   int period_size_;  //!< Period size from Playback driver
+
+  //! Output device chosen by user (empty to let Playback driver choose it, only used by audio
+  //! thread)
+  std::string device_;
+
+  //! Output device chosen by user that could not be used on initialization (interface is notified
+  //! about it as soon as it is registered)
+  std::string failed_device_;
 
   error::Code playback_error_ = error::kSuccess;  //!< Error while writing samples to playback
 

@@ -357,6 +357,24 @@ void MediaController::SetShuffle(bool enabled) {
 
 /* ********************************************************************************************** */
 
+void MediaController::SetAudioDevice(const std::string& device) {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SetAudioDevice(device);
+}
+
+/* ********************************************************************************************** */
+
+model::AudioDevices MediaController::GetAudioDevices() {
+  auto player = GetPlayer();
+  if (!player) return {};
+
+  return player->GetAudioDevices();
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimation);
 

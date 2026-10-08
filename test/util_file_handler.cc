@@ -257,6 +257,31 @@ TEST_F(FileHandlerTest, SaveAndParseTheme) {
 
 /* ********************************************************************************************** */
 
+TEST_F(FileHandlerTest, SaveAndParseDevice) {
+  // Device is saved without changing the other settings
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.volume = 35}));
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.device = "front:CARD=DAC,DEV=0"}));
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.device, "front:CARD=DAC,DEV=0");
+  EXPECT_EQ(settings.volume, 35);
+
+  // Empty value is also saved, as it means that no device is chosen anymore
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.device = ""}));
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.device, "");
+
+  // Value with unexpected type is not filled
+  std::ofstream(handler.GetSettingsPath()) << R"({"player": {"device": 3}})";
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.device.has_value());
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with FileSink class (using a temporary directory for log files)
  */

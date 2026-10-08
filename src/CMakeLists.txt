@@ -120,6 +120,7 @@ target_sources(
           view/element/tab.cc
           view/element/text_animation.cc
           view/element/text_input.cc
+          view/element/device_picker.cc
           view/element/theme_picker.cc
           view/element/url_input.cc
           view/element/menu.cc

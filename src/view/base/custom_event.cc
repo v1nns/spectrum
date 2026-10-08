@@ -136,6 +136,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "SetShuffle";
       break;
 
+    case CustomEvent::Identifier::SetAudioDevice:
+      out << "SetAudioDevice";
+      break;
+
     case CustomEvent::Identifier::Refresh:
       out << "Refresh";
       break;
@@ -413,6 +417,16 @@ CustomEvent CustomEvent::SetShuffle(bool enabled) {
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::SetShuffle,
       .content = enabled,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SetAudioDevice(const std::string& device) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetAudioDevice,
+      .content = device,
   };
 }
 

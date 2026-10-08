@@ -205,6 +205,18 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void SetShuffle(bool enabled) override;
 
+  /**
+   * @brief Notify Audio Player about output device selected by user
+   * @param device Name of output device (empty to let Audio Player choose it)
+   */
+  void SetAudioDevice(const std::string& device) override;
+
+  /**
+   * @brief Get output devices available on Audio Player
+   * @return Output devices
+   */
+  model::AudioDevices GetAudioDevices() override;
+
   /* ******************************************************************************************** */
   //! Actions received from Player and sent to UI
 

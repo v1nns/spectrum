@@ -21,6 +21,7 @@
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/device_picker.h"
 #include "view/element/error_dialog.h"
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
@@ -281,6 +282,7 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   std::unique_ptr<QuestionDialog> question_dialog_;  //!< Dialog box to question user
   std::unique_ptr<PlaylistDialog> playlist_dialog_;  //!< Dialog box to manage playlists
   std::unique_ptr<ThemePicker> theme_picker_;        //!< Picker to choose UI theme
+  std::unique_ptr<DevicePicker> device_picker_;      //!< Picker to choose audio output device
 
   //! Custom event receiver
   ftxui::Receiver<CustomEvent> receiver_ = ftxui::MakeReceiver<CustomEvent>();

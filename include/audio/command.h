@@ -35,6 +35,7 @@ struct Command {
     SkipToNext = 8009,
     SkipToPrevious = 8010,
     PlayNext = 8011,
+    SetDevice = 8012,
   };
 
   //! Overloaded operators
@@ -67,10 +68,11 @@ struct Command {
   static Command SkipToNext();
   static Command SkipToPrevious();
   static Command PlayNext();
+  static Command SetDevice(const std::string& device);
 
   //! Possible types for content
   using Content = std::variant<std::monostate, model::Song, int, model::Volume,
-                               model::EqualizerPreset, model::Playlist>;
+                               model::EqualizerPreset, model::Playlist, std::string>;
 
   //! Getter for command identifier
   Identifier GetId() const { return id; }

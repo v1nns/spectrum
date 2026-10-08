@@ -118,9 +118,15 @@ void Terminal::Init(const std::string& initial_path,
                                                       stream_available_cb, fetch_playlist_cb);
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 
+  // Pickers save what is chosen in settings
+  auto settings_handler =
+      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>();
+
   // Create theme picker, which also restores theme chosen on last run
-  theme_picker_ = std::make_unique<ThemePicker>(
-      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
+  theme_picker_ = std::make_unique<ThemePicker>(settings_handler);
+
+  // Create device picker, to choose audio output device
+  device_picker_ = std::make_unique<DevicePicker>(dispatcher, settings_handler);
 }
 
 /* ********************************************************************************************** */
@@ -274,6 +280,9 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Or if theme picker is opened
   if (theme_picker_->IsVisible()) return theme_picker_->OnEvent(event);
 
+  // Or if device picker is opened
+  if (device_picker_->IsVisible()) return device_picker_->OnEvent(event);
+
   // Global commands
   if (global_mode_ && OnGlobalModeEvent(event)) return true;
 
@@ -423,6 +432,16 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   if (event == keybinding::General::ChangeTheme) {
     LOG("Handle key to show theme picker");
     theme_picker_->Open();
+
+    return true;
+  }
+
+  // Show audio output device picker (nothing to choose from while audio thread cannot be reached)
+  if (event == keybinding::General::ChangeAudioDevice) {
+    LOG("Handle key to show audio output device picker");
+    if (auto media_ctl = notifier_.lock(); media_ctl) {
+      device_picker_->Open(media_ctl->GetAudioDevices());
+    }
 
     return true;
   }
@@ -587,6 +606,10 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
 
     case CustomEvent::Identifier::SetShuffle: {
       media_ctl->SetShuffle(event.GetContent<bool>());
+    } break;
+
+    case CustomEvent::Identifier::SetAudioDevice: {
+      media_ctl->SetAudioDevice(event.GetContent<std::string>());
     } break;
 
     default:
@@ -788,6 +811,8 @@ ftxui::Element Terminal::GetOverlay() const {
   if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
 
   if (theme_picker_->IsVisible()) return theme_picker_->Render();
+
+  if (device_picker_->IsVisible()) return device_picker_->Render();
 
   return ftxui::emptyElement();
 }

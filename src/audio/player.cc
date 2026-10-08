@@ -22,9 +22,9 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
-                                       audio::Decoder* decoder, web::StreamFetcher* fetcher,
-                                       bool asynchronous) {
+std::shared_ptr<Player> Player::Create(bool verbose, const std::string& device,
+                                       audio::Playback* playback, audio::Decoder* decoder,
+                                       web::StreamFetcher* fetcher, bool asynchronous) {
   LOG("Create new instance of player");
 
 #ifndef SPECTRUM_DEBUG
@@ -64,7 +64,7 @@ std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
   auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dc), std::move(ft));
 
   // Initialize internal components
-  player->Init(asynchronous);
+  player->Init(asynchronous, device);
 
   return player;
 }
@@ -92,22 +92,23 @@ Player::~Player() {
 
 /* ********************************************************************************************** */
 
-void Player::Init(bool asynchronous) {
-  LOG("Initialize player with async=", asynchronous);
+void Player::Init(bool asynchronous, const std::string& device) {
+  LOG("Initialize player with async=", asynchronous, " device=", std::quoted(device));
   finished_ = false;
+  device_ = device;
 
-  // Open playback stream using default device
-  error::Code result = playback_->CreatePlaybackStream();
+  // Open playback stream and configure desired parameters for playback
+  error::Code result = CreatePlaybackStream(device_);
+
+  // Device chosen by user may not be available anymore (e.g. it was disconnected)
+  if (result != error::kSuccess && !device_.empty()) {
+    WARN("Cannot use output device chosen by user, device=", std::quoted(device_));
+    failed_device_ = std::exchange(device_, "");
+    result = CreatePlaybackStream(device_);
+  }
 
   if (result != error::kSuccess) {
     throw std::runtime_error("Cannot initialize playback stream in player");
-  }
-
-  // Configure desired parameters for playback
-  result = playback_->ConfigureParameters();
-
-  if (result != error::kSuccess) {
-    throw std::runtime_error("Cannot set parameters in player");
   }
 
   // This value is used to decide buffer size for song decoding
@@ -226,14 +227,23 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       bool keep_executing = false;
       Command command_after_wait = Command::None();
 
+      bool keep_waiting = false;
+
       do {
-        keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop,
-                                                Cmd::SkipToNext, Cmd::SkipToPrevious);
+        keep_executing =
+            media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop, Cmd::SkipToNext,
+                                   Cmd::SkipToPrevious, Cmd::SetDevice);
         command_after_wait = media_control_.Pop();
-      } while (
-          keep_executing &&
-          (command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious) &&
-          !CanSkip(command_after_wait));
+
+        bool change_device = keep_executing && command_after_wait == Cmd::SetDevice;
+        bool skip =
+            command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious;
+
+        // Output device may be changed while song is paused
+        if (change_device) ChangeDevice(command_after_wait.GetContent<std::string>());
+
+        keep_waiting = keep_executing && (change_device || (skip && !CanSkip(command_after_wait)));
+      } while (keep_waiting);
 
       // Received command different from PauseOrResume
       if (!keep_executing || command_after_wait != Cmd::PauseOrResume) {
@@ -320,6 +330,11 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       decoder_->SetVolume(value);
     } break;
 
+    case Command::Identifier::SetDevice: {
+      LOG("Audio handler received command to change output device");
+      ChangeDevice(command.GetContent<std::string>());
+    } break;
+
     case Command::Identifier::UpdateAudioFilters: {
       model::EqualizerPreset value = command.GetContent<model::EqualizerPreset>();
       LOG("Audio handler received command to update audio filters");
@@ -378,9 +393,18 @@ void Player::AudioHandler() {
   using Cmd = Command::Identifier;
 
   // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext)) {
-    // Get command from queue and select song to play (if any)
-    auto song = SelectSong(media_control_.Pop());
+  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext,
+                                Cmd::SetDevice)) {
+    auto command = media_control_.Pop();
+
+    // Output device may be changed while there is no song playing
+    if (command == Cmd::SetDevice) {
+      ChangeDevice(command.GetContent<std::string>());
+      continue;
+    }
+
+    // Select song to play (if any)
+    auto song = SelectSong(command);
     if (!song.has_value()) continue;
 
     // Update internal media state and initialize current song
@@ -556,9 +580,47 @@ bool Player::CanSkip(const Command& command) {
 
 /* ********************************************************************************************** */
 
+void Player::ChangeDevice(const std::string& device) {
+  INFO("Change output device to ", std::quoted(device));
+
+  if (error::Code result = CreatePlaybackStream(device); result != error::kSuccess) {
+    ERROR("Cannot change output device, error=", result);
+
+    // Previous playback stream was already released, so create it again
+    if (CreatePlaybackStream(device_) != error::kSuccess) {
+      ERROR("Cannot use previous output device");
+    }
+
+    if (auto media_notifier = notifier_.lock(); media_notifier) {
+      media_notifier->NotifyError(error::kOpenDeviceFailed, device);
+    }
+
+    return;
+  }
+
+  device_ = device;
+
+  // New device may use a different period size
+  period_size_ = playback_->GetPeriodSize();
+}
+
+/* ********************************************************************************************** */
+
+error::Code Player::CreatePlaybackStream(const std::string& device) {
+  error::Code result = playback_->CreatePlaybackStream(device);
+  return result == error::kSuccess ? playback_->ConfigureParameters() : result;
+}
+
+/* ********************************************************************************************** */
+
 void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier>& notifier) {
   LOG("Register new interface notifier");
   notifier_ = notifier;
+
+  // Now it is possible to let user know about device that could not be used on initialization
+  if (notifier && !failed_device_.empty()) {
+    notifier->NotifyError(error::kOpenDeviceFailed, std::exchange(failed_device_, ""));
+  }
 }
 
 /* ********************************************************************************************** */
@@ -716,6 +778,20 @@ void Player::SetRepeatMode(model::RepeatMode mode) {
 void Player::SetShuffle(bool enabled) {
   INFO("Set shuffle=", enabled);
   shuffle_ = enabled;
+}
+
+/* ********************************************************************************************** */
+
+void Player::SetAudioDevice(const std::string& device) {
+  LOG("Add command to queue: \"SetDevice\" (device=", std::quoted(device), ")");
+  media_control_.Push(Command::SetDevice(device));
+}
+
+/* ********************************************************************************************** */
+
+model::AudioDevices Player::GetAudioDevices() const {
+  LOG("Get audio devices");
+  return playback_->ListDevices();
 }
 
 /* ********************************************************************************************** */

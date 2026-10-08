@@ -59,6 +59,7 @@ struct CustomEvent {
     SkipToPreviousPlaylistSong = 60012,
     SetRepeatMode = 60013,
     SetShuffle = 60014,
+    SetAudioDevice = 60015,
 
     // Events from interface to interface
     Refresh = 70000,
@@ -112,6 +113,7 @@ struct CustomEvent {
   static CustomEvent SkipToPreviousPlaylistSong();
   static CustomEvent SetRepeatMode(model::RepeatMode mode);
   static CustomEvent SetShuffle(bool enabled);
+  static CustomEvent SetAudioDevice(const std::string& device);
 
   //! Possible events (from interface to interface)
   static CustomEvent Refresh();
