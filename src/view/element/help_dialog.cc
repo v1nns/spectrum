@@ -39,15 +39,10 @@ HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
 
 /* ********************************************************************************************** */
 
-void HelpDialog::Show(Section section) {
+void HelpDialog::Show() {
   ResetSearch();
 
-  // Find title from the given section and use it as first line
-  auto title = std::find_if(lines_.begin(), lines_.end(), [section](const Line& line) {
-    return line.type == Line::Type::Title && line.section == section;
-  });
-
-  first_line_ = title != lines_.end() ? static_cast<int>(title - lines_.begin()) : 0;
+  first_line_ = 0;
   Open();
 }
 

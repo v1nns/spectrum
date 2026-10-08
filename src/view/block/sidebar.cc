@@ -41,7 +41,7 @@ ftxui::Element Sidebar::Render() {
 
   // Append tab buttons
   for (const auto& [id, item] : tab_elem_.items()) {
-    buttons.emplace_back(item->GetButton()->Render() |
+    buttons.emplace_back(item->GetButton()->Render() | GetContentDecorator() |
                          (block_focused && id == active_button ? ftxui::bold : ftxui::nothing));
   }
 
@@ -49,7 +49,7 @@ ftxui::Element Sidebar::Render() {
 
   ftxui::Element view = tab_elem_.active_item()->Render() | max_size;
 
-  return ftxui::window(title_border, view | ftxui::yflex) | GetBorderDecorator();
+  return RenderWindow(title_border, view | ftxui::yflex);
 }
 
 /* ********************************************************************************************** */

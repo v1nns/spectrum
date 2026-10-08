@@ -135,9 +135,10 @@ ftxui::Element FileMenu::RenderImpl() {
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
     // In case of entry text too long, animation thread will be running, so we gotta take the
-    // text content from there
-    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                                : entry.filename().string());
+    // text content from there (any other entry too long is cut, ending with an ellipsis)
+    auto text =
+        ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                        : FitText(entry.filename().string()));
 
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,

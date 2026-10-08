@@ -54,14 +54,16 @@ ftxui::Element SongMenu::RenderImpl() {
 
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
-    // In case of entry text too long, animation thread will be running, so we gotta take the
-    // text content from there
-    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                                : GetEntryText(entry));
-
     // Tag songs played from streaming
-    auto tag = entry.stream_info.has_value() ? ftxui::text(std::string(kStreamTag) + " ")
-                                             : ftxui::emptyElement();
+    const std::string tag_text =
+        entry.stream_info.has_value() ? std::string(kStreamTag) + " " : std::string();
+    auto tag = !tag_text.empty() ? ftxui::text(tag_text) : ftxui::emptyElement();
+
+    // In case of entry text too long, animation thread will be running, so we gotta take the
+    // text content from there (any other entry too long is cut, ending with an ellipsis)
+    auto text = ftxui::text(IsAnimationRunning() && is_selected
+                                ? GetTextFromAnimation()
+                                : FitText(GetEntryText(entry), ftxui::string_width(tag_text)));
 
     menu_entries.push_back(ftxui::hbox({
                                prefix | style_.prefix,

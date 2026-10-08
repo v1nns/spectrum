@@ -379,38 +379,6 @@ void Terminal::OnCustomEvent() {
 
 /* ********************************************************************************************** */
 
-HelpDialog::Section Terminal::GetHelpSection() const {
-  switch (focused_index_) {
-    case kBlockSidebar: {
-      auto sidebar = std::static_pointer_cast<Sidebar>(children_.at(kBlockSidebar));
-      return sidebar->GetActiveView() == Sidebar::View::Playlist ? HelpDialog::Section::Playlists
-                                                                 : HelpDialog::Section::Files;
-    }
-
-    case kBlockMainContent: {
-      auto main_content = std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent));
-      switch (main_content->GetActiveView()) {
-        case MainContent::View::Equalizer:
-          return HelpDialog::Section::Equalizer;
-        case MainContent::View::Lyric:
-          return HelpDialog::Section::Lyrics;
-        case MainContent::View::Visualizer:
-        default:
-          return HelpDialog::Section::Visualizer;
-      }
-    }
-
-    case kBlockMediaPlayer:
-      return HelpDialog::Section::Player;
-
-    case kBlockFileInfo:
-    default:
-      return HelpDialog::Section::General;
-  }
-}
-
-/* ********************************************************************************************** */
-
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
   if (event == keybinding::General::ExitApplication) {
@@ -420,10 +388,10 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Show helper (starting from the section related to what is focused)
+  // Show helper
   if (event == keybinding::General::ShowHelper) {
     LOG("Handle key to show helper");
-    help_dialog_->Show(GetHelpSection());
+    help_dialog_->Show();
 
     return true;
   }
@@ -678,7 +646,7 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
-      help_dialog_->Show(GetHelpSection());
+      help_dialog_->Show();
     } break;
 
     case CustomEvent::Identifier::ToggleFullscreen: {

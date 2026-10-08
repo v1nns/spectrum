@@ -60,8 +60,8 @@ ftxui::Element FileInfo::Render() {
 
   ftxui::Element content = ftxui::vbox(lines);
 
-  return ftxui::window(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()), content) |
-         ftxui::size(HEIGHT, EQUAL, kMaxRows) | GetBorderDecorator();
+  return RenderWindow(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()), content) |
+         ftxui::size(HEIGHT, EQUAL, kMaxRows);
 }
 
 /* ********************************************************************************************** */

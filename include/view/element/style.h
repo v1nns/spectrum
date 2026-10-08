@@ -69,6 +69,7 @@ struct Theme {
     State title;
     State title_focused;
 
+    Color border;
     Color border_focused;
 
     //! Tab buttons on block border

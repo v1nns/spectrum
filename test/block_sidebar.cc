@@ -1579,7 +1579,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │▶ Chill mix really long and the coo │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1608,7 +1608,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │▶  mix really long and the coolest  │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1634,10 +1634,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│  Chill mix really long and the coo │
+│  Chill mix really long and th… [3] │
 │▶   chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1760,7 +1760,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │  Chill mix [3]                     │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │▶ Lofi [3]                          │
 │    lofi 1.mp3                      │
 │    lofi 2.mp3                      │

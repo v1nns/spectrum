@@ -561,19 +561,29 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
   std::string prefix{is_selected ? "▶ " : "  "};
   auto prefix_text = ftxui::text(prefix);
 
+  // Songs are indented, to show they belong to the playlist above them
+  const std::string indent{!is_playlist ? "  " : ""};
+
   ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                        : (is_focused ? type.focused : type.normal);
 
   auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
   // In case of entry text too long, animation thread will be running, so we gotta take the
-  // text content from there
+  // text content from there (any other entry too long is cut, ending with an ellipsis, but
+  // keeping its suffix)
+  static constexpr int kScrollColumns = 1;  // Used by scroll indicator, at the right of menu
+
+  const int extra_columns =
+      ftxui::string_width(indent) + ftxui::string_width(suffix) + kScrollColumns;
+
   auto entry_text =
-      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : text + suffix);
+      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                      : FitText(text, extra_columns) + suffix);
 
   return ftxui::hbox({
              prefix_text | styles_.prefix,
-             ftxui::text(!is_playlist ? "  " : "") | style,
+             ftxui::text(indent) | style,
              entry_text | style | ftxui::xflex_grow,
          }) |
          max_size | focus_management | ftxui::reflect(boxes[index]);

@@ -1,5 +1,7 @@
 #include "view/base/block.h"
 
+#include <utility>
+
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/style.h"
@@ -38,11 +40,26 @@ ftxui::Decorator Block::GetTitleDecorator() const {
 /* ********************************************************************************************** */
 
 ftxui::Decorator Block::GetBorderDecorator() const {
-  using ftxui::bgcolor;
   using ftxui::color;
-  using ftxui::nothing;
 
-  return focused_ ? color(GetTheme().block.border_focused) : nothing;
+  const auto& theme = GetTheme().block;
+  return color(focused_ ? theme.border_focused : theme.border);
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Decorator Block::GetContentDecorator() const {
+  // Without focus, border uses a color of its own, so do not let anything inside inherit it
+  // (as it happens with any text without a color)
+  return focused_ ? ftxui::nothing : ftxui::color(GetTheme().screen.foreground);
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element Block::RenderWindow(ftxui::Element title, ftxui::Element content) const {
+  // Title is not decorated here, otherwise it would also change the border line around it
+  return ftxui::window(std::move(title), std::move(content) | GetContentDecorator()) |
+         GetBorderDecorator();
 }
 
 /* ********************************************************************************************** */

@@ -457,6 +457,18 @@ class BaseMenu : public Element {
   //! Getter for text from animation effect
   std::string GetTextFromAnimation() const { return animation_.GetText(); }
 
+  /**
+   * @brief Cut entry text that does not fit in menu, ending it with an ellipsis
+   * @param text Entry text
+   * @param extra_columns Columns used by anything else shown in the entry (besides its icon)
+   * @return Text that fits in the columns left for it
+   */
+  std::string FitText(const std::string& text, int extra_columns = 0) const {
+    if (!max_columns_) return text;
+
+    return ellipsize(text, max_columns_ - kMaxIconColumns - extra_columns);
+  }
+
   /* ******************************************************************************************** */
   //! Highlight entry
  public:
@@ -612,7 +624,7 @@ class BaseMenu : public Element {
     int max_icon_columns = actual().GetMaxColumnsForIconImpl();
 
     // Use columns (instead of bytes), so names with multi-byte characters that fit are not animated
-    int icon_columns = max_icon_columns ? max_icon_columns : kMaxIconColumns;
+    int icon_columns = max_icon_columns > 0 ? max_icon_columns : kMaxIconColumns;
     int columns = ftxui::string_width(text) + icon_columns;
 
     // Start animation thread

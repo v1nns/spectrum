@@ -168,6 +168,7 @@ Theme MakeTheme(const Palette& p) {
   theme.block = Theme::Block{
       .title = State{.foreground = p.subtext, .background = p.surface},
       .title_focused = State{.foreground = p.base, .background = p.accent},
+      .border = p.overlay,
       .border_focused = p.accent,
       .tab =
           ButtonStates{

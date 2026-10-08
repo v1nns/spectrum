@@ -167,13 +167,13 @@ class AudioEqualizer : public TabItem {
           // gain input
           empty_line(),
           ftxui::text(compact ? GetCompactGain() : filter->GetGain()) |
-              ftxui::color(GetTheme().equalizer.text) | ftxui::inverted | ftxui::hcenter |
+              ftxui::color(GetTheme().equalizer.text) | ftxui::hcenter |
               ftxui::size(WIDTH, EQUAL, compact ? kCompactGainLength : kMaxGainLength),
           empty_line(),
       });
     }
 
-    //! Format gain without unit, centered in the input box (to highlight the whole box)
+    //! Format gain without unit, centered in the input box
     [[nodiscard]] std::string GetCompactGain() const {
       std::string gain = util::to_string_with_precision(filter->gain, 0);
 

@@ -26,7 +26,7 @@ class HelpDialog : public Dialog {
 
   static constexpr int kHeaderLines = 2;       //!< Lines used by title (and margin below it)
   static constexpr int kFooterLines = 2;       //!< Lines used by scroll hint (and margin above it)
-  static constexpr int kKeysColumnWidth = 20;  //!< Width for column with keybindings
+  static constexpr int kKeysColumnWidth = 22;  //!< Width for column with keybindings
   static constexpr int kSearchWidth = 20;      //!< Width for text input used to search
 
  public:
@@ -56,10 +56,9 @@ class HelpDialog : public Dialog {
   ~HelpDialog() override = default;
 
   /**
-   * @brief Show help, scrolled to the given section (any previous search is cleared)
-   * @param section Section to show first (e.g. related to the focused block)
+   * @brief Show help, starting from its first line (any previous search is cleared)
    */
-  void Show(Section section);
+  void Show();
 
   /* ******************************************************************************************** */
   //! Custom implementation

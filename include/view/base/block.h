@@ -64,6 +64,17 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   //! Get decorator style for border based on internal state
   ftxui::Decorator GetBorderDecorator() const;
 
+  //! Get decorator style for anything inside block, to not inherit color from border
+  ftxui::Decorator GetContentDecorator() const;
+
+  /**
+   * @brief Render window using border style based on internal state
+   * @param title Element shown on top border
+   * @param content Element shown inside window
+   * @return Window element
+   */
+  ftxui::Element RenderWindow(ftxui::Element title, ftxui::Element content) const;
+
   //! Dispatch event to set focus
   void AskForFocus() const;
 

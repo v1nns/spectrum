@@ -213,10 +213,9 @@ ftxui::Element MediaPlayer::Render() {
   using ftxui::EQUAL;
   using ftxui::HEIGHT;
 
-  return ftxui::window(
-             ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
-             content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows)) |
-         GetBorderDecorator();
+  return RenderWindow(
+      ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
+      content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows));
 }
 
 /* ********************************************************************************************** */
