@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -26,9 +27,9 @@ namespace interface {
 class FileInfo : public Block {
   static constexpr int kMaxColumns = kLeftColumnWidth;  //!< Maximum columns for Component
   static constexpr int kMaxRows = 15;                   //!< Maximum rows for Component
-  static constexpr int kFieldGap = 1;  //!< Minimum space between field name and its value
+  static constexpr int kFieldColumns = 9;  //!< Columns for field name (and space after it)
 
-  static constexpr int kMaxSongLines = 8;  //!< Always remember to check song::to_string
+  static constexpr std::string_view kUnknown = "—";  //!< Value not informed by song or player
 
  public:
   /**
@@ -81,6 +82,8 @@ class FileInfo : public Block {
   //! Variables
  private:
   using Entry = std::pair<std::string, std::string>;  //!< A pair of <Field,Value>
+  std::string title_;                                 //!< Song title (or its source, without one)
+  std::string artist_;                                //!< Song artist
   std::vector<Entry> audio_info_;                     //!< Parsed audio information to render on UI
   std::vector<Entry> output_info_;                    //!< Parsed audio output to render on UI
 

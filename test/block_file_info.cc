@@ -40,16 +40,16 @@ TEST_F(FileInfoTest, InitialRender) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
-│Filename               <Empty>│
-│Artist                 <Empty>│
-│Title                  <Empty>│
-│Channels               <Empty>│
-│Sample rate            <Empty>│
-│Bit rate               <Empty>│
-│Bits per sample        <Empty>│
-│Duration               <Empty>│
-│Output                 <Empty>│
-│Device                 <Empty>│
+│Nothing playing               │
+│Press Return to play a song   │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
 │                              │
 │                              │
 │                              │
@@ -72,6 +72,9 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
       .duration = 123,
   };
 
+  // Use the whole block width (content + border)
+  screen = std::make_unique<ftxui::Screen>(38, 15);
+
   // Process custom event on block
   auto event = interface::CustomEvent::UpdateSongInfo(audio);
   Process(event);
@@ -88,21 +91,21 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ information ─────────────────╮
-│Filename              song.mp3│
-│Artist       Baco Exu do Blues│
-│Title                 Lágrimas│
-│Channels                     2│
-│Sample rate           44.1 kHz│
-│Bit rate              256 kbps│
-│Bits per sample        32 bits│
-│Duration                 02:03│
-│Output        96 kHz / 32 bits│
-│Device    front:CARD=DAC,DEV=0│
-│                              │
-│                              │
-│                              │
-╰──────────────────────────────╯)";
+╭ information ───────────────────────╮
+│Lágrimas                            │
+│Baco Exu do Blues                   │
+│                                    │
+│file     song.mp3                   │
+│format   44.1 kHz · 32 bits · stereo│
+│bitrate  256 kbps                   │
+│length   02:03                      │
+│output   96 kHz / 32 bits           │
+│device   front:CARD=DAC,DEV=0       │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
 }
@@ -137,16 +140,16 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 
   std::string expected = R"(
 ╭ information ─────────────────╮
-│Filename               <Empty>│
-│Artist                 <Empty>│
-│Title                  <Empty>│
-│Channels               <Empty>│
-│Sample rate            <Empty>│
-│Bit rate               <Empty>│
-│Bits per sample        <Empty>│
-│Duration               <Empty>│
-│Output                 <Empty>│
-│Device                 <Empty>│
+│Nothing playing               │
+│Press Return to play a song   │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
+│                              │
 │                              │
 │                              │
 │                              │
@@ -164,7 +167,7 @@ TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
   const model::Song audio{
       .filepath = "/music/Zzqx Unknown Artist - No Such Song Qwerty.mp3",
       .artist = "ARTY",
-      .title = "日本語のとても長い曲のタイトルです",
+      .title = "日本語のとても長い曲のタイトルです、本当に",
       .num_channels = 2,
       .sample_rate = 44100,
       .bit_rate = 128000,
@@ -177,14 +180,15 @@ TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
   ftxui::Render(*screen, block->Render());
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  // Long filename is cut with an ellipsis, keeping a gap after field name
-  EXPECT_THAT(rendered, HasSubstr("│Filename Zzqx Unknown Artist - No S…│"));
+  // Long filename is cut with an ellipsis
+  EXPECT_THAT(rendered, HasSubstr("│file     Zzqx Unknown Artist - No S…│"));
 
   // Full-width characters use two columns each, so title is cut without breaking any of them
-  EXPECT_THAT(rendered, HasSubstr("│Title  日本語のとても長い曲のタイト…│"));
+  EXPECT_THAT(rendered, HasSubstr("│日本語のとても長い曲のタイトルです… │"));
 
   // Short values are not changed
-  EXPECT_THAT(rendered, HasSubstr("ARTY│"));
+  EXPECT_THAT(rendered, HasSubstr("│ARTY "));
+  EXPECT_THAT(rendered, HasSubstr("│format   44.1 kHz · 32 bits · stereo│"));
 }
 
 /* ********************************************************************************************** */
@@ -199,8 +203,12 @@ TEST_F(FileInfoTest, UpdateAudioOutput) {
   ftxui::Render(*screen, block->Render());
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("│Output            44.1 kHz / 16 bits│"));
-  EXPECT_THAT(rendered, HasSubstr("│Device                       default│"));
+  EXPECT_THAT(rendered, HasSubstr("│output   44.1 kHz / 16 bits         │"));
+  EXPECT_THAT(rendered, HasSubstr("│device   default                    │"));
+
+  // Without tags, filename is used as title
+  EXPECT_THAT(rendered, HasSubstr("│song.flac "));
+  EXPECT_THAT(rendered, HasSubstr("│Unknown artist "));
 
   // Output device may be changed while song is playing, which may also change the format
   Process(interface::CustomEvent::UpdateAudioOutput(model::AudioOutput{
@@ -213,10 +221,10 @@ TEST_F(FileInfoTest, UpdateAudioOutput) {
   ftxui::Render(*screen, block->Render());
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("│Output             192 kHz / 32 bits│"));
+  EXPECT_THAT(rendered, HasSubstr("│output   192 kHz / 32 bits          │"));
 
-  // Long device name is cut with an ellipsis, keeping a gap after field name
-  EXPECT_THAT(rendered, HasSubstr("│Device iec958:CARD=SomeVeryLongCard…│"));
+  // Long device name is cut with an ellipsis
+  EXPECT_THAT(rendered, HasSubstr("│device   iec958:CARD=SomeVeryLongCa…│"));
 }
 
 /* ********************************************************************************************** */
@@ -242,8 +250,9 @@ TEST_F(FileInfoTest, ShowLossySongWithLongDuration) {
   ftxui::Render(*screen, block->Render());
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("│Bits per sample                    —│"));
-  EXPECT_THAT(rendered, HasSubstr("│Duration                    01:02:03│"));
+  // Bit depth is not shown at all
+  EXPECT_THAT(rendered, HasSubstr("│format   44.1 kHz · stereo          │"));
+  EXPECT_THAT(rendered, HasSubstr("│length   01:02:03                   │"));
 }
 
 }  // namespace

@@ -210,7 +210,9 @@ Theme MakeTheme(const Palette& p) {
   };
 
   theme.file_info = Theme::FileInfo{
-      .field = p.accent,
+      .title = p.text,
+      .artist = p.subtext,
+      .field = p.muted,
       .value = p.text,
       .value_empty = p.muted,
   };

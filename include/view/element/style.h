@@ -117,9 +117,11 @@ struct Theme {
 
   //! Block with song information
   struct FileInfo {
-    Color field;
-    Color value;
-    Color value_empty;  //!< Value when there is no song
+    Color title;        //!< Song title, shown on the first line
+    Color artist;       //!< Song artist, shown right below title
+    Color field;        //!< Name of each detail from song (e.g. format)
+    Color value;        //!< Value of each detail from song
+    Color value_empty;  //!< Message shown when there is no song
   };
 
   FileInfo file_info;  //!< Colors for block with song information
