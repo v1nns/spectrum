@@ -1,9 +1,12 @@
 #include "web/driver/ytdlp_wrapper.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <vector>
 
@@ -145,6 +148,31 @@ error::Code YtDlpWrapper::ParsePlaylist(const nlohmann::json& info,
 
 /* ********************************************************************************************** */
 
+error::Code YtDlpWrapper::GetFailureReason(const std::string& error) {
+  using std::string_view_literals::operator""sv;
+
+  //! Texts printed by program when site refuses to answer (asking for a login to prove that
+  //! request does not come from a bot, which happens after too many requests)
+  static constexpr std::array kBlocked{"Sign in to confirm"sv, "HTTP Error 429"sv};
+
+  //! Texts printed by program when video cannot be watched by anyone (or only by its owner)
+  static constexpr std::array kUnavailable{"Video unavailable"sv, "Private video"sv,
+                                           "has been removed"sv, "is not available"sv};
+
+  auto contains = [&error](const auto& texts) {
+    return std::any_of(texts.begin(), texts.end(), [&error](std::string_view text) {
+      return error.find(text) != std::string::npos;
+    });
+  };
+
+  if (contains(kBlocked)) return error::kStreamBlocked;
+  if (contains(kUnavailable)) return error::kStreamUnavailable;
+
+  return error::kStreamFetchFailed;
+}
+
+/* ********************************************************************************************** */
+
 void YtDlpWrapper::Finish() {
   // Nothing to clean up, as program is only executed while extracting information
 }
@@ -176,7 +204,11 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
     ERROR("Could not fetch streaming format from URL=", url,
           result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
                  : ", program could not be started");
-    return error::kStreamFetchFailed;
+
+    // Let user know the reason, instead of only that it failed
+    if (!result) return error::kStreamFetchFailed;
+
+    return result->timed_out ? error::kStreamTimedOut : GetFailureReason(result->error);
   }
 
   nlohmann::json info = nlohmann::json::parse(result->output, nullptr, /*allow_exceptions=*/false);

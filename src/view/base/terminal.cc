@@ -718,6 +718,10 @@ void Terminal::SetApplicationError(error::Code id, const std::string& detail) {
 
   ERROR(message, " detail=", std::quoted(detail));
   error_dialog_->SetErrorMessage(message, detail);
+
+  // Error may come from another thread while nothing else is asking UI to be rendered (e.g. no
+  // song is playing), so force a refresh to show dialog right away
+  SendEvent(CustomEvent::Refresh());
 }
 
 /* ********************************************************************************************** */

@@ -145,6 +145,14 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
     // otherwise UI would keep showing information about a song that is not playing anymore
     if (!error_parsing) media_notifier->ClearSongInformation(true);
 
+    // Site is refusing requests, so every other song from URL would also fail (and asking for
+    // them could make it refuse requests for even longer)
+    if (result == error::kStreamBlocked) {
+      WARN("Stop playlist, as requests for songs from URL are being refused");
+      curr_playlist_.reset();
+      failed_songs_ = 0;
+    }
+
     // In case of error, notify about it
     media_notifier->NotifyError(result, filename);
 

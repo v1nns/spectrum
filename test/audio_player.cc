@@ -2482,6 +2482,58 @@ TEST_F(PlayerTest, StopPlaylistAfterSeveralFailedSongs) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, StopPlaylistWhenSongsFromUrlAreRefused) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs =
+          {
+              model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}},
+              model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/second"}},
+              model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/third"}},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    InSequence seq;
+
+    // Site refuses the very first request, so there is no reason to ask for the other songs
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kStreamBlocked));
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kStreamBlocked), _)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).Times(0);
+    EXPECT_CALL(*decoder, Open(_)).Times(0);
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kTooManyFailedSongs), _)).Times(0);
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // Closing error dialog must not play anything else, as playlist was stopped
+    syncer.WaitForStep(2);
+    player_ctl->DequeueNextSong();
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, KeepPlayingPlaylistWhenFailedSongsAreNotInRow) {
   model::Playlist playlist = model::Playlist{
       .index = 0,

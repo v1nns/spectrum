@@ -67,7 +67,7 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param song Song with a streaming URL, fetching operation will get the rest of the info (out)
    * @return Error code from operation
    */
-  error::Code ExtractInfo(model::Song &song) override;
+  error::Code ExtractInfo(model::Song& song) override;
 
   /**
    * @brief Check if yt-dlp can be found (needed to extract information from URL)
@@ -83,12 +83,19 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param cancel Flag to cancel extraction while it is running (optional)
    * @return Error code from operation
    */
-  static error::Code ExtractPlaylist(const std::string &url, std::vector<model::Song> &songs,
-                                     const std::atomic<bool> *cancel = nullptr);
+  static error::Code ExtractPlaylist(const std::string& url, std::vector<model::Song>& songs,
+                                     const std::atomic<bool>* cancel = nullptr);
 
   /* ******************************************************************************************** */
   //! Internal methods
  private:
+  /**
+   * @brief Find out why program failed, based on what it printed as error
+   * @param error Content written by program to standard error
+   * @return Error code for the reason found (or the one for a generic failure)
+   */
+  static error::Code GetFailureReason(const std::string& error);
+
   /**
    * @brief Fill song with information extracted by yt-dlp (title, duration and the best audio
    * stream to play)
@@ -96,7 +103,7 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param song Song information (out)
    * @return Error code from operation (when there is no audio stream to play, for example)
    */
-  error::Code ParseInfo(const nlohmann::json &info, model::Song &song);
+  error::Code ParseInfo(const nlohmann::json& info, model::Song& song);
 
   /**
    * @brief Fill list of songs with entries from playlist extracted by yt-dlp (skipping entries that
@@ -105,7 +112,7 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param songs List of songs (out)
    * @return Error code from operation (when output does not contain a playlist, for example)
    */
-  static error::Code ParsePlaylist(const nlohmann::json &info, std::vector<model::Song> &songs);
+  static error::Code ParsePlaylist(const nlohmann::json& info, std::vector<model::Song>& songs);
 
   /**
    * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title
@@ -114,8 +121,8 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param metadata JSON parsed metadata from video
    * @param song Song information
    */
-  static void FillArtistAndTitle(const std::string &title, const nlohmann::json &metadata,
-                                 model::Song &song);
+  static void FillArtistAndTitle(const std::string& title, const nlohmann::json& metadata,
+                                 model::Song& song);
 
   /**
    * @brief Fill streaming information inside Song structure with content from parsed JSON
@@ -123,7 +130,7 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param duration Song duration (in seconds)
    * @param song Song information
    */
-  void FillStreamInfo(const nlohmann::json &entry, uint32_t duration, model::Song &song);
+  void FillStreamInfo(const nlohmann::json& entry, uint32_t duration, model::Song& song);
 
   /**
    * @brief Select best audio stream to play, preferring (in this order): direct HTTP streams
@@ -132,7 +139,7 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @param streams JSON list with all audio-only formats extracted by yt-dlp
    * @return Pointer to selected entry from list (or nullptr, if none of them has an URL)
    */
-  static const nlohmann::json *SelectStream(const nlohmann::json &streams);
+  static const nlohmann::json* SelectStream(const nlohmann::json& streams);
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

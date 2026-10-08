@@ -52,6 +52,9 @@ static constexpr Code kTooManyFailedSongs = 80;
 //! Streaming errors
 static constexpr Code kStreamFetchFailed = 90;
 static constexpr Code kStreamFetcherNotFound = 91;
+static constexpr Code kStreamBlocked = 92;
+static constexpr Code kStreamUnavailable = 93;
+static constexpr Code kStreamTimedOut = 94;
 
 //! Web errors
 static constexpr Code kUrlNotFound = 95;
@@ -77,7 +80,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 20> kErrorMap{{
+  static constexpr std::array<Message, 23> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -98,6 +101,10 @@ class ApplicationError {
       {kTooManyFailedSongs, Level::Critical, "Several songs failed in a row, playlist was stopped"},
       {kStreamFetchFailed, Level::Warning, "Cannot fetch song from URL"},
       {kStreamFetcherNotFound, Level::Warning, "Cannot play song from URL, yt-dlp was not found"},
+      {kStreamBlocked, Level::Critical,
+       "YouTube is refusing requests from this network (too many of them?), try again later"},
+      {kStreamUnavailable, Level::Warning, "Song from URL is not available anymore"},
+      {kStreamTimedOut, Level::Warning, "Took too long to fetch song from URL"},
       {kUrlNotFound, Level::Warning, "Content not found in URL"},
       {kUnknownError, Level::Critical,
        "Unknown error used for almost everything during development =)"},

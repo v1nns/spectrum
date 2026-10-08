@@ -464,11 +464,28 @@ TEST_F(YtDlpProgramTest, ExtractInfoFails) {
   empty.stream_info = model::StreamInfo{};
   EXPECT_EQ(wrapper.ExtractInfo(empty), error::kStreamFetchFailed);
 
-  // Program fails (e.g. video is not available)
-  InstallProgram(R"sh(echo "ERROR: Video unavailable" >&2; exit 1)sh");
+  // Program fails for a reason that is not known
+  InstallProgram(R"sh(echo "ERROR: Something went wrong" >&2; exit 1)sh");
 
   model::Song song = CreateSong();
   EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamFetchFailed);
+
+  // Video is not available anymore
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube] id: Video unavailable. This video is not available" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamUnavailable);
+
+  InstallProgram(R"sh(echo "ERROR: [youtube] id: Private video. Sign in if you" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamUnavailable);
+
+  // Site is refusing requests (and it asks for a login to prove that it is not a bot)
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube] id: Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlocked);
+
+  InstallProgram(
+      R"sh(echo "ERROR: Unable to download webpage: HTTP Error 429: Too Many Requests" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlocked);
 
   // Program prints something that is not the expected information
   InstallProgram("echo unexpected");
