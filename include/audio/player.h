@@ -198,6 +198,22 @@ class Player : public AudioControl {
    */
   error::Code CreatePlaybackStream(const std::string& device);
 
+  /**
+   * @brief Configure parameters on playback stream using the desired format, and get the format of
+   * audio samples expected by it (as output device may not support the desired one)
+   * @return error::Code Application error code
+   */
+  error::Code ConfigurePlayback();
+
+  /**
+   * @brief Ask playback to use the format from the given song (configuring it again only when it
+   * is not the same one from the last song played), and decoder to create samples in the format
+   * expected by playback
+   * @param song Song to play (already opened by decoder, which fills its audio information)
+   * @return error::Code Application error code
+   */
+  error::Code ConfigureOutput(const model::Song& song);
+
   /* ******************************************************************************************** */
   //! Binds and registrations
  public:
@@ -498,8 +514,10 @@ class Player : public AudioControl {
   int period_size_;  //!< Period size from Playback driver
 
   //! Format of audio samples that would be sent to playback stream, if supported by output device
-  //! (only used by audio thread)
-  model::AudioFormat desired_format_;
+  //! (only used by audio thread). It always asks for the widest sample format (as audio is
+  //! processed by decoder with more precision than its source), and for the sample rate from the
+  //! last song played (to not convert it)
+  model::AudioFormat desired_format_{.sample_format = model::SampleFormat::S32};
 
   //! Format of audio samples expected by playback stream, which is the one supported by output
   //! device that is the closest to the desired format (only used by audio thread)

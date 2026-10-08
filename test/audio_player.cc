@@ -874,16 +874,17 @@ TEST_F(PlayerTest, StartPlayingAndChangeDevice) {
 
 TEST_F(PlayerTest, ChangeDeviceToAnotherFormatAndStartPlaying) {
   const std::string device{"sysdefault:CARD=DAC"};
+  const model::AudioFormat desired{.sample_format = model::SampleFormat::S32};
   const model::AudioFormat format{.sample_rate = 48000};
 
   auto player = [&](TestSyncer& syncer) {
     auto playback = GetPlayback();
     auto decoder = GetDecoder();
 
-    // New device does not support the desired format (the default one), so it expects another one
+    // New device does not support the desired format (widest sample format, with the default sample
+    // rate while no song is played), so it expects another one
     EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*playback, ConfigureParameters(Eq(model::AudioFormat{})))
-        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(Eq(desired))).WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*playback, GetFormat()).WillRepeatedly(Return(format));
     EXPECT_CALL(*playback, GetPeriodSize()).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
@@ -2065,6 +2066,166 @@ TEST_F(PlayerTest, PlaySongFilesFromPlaylist) {
     player_ctl->Play(playlist);
 
     // Wait for Player to play all songs before client asking to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, PlaySongsWithDifferentSampleRates) {
+  using model::SampleFormat;
+
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Hi-res mix",
+      .songs =
+          {
+              model::Song{.filepath = "hi-res 1.flac"},
+              model::Song{.filepath = "hi-res 2.flac"},
+              model::Song{.filepath = "cd quality.flac"},
+              model::Song{.filepath = "unknown.flac"},
+          },
+  };
+
+  // Sample rate filled by decoder for each song (the last one is unknown)
+  const std::vector<uint32_t> sample_rates{96000, 96000, 44100, 0};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Format expected by playback is always the last one that it was asked for (as if output
+    // device supports all of them)
+    model::AudioFormat format;
+    EXPECT_CALL(*playback, GetFormat()).WillRepeatedly(Invoke([&] { return format; }));
+
+    // Playback is configured again only when sample rate is not the same one from previous song
+    // (always asking for the widest sample format)
+    for (uint32_t sample_rate : {96000U, 44100U}) {
+      const model::AudioFormat desired{.sample_rate = sample_rate,
+                                       .sample_format = SampleFormat::S32};
+
+      EXPECT_CALL(*playback, ConfigureParameters(Eq(desired)))
+          .WillOnce(Invoke([&](const model::AudioFormat& value) {
+            format = value;
+            return error::kSuccess;
+          }));
+    }
+
+    EXPECT_CALL(*playback, GetPeriodSize()).Times(2);
+
+    InSequence seq;
+
+    for (size_t i = 0; i < playlist.songs.size(); ++i) {
+      EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, playlist.songs[i].filepath)))
+          .WillOnce(Invoke([&, i](model::Song& song) {
+            song.sample_rate = sample_rates[i];
+            return error::kSuccess;
+          }));
+
+      // And decoder is asked for samples in the format expected by playback (for a song with
+      // unknown sample rate, it is the same one from previous song)
+      const model::AudioFormat expected{
+          .sample_rate = sample_rates[i] > 0 ? sample_rates[i] : sample_rates[i - 1],
+          .sample_format = SampleFormat::S32};
+
+      EXPECT_CALL(*decoder, SetOutputFormat(Eq(expected))).WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*notifier, NotifySongInformation(_));
+      EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+      EXPECT_CALL(*decoder, Decode(_, _))
+          .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
+            int64_t position = 0;
+            callback(0, 0, 0, 0, position);
+            return error::kSuccess;
+          }));
+
+      EXPECT_CALL(*playback, AudioCallback(_, _));
+      EXPECT_CALL(*notifier, NotifySongState(_));
+
+      // These are called by Player::ResetMediaControl()
+      EXPECT_CALL(*decoder, ClearCache());
+      EXPECT_CALL(*notifier, NotifySongState(_));
+      EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&, i] {
+        if (i + 1 == playlist.songs.size()) syncer.NotifyStep(2);
+      }));
+    }
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(playlist);
+
+    // Wait for Player to play all songs before client asking to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorConfiguringPlaybackForSong) {
+  using model::SampleFormat;
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke([](model::Song& song) {
+      song.sample_rate = 192000;
+      return error::kSuccess;
+    }));
+
+    // Playback cannot be configured with the format from song, so its stream is created again
+    // with the previous one (otherwise, no other song could be played)
+    InSequence seq;
+
+    EXPECT_CALL(*playback, ConfigureParameters(Eq(model::AudioFormat{
+                               .sample_rate = 192000, .sample_format = SampleFormat::S32})))
+        .WillOnce(Return(error::kSetupAudioParamsFailed));
+
+    EXPECT_CALL(*playback, CreatePlaybackStream("")).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback,
+                ConfigureParameters(Eq(model::AudioFormat{.sample_format = SampleFormat::S32})))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetPeriodSize());
+
+    // And song is not played
+    EXPECT_CALL(*decoder, SetOutputFormat(_)).Times(0);
+    EXPECT_CALL(*decoder, Decode(_, _)).Times(0);
+    EXPECT_CALL(*playback, Prepare()).Times(0);
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(0);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kSetupAudioParamsFailed), _)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait for Player to notify error before client asks to exit
     syncer.WaitForStep(2);
     player_ctl->Exit();
   };

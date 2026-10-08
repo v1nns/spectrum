@@ -441,8 +441,9 @@ void Player::AudioHandler() {
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
     if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
 
-    // Decoder must create samples in the format expected by playback
-    if (result == error::kSuccess) result = decoder_->SetOutputFormat(format_);
+    // Playback is asked to use the format from song, and decoder must create samples in the format
+    // expected by playback (which depends on what is supported by output device)
+    if (result == error::kSuccess) result = ConfigureOutput(*curr_song_);
 
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {
@@ -628,8 +629,13 @@ void Player::ChangeDevice(const std::string& device) {
 
 error::Code Player::CreatePlaybackStream(const std::string& device) {
   error::Code result = playback_->CreatePlaybackStream(device);
+  return result == error::kSuccess ? ConfigurePlayback() : result;
+}
 
-  if (result == error::kSuccess) result = playback_->ConfigureParameters(desired_format_);
+/* ********************************************************************************************** */
+
+error::Code Player::ConfigurePlayback() {
+  error::Code result = playback_->ConfigureParameters(desired_format_);
   if (result != error::kSuccess) return result;
 
   // Device may not support it, so decoder must create samples in the format that it expects
@@ -639,6 +645,37 @@ error::Code Player::CreatePlaybackStream(const std::string& device) {
   period_size_ = static_cast<int>(playback_->GetPeriodSize());
 
   return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code Player::ConfigureOutput(const model::Song& song) {
+  model::AudioFormat desired = desired_format_;
+
+  // Sample rate may not be known (in this case, keep using the one from the last song)
+  if (song.sample_rate > 0) desired.sample_rate = song.sample_rate;
+
+  // Playback stream is configured again only when needed, as songs played in a row usually have
+  // the same format (e.g. the ones from an album)
+  if (desired != desired_format_) {
+    INFO("Change desired format from ", desired_format_, " to ", desired);
+    const model::AudioFormat previous = std::exchange(desired_format_, desired);
+
+    if (error::Code result = ConfigurePlayback(); result != error::kSuccess) {
+      ERROR("Cannot configure playback with desired format, error=", result);
+
+      // Playback stream cannot be used anymore, so create it again with the previous format
+      desired_format_ = previous;
+
+      if (CreatePlaybackStream(device_) != error::kSuccess) {
+        ERROR("Cannot create playback stream again");
+      }
+
+      return result;
+    }
+  }
+
+  return decoder_->SetOutputFormat(format_);
 }
 
 /* ********************************************************************************************** */
