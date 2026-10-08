@@ -449,6 +449,17 @@ void Player::AudioHandler() {
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
     if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
 
+    // Streaming information may be the one kept from the last time that this song was played, and
+    // its URL may not be accepted anymore, so fetch it again (only once)
+    if (result != error::kSuccess && curr_song_->stream_info.has_value() &&
+        fetcher_->Forget(*curr_song_)) {
+      LOG("Fetch streaming information again, as the one kept for song could not be used");
+      decoder_->ClearCache();
+
+      result = fetcher_->ExtractInfo(*curr_song_);
+      if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
+    }
+
     // Playback is asked to use the format from song, and decoder must create samples in the format
     // expected by playback (which depends on what is supported by output device)
     if (result == error::kSuccess) result = ConfigureOutput(*curr_song_);

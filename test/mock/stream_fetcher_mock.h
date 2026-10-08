@@ -16,7 +16,8 @@ class StreamFetcherMock final : public web::StreamFetcher {
  public:
   MOCK_METHOD(void, Init, (), (override));
   MOCK_METHOD(void, Finish, (), (override));
-  MOCK_METHOD(error::Code, ExtractInfo, (model::Song &), (override));
+  MOCK_METHOD(error::Code, ExtractInfo, (model::Song&), (override));
+  MOCK_METHOD(bool, Forget, (const model::Song&), (override));
 };
 
 }  // namespace

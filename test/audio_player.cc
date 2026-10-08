@@ -2482,6 +2482,58 @@ TEST_F(PlayerTest, StopPlaylistAfterSeveralFailedSongs) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, FetchSongFromUrlAgainWhenInformationKeptIsNotAccepted) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    InSequence seq;
+
+    // Fetcher gives the information kept from the last time, but its URL is not accepted anymore
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kFileNotSupported));
+    EXPECT_CALL(*fetcher, Forget(_)).WillOnce(Return(true));
+
+    // So it is fetched again, but only once (even if it fails again)
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kFileNotSupported));
+
+    EXPECT_CALL(*fetcher, Forget(_)).Times(0);
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).Times(0);
+
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported), _)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, StopPlaylistWhenSongsFromUrlAreRefused) {
   model::Playlist playlist = model::Playlist{
       .index = 0,

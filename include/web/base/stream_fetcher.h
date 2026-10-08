@@ -44,7 +44,16 @@ class StreamFetcher {
    * @param song Song with a streaming URL, fetching operation will get the rest of the info (out)
    * @return Error code from operation
    */
-  virtual error::Code ExtractInfo(model::Song &song) = 0;
+  virtual error::Code ExtractInfo(model::Song& song) = 0;
+
+  /**
+   * @brief Forget any information kept from the given song, so it is fetched again by the next
+   * call to extract it (e.g. when its streaming URL is not accepted anymore)
+   * @param song Song with a streaming URL
+   * @return true if the last information extracted for this song was not fetched at that moment
+   * (it was the one kept from a previous call), otherwise false
+   */
+  virtual bool Forget(const model::Song& song) = 0;
 };
 
 }  // namespace web

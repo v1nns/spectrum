@@ -49,7 +49,13 @@ class DummyStreamFetcher : public web::StreamFetcher {
    * @param song Song with a streaming URL, fetching operation will get the rest of the info (out)
    * @return Error code from operation
    */
-  error::Code ExtractInfo(model::Song &song) override { return error::kSuccess; }
+  error::Code ExtractInfo(model::Song& song) override { return error::kSuccess; }
+
+  /**
+   * @brief Forget any information kept from the given song
+   * @return Always false, as nothing is kept
+   */
+  bool Forget(const model::Song& song) override { return false; }
 
   /**
    * @brief Check if stream fetcher is available
@@ -61,8 +67,8 @@ class DummyStreamFetcher : public web::StreamFetcher {
    * @brief Extract list of songs from the given playlist URL
    * @return Always an error, as there is nothing to extract
    */
-  static error::Code ExtractPlaylist(const std::string &, std::vector<model::Song> &,
-                                     const std::atomic<bool> * = nullptr) {
+  static error::Code ExtractPlaylist(const std::string&, std::vector<model::Song>&,
+                                     const std::atomic<bool>* = nullptr) {
     return error::kStreamFetchFailed;
   }
 };

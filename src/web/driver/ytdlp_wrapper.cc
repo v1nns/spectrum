@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
+#include <iterator>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -185,6 +187,12 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
     return error::kStreamFetchFailed;
   }
 
+  // Nothing is fetched while streaming URL from the last time may still be used
+  if (Reuse(song)) {
+    LOG("Reuse stream info=", *song.stream_info);
+    return error::kSuccess;
+  }
+
   // Search for it every time, so it can be installed while application is running
   auto program = util::FindExecutable(std::string{kProgram});
 
@@ -215,7 +223,115 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   if (error::Code parsed = ParseInfo(info, song); parsed != error::kSuccess) return parsed;
 
   LOG("Parsed stream info=", *song.stream_info);
+  Keep(song);
+
   return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+bool YtDlpWrapper::Forget(const model::Song& song) {
+  if (!song.stream_info.has_value()) return false;
+
+  auto it = songs_kept_.find(song.stream_info->base_url);
+  if (it == songs_kept_.end()) return false;
+
+  const bool reused = it->second.reused;
+  songs_kept_.erase(it);
+
+  return reused;
+}
+
+/* ********************************************************************************************** */
+
+std::optional<std::chrono::seconds> YtDlpWrapper::GetExpiration(const std::string& streaming_url) {
+  using std::string_view_literals::operator""sv;
+
+  //! Expiration is informed (as seconds since epoch) either as a parameter or as part of the path
+  static constexpr std::array kFields{"expire="sv, "expire/"sv};
+
+  for (const auto& field : kFields) {
+    const size_t position = streaming_url.find(field);
+    if (position == std::string::npos) continue;
+
+    const size_t begin = position + field.size();
+    const size_t end = streaming_url.find_first_not_of("0123456789", begin);
+    const std::string seconds = streaming_url.substr(begin, end - begin);
+
+    // Number with more digits than this is not a moment that makes any sense
+    static constexpr size_t kMaxDigits = 12;
+    if (seconds.empty() || seconds.size() > kMaxDigits) continue;
+
+    return std::chrono::seconds{std::stoll(seconds)};
+  }
+
+  return std::nullopt;
+}
+
+/* ********************************************************************************************** */
+
+void YtDlpWrapper::Keep(const model::Song& song) {
+  const model::StreamInfo& info = *song.stream_info;
+
+  // Without knowing when streaming URL expires, it is safer to always fetch it
+  auto expiration = GetExpiration(info.streaming_url);
+  if (!expiration) return;
+
+  // Remove what cannot be used anymore
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
+
+  for (auto it = songs_kept_.begin(); it != songs_kept_.end();) {
+    it = it->second.expiration <= now ? songs_kept_.erase(it) : std::next(it);
+  }
+
+  // And do not keep information forever, starting from the one that expires first
+  if (songs_kept_.size() >= kMaxSongsKept && songs_kept_.find(info.base_url) == songs_kept_.end()) {
+    songs_kept_.erase(std::min_element(songs_kept_.begin(), songs_kept_.end(),
+                                       [](const auto& lhs, const auto& rhs) {
+                                         return lhs.second.expiration < rhs.second.expiration;
+                                       }));
+  }
+
+  songs_kept_[info.base_url] = SongKept{
+      .artist = song.artist,
+      .title = song.title,
+      .num_channels = song.num_channels,
+      .bit_rate = song.bit_rate,
+      .duration = song.duration,
+      .stream_info = info,
+      .expiration = *expiration,
+      .reused = false,
+  };
+}
+
+/* ********************************************************************************************** */
+
+bool YtDlpWrapper::Reuse(model::Song& song) {
+  auto it = songs_kept_.find(song.stream_info->base_url);
+  if (it == songs_kept_.end()) return false;
+
+  SongKept& kept = it->second;
+
+  // Streaming URL must be valid until the end of song
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
+  const auto needed = now + std::chrono::seconds{kept.duration} + kExpirationMargin;
+
+  if (kept.expiration <= needed) {
+    songs_kept_.erase(it);
+    return false;
+  }
+
+  song.artist = kept.artist;
+  song.title = kept.title;
+  song.num_channels = kept.num_channels;
+  song.bit_rate = kept.bit_rate;
+  song.duration = kept.duration;
+  song.stream_info = kept.stream_info;
+
+  kept.reused = true;
+  return true;
 }
 
 /* ********************************************************************************************** */

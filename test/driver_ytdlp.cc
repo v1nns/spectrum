@@ -456,6 +456,119 @@ printf '%s' '{
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpProgramTest, KeepInfoWhileStreamingUrlIsValid) {
+  const std::string calls = (dir / "calls").string();
+
+  // Program informs a streaming URL with the given parameters, and each execution is counted
+  auto install = [&](const std::string& parameters) {
+    InstallProgram("echo run >> " + calls + R"sh(
+printf '%s' '{
+  "title": "Clipse - So Be It", "duration": 212,
+  "formats": [
+    {"format_id": "251", "url": "https://stream/audio?)sh" +
+                   parameters + R"sh(", "protocol": "https", "resolution": "audio only",
+     "abr": 128, "acodec": "opus", "audio_channels": 2}
+  ]
+}')sh");
+  };
+
+  auto executions = [&]() {
+    std::ifstream file(calls);
+    int count = 0;
+    for (std::string line; std::getline(file, line);) count++;
+    return count;
+  };
+
+  // Streaming URL is valid for a long time (it expires in the year 3000)
+  install("expire=32503680000&id=1");
+
+  model::Song first = CreateSong();
+  ASSERT_EQ(wrapper.ExtractInfo(first), error::kSuccess);
+  EXPECT_EQ(executions(), 1);
+
+  // So the same song is not fetched again, and it gets the same information
+  model::Song second = CreateSong();
+  ASSERT_EQ(wrapper.ExtractInfo(second), error::kSuccess);
+  EXPECT_EQ(executions(), 1);
+
+  EXPECT_THAT(second.artist, StrEq("Clipse"));
+  EXPECT_THAT(second.title, StrEq("So Be It"));
+  EXPECT_THAT(second.duration, Eq(212));
+  EXPECT_THAT(second.bit_rate, Eq(128000));
+  ASSERT_TRUE(second.stream_info.has_value());
+  EXPECT_EQ(*second.stream_info, *first.stream_info);
+
+  // But any other song is fetched
+  model::Song other{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/other"}};
+  ASSERT_EQ(wrapper.ExtractInfo(other), error::kSuccess);
+  EXPECT_EQ(executions(), 2);
+
+  // Information kept is forgotten when asked (e.g. streaming URL was not accepted), and caller is
+  // informed that it was not fetched by the last call, so it is worth to fetch it again
+  EXPECT_TRUE(wrapper.Forget(second));
+  ASSERT_EQ(wrapper.ExtractInfo(second), error::kSuccess);
+  EXPECT_EQ(executions(), 3);
+
+  // While there is no reason to fetch again what has just been fetched (or what is not kept)
+  EXPECT_FALSE(wrapper.Forget(second));
+  EXPECT_FALSE(wrapper.Forget(second));
+  EXPECT_FALSE(wrapper.Forget(model::Song{}));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, FetchInfoAgainWhenStreamingUrlCannotBeReused) {
+  const std::string calls = (dir / "calls").string();
+
+  auto install = [&](const std::string& parameters) {
+    InstallProgram("echo run >> " + calls + R"sh(
+printf '%s' '{
+  "title": "Clipse - So Be It", "duration": 212,
+  "formats": [
+    {"format_id": "251", "url": "https://stream/audio)sh" +
+                   parameters + R"sh(", "protocol": "https", "resolution": "audio only"}
+  ]
+}')sh");
+  };
+
+  auto executions = [&]() {
+    std::ifstream file(calls);
+    int count = 0;
+    for (std::string line; std::getline(file, line);) count++;
+    return count;
+  };
+
+  model::Song song = CreateSong();
+  int expected = 0;
+
+  // Streaming URL already expired, will expire before song is played until its end (as it expires
+  // right now), does not inform when it expires, or informs something that is not a moment
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+
+  for (const std::string& parameters :
+       {std::string{"?expire=1000"}, "?expire=" + std::to_string(now + 60), std::string{"?id=1"},
+        std::string{"?expire=abc"}, std::string{"?expire=99999999999999999999"}}) {
+    install(parameters);
+
+    ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess) << parameters;
+    EXPECT_EQ(executions(), ++expected) << parameters;
+
+    ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess) << parameters;
+    EXPECT_EQ(executions(), ++expected) << parameters;
+  }
+
+  // Moment is also informed as part of the path (e.g. playlist for HLS streams)
+  install("/expire/32503680000/playlist.m3u8");
+
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+  EXPECT_EQ(executions(), expected + 1);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(YtDlpProgramTest, ExtractInfoFails) {
   // Song without any URL, program is not even executed
   model::Song empty;

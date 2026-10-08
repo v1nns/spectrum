@@ -9,6 +9,8 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -70,6 +72,15 @@ class YtDlpWrapper : public web::StreamFetcher {
   error::Code ExtractInfo(model::Song& song) override;
 
   /**
+   * @brief Forget any information kept from the given song, so it is fetched again by the next
+   * call to extract it (e.g. when its streaming URL is not accepted anymore)
+   * @param song Song with a streaming URL
+   * @return true if the last information extracted for this song was not fetched at that moment
+   * (it was the one kept from a previous call), otherwise false
+   */
+  bool Forget(const model::Song& song) override;
+
+  /**
    * @brief Check if yt-dlp can be found (needed to extract information from URL)
    * @return true if it is available in PATH, otherwise false
    */
@@ -89,6 +100,43 @@ class YtDlpWrapper : public web::StreamFetcher {
   /* ******************************************************************************************** */
   //! Internal methods
  private:
+  //! Maximum number of songs with information kept
+  static constexpr size_t kMaxSongsKept = 64;
+
+  //! Streaming URL is not used when it is this close to expire (besides the time to play song)
+  static constexpr std::chrono::seconds kExpirationMargin{120};
+
+  //! Information extracted for a song, which is kept while its streaming URL may be used, to not
+  //! ask for it every time that the same song is played
+  struct SongKept {
+    std::string artist;
+    std::string title;
+    uint16_t num_channels = 0;
+    uint32_t bit_rate = 0;
+    uint32_t duration = 0;
+    model::StreamInfo stream_info;
+
+    std::chrono::seconds expiration{0};  //!< When streaming URL expires (since epoch)
+    bool reused = false;                 //!< Last call to extract it did not fetch anything
+  };
+
+  /**
+   * @brief Get the moment when the given streaming URL expires, which is informed by itself
+   * @param streaming_url URL for audio stream
+   * @return Moment when URL expires, as seconds since epoch (or nothing, if it is not informed)
+   */
+  static std::optional<std::chrono::seconds> GetExpiration(const std::string& streaming_url);
+
+  //! Keep information extracted for the given song (only when its streaming URL expires)
+  void Keep(const model::Song& song);
+
+  /**
+   * @brief Fill song with the information kept for it, if its streaming URL may still be used
+   * @param song Song with a streaming URL (out)
+   * @return true if song was filled, otherwise false
+   */
+  bool Reuse(model::Song& song);
+
   /**
    * @brief Find out why program failed, based on what it printed as error
    * @param error Content written by program to standard error
@@ -140,6 +188,9 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @return Pointer to selected entry from list (or nullptr, if none of them has an URL)
    */
   static const nlohmann::json* SelectStream(const nlohmann::json& streams);
+
+  //! Information kept for each song (by its original URL)
+  std::map<std::string, SongKept, std::less<>> songs_kept_;
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose
