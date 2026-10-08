@@ -67,7 +67,7 @@ class FFmpeg final : public audio::Decoder {
   //! These are ffmpeg-specific filters
   error::Code CreateFilterAbufferSrc();
   error::Code CreateFilterVolume();
-  error::Code CreateFilterAformat(const char* name);
+  error::Code CreateFilterAformat(const char* name, int sample_rate, AVSampleFormat sample_format);
   error::Code CreateFilterAsplit();
   error::Code CreateFilterAbufferSink(const char* name);
   error::Code CreateFilterEqualizer(const std::string& name, const model::AudioFilter& filter);
@@ -96,6 +96,16 @@ class FFmpeg final : public audio::Decoder {
    * @return error::Code Application error code
    */
   error::Code Open(model::Song& audio_info) override;
+
+  /**
+   * @brief Set format of audio samples sent to playback, creating the filter chain to convert
+   * decoded audio to it (so it must be informed after opening song and before decoding it). When
+   * it is changed while decoding, filter chain is created again before processing the next frame,
+   * and samples in the previous format are not sent anymore
+   * @param format Format of audio samples expected by playback
+   * @return error::Code Application error code
+   */
+  error::Code SetOutputFormat(const model::AudioFormat& format) override;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
@@ -179,9 +189,11 @@ class FFmpeg final : public audio::Decoder {
   /* ******************************************************************************************** */
   //! Default Constants
 
-  static constexpr int kChannels = 2;                                 //!< Output number of channels
-  static constexpr int kSampleRate = 44100;                           //!< Output sample rate
-  static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;  //!< Output sample format
+  static constexpr int kChannels = 2;  //!< Output number of channels (playback and analysis)
+
+  //! Format of samples sent to analysis (always the same one, no matter the output format)
+  static constexpr int kAnalysisSampleRate = 44100;
+  static constexpr AVSampleFormat kAnalysisSampleFormat = AV_SAMPLE_FMT_S16;
 
   //! All filters used from AVFilter library
   static constexpr char kFilterAbufferSrc[] = "abuffer";
@@ -219,6 +231,7 @@ class FFmpeg final : public audio::Decoder {
     error::Code err_code;  //!< Error code for decoding and equalizing audio
     bool keep_playing;     //!< Control flag for playing audio
     bool reset_filters;    //!< Control flag for resetting filter graph
+    bool format_changed;   //!< Samples from current filter graph are not in output format anymore
 
     /**
      * @brief Clear packet content
@@ -301,6 +314,8 @@ class FFmpeg final : public audio::Decoder {
   std::map<FilterName, model::AudioFilter, std::less<>> audio_filters_;  //!< Equalization filters
 
   DecodingData shared_context_;  //!< Shared context for decoding and equalizing audio data
+
+  model::AudioFormat output_format_;  //!< Format of audio samples sent to playback
 };
 
 }  // namespace driver

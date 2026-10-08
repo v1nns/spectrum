@@ -46,7 +46,12 @@ class DummyPlayback : public audio::Playback {
    * @brief Configure Playback Stream parameters (sample format, etc...)
    * @return error::Code Playback error converted to application error code
    */
-  error::Code ConfigureParameters() override { return error::kSuccess; }
+  error::Code ConfigureParameters(const model::AudioFormat& desired) override {
+    format_ = desired;
+    return error::kSuccess;
+  }
+
+  model::AudioFormat GetFormat() const override { return format_; }
 
   /**
    * @brief Make playback stream ready to play
@@ -99,6 +104,8 @@ class DummyPlayback : public audio::Playback {
   //! Constants
  private:
   static constexpr uint32_t kPeriodSize = 1024;
+
+  model::AudioFormat format_;  //!< Any format is accepted
 };
 
 }  // namespace driver

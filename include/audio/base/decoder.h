@@ -10,6 +10,7 @@
 
 #include "model/application_error.h"
 #include "model/audio_filter.h"
+#include "model/audio_format.h"
 #include "model/song.h"
 #include "model/volume.h"
 
@@ -37,10 +38,12 @@ class Decoder {
   /**
    * @brief Function invoked after resample is available.
    * (for better understanding: take a look at Audio Loop from Player, and also Playback class)
-   * Arguments: buffer to playback, buffer to audio analysis (same samples, but not affected by
-   * volume, may be null), number of samples per channel and current position
+   * Arguments: buffer to playback (using output format) and its number of samples per channel,
+   * buffer to audio analysis (same audio, but not affected by volume and always with 16-bit stereo
+   * samples at 44.1 kHz, it may be null) and its number of samples per channel, and current
+   * position
    */
-  using AudioCallback = std::function<bool(void*, void*, int, int64_t&)>;
+  using AudioCallback = std::function<bool(void*, int, void*, int, int64_t&)>;
 
   /**
    * @brief Open song as input stream and check for codec compatibility for decoding
@@ -48,6 +51,15 @@ class Decoder {
    * @return error::Code Application error code
    */
   virtual error::Code Open(model::Song& audio_info) = 0;
+
+  /**
+   * @brief Set format of audio samples sent to playback, which must be informed after opening song
+   * and before decoding it. It may also be changed while decoding (e.g. when output device is
+   * changed), and samples in the previous format are not sent anymore
+   * @param format Format of audio samples expected by playback
+   * @return error::Code Application error code
+   */
+  virtual error::Code SetOutputFormat(const model::AudioFormat& format) = 0;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate

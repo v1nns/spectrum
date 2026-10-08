@@ -11,6 +11,7 @@
 
 #include "model/application_error.h"
 #include "model/audio_device.h"
+#include "model/audio_format.h"
 #include "model/volume.h"
 
 namespace audio {
@@ -47,10 +48,19 @@ class Playback {
   virtual model::AudioDevices ListDevices() const = 0;
 
   /**
-   * @brief Configure Playback Stream parameters (sample format, etc...)
+   * @brief Configure Playback Stream parameters (sample format, etc...). As output device may not
+   * support the desired format, use GetFormat() to know which one must be sent to it
+   * @param desired Format of audio samples that would be sent to playback stream, if supported
    * @return error::Code Playback error converted to application error code
    */
-  virtual error::Code ConfigureParameters() = 0;
+  virtual error::Code ConfigureParameters(const model::AudioFormat& desired) = 0;
+
+  /**
+   * @brief Get format of audio samples expected by playback stream (the closest one to the desired
+   * format that is supported by output device)
+   * @return model::AudioFormat Format of audio samples
+   */
+  virtual model::AudioFormat GetFormat() const = 0;
 
   /**
    * @brief Make playback stream ready to play

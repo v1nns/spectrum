@@ -22,6 +22,7 @@
 #include "audio/command.h"
 #include "model/application_error.h"
 #include "model/audio_filter.h"
+#include "model/audio_format.h"
 #include "model/playlist.h"
 #include "model/repeat_mode.h"
 #include "model/song.h"
@@ -74,6 +75,9 @@ class AudioControl {
  */
 class Player : public AudioControl {
   static constexpr int kNumberChannels = 2;  //!< Decoded audio is always stereo
+
+  //! Format of audio samples expected by analysis (16-bit stereo samples at 44.1 kHz)
+  static constexpr model::AudioFormat kAnalysisFormat{};
   static constexpr int kMaxFailedSongs = 3;  //!< Songs from playlist that may fail in a row
 
  private:
@@ -135,15 +139,17 @@ class Player : public AudioControl {
 
   /**
    * @brief Handle an audio command from internal queue
-   * @param buffer Audio buffer (to playback)
-   * @param analysis Audio buffer to analysis (same samples, but not affected by volume)
-   * @param size Buffer size
+   * @param buffer Audio buffer (to playback, in the format expected by it)
+   * @param size Number of samples per channel in audio buffer
+   * @param analysis Audio buffer to analysis (same audio, but not affected by volume and always in
+   * the format expected by analysis)
+   * @param analysis_size Number of samples per channel in audio buffer to analysis
    * @param new_position Latest position in the song (in seconds)
    * @param last_position Last position to control when current position has changed
    * @return True if player should keep playing audio, False if not
    */
-  bool HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
-                     int& last_position);
+  bool HandleCommand(void* buffer, int size, void* analysis, int analysis_size,
+                     int64_t& new_position, int& last_position);
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream
@@ -185,7 +191,8 @@ class Player : public AudioControl {
   void ChangeDevice(const std::string& device);
 
   /**
-   * @brief Create playback stream on the given output device and configure its parameters
+   * @brief Create playback stream on the given output device and configure its parameters, which
+   * may change the format of audio samples expected by it (as it depends on the device)
    * @param device Name of output device (empty to let Playback driver choose it)
    * @return error::Code Application error code
    */
@@ -489,6 +496,14 @@ class Player : public AudioControl {
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
   int period_size_;  //!< Period size from Playback driver
+
+  //! Format of audio samples that would be sent to playback stream, if supported by output device
+  //! (only used by audio thread)
+  model::AudioFormat desired_format_;
+
+  //! Format of audio samples expected by playback stream, which is the one supported by output
+  //! device that is the closest to the desired format (only used by audio thread)
+  model::AudioFormat format_;
 
   //! Output device chosen by user (empty to let Playback driver choose it, only used by audio
   //! thread)

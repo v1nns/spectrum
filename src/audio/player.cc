@@ -111,9 +111,6 @@ void Player::Init(bool asynchronous, const std::string& device) {
     throw std::runtime_error("Cannot initialize playback stream in player");
   }
 
-  // This value is used to decide buffer size for song decoding
-  period_size_ = playback_->GetPeriodSize();
-
   if (asynchronous) {
     // Spawn thread for Audio player
     audio_loop_ = std::thread(&Player::AudioHandler, this);
@@ -185,10 +182,14 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
 /* ********************************************************************************************** */
 
-bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
-                           int& last_position) {
+bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_size,
+                           int64_t& new_position, int& last_position) {
   auto command = media_control_.Pop();
   auto media_notifier = notifier_.lock();
+
+  // Format of samples in buffer (it is not the one expected by playback anymore when command
+  // changes output device to one that does not support it)
+  const model::AudioFormat buffer_format = format_;
 
   if (media_control_.state == State::Stop || media_control_.state == State::Exit) {
     return false;
@@ -352,13 +353,31 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       break;
   }
 
+  // Samples in buffer cannot be played by the new output device, so discard them and ask decoder
+  // for samples in the format that it expects
+  if (format_ != buffer_format) {
+    LOG("Format expected by playback has changed from ", buffer_format, " to ", format_);
+
+    if (auto result = decoder_->SetOutputFormat(format_); result != error::kSuccess) {
+      ERROR("Cannot change output format on decoder, stop playing song, error=", result);
+      playback_error_ = result;
+      return false;
+    }
+
+    return true;
+  }
+
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
-    // Decoded audio contains 16-bit samples with interleaved channels, and size is the number of
-    // samples per channel. Analysis must use samples not affected by volume (if available), so
-    // spectrum visualizer keeps working even when audio is muted
-    const void* samples = analysis != nullptr ? analysis : buffer;
-    media_notifier->SendAudioRaw(static_cast<const int16_t*>(samples), size * kNumberChannels);
+    // Analysis must use samples not affected by volume (if available), so spectrum visualizer
+    // keeps working even when audio is muted. Otherwise, samples sent to playback may be used, but
+    // only when they are in the format expected by analysis
+    if (analysis != nullptr) {
+      media_notifier->SendAudioRaw(static_cast<const int16_t*>(analysis),
+                                   analysis_size * kNumberChannels);
+    } else if (format_ == kAnalysisFormat) {
+      media_notifier->SendAudioRaw(static_cast<const int16_t*>(buffer), size * kNumberChannels);
+    }
   }
 
   // Write samples to playback (stop playing song if it fails, e.g. output device disconnected)
@@ -422,6 +441,9 @@ void Player::AudioHandler() {
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
     if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
 
+    // Decoder must create samples in the format expected by playback
+    if (result == error::kSuccess) result = decoder_->SetOutputFormat(format_);
+
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {
       ResetMediaControl(result, /* error_parsing= */ true);
@@ -447,10 +469,11 @@ void Player::AudioHandler() {
     int position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(period_size_ / 2, [this, &position](void* buffer, void* analysis,
-                                                                  int size, int64_t& new_position) {
-      return HandleCommand(buffer, analysis, size, new_position, position);
-    });
+    result = decoder_->Decode(
+        period_size_ / 2, [this, &position](void* buffer, int size, void* analysis,
+                                            int analysis_size, int64_t& new_position) {
+          return HandleCommand(buffer, size, analysis, analysis_size, new_position, position);
+        });
 
     // Decoding stops without error when playback fails, so report it from here
     if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
@@ -599,16 +622,23 @@ void Player::ChangeDevice(const std::string& device) {
   }
 
   device_ = device;
-
-  // New device may use a different period size
-  period_size_ = playback_->GetPeriodSize();
 }
 
 /* ********************************************************************************************** */
 
 error::Code Player::CreatePlaybackStream(const std::string& device) {
   error::Code result = playback_->CreatePlaybackStream(device);
-  return result == error::kSuccess ? playback_->ConfigureParameters() : result;
+
+  if (result == error::kSuccess) result = playback_->ConfigureParameters(desired_format_);
+  if (result != error::kSuccess) return result;
+
+  // Device may not support it, so decoder must create samples in the format that it expects
+  format_ = playback_->GetFormat();
+
+  // This value is used to decide buffer size for song decoding
+  period_size_ = static_cast<int>(playback_->GetPeriodSize());
+
+  return error::kSuccess;
 }
 
 /* ********************************************************************************************** */

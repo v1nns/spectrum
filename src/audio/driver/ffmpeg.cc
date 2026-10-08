@@ -239,13 +239,16 @@ error::Code FFmpeg::ConfigureFilters() {
   result = CreateFilterAsplit();
   if (result != error::kSuccess) return result;
 
-  // Create and configure aformat filter for both branches
-  for (const char* name : {kAformatPlayback, kAformatAnalysis}) {
-    result = CreateFilterAformat(name);
-    if (result != error::kSuccess) {
-      return result;
-    }
-  }
+  // Create and configure aformat filter for both branches (output format is the one expected by
+  // playback, while analysis always expects the same format)
+  result = CreateFilterAformat(kAformatPlayback, static_cast<int>(output_format_.sample_rate),
+                               output_format_.sample_format == model::SampleFormat::S16
+                                   ? AV_SAMPLE_FMT_S16
+                                   : AV_SAMPLE_FMT_S32);
+  if (result != error::kSuccess) return result;
+
+  result = CreateFilterAformat(kAformatAnalysis, kAnalysisSampleRate, kAnalysisSampleFormat);
+  if (result != error::kSuccess) return result;
 
   // Create and configure abuffersink filter for both branches
   for (const char* name : {kSinkPlayback, kSinkAnalysis}) {
@@ -350,8 +353,10 @@ error::Code FFmpeg::CreateFilterVolume() {
 
 /* ********************************************************************************************** */
 
-error::Code FFmpeg::CreateFilterAformat(const char* name) {
-  LOG("Create aformat filter with name=", name);
+error::Code FFmpeg::CreateFilterAformat(const char* name, int sample_rate,
+                                        AVSampleFormat sample_format) {
+  LOG("Create aformat filter with name=", name, " sample rate=", sample_rate,
+      " sample format=", av_get_sample_fmt_name(sample_format));
 
   // Find aformat filter
   const AVFilter* aformat = avfilter_get_by_name(kFilterAformat);
@@ -379,7 +384,7 @@ error::Code FFmpeg::CreateFilterAformat(const char* name) {
                                AV_CH_LAYOUT_STEREO);
 #endif
 
-  std::string sample_rate = std::to_string(kSampleRate);
+  std::string rate = std::to_string(sample_rate);
 
   // Set filter options through the AVOptions API (as lists with a single value, in string format,
   // which is accepted by all FFmpeg versions)
@@ -390,15 +395,14 @@ error::Code FFmpeg::CreateFilterAformat(const char* name) {
     return error::kUnknownError;
   }
 
-  if (int result = av_opt_set(aformat_ctx, "sample_fmts", av_get_sample_fmt_name(AV_SAMPLE_FMT_S16),
+  if (int result = av_opt_set(aformat_ctx, "sample_fmts", av_get_sample_fmt_name(sample_format),
                               AV_OPT_SEARCH_CHILDREN);
       result < 0) {
     ERROR("Cannot set sample format for the aformat filter, error=", ErrorToString(result));
     return error::kUnknownError;
   }
 
-  if (int result =
-          av_opt_set(aformat_ctx, "sample_rates", sample_rate.c_str(), AV_OPT_SEARCH_CHILDREN);
+  if (int result = av_opt_set(aformat_ctx, "sample_rates", rate.c_str(), AV_OPT_SEARCH_CHILDREN);
       result < 0) {
     ERROR("Cannot set sample rate for the aformat filter, error=", ErrorToString(result));
     return error::kUnknownError;
@@ -636,13 +640,38 @@ error::Code FFmpeg::Open(model::Song& audio_info) {
   result = ConfigureDecoder();
   if (result != error::kSuccess) return clean_up_and_return(result);
 
-  result = ConfigureFilters();
-  if (result != error::kSuccess) return clean_up_and_return(result);
-
-  // At this point, we can get detailed information about the song
+  // At this point, we can get detailed information about the song (filters are configured only
+  // when output format is informed, as it may depend on this information)
   FillAudioInformation(audio_info);
 
   return result;
+}
+
+/* ********************************************************************************************** */
+
+error::Code FFmpeg::SetOutputFormat(const model::AudioFormat& format) {
+  LOG("Set output format=", format);
+  output_format_ = format;
+
+  if (!decoder_) {
+    ERROR("Cannot set output format without opening a song");
+    return error::kUnknownError;
+  }
+
+  // While decoding, filtergraph is in use: it is created again before processing the next frame,
+  // and samples still held by it are discarded (as they are not in the new format)
+  if (shared_context_.packet) {
+    shared_context_.reset_filters = true;
+    shared_context_.format_changed = true;
+    return error::kSuccess;
+  }
+
+  if (error::Code result = ConfigureFilters(); result != error::kSuccess) {
+    ClearCache();
+    return result;
+  }
+
+  return error::kSuccess;
 }
 
 /* ********************************************************************************************** */
@@ -661,6 +690,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
       .err_code = error::kSuccess,
       .keep_playing = true,
       .reset_filters = false,
+      .format_changed = false,
   };
 
   if (!shared_context_.CheckAllocations()) {
@@ -701,6 +731,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
         // UI sent event to update audio filters with new parameters, so it is necessary to reset it
         if (shared_context_.reset_filters) {
           shared_context_.reset_filters = false;
+          shared_context_.format_changed = false;
 
           // Old filtergraph was already released, so there is nothing left to process this frame
           if (ConfigureFilters() != error::kSuccess) {
@@ -833,6 +864,9 @@ error::Code FFmpeg::UpdateFilters(const model::EqualizerPreset& filters) {
 /* ********************************************************************************************** */
 
 void FFmpeg::ProcessFrame(int samples, AudioCallback& callback, bool flush) {
+  // Filtergraph still creates samples in the previous output format, so do not use it anymore
+  if (shared_context_.format_changed) return;
+
   // Get source and sinks
   AVFilterContext* source = buffersrc_ctx_.get();
   AVFilterContext* sink = buffersink_ctx_.get();
@@ -858,15 +892,21 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback, bool flush) {
   // Pull filtered audio from the filtergraph
   while ((result = av_buffersink_get_samples(sink, filtered, samples)) >= 0 &&
          shared_context_.KeepDecoding()) {
-    // Pull the same samples from analysis branch (they are not affected by volume)
-    void* analysis_data =
-        av_buffersink_get_samples(analysis_sink, analysis, filtered->nb_samples) >= 0
-            ? static_cast<void*>(analysis->data[0])
-            : nullptr;
+    // Pull the same audio from analysis branch (not affected by volume), which may have a different
+    // number of samples, as its sample rate is not always the same one from output format. When
+    // they are not available yet, they are sent along with the next ones
+    const auto analysis_samples = static_cast<int>(
+        av_rescale_rnd(filtered->nb_samples, kAnalysisSampleRate,
+                       static_cast<int64_t>(output_format_.sample_rate), AV_ROUND_UP));
+
+    const bool has_analysis =
+        av_buffersink_get_samples(analysis_sink, analysis, analysis_samples) >= 0;
 
     // Send filtered audio data to Player
-    shared_context_.keep_playing = callback(static_cast<void*>(filtered->data[0]), analysis_data,
-                                            filtered->nb_samples, shared_context_.position);
+    shared_context_.keep_playing =
+        callback(static_cast<void*>(filtered->data[0]), filtered->nb_samples,
+                 has_analysis ? static_cast<void*>(analysis->data[0]) : nullptr,
+                 has_analysis ? analysis->nb_samples : 0, shared_context_.position);
 
     // Clear frames from filtergraph
     av_frame_unref(filtered);
@@ -874,7 +914,8 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback, bool flush) {
 
     // Check if EQ has updated or song position has changed (when flushing, there is no next frame
     // to apply updated EQ, so just keep pulling)
-    if ((shared_context_.reset_filters && !flush) || shared_context_.position != old_position) {
+    if ((shared_context_.reset_filters && !flush) || shared_context_.format_changed ||
+        shared_context_.position != old_position) {
       seek_frame = shared_context_.position != old_position;
       break;
     }

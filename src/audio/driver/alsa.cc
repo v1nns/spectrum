@@ -49,6 +49,12 @@ void LogLibraryError(const char* /*file*/, int /*line*/, const char* function, i
   WARN("ALSA library: ", message.data(), " (", function, ")");
 }
 
+//! Get sample format from ALSA that is equivalent to the given one (using native endianness, as
+//! samples are created by decoder like that)
+snd_pcm_format_t ToPcmFormat(model::SampleFormat format) {
+  return format == model::SampleFormat::S16 ? SND_PCM_FORMAT_S16 : SND_PCM_FORMAT_S32;
+}
+
 //! Get text from hint and release it
 std::string GetHint(const void* hint, const char* id) {
   char* value = snd_device_name_get_hint(hint, id);
@@ -118,6 +124,7 @@ std::vector<std::string> GetPreferedDevicesName() {
 
 error::Code Alsa::CreatePlaybackStream(const std::string& device) {
   LOG("Create new playback stream on device=", std::quoted(device));
+  device_ = device;
   snd_lib_error_set_handler(&LogLibraryError);
 
   // Current playback stream must be released first, as it may be using the same hardware (which
@@ -208,33 +215,142 @@ model::AudioDevices Alsa::ListDevices() const {
 
 /* ********************************************************************************************** */
 
-error::Code Alsa::ConfigureParameters() {
-  LOG("Configure parameters on playback stream");
+error::Code Alsa::ConfigureParameters(const model::AudioFormat& desired) {
+  LOG("Configure parameters on playback stream, desired format=", desired);
   if (!playback_handle_) return error::kOpenDeviceFailed;
+
+  // Parameters cannot be changed while playback stream has samples to play
+  if (stream_ready_) snd_pcm_drop(playback_handle_.get());
+
+  error::Code result = SetParameters(desired);
+
+  // Not every device accepts new parameters after being configured (some of them keep using the
+  // previous sample format, even when the desired one is supported), so create its playback stream
+  // again
+  if (stream_ready_ &&
+      (result != error::kSuccess || format_.sample_format != desired.sample_format)) {
+    LOG("Create playback stream again to change its parameters");
+    const std::string device = device_;
+
+    result = CreatePlaybackStream(device);
+    if (result == error::kSuccess) result = SetParameters(desired);
+  }
 
   // Playback stream cannot be used without parameters, so release it (otherwise, writing samples
   // to it is not safe)
-  auto release_and_return = [this](error::Code code) {
+  if (result != error::kSuccess) {
     mixer_.reset();
     playback_handle_.reset();
-    return code;
-  };
-
-  // with latency as 92900us, we get a period size equal to 1024 (and resampling is allowed, as some
-  // devices use a fixed sample rate, e.g. the ones shared with other applications)
-  if (snd_pcm_set_params(playback_handle_.get(), kSampleFormat, SND_PCM_ACCESS_RW_INTERLEAVED,
-                         kChannels, kSampleRate, kAllowResampling, kLatency) < 0) {
-    ERROR("Cannot set parameters on playback stream");
-    return release_and_return(error::kUnknownError);
-  }
-
-  snd_pcm_uframes_t buffer_size = 0;
-  if (snd_pcm_get_params(playback_handle_.get(), &buffer_size, &period_size_) < 0) {
-    ERROR("Cannot get parameters from playback stream");
-    return release_and_return(error::kUnknownError);
+    stream_ready_ = false;
+    return result;
   }
 
   stream_ready_ = true;
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code Alsa::SetParameters(const model::AudioFormat& desired) {
+  snd_pcm_t* pcm = playback_handle_.get();
+  if (!pcm) return error::kOpenDeviceFailed;
+
+  snd_pcm_hw_params_t* hw_params = nullptr;
+  snd_pcm_hw_params_alloca(&hw_params);
+
+  if (snd_pcm_hw_params_any(pcm, hw_params) < 0) {
+    ERROR("Cannot get parameters supported by playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  // Sample rate is converted by decoder (which is better at it), so ALSA must not do it and tell
+  // which one is really supported by output device (not every device has this option)
+  snd_pcm_hw_params_set_rate_resample(pcm, hw_params, 0);
+
+  if (snd_pcm_hw_params_set_access(pcm, hw_params, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
+    ERROR("Cannot set access type on playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  // Use desired sample format, or any other that is supported by output device
+  model::AudioFormat format = desired;
+  bool format_supported = false;
+
+  for (auto sample_format :
+       {desired.sample_format, model::SampleFormat::S32, model::SampleFormat::S16}) {
+    if (snd_pcm_hw_params_set_format(pcm, hw_params, ToPcmFormat(sample_format)) == 0) {
+      format.sample_format = sample_format;
+      format_supported = true;
+      break;
+    }
+  }
+
+  if (!format_supported) {
+    ERROR("Cannot set sample format on playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  if (snd_pcm_hw_params_set_channels(pcm, hw_params, desired.channels) < 0) {
+    ERROR("Cannot set number of channels on playback stream, channels=", desired.channels);
+    return error::kSetupAudioParamsFailed;
+  }
+
+  // Use desired sample rate, or the closest one that is supported by output device
+  unsigned int sample_rate = desired.sample_rate;
+  if (snd_pcm_hw_params_set_rate_near(pcm, hw_params, &sample_rate, nullptr) < 0) {
+    ERROR("Cannot set sample rate on playback stream, rate=", desired.sample_rate);
+    return error::kSetupAudioParamsFailed;
+  }
+
+  format.sample_rate = sample_rate;
+
+  // Period has the same duration for any sample rate (e.g. its size is equal to 1024 for 44.1 kHz),
+  // and it is chosen before buffer, as not every device accepts them the other way around
+  unsigned int period_time = kLatency / kPeriodsPerBuffer;
+  snd_pcm_uframes_t period_size = 0;
+
+  if (snd_pcm_hw_params_set_period_time_near(pcm, hw_params, &period_time, nullptr) < 0 ||
+      snd_pcm_hw_params_get_period_size(hw_params, &period_size, nullptr) < 0) {
+    ERROR("Cannot set period time on playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  snd_pcm_uframes_t buffer_size = period_size * kPeriodsPerBuffer;
+
+  if (snd_pcm_hw_params_set_buffer_size_near(pcm, hw_params, &buffer_size) < 0) {
+    ERROR("Cannot set buffer size on playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  if (int result = snd_pcm_hw_params(pcm, hw_params); result < 0) {
+    ERROR("Cannot set parameters on playback stream, error=", snd_strerror(result));
+    return error::kSetupAudioParamsFailed;
+  }
+
+  if (snd_pcm_hw_params_get_buffer_size(hw_params, &buffer_size) < 0 ||
+      snd_pcm_hw_params_get_period_size(hw_params, &period_size_, nullptr) < 0 ||
+      period_size_ == 0) {
+    ERROR("Cannot get parameters from playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  // Start playing only when buffer is full, and wake up when there is room for a whole period
+  snd_pcm_sw_params_t* sw_params = nullptr;
+  snd_pcm_sw_params_alloca(&sw_params);
+
+  if (snd_pcm_sw_params_current(pcm, sw_params) < 0 ||
+      snd_pcm_sw_params_set_start_threshold(pcm, sw_params,
+                                            (buffer_size / period_size_) * period_size_) < 0 ||
+      snd_pcm_sw_params_set_avail_min(pcm, sw_params, period_size_) < 0 ||
+      snd_pcm_sw_params(pcm, sw_params) < 0) {
+    ERROR("Cannot set software parameters on playback stream");
+    return error::kSetupAudioParamsFailed;
+  }
+
+  format_ = format;
+  INFO("Configured playback stream with format=", format_, " period size=", period_size_,
+       " buffer size=", buffer_size);
+
   return error::kSuccess;
 }
 

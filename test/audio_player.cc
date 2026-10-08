@@ -68,6 +68,11 @@ class PlayerTest : public ::testing::Test {
 
     notifier = std::make_shared<InterfaceNotifierMock>();
 
+    // Format is exchanged between playback and decoder (by default, playback expects the same
+    // format that is asked by player)
+    EXPECT_CALL(*pb_mock, GetFormat()).Times(AnyNumber());
+    EXPECT_CALL(*dc_mock, SetOutputFormat(_)).Times(AnyNumber());
+
     // Setup init expectations
     InSequence seq;
 
@@ -80,7 +85,7 @@ class PlayerTest : public ::testing::Test {
       EXPECT_CALL(*pb_mock, CreatePlaybackStream(device));
     }
 
-    EXPECT_CALL(*pb_mock, ConfigureParameters());
+    EXPECT_CALL(*pb_mock, ConfigureParameters(_));
     EXPECT_CALL(*pb_mock, GetPeriodSize());
 
     // And interface is notified about it as soon as it is registered
@@ -137,21 +142,21 @@ class PlayerTest : public ::testing::Test {
       EXPECT_CALL(*decoder, Decode(_, _))
           .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
 
             syncer.NotifyStep(2);
             syncer.WaitForStep(3);
 
             // Each skip command is ignored, so song keeps playing
             for (size_t i = 0; i < skip_to_next.size(); ++i) {
-              EXPECT_TRUE(callback(0, 0, 0, position));
+              EXPECT_TRUE(callback(0, 0, 0, 0, position));
             }
 
             syncer.NotifyStep(4);
             syncer.WaitForStep(5);
 
             // Exit
-            EXPECT_FALSE(callback(0, 0, 0, position));
+            EXPECT_FALSE(callback(0, 0, 0, 0, position));
             return error::kSuccess;
           }));
 
@@ -225,7 +230,7 @@ TEST_F(PlayerTest, CreatePlayerAndStartPlaying) {
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           std::vector<int16_t> samples(kFrames * kChannels, 0);
           int64_t position = 0;
-          callback(samples.data(), nullptr, kFrames, position);
+          callback(samples.data(), kFrames, nullptr, 0, position);
           return error::kSuccess;
         }));
 
@@ -291,7 +296,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           // Starts playing
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           // Notify other thread to ask for pause and wait for it
           syncer.NotifyStep(2);
@@ -299,7 +304,7 @@ TEST_F(PlayerTest, StartPlayingAndPause) {
 
           // Pause and wait to resume
           position++;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           return error::kSuccess;
         }));
@@ -388,7 +393,7 @@ TEST_F(PlayerTest, StartPlayingAndStop) {
           syncer.WaitForStep(3);
 
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           return error::kSuccess;
         }));
@@ -456,7 +461,7 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           return error::kSuccess;
         }));
@@ -621,7 +626,7 @@ TEST_F(PlayerTest, ErrorWritingToPlayback) {
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           std::vector<int16_t> samples(8, 0);
           int64_t position = 0;
-          EXPECT_FALSE(callback(samples.data(), nullptr, 4, position));
+          EXPECT_FALSE(callback(samples.data(), 4, nullptr, 0, position));
           return error::kSuccess;
         }));
 
@@ -728,7 +733,7 @@ TEST_F(PlayerTest, ChangeDeviceWithoutPlaying) {
     // New playback stream is created and configured on the chosen device
     InSequence seq;
     EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(_)).WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*playback, GetPeriodSize()).WillOnce(Invoke([&] {
       syncer.NotifyStep(2);
       return 0;
@@ -767,9 +772,10 @@ TEST_F(PlayerTest, ErrorChangingDeviceKeepsPreviousOne) {
     // nothing was chosen by user until now) is used again
     InSequence seq;
     EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kUnknownError));
+    EXPECT_CALL(*playback, ConfigureParameters(_)).WillOnce(Return(error::kUnknownError));
     EXPECT_CALL(*playback, CreatePlaybackStream("")).WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetPeriodSize());
 
     EXPECT_CALL(*notifier, NotifyError(Eq(error::kOpenDeviceFailed), StrEq(device)))
         .WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
@@ -811,7 +817,7 @@ TEST_F(PlayerTest, StartPlayingAndChangeDevice) {
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           // Starts playing
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           // Notify other thread to ask to change device and wait for it
           syncer.NotifyStep(2);
@@ -819,14 +825,14 @@ TEST_F(PlayerTest, StartPlayingAndChangeDevice) {
 
           // Device is changed and song keeps playing
           position++;
-          EXPECT_TRUE(callback(0, 0, 0, position));
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
 
           return error::kSuccess;
         }));
 
     // New playback stream is created without stopping the song
     EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(_)).WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*playback, GetPeriodSize());
     EXPECT_CALL(*playback, Stop()).Times(0);
 
@@ -866,6 +872,210 @@ TEST_F(PlayerTest, StartPlayingAndChangeDevice) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, ChangeDeviceToAnotherFormatAndStartPlaying) {
+  const std::string device{"sysdefault:CARD=DAC"};
+  const model::AudioFormat format{.sample_rate = 48000};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // New device does not support the desired format (the default one), so it expects another one
+    EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(Eq(model::AudioFormat{})))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetFormat()).WillRepeatedly(Return(format));
+    EXPECT_CALL(*playback, GetPeriodSize()).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+      return 0;
+    }));
+
+    // And decoder is asked to create samples in this format
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, SetOutputFormat(Eq(format))).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    constexpr int kFrames = 4;
+    constexpr int kAnalysisFrames = 3;
+    constexpr int kChannels = 2;
+
+    std::vector<int16_t> samples(kFrames * kChannels, 0);
+    std::vector<int16_t> analysis(kAnalysisFrames * kChannels, 0);
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+
+          // Samples to analysis have their own size, as their format is not the same
+          callback(samples.data(), kFrames, analysis.data(), kAnalysisFrames, position);
+
+          // Without them, samples to playback cannot be used by analysis
+          callback(samples.data(), kFrames, nullptr, 0, position);
+
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(analysis.data(), kAnalysisFrames * kChannels));
+    EXPECT_CALL(*playback, AudioCallback(samples.data(), kFrames)).Times(2);
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(2);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(3);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->SetAudioDevice(device);
+
+    // Wait for Player to change device before client asks to play
+    syncer.WaitForStep(2);
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingAndChangeDeviceToAnotherFormat) {
+  const std::string device{"sysdefault:CARD=DAC"};
+  const model::AudioFormat format{.sample_rate = 96000, .sample_format = model::SampleFormat::S32};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Song starts with default format
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, SetOutputFormat(Eq(model::AudioFormat{})))
+        .WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    constexpr int kChannels = 2;
+    std::vector<int16_t> first(4 * kChannels, 0);
+    std::vector<int16_t> second(4 * kChannels, 0);
+    std::vector<int32_t> third(4 * kChannels, 0);
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(first.data(), 4, nullptr, 0, position);
+
+          // Notify other thread to ask to change device and wait for it
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // These samples are still in the previous format, so they are not sent to new device
+          EXPECT_TRUE(callback(second.data(), 4, nullptr, 0, position));
+
+          // Next ones are already in the format asked to decoder
+          EXPECT_TRUE(callback(third.data(), 4, nullptr, 0, position));
+
+          return error::kSuccess;
+        }));
+
+    // New device expects another format, so decoder is asked to change it
+    EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetFormat()).WillOnce(Return(format));
+    EXPECT_CALL(*playback, GetPeriodSize());
+    EXPECT_CALL(*decoder, SetOutputFormat(Eq(format))).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*playback, AudioCallback(first.data(), 4));
+    EXPECT_CALL(*playback, AudioCallback(second.data(), 4)).Times(0);
+    EXPECT_CALL(*playback, AudioCallback(third.data(), 4));
+
+    // Samples sent to playback are used by analysis only while they are in the format expected by
+    // it (which is the default one)
+    EXPECT_CALL(*notifier, SendAudioRaw(first.data(), 4 * kChannels));
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(2);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(4);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait until Player starts decoding before client asks to change device
+    syncer.WaitForStep(2);
+    player_ctl->SetAudioDevice(device);
+    syncer.NotifyStep(3);
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorSettingOutputFormatOnDecoder) {
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Song is not played when decoder cannot create samples in the format expected by playback
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, SetOutputFormat(_)).WillOnce(Return(error::kUnknownError));
+    EXPECT_CALL(*decoder, Decode(_, _)).Times(0);
+    EXPECT_CALL(*playback, Prepare()).Times(0);
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(0);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kUnknownError), _)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait for Player to notify error before client asks to exit
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, StartPlayingThenPauseAndChangeDevice) {
   const std::string device{"front:CARD=DAC,DEV=0"};
 
@@ -884,7 +1094,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndChangeDevice) {
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           // Starts playing
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           // Notify other thread to ask for pause and wait for it
           syncer.NotifyStep(2);
@@ -892,7 +1102,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndChangeDevice) {
 
           // Pause, change device and wait to resume
           position++;
-          EXPECT_TRUE(callback(0, 0, 0, position));
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
 
           return error::kSuccess;
         }));
@@ -909,7 +1119,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndChangeDevice) {
 
     // New playback stream is created while song is paused (and it stays paused)
     EXPECT_CALL(*playback, CreatePlaybackStream(device)).WillOnce(Return(error::kSuccess));
-    EXPECT_CALL(*playback, ConfigureParameters()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, ConfigureParameters(_)).WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*playback, GetPeriodSize()).WillOnce(Invoke([&] {
       syncer.NotifyStep(5);
       return 0;
@@ -987,12 +1197,12 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
           syncer.NotifyStep(2);
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
           syncer.WaitForStep(3);
 
           for (int i = 0; i <= 3; i++) {
             position++;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
           }
 
           // This value is considering the seek backward/forward commands + sum in the for-loop
@@ -1069,14 +1279,14 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           for (int i = 0; i <= 3; i++) {
             position++;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
           }
 
           // This value is considering the seek backward/forward commands + sum in the for-loop
@@ -1170,13 +1380,13 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           position++;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           return error::kSuccess;
         }));
@@ -1220,7 +1430,7 @@ TEST_F(PlayerTest, StartPlayingAndRequestNewSong) {
             syncer.NotifyStep(4);
             syncer.WaitForStep(5);
 
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
             return error::kSuccess;
           }));
 
@@ -1297,7 +1507,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
@@ -1305,7 +1515,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
           // This next callback call will be blocked until receives some of the expected commands
           // for Paused state
           position++;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           return error::kSuccess;
         }));
@@ -1354,7 +1564,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
             syncer.NotifyStep(4);
             syncer.WaitForStep(5);
 
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
             return error::kSuccess;
           }));
 
@@ -1441,7 +1651,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
@@ -1449,7 +1659,7 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndUpdateAudioFilters) {
           // This next callback call will be blocked until receives some of the expected commands
           // for Paused state
           position++;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           return error::kSuccess;
         }));
@@ -1548,7 +1758,7 @@ TEST_F(PlayerTest, ErrorOpeningSongFromPlaylistPlayNextAndExit) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
           return error::kSuccess;
         }));
 
@@ -1643,7 +1853,7 @@ TEST_F(PlayerTest, ErrorDecodingSongFromPlaylistPlayNextAndExit) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
           return error::kSuccess;
         }));
 
@@ -1716,7 +1926,7 @@ TEST_F(PlayerTest, ErrorUpdatingAudioFiltersKeepsPlayingPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 1;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           // Wait for client to ask for audio filters update
           syncer.NotifyStep(2);
@@ -1724,14 +1934,14 @@ TEST_F(PlayerTest, ErrorUpdatingAudioFiltersKeepsPlayingPlaylist) {
 
           // Command to update audio filters is handled here (and it fails)
           position++;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           // Wait for client to close error dialog (which asks to dequeue next song)
           syncer.WaitForStep(5);
 
           // Current song must keep playing
           position++;
-          EXPECT_TRUE(callback(0, 0, 0, position));
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
 
           return error::kSuccess;
         }))
@@ -1820,7 +2030,7 @@ TEST_F(PlayerTest, PlaySongFilesFromPlaylist) {
       EXPECT_CALL(*decoder, Decode(_, _))
           .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
             return error::kSuccess;
           }));
 
@@ -1899,7 +2109,7 @@ TEST_F(PlayerTest, PlayStreamingSongsFromPlaylist) {
       EXPECT_CALL(*decoder, Decode(_, _))
           .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
             return error::kSuccess;
           }));
 
@@ -1992,7 +2202,7 @@ TEST_F(PlayerTest, ErrorFetchingSongFromPlaylistPlayNextAndExit) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
           return error::kSuccess;
         }));
 
@@ -2137,7 +2347,7 @@ TEST_F(PlayerTest, KeepPlayingPlaylistWhenFailedSongsAreNotInRow) {
       EXPECT_CALL(*decoder, Decode(_, _))
           .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
             return error::kSuccess;
           }));
 
@@ -2223,13 +2433,13 @@ TEST_F(PlayerTest, SkipToNextAndPreviousInPlaylist) {
       EXPECT_CALL(*decoder, Decode(_, _))
           .WillOnce(Invoke([&, step](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
 
             syncer.NotifyStep(step);
             syncer.WaitForStep(step + 1);
 
             // Command from client stops this song
-            EXPECT_FALSE(callback(0, 0, 0, position));
+            EXPECT_FALSE(callback(0, 0, 0, 0, position));
             return error::kSuccess;
           }));
     };
@@ -2300,13 +2510,13 @@ TEST_F(PlayerTest, SkipToNextWhilePausedInPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           // Song is paused, and then skipped while paused
-          EXPECT_FALSE(callback(0, 0, 0, position));
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
           return error::kSuccess;
         }));
 
@@ -2316,13 +2526,13 @@ TEST_F(PlayerTest, SkipToNextWhilePausedInPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(4);
           syncer.WaitForStep(5);
 
           // Exit
-          EXPECT_FALSE(callback(0, 0, 0, position));
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
           return error::kSuccess;
         }));
 
@@ -2394,13 +2604,13 @@ TEST_F(PlayerTest, StopClearsPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           // Stop
-          EXPECT_FALSE(callback(0, 0, 0, position));
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
           return error::kSuccess;
         }));
 
@@ -2460,7 +2670,7 @@ TEST_F(PlayerTest, RepeatOneSongFromPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
           return error::kSuccess;
         }));
 
@@ -2469,13 +2679,13 @@ TEST_F(PlayerTest, RepeatOneSongFromPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           // Skip to next song (user can still skip songs while repeating one)
-          EXPECT_FALSE(callback(0, 0, 0, position));
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
           return error::kSuccess;
         }));
 
@@ -2484,13 +2694,13 @@ TEST_F(PlayerTest, RepeatOneSongFromPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(4);
           syncer.WaitForStep(5);
 
           // Exit
-          EXPECT_FALSE(callback(0, 0, 0, position));
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
           return error::kSuccess;
         }));
 
@@ -2545,7 +2755,7 @@ TEST_F(PlayerTest, RepeatAllSongsFromPlaylist) {
       EXPECT_CALL(*decoder, Decode(_, _))
           .WillOnce(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
             int64_t position = 0;
-            callback(0, 0, 0, position);
+            callback(0, 0, 0, 0, position);
             return error::kSuccess;
           }));
     }
@@ -2556,13 +2766,13 @@ TEST_F(PlayerTest, RepeatAllSongsFromPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
 
           syncer.NotifyStep(2);
           syncer.WaitForStep(3);
 
           // Exit
-          EXPECT_FALSE(callback(0, 0, 0, position));
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
           return error::kSuccess;
         }));
 
@@ -2612,7 +2822,7 @@ TEST_F(PlayerTest, ShuffleSongsFromPlaylist) {
     EXPECT_CALL(*decoder, Decode(_, _))
         .WillRepeatedly(Invoke([](int dummy, audio::Decoder::AudioCallback callback) {
           int64_t position = 0;
-          callback(0, 0, 0, position);
+          callback(0, 0, 0, 0, position);
           return error::kSuccess;
         }));
 
