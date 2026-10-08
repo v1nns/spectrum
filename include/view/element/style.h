@@ -175,10 +175,12 @@ struct Theme {
     Color stop;  //!< Icon from button to stop
     Color skip;  //!< Icon from buttons to skip song
 
-    Color button_border;
-    Color button_border_focused;
+    Color button_hovered;  //!< Background for button with mouse over it
 
-    //! Bar with song position (border is not used)
+    State mode_enabled;  //!< Repeat or shuffle mode, when enabled (border is not used)
+
+    //! Line with song position and volume level: foreground is used by the part already filled
+    //! and background by the remaining one (border is not used)
     State duration;
     State duration_focused;
   };

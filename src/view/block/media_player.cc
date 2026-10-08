@@ -3,22 +3,114 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <iomanip>
+#include <memory>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <variant>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
+#include "ftxui/dom/node.hpp"
+#include "ftxui/screen/screen.hpp"
 #include "model/volume.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
 #include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
 //! Volume level is shown (and saved) as percentage
 static constexpr float kMaxVolume = 100.F;
+
+namespace {
+
+/**
+ * @brief Horizontal line filled according to a progress, using as many columns as available (a
+ * heavy line for the part already filled and a light one for the remaining part)
+ */
+class ProgressLine : public ftxui::Node {
+ public:
+  /**
+   * @brief Construct a new line
+   * @param progress Value from 0 (empty) to 1 (full)
+   * @param colors Foreground for filled part and background for remaining part
+   * @param show_knob Draw a knob on the current position
+   */
+  ProgressLine(float progress, const Theme::State& colors, bool show_knob)
+      : progress_{std::clamp(progress, 0.F, 1.F)}, colors_{colors}, show_knob_{show_knob} {}
+
+  void ComputeRequirement() override {
+    requirement_.min_x = 1;
+    requirement_.min_y = 1;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    const int width = box_.x_max - box_.x_min + 1;
+    if (width <= 0) return;
+
+    const int filled = static_cast<int>(std::round(progress_ * static_cast<float>(width)));
+    const int knob = std::min(filled, width - 1);
+
+    for (int i = 0; i < width; i++) {
+      auto& pixel = screen.PixelAt(box_.x_min + i, box_.y_min);
+      const bool is_filled = i < filled;
+
+      pixel.character = show_knob_ && i == knob ? "●" : is_filled ? "━" : "─";
+      pixel.foreground_color =
+          is_filled || (show_knob_ && i == knob) ? colors_.foreground : colors_.background;
+    }
+  }
+
+ private:
+  float progress_;       //!< Value from 0 to 1
+  Theme::State colors_;  //!< Colors for filled and remaining parts
+  bool show_knob_;       //!< Draw a knob on current position
+};
+
+/**
+ * @brief Text in a single line, ending with an ellipsis when there is not enough space for it
+ */
+class EllipsizedText : public ftxui::Node {
+ public:
+  explicit EllipsizedText(std::string text) : text_{std::move(text)} {}
+
+  void ComputeRequirement() override {
+    requirement_.min_x = ftxui::string_width(text_);
+    requirement_.min_y = 1;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    if (box_.y_min > box_.y_max) return;
+
+    const int width = box_.x_max - box_.x_min + 1;
+    int x = box_.x_min;
+
+    // A glyph using more than one column is followed by empty cells, one for each extra column
+    for (const auto& cell : ftxui::Utf8ToGlyphs(ellipsize(text_, width))) {
+      if (x > box_.x_max) return;
+      screen.PixelAt(x++, box_.y_min).character = cell;
+    }
+  }
+
+ private:
+  std::string text_;  //!< Whole text
+};
+
+//! Create a text that is cut (ending with an ellipsis) when it gets less space than it needs
+ftxui::Element ellipsized_text(const std::string& text) {
+  return std::make_shared<EllipsizedText>(text);
+}
+
+//! Create a line filled according to the given progress
+ftxui::Element progress_line(float progress, const Theme::State& colors, bool show_knob = false) {
+  return std::make_shared<ProgressLine>(progress, colors, show_knob);
+}
+
+}  // namespace
 
 /* ********************************************************************************************** */
 
@@ -118,6 +210,12 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
 /* ********************************************************************************************** */
 
 ftxui::Element MediaPlayer::Render() {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
+
+  const auto& theme = GetTheme().player;
+
   // Duration
   std::string curr_time = "--:--";
   std::string total_time = "--:--";
@@ -130,46 +228,51 @@ ftxui::Element MediaPlayer::Render() {
     total_time = model::time_to_string(song_.duration);
   }
 
-  // Bar to display song duration
-  const auto& theme = GetTheme().player;
-  const auto& bar_colors = is_duration_focused_ ? theme.duration_focused : theme.duration;
+  // Line to display song duration
+  ftxui::Element line_duration =
+      progress_line(position, is_duration_focused_ ? theme.duration_focused : theme.duration,
+                    /*show_knob=*/IsPlaying()) |
+      ftxui::xflex_grow | ftxui::reflect(duration_box_);
 
-  ftxui::Decorator bar_style =
-      ftxui::bgcolor(bar_colors.background) | ftxui::color(bar_colors.foreground);
+  // Song title and artist (cut when they do not fit in the space left by everything else)
+  ftxui::Element title =
+      ellipsized_text(GetSongTitle()) | ftxui::bold | ftxui::color(theme.text) | ftxui::xflex;
 
-  ftxui::Element bar_duration =
-      ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) | bar_style;
+  ftxui::Element artist = ellipsized_text(song_.artist) | ftxui::dim | ftxui::xflex;
 
-  // Format volume information string
-  std::ostringstream ss;
-  ss << "Volume: " << std::setfill(' ') << std::setw(3) << ((int)volume_) << "%";
-  std::string vol_info = std::move(ss).str();
-
-  // Current volume element
-  ftxui::Element volume = ftxui::text(vol_info);
-  if (!volume_.IsMuted())
-    volume |= ftxui::color(theme.text);
-  else
-    volume |= ftxui::dim | ftxui::color(theme.volume_muted);
-
-  // Fixed margin for content
-  ftxui::Element margin = ftxui::text(std::string(5, ' '));
-
-  // Repeat and shuffle modes (dimmed when disabled), on the left side to keep media buttons
-  // centered on screen (same width as volume information)
+  // Repeat and shuffle modes (dimmed when disabled, with space around text to not change its
+  // size when enabled)
   auto mode = [&theme](const std::string& text, bool enabled) {
-    return ftxui::text(text) | (enabled ? ftxui::color(theme.text) : ftxui::dim);
+    const auto& colors = theme.mode_enabled;
+
+    return ftxui::text(" " + text + " ") |
+           (enabled ? ftxui::color(colors.foreground) | ftxui::bgcolor(colors.background)
+                    : ftxui::dim);
   };
 
-  ftxui::Element modes = ftxui::vbox({
-                             ftxui::filler(),
-                             mode(std::string{"Shuffle: "} + (shuffle_ ? "on" : "off"), shuffle_),
-                             mode("Repeat: " + std::string{model::GetRepeatModeName(repeat_)},
-                                  repeat_ != model::RepeatMode::Off),
-                         }) |
-                         ftxui::size(ftxui::WIDTH, ftxui::EQUAL, static_cast<int>(vol_info.size()));
+  ftxui::Element modes = ftxui::hbox({
+      mode(std::string{"shuffle "} + (shuffle_ ? "on" : "off"), shuffle_),
+      mode("repeat " + std::string{model::GetRepeatModeName(repeat_)},
+           repeat_ != model::RepeatMode::Off),
+  });
 
-  // Warning (if any) uses the empty line between media buttons and song duration
+  // Current volume, as a line and as a percentage
+  std::ostringstream ss;
+  ss << std::setfill(' ') << std::setw(4) << ((int)volume_) << "% ";
+
+  ftxui::Element volume = ftxui::hbox({
+      ftxui::text("vol ") | ftxui::dim,
+      progress_line(static_cast<float>(volume_), theme.duration) |
+          ftxui::size(WIDTH, EQUAL, kVolumeColumns),
+      ftxui::text(std::move(ss).str()) | ftxui::color(theme.text),
+  });
+
+  if (volume_.IsMuted()) volume = volume | ftxui::dim | ftxui::color(theme.volume_muted);
+
+  // Fixed margin for content
+  ftxui::Element margin = ftxui::text(std::string(kMarginColumns, ' '));
+
+  // Warning (if any) uses the empty line between song and media buttons
   ftxui::Element warning = ftxui::text("");
   if (auto message = warning_.GetText(); message.has_value()) {
     warning = ftxui::text(*message) | ftxui::bold | ftxui::color(theme.warning) | ftxui::center;
@@ -178,17 +281,15 @@ ftxui::Element MediaPlayer::Render() {
   ftxui::Element content = ftxui::vbox({
       ftxui::hbox({
           margin,
+          title,
           modes,
-          ftxui::filler(),
-          btn_previous_->Render(),
-          btn_play_->Render(),
-          btn_stop_->Render(),
-          btn_next_->Render(),
-          ftxui::filler(),
-          ftxui::vbox({
-              ftxui::filler(),
-              volume,
-          }),
+          margin,
+      }),
+      ftxui::hbox({
+          margin,
+          artist,
+          ftxui::text(" "),
+          volume,
           margin,
       }),
       ftxui::hbox({
@@ -198,24 +299,33 @@ ftxui::Element MediaPlayer::Render() {
       }),
       ftxui::hbox({
           margin,
-          bar_duration,
-          margin,
-      }),
-      ftxui::hbox({
+          btn_previous_->Render(),
+          btn_play_->Render(),
+          btn_stop_->Render(),
+          btn_next_->Render(),
           margin,
           ftxui::text(curr_time) | ftxui::bold | ftxui::color(theme.text),
-          ftxui::filler(),
+          ftxui::text(" "),
+          line_duration,
+          ftxui::text(" "),
           ftxui::text(total_time) | ftxui::bold | ftxui::color(theme.text),
           margin,
       }),
   });
 
-  using ftxui::EQUAL;
-  using ftxui::HEIGHT;
+  return RenderWindow(ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
+                      content | ftxui::size(HEIGHT, EQUAL, kMaxRows));
+}
 
-  return RenderWindow(
-      ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
-      content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows));
+/* ********************************************************************************************** */
+
+std::string MediaPlayer::GetSongTitle() const {
+  if (!song_.title.empty()) return song_.title;
+
+  // Song is played from a file or streamed from URL
+  if (!song_.filepath.empty()) return song_.filepath.filename().string();
+
+  return song_.stream_info.has_value() ? song_.stream_info->base_url : std::string{};
 }
 
 /* ********************************************************************************************** */

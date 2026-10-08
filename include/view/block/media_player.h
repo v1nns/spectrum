@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <memory>
+#include <string>
 
 #include "ftxui/dom/elements.hpp"
 #include "model/remote_command.h"
@@ -25,7 +26,9 @@ namespace interface {
  * @brief Component with detailed information about the chosen file (in this case, some music file)
  */
 class MediaPlayer : public Block {
-  static constexpr int kMaxRows = 10;  //!< Maximum rows for the Component
+  static constexpr int kMaxRows = 4;         //!< Maximum rows for the Component
+  static constexpr int kMarginColumns = 2;   //!< Empty columns on both sides of content
+  static constexpr int kVolumeColumns = 10;  //!< Columns for line with volume level
 
   //! Time that a warning stays visible
   static constexpr std::chrono::milliseconds kWarningDuration{4000};
@@ -112,6 +115,9 @@ class MediaPlayer : public Block {
   //! Create event to skip song (handled by audio player, as songs are always played from a queue)
   static CustomEvent CreateSkipEvent(bool next);
 
+  //! Get title to show for current song (its source is used when song does not have one)
+  std::string GetSongTitle() const;
+
   //! Utility to check media state
   bool IsPlaying() const {
     return song_.curr_info.state == model::Song::MediaState::Play ||
@@ -132,7 +138,7 @@ class MediaPlayer : public Block {
   model::RepeatMode repeat_ = model::RepeatMode::Off;  //!< Repeat mode for songs from queue
   bool shuffle_ = false;                               //!< Shuffle songs from queue
 
-  ftxui::Box duration_box_;           //!< Box for song duration component (gauge)
+  ftxui::Box duration_box_;           //!< Box for song duration component (line)
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused
 
   FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)

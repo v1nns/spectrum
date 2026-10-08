@@ -1408,7 +1408,7 @@ TEST_F(TerminalTest, KeepEventsToAudioThreadUntilNotifierIsRegistered) {
   notifier.reset();
   terminal->ProcessEvent(CustomEvent::PauseSong());
 
-  EXPECT_THAT(Render(), ::testing::HasSubstr("Volume:  40%"));
+  EXPECT_THAT(Render(), ::testing::HasSubstr("  40% "));
 }
 
 /* ********************************************************************************************** */

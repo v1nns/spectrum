@@ -250,8 +250,8 @@ Theme MakeTheme(const Palette& p) {
       .play = p.green,
       .stop = p.red,
       .skip = p.accent,
-      .button_border = p.overlay,
-      .button_border_focused = p.accent,
+      .button_hovered = p.overlay,
+      .mode_enabled = State{.foreground = p.base, .background = p.accent},
       .duration = State{.foreground = p.accent, .background = p.overlay},
       .duration_focused = State{.foreground = p.accent_alt, .background = p.muted},
   };
