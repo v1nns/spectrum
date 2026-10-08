@@ -55,6 +55,15 @@ snd_pcm_format_t ToPcmFormat(model::SampleFormat format) {
   return format == model::SampleFormat::S16 ? SND_PCM_FORMAT_S16 : SND_PCM_FORMAT_S32;
 }
 
+//! Check if device is one of those meant to be chosen by user (instead of a plugin, like the ones
+//! to convert sample rate, or a variation of another device)
+bool IsDeviceForUser(std::string_view name) {
+  // Name may be followed by card and device (e.g. "front:CARD=PCH,DEV=0")
+  name = name.substr(0, name.find(':'));
+
+  return std::find(kDeviceNames.begin(), kDeviceNames.end(), name) != kDeviceNames.end();
+}
+
 //! Get text from hint and release it
 std::string GetHint(const void* hint, const char* id) {
   char* value = snd_device_name_get_hint(hint, id);
@@ -99,7 +108,12 @@ model::AudioDevices ListOutputDevices() {
 //! Get a list of prefered devices to use, sorted by priority
 std::vector<std::string> GetPreferedDevicesName() {
   std::vector<std::string> devices_names;
-  for (const auto& device : ListOutputDevices()) devices_names.push_back(device.name);
+
+  // A plugin may be opened like any device, but it is not able to play audio by itself (or not in
+  // any format), so it must not be used only because the prefered devices are not available
+  for (const auto& device : ListOutputDevices()) {
+    if (IsDeviceForUser(device.name)) devices_names.push_back(device.name);
+  }
 
   if (devices_names.empty()) {
     ERROR("No audio device found");
@@ -202,13 +216,7 @@ model::AudioDevices Alsa::ListDevices() const {
   model::AudioDevices devices;
 
   for (auto& device : ListOutputDevices()) {
-    // Name may be followed by card and device (e.g. "front:CARD=PCH,DEV=0")
-    std::string_view name{device.name};
-    name = name.substr(0, name.find(':'));
-
-    if (std::find(kDeviceNames.begin(), kDeviceNames.end(), name) != kDeviceNames.end()) {
-      devices.push_back(std::move(device));
-    }
+    if (IsDeviceForUser(device.name)) devices.push_back(std::move(device));
   }
 
   LOG("Found ", devices.size(), " output devices");
