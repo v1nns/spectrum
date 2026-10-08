@@ -267,6 +267,7 @@ Theme MakeTheme(const Palette& p) {
       .label = p.text,
       .hint = p.subtext,
       .keybinding = p.accent_alt,
+      .section = p.accent,
       .success = p.green,
       .error = p.red,
       .pane_border = p.muted,

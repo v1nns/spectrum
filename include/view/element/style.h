@@ -202,6 +202,7 @@ struct Theme {
     Color label;       //!< Label for input
     Color hint;        //!< Hint for the next possible action
     Color keybinding;  //!< Keys listed in help
+    Color section;     //!< Title of each section listed in help
     Color success;     //!< Feedback when action was accepted
     Color error;       //!< Feedback when action was rejected
 

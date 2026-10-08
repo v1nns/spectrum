@@ -2291,7 +2291,7 @@ class HelpDialogTest : public ::DialogTest {
 
     // Then skip empty lines (containing only dialog border)
     auto is_empty = [](std::string text) {
-      const std::string border{"║"};
+      const std::string border{"│"};
       for (auto pos = text.find(border); pos != std::string::npos; pos = text.find(border)) {
         text.erase(pos, border.size());
       }
@@ -2424,8 +2424,8 @@ TEST_F(HelpDialogTest, ShowKeybindingsInTwoColumnsWhenTheyFit) {
 
   // Dialog still fits in terminal with two columns (its border is rendered in both sides)
   dialog->OnEvent(ftxui::Event::Home);
-  const std::string top = find_line(Render(), "╔");
-  EXPECT_THAT(top, HasSubstr("╗"));
+  const std::string top = find_line(Render(), "╭");
+  EXPECT_THAT(top, HasSubstr("╮"));
   EXPECT_LT(ftxui::string_width(top), size.dimx);
 
   // A terminal that is not wide enough for both columns keeps a single one
@@ -2597,20 +2597,24 @@ TEST_F(HelpDialogTest, ChangeThemeAfterCreation) {
   utils::ThemeGuard guard;
 
   const auto background = utils::MarkerColor(1);
+  const auto section = utils::MarkerColor(2);
 
   help_dialog->Show();
 
   // Dialog was created with default theme
   ftxui::Render(*screen, dialog->Render(size));
   EXPECT_FALSE(utils::HasColor(*screen, background));
+  EXPECT_FALSE(utils::HasColor(*screen, section));
 
   // Replace theme, the same dialog must use new colors on next render
   interface::Theme theme;
   theme.dialog.background = background;
+  theme.dialog.section = section;
   interface::SetTheme(theme);
 
   ftxui::Render(*screen, dialog->Render(size));
   EXPECT_TRUE(utils::HasColor(*screen, background));
+  EXPECT_TRUE(utils::HasColor(*screen, section));
 }
 
 /* ********************************************************************************************** */

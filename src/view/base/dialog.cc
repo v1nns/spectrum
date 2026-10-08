@@ -43,7 +43,7 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
 
   // Create border decorator style
   const auto& theme = GetTheme().dialog;
-  auto border_decorator = ftxui::borderStyled(ftxui::DOUBLE, theme.border);
+  auto border_decorator = ftxui::borderStyled(style_.border, theme.border);
 
   // Create dialog decorator style
   auto decorator = ftxui::size(HEIGHT, EQUAL, height) | ftxui::size(WIDTH, EQUAL, width) |

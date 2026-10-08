@@ -35,7 +35,8 @@ HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
                   .min_line = kMinLines,
                   .max_line = kMaxLines},
              Style{.background = &Theme::Dialog::background,
-                   .foreground = &Theme::Dialog::foreground}) {}
+                   .foreground = &Theme::Dialog::foreground,
+                   .border = ftxui::ROUNDED}) {}
 
 /* ********************************************************************************************** */
 
@@ -213,7 +214,7 @@ ftxui::Element HelpDialog::RenderLine(const Line& line) {
 
   switch (line.type) {
     case Line::Type::Title:
-      return ftxui::text(line.text) | ftxui::color(GetTheme().dialog.text) | ftxui::bold;
+      return ftxui::text(line.text) | ftxui::color(GetTheme().dialog.section) | ftxui::bold;
 
     case Line::Type::Entry:
       return ftxui::hbox({
