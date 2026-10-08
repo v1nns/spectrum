@@ -514,7 +514,8 @@ TEST(RemoteCommandTest, ParseRequestWithValue) {
 TEST(PlayerStatusTest, ConvertToJson) {
   // Nothing is playing
   EXPECT_THAT(model::to_json(model::PlayerStatus{}),
-              StrEq(R"({"artist":"","duration":0,"muted":false,"position":0,"repeat":"off",)"
+              StrEq(R"({"artist":"","duration":0,"muted":false,"output_bit_depth":0,)"
+                    R"("output_device":"","output_sample_rate":0,"position":0,"repeat":"off",)"
                     R"("shuffle":false,"state":"stopped","title":"","volume":100})"));
 
   model::PlayerStatus status{
@@ -523,6 +524,12 @@ TEST(PlayerStatusTest, ConvertToJson) {
       .title = "First line\nSecond line",
       .position = 75,
       .duration = 3725,
+      .output =
+          model::AudioOutput{
+              .device = "front:CARD=DAC,DEV=0",
+              .format = model::AudioFormat{.sample_rate = 96000,
+                                           .sample_format = model::SampleFormat::S32},
+          },
       .volume = model::Volume{0.35F},
       .repeat = model::RepeatMode::All,
       .shuffle = true,
@@ -532,8 +539,10 @@ TEST(PlayerStatusTest, ConvertToJson) {
   // Always a single line, no matter the content
   EXPECT_THAT(
       model::to_json(status),
-      StrEq(R"({"artist":"Deko \"Tok\"","duration":3725,"muted":true,"position":75,"repeat":"all",)"
-            R"("shuffle":true,"state":"playing","title":"First line\nSecond line","volume":35})"));
+      StrEq(R"({"artist":"Deko \"Tok\"","duration":3725,"muted":true,"output_bit_depth":32,)"
+            R"("output_device":"front:CARD=DAC,DEV=0","output_sample_rate":96000,"position":75,)"
+            R"("repeat":"all","shuffle":true,"state":"playing","title":"First line\nSecond line",)"
+            R"("volume":35})"));
 
   status.state = model::Song::MediaState::Pause;
   EXPECT_THAT(model::to_json(status), ::testing::HasSubstr(R"("state":"paused")"));

@@ -395,6 +395,24 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
   error::Code error = error::kUnknownError;
   EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error), StrEq("song.mp3")));
   notifier->NotifyError(error, "song.mp3");
+
+  // Audio output is sent to UI and kept in player status, until song is cleared
+  model::AudioOutput output{
+      .device = "front:CARD=DAC,DEV=0",
+      .format = model::AudioFormat{.sample_rate = 96000, .sample_format = model::SampleFormat::S32},
+  };
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::UpdateAudioOutput),
+          Field(&interface::CustomEvent::content, VariantWith<model::AudioOutput>(output)))));
+  notifier->NotifyAudioOutput(output);
+  EXPECT_EQ(controller->GetStatus().output, output);
+
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::ClearSongInfo)));
+  notifier->ClearSongInformation(playing);
+  EXPECT_FALSE(controller->GetStatus().output.has_value());
 }
 
 /* ********************************************************************************************** */

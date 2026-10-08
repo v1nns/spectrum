@@ -385,6 +385,7 @@ void MediaController::ClearSongInformation(bool playing) {
     status.title.clear();
     status.position = 0;
     status.duration = 0;
+    status.output.reset();
   });
 
   auto dispatcher = GetDispatcher();
@@ -462,6 +463,18 @@ void MediaController::NotifyError(error::Code code, const std::string& detail) {
 
   // Notify Terminal about error that has occurred in Audio thread
   dispatcher->SetApplicationError(code, detail);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::NotifyAudioOutput(const model::AudioOutput& output) {
+  UpdateStatus([&output](model::PlayerStatus& status) { status.output = output; });
+
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  // Notify all blocks with audio output used to play current song
+  dispatcher->SendEvent(interface::CustomEvent::UpdateAudioOutput(output));
 }
 
 /* ********************************************************************************************** */

@@ -47,6 +47,12 @@ class Alsa final : public audio::Playback {
   model::AudioDevices ListDevices() const override;
 
   /**
+   * @brief Get name of output device used by playback stream
+   * @return std::string Name of output device
+   */
+  std::string GetDevice() const override { return device_in_use_; }
+
+  /**
    * @brief Configure Playback Stream parameters (sample format, etc...) using ALSA API. Sample rate
    * is not converted by ALSA, so the closest one supported by output device is used
    * @param desired Format of audio samples that would be sent to playback stream, if supported
@@ -156,6 +162,7 @@ class Alsa final : public audio::Playback {
   bool stream_ready_ = false;          //! Current playback stream is ready to play
 
   std::string device_;         //! Name of output device asked to create playback stream
+  std::string device_in_use_;  //! Name of output device used by playback stream
   model::AudioFormat format_;  //! Format of audio samples expected by playback stream
 };
 

@@ -131,6 +131,7 @@ error::Code Alsa::CreatePlaybackStream(const std::string& device) {
   // cannot be opened again, when it is used directly)
   mixer_.reset();
   playback_handle_.reset();
+  device_in_use_.clear();
 
   // Hardware may be busy for a while only when there was a playback stream ready to play (which
   // may be linked to it by a sound server) and a device was chosen
@@ -172,6 +173,7 @@ error::Code Alsa::CreatePlaybackStream(const std::string& device) {
   }
 
   playback_handle_.reset(std::move(pcm_handle));
+  device_in_use_ = device_name;
 
   // Create mixer to control volume on ALSA
   snd_mixer_t* mixer_handle = nullptr;

@@ -48,6 +48,13 @@ class Playback {
   virtual model::AudioDevices ListDevices() const = 0;
 
   /**
+   * @brief Get name of output device used by Playback Stream (which is not chosen by who creates
+   * it, when no device is given)
+   * @return std::string Name of output device
+   */
+  virtual std::string GetDevice() const = 0;
+
+  /**
    * @brief Configure Playback Stream parameters (sample format, etc...). As output device may not
    * support the desired format, use GetFormat() to know which one must be sent to it
    * @param desired Format of audio samples that would be sent to playback stream, if supported

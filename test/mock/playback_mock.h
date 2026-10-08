@@ -16,6 +16,7 @@ class PlaybackMock final : public audio::Playback {
  public:
   MOCK_METHOD(error::Code, CreatePlaybackStream, (const std::string&), (override));
   MOCK_METHOD(model::AudioDevices, ListDevices, (), (const, override));
+  MOCK_METHOD(std::string, GetDevice, (), (const, override));
   MOCK_METHOD(error::Code, ConfigureParameters, (const model::AudioFormat&), (override));
   MOCK_METHOD(model::AudioFormat, GetFormat, (), (const, override));
   MOCK_METHOD(error::Code, Prepare, (), (override));

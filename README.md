@@ -19,6 +19,7 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Basic playback controls such as play, pause, stop, and skip;
 - Seek time position in the song;
 - Display technical information about the current song;
+- Choose audio output device, playing each song with its own sample rate when device supports it (not converting it);
 - Audio spectrum visualizer;
 - Audio equalizer;
 - Fetch song lyrics;
@@ -111,8 +112,10 @@ By default, `status` is printed as JSON in a single line, useful for scripts and
 
 ```bash
 $ spectrum -r status
-{"artist":"NIKITO","duration":123,"muted":false,"position":42,"repeat":"off","shuffle":false,"state":"playing","title":"Bounce","volume":80}
+{"artist":"NIKITO","duration":123,"muted":false,"output_bit_depth":32,"output_device":"default","output_sample_rate":44100,"position":42,"repeat":"off","shuffle":false,"state":"playing","title":"Bounce","volume":80}
 ```
+
+Fields starting with `output` tell how the song is being played: the device in use and the format of audio sent to it, which may not be the same one from song (they are empty when nothing is playing).
 
 Use `-f <text>` to print it as text instead, where each field name between braces is replaced by its value (`state` is `playing`, `paused` or `stopped`; `position` and `duration` are printed as time):
 

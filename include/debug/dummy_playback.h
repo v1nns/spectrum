@@ -43,6 +43,13 @@ class DummyPlayback : public audio::Playback {
   model::AudioDevices ListDevices() const override { return {}; }
 
   /**
+   * @brief Get name of output device used by Playback Stream (which is not chosen by who creates
+   * it, when no device is given)
+   * @return std::string Name of output device
+   */
+  std::string GetDevice() const override { return "dummy"; }
+
+  /**
    * @brief Configure Playback Stream parameters (sample format, etc...)
    * @return error::Code Playback error converted to application error code
    */

@@ -895,6 +895,12 @@ TEST_F(PlayerTest, ChangeDeviceToAnotherFormatAndStartPlaying) {
     EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*decoder, SetOutputFormat(Eq(format))).WillOnce(Return(error::kSuccess));
     EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Interface is notified about audio output only when song starts playing (not when device is
+    // changed without any song)
+    EXPECT_CALL(*playback, GetDevice()).WillOnce(Return(device));
+    EXPECT_CALL(*notifier,
+                NotifyAudioOutput(Eq(model::AudioOutput{.device = device, .format = format})));
     EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
 
     constexpr int kFrames = 4;
@@ -996,6 +1002,14 @@ TEST_F(PlayerTest, StartPlayingAndChangeDeviceToAnotherFormat) {
     EXPECT_CALL(*playback, GetFormat()).WillOnce(Return(format));
     EXPECT_CALL(*playback, GetPeriodSize());
     EXPECT_CALL(*decoder, SetOutputFormat(Eq(format))).WillOnce(Return(error::kSuccess));
+
+    // Interface is notified about audio output when song starts playing, and again when device is
+    // changed
+    const std::string first_device{"default"};
+    EXPECT_CALL(*playback, GetDevice()).WillOnce(Return(first_device)).WillOnce(Return(device));
+    EXPECT_CALL(*notifier, NotifyAudioOutput(Eq(model::AudioOutput{.device = first_device})));
+    EXPECT_CALL(*notifier,
+                NotifyAudioOutput(Eq(model::AudioOutput{.device = device, .format = format})));
 
     EXPECT_CALL(*playback, AudioCallback(first.data(), 4));
     EXPECT_CALL(*playback, AudioCallback(second.data(), 4)).Times(0);

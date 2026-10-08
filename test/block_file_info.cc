@@ -48,8 +48,8 @@ TEST_F(FileInfoTest, InitialRender) {
 │Bit rate               <Empty>│
 │Bits per sample        <Empty>│
 │Duration               <Empty>│
-│                              │
-│                              │
+│Output                 <Empty>│
+│Device                 <Empty>│
 │                              │
 │                              │
 │                              │
@@ -76,6 +76,13 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
   auto event = interface::CustomEvent::UpdateSongInfo(audio);
   Process(event);
 
+  // Audio output is informed right after song (it does not use the same sample rate when it is
+  // not supported by output device)
+  Process(interface::CustomEvent::UpdateAudioOutput(model::AudioOutput{
+      .device = "front:CARD=DAC,DEV=0",
+      .format = model::AudioFormat{.sample_rate = 96000, .sample_format = model::SampleFormat::S32},
+  }));
+
   ftxui::Render(*screen, block->Render());
 
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
@@ -90,8 +97,8 @@ TEST_F(FileInfoTest, UpdateSongInfo) {
 │Bit rate              256 kbps│
 │Bits per sample        32 bits│
 │Duration                 02:03│
-│                              │
-│                              │
+│Output        96 kHz / 32 bits│
+│Device    front:CARD=DAC,DEV=0│
 │                              │
 │                              │
 │                              │
@@ -118,6 +125,8 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
   auto event_update = interface::CustomEvent::UpdateSongInfo(audio);
   Process(event_update);
 
+  Process(interface::CustomEvent::UpdateAudioOutput(model::AudioOutput{.device = "default"}));
+
   // Process custom event on block
   auto event_clear = interface::CustomEvent::ClearSongInfo();
   Process(event_clear);
@@ -136,8 +145,8 @@ TEST_F(FileInfoTest, UpdateAndClearSongInfo) {
 │Bit rate               <Empty>│
 │Bits per sample        <Empty>│
 │Duration               <Empty>│
-│                              │
-│                              │
+│Output                 <Empty>│
+│Device                 <Empty>│
 │                              │
 │                              │
 │                              │
@@ -176,6 +185,38 @@ TEST_F(FileInfoTest, TruncateLongValuesWithEllipsis) {
 
   // Short values are not changed
   EXPECT_THAT(rendered, HasSubstr("ARTY│"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, UpdateAudioOutput) {
+  // Use the whole block width (content + border)
+  screen = std::make_unique<ftxui::Screen>(38, 15);
+
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = "/music/song.flac"}));
+  Process(interface::CustomEvent::UpdateAudioOutput(model::AudioOutput{.device = "default"}));
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│Output            44.1 kHz / 16 bits│"));
+  EXPECT_THAT(rendered, HasSubstr("│Device                       default│"));
+
+  // Output device may be changed while song is playing, which may also change the format
+  Process(interface::CustomEvent::UpdateAudioOutput(model::AudioOutput{
+      .device = "iec958:CARD=SomeVeryLongCardName,DEV=0",
+      .format =
+          model::AudioFormat{.sample_rate = 192000, .sample_format = model::SampleFormat::S32},
+  }));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│Output             192 kHz / 32 bits│"));
+
+  // Long device name is cut with an ellipsis, keeping a gap after field name
+  EXPECT_THAT(rendered, HasSubstr("│Device iec958:CARD=SomeVeryLongCard…│"));
 }
 
 /* ********************************************************************************************** */

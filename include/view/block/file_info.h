@@ -7,10 +7,13 @@
 #define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/audio_output.h"
 #include "model/song.h"
 #include "view/base/block.h"
 #include "view/element/style.h"
@@ -68,11 +71,18 @@ class FileInfo : public Block {
    */
   void ParseAudioInfo(const model::Song& audio);
 
+  /**
+   * @brief Parse audio output into internal cache to render on UI later (after song information)
+   * @param output Audio output used to play current song (nothing when there is no song)
+   */
+  void ParseAudioOutput(const std::optional<model::AudioOutput>& output);
+
   /* ******************************************************************************************* */
   //! Variables
  private:
   using Entry = std::pair<std::string, std::string>;  //!< A pair of <Field,Value>
   std::vector<Entry> audio_info_;                     //!< Parsed audio information to render on UI
+  std::vector<Entry> output_info_;                    //!< Parsed audio output to render on UI
 
   bool has_song_info_ = false;  //!< Flag to indicate if displaying information from a song
 };

@@ -1,6 +1,7 @@
 #include "view/block/file_info.h"
 
 #include <string>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
@@ -18,6 +19,7 @@ FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
       audio_info_(kMaxSongLines) {
   // Fill with default content
   ParseAudioInfo(model::Song{});
+  ParseAudioOutput(std::nullopt);
 }
 
 /* ********************************************************************************************** */
@@ -28,14 +30,18 @@ ftxui::Element FileInfo::Render() {
   using ftxui::LESS_THAN;
   using ftxui::WIDTH;
 
+  // Audio output is shown right after song information
+  std::vector<Entry> entries{audio_info_};
+  entries.insert(entries.end(), output_info_.begin(), output_info_.end());
+
   ftxui::Elements lines;
-  lines.reserve(audio_info_.size());
+  lines.reserve(entries.size());
 
   // Choose a different color for when there is no current song (paused song still has its info)
   const auto& theme = GetTheme().file_info;
   const ftxui::Color& color = has_song_info_ ? theme.value : theme.value_empty;
 
-  for (const auto& [field, value] : audio_info_) {
+  for (const auto& [field, value] : entries) {
     // Calculate maximum width for text value (keeping a gap between field and value)
     const int width = kMaxColumns - static_cast<int>(field.size()) - kFieldGap;
 
@@ -69,6 +75,13 @@ bool FileInfo::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     ParseAudioInfo(model::Song{});
+    ParseAudioOutput(std::nullopt);
+  }
+
+  // Do not return true because other blocks may use it
+  if (event == CustomEvent::Identifier::UpdateAudioOutput) {
+    LOG("Received audio output from player");
+    ParseAudioOutput(event.GetContent<model::AudioOutput>());
   }
 
   // Do not return true because other blocks may use it
@@ -98,6 +111,23 @@ void FileInfo::ParseAudioInfo(const model::Song& audio) {
 
     audio_info_.push_back({field, value});
   }
+}
+
+/* ********************************************************************************************** */
+
+void FileInfo::ParseAudioOutput(const std::optional<model::AudioOutput>& output) {
+  static constexpr std::string_view kEmpty = "<Empty>";
+
+  // Format of audio samples sent to output device (e.g. "96 kHz / 32 bits")
+  const std::string format =
+      output ? util::format_with_prefix(output->format.sample_rate, "Hz") + " / " +
+                   util::format_with_prefix(output->format.GetBitDepth(), "bits")
+             : std::string{kEmpty};
+
+  output_info_ = {
+      {"Output", format},
+      {"Device", output ? output->device : std::string{kEmpty}},
+  };
 }
 
 }  // namespace interface

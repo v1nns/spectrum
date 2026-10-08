@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "model/audio_filter.h"
+#include "model/audio_output.h"
 #include "model/bar_animation.h"
 #include "model/block_identifier.h"
 #include "model/playlist.h"
@@ -42,6 +43,7 @@ struct CustomEvent {
     UpdateSongInfo = 50002,
     UpdateSongState = 50003,
     DrawAudioSpectrum = 50004,
+    UpdateAudioOutput = 50005,
 
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
@@ -96,6 +98,7 @@ struct CustomEvent {
   static CustomEvent UpdateSongInfo(const model::Song& info);
   static CustomEvent UpdateSongState(const model::Song::CurrentInformation& new_state);
   static CustomEvent DrawAudioSpectrum(const std::vector<double>& data);
+  static CustomEvent UpdateAudioOutput(const model::AudioOutput& output);
 
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
@@ -142,7 +145,7 @@ struct CustomEvent {
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
                    model::PlaylistOperation, model::QuestionData, bool, std::string,
-                   model::RepeatMode, model::RemoteRequest>;
+                   model::RepeatMode, model::RemoteRequest, model::AudioOutput>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

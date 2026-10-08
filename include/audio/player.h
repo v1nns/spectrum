@@ -214,6 +214,12 @@ class Player : public AudioControl {
    */
   error::Code ConfigureOutput(const model::Song& song);
 
+  /**
+   * @brief Notify interface with audio output used to play current song (output device in use and
+   * format of audio samples sent to it)
+   */
+  void NotifyAudioOutput();
+
   /* ******************************************************************************************** */
   //! Binds and registrations
  public:

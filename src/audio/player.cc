@@ -461,6 +461,7 @@ void Player::AudioHandler() {
       if (auto media_notifier = notifier_.lock(); media_notifier) {
         // Notify interface about new song
         media_notifier->NotifySongInformation(*curr_song_);
+        NotifyAudioOutput();
       }
     }
 
@@ -623,6 +624,9 @@ void Player::ChangeDevice(const std::string& device) {
   }
 
   device_ = device;
+
+  // Current song (if any) is played by another device, which may not expect the same format
+  if (curr_song_) NotifyAudioOutput();
 }
 
 /* ********************************************************************************************** */
@@ -630,6 +634,16 @@ void Player::ChangeDevice(const std::string& device) {
 error::Code Player::CreatePlaybackStream(const std::string& device) {
   error::Code result = playback_->CreatePlaybackStream(device);
   return result == error::kSuccess ? ConfigurePlayback() : result;
+}
+
+/* ********************************************************************************************** */
+
+void Player::NotifyAudioOutput() {
+  auto media_notifier = notifier_.lock();
+  if (!media_notifier) return;
+
+  media_notifier->NotifyAudioOutput(
+      model::AudioOutput{.device = playback_->GetDevice(), .format = format_});
 }
 
 /* ********************************************************************************************** */

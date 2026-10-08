@@ -251,6 +251,12 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void NotifyError(error::Code code, const std::string& detail) override;
 
+  /**
+   * @brief Notify UI with audio output used to play current song
+   * @param output Output device in use and format of audio samples sent to it
+   */
+  void NotifyAudioOutput(const model::AudioOutput& output) override;
+
   /* ******************************************************************************************** */
   //! Audio analysis
  private:
