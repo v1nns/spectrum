@@ -226,8 +226,11 @@ ftxui::Element MediaPlayer::Render() {
 
   // Only fill these fields when exists a current song playing
   if (IsPlaying() || song_.duration > 0) {
-    position = (float)song_.curr_info.position / (float)song_.duration;
-    curr_time = model::time_to_string(song_.curr_info.position);
+    // Knob follows mouse while song position is being picked with it
+    const uint32_t current = seek_drag_.value_or(song_.curr_info.position);
+
+    position = (float)current / (float)song_.duration;
+    curr_time = model::time_to_string(current);
     total_time = model::time_to_string(song_.duration);
   }
 
@@ -271,14 +274,21 @@ ftxui::Element MediaPlayer::Render() {
   ss << std::setfill(' ') << std::setw(4) << ((int)volume_) << "% ";
 
   ftxui::Element volume = ftxui::hbox({
-      ftxui::text("vol ") | ftxui::dim,
+      ftxui::text("vol ") |
+          (is_volume_hovered_ ? ftxui::color(theme.duration_focused.foreground) | ftxui::bold
+                              : ftxui::dim) |
+          ftxui::reflect(volume_label_box_),
       progress_line(static_cast<float>(volume_),
                     is_volume_hovered_ ? theme.duration_focused : theme.duration) |
           ftxui::size(WIDTH, EQUAL, kVolumeColumns) | ftxui::reflect(volume_line_box_),
       ftxui::text(std::move(ss).str()) | ftxui::color(theme.text),
   });
 
-  if (volume_.IsMuted()) volume = volume | ftxui::dim | ftxui::color(theme.volume_muted);
+  // With mouse over it, volume is not dimmed (otherwise, it would look the same while muted)
+  if (volume_.IsMuted()) {
+    volume = volume | (is_volume_hovered_ ? ftxui::nothing : ftxui::dim) |
+             ftxui::color(theme.volume_muted);
+  }
 
   volume = volume | ftxui::reflect(volume_box_);
 
@@ -387,6 +397,7 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     song_ = model::Song{.curr_info = {.state = model::Song::MediaState::Empty}};
+    seek_drag_.reset();
     btn_play_->ResetState();
   }
 
@@ -408,6 +419,10 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
+  // While song position is being picked, nothing else handles mouse (e.g. button released over
+  // a media button must not click on it)
+  if (seek_drag_.has_value() && HandleSeekMouseEvent(event)) return true;
+
   if (OnTitleMouseEvent(event)) return true;
 
   // Mouse focus on shuffle mode, repeat mode and volume
@@ -425,51 +440,77 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
 
   if (HandleVolumeMouseEvent(event)) return true;
 
+  return HandleSeekMouseEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+uint32_t MediaPlayer::GetSongPositionAt(int column) const {
+  // The first column from line is the beginning of song and the last one is its end (exactly like
+  // knob is drawn)
+  const int real_x = std::clamp(column, duration_box_.x_min, duration_box_.x_max) -
+                     duration_box_.x_min;
+  const int last_x = std::max(1, duration_box_.x_max - duration_box_.x_min);
+
+  return static_cast<uint32_t>(
+      std::lround(static_cast<double>(song_.duration) * real_x / static_cast<double>(last_x)));
+}
+
+/* ********************************************************************************************** */
+
+bool MediaPlayer::HandleSeekMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+  const bool dragging = seek_drag_.has_value();
+
+  seek_drag_.reset();
+
   if (!IsPlaying()) return false;
 
+  const bool on_line = duration_box_.Contain(mouse.x, mouse.y);
+
   // Mouse focus on song duration box
-  is_duration_focused_ = duration_box_.Contain(event.mouse().x, event.mouse().y) ? true : false;
+  is_duration_focused_ = on_line;
 
-  // Mouse click on song duration box
-  if (event.mouse().button == ftxui::Mouse::Left &&
-      duration_box_.Contain(event.mouse().x, event.mouse().y)) {
-    // A click sends two events (button pressed and released), and position is changed only by
-    // the last one, otherwise song would be moved twice by the same offset
-    if (event.mouse().motion != ftxui::Mouse::Released) return true;
+  if (mouse.button != ftxui::Mouse::Left) return false;
 
-    // Acquire pointer to dispatcher
-    auto dispatcher = GetDispatcher();
+  // While button is held, knob follows mouse along the line (even past both ends of it), and it
+  // goes back to song position if mouse leaves this line
+  if (mouse.motion != ftxui::Mouse::Released) {
+    if (!on_line && !(dragging && mouse.y == duration_box_.y_min)) return false;
 
-    // Calculate new song position based on screen coordinates, in which the first column from
-    // line is the beginning of song and the last one is its end (exactly like knob is drawn)
-    const int real_x = event.mouse().x - duration_box_.x_min;
-    const int last_x = std::max(1, duration_box_.x_max - duration_box_.x_min);
-    auto new_position = static_cast<int>(
-        std::lround(static_cast<double>(song_.duration) * real_x / static_cast<double>(last_x)));
-
-    int offset = std::abs(int(new_position - song_.curr_info.position));
-
-    // Do nothing if result is equal the current position
-    if (new_position == song_.curr_info.position) return true;
-
-    LOG("Handle left click mouse event on song progress bar");
-
-    // Send event to player
-    interface::CustomEvent event_seek = new_position > song_.curr_info.position
-                                            ? interface::CustomEvent::SeekForwardPosition(offset)
-                                            : interface::CustomEvent::SeekBackwardPosition(offset);
-
-    LOG("Sending event to ", event_seek.GetId(), " with offset=", offset);
-    dispatcher->SendEvent(event_seek);
-
-    // Set this block as active (focused)
-    auto event_focus = interface::CustomEvent::SetFocused(GetId());
-    dispatcher->SendEvent(event_focus);
-
+    seek_drag_ = GetSongPositionAt(mouse.x);
+    is_duration_focused_ = true;
     return true;
   }
 
-  return false;
+  if (!on_line && !dragging) return false;
+
+  // Position is changed only when button is released, otherwise song would be moved more than
+  // once by an offset based on a position not updated yet
+  const auto new_position = static_cast<int>(GetSongPositionAt(mouse.x));
+  const auto position = static_cast<int>(song_.curr_info.position);
+
+  // Do nothing if result is equal the current position
+  if (new_position == position) return true;
+
+  LOG("Handle left click mouse event on song progress bar");
+  auto dispatcher = GetDispatcher();
+
+  // Send event to player
+  const int offset = std::abs(new_position - position);
+
+  interface::CustomEvent event_seek = new_position > position
+                                          ? interface::CustomEvent::SeekForwardPosition(offset)
+                                          : interface::CustomEvent::SeekBackwardPosition(offset);
+
+  LOG("Sending event to ", event_seek.GetId(), " with offset=", offset);
+  dispatcher->SendEvent(event_seek);
+
+  // Set this block as active (focused)
+  auto event_focus = interface::CustomEvent::SetFocused(GetId());
+  dispatcher->SendEvent(event_focus);
+
+  return true;
 }
 
 /* ********************************************************************************************** */
@@ -510,10 +551,18 @@ bool MediaPlayer::HandleVolumeMouseEvent(ftxui::Event& event) {
     return true;
   }
 
-  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released ||
-      !volume_line_box_.Contain(mouse.x, mouse.y)) {
-    return false;
+  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released) return false;
+
+  // A click on label mutes volume (or restores it), as line cannot be clicked before its start
+  if (volume_label_box_.Contain(mouse.x, mouse.y)) {
+    LOG("Handle left click mouse event on volume label");
+    AskForFocus();
+
+    HandleVolumeEvent(keybinding::MediaPlayer::Mute);
+    return true;
   }
+
+  if (!volume_line_box_.Contain(mouse.x, mouse.y)) return false;
 
   LOG("Handle left click mouse event on volume line");
   AskForFocus();

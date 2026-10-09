@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "ftxui/dom/elements.hpp"
@@ -90,6 +91,18 @@ class MediaPlayer : public Block {
   bool HandleVolumeMouseEvent(ftxui::Event& event);
 
   /**
+   * @brief Handle mouse event on line with song duration: its knob follows mouse while button is
+   * held, and song position is changed when it is released
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleSeekMouseEvent(ftxui::Event& event);
+
+  //! Get song position (in seconds) for the given column from screen, which is limited to both
+  //! ends of line with song duration
+  uint32_t GetSongPositionAt(int column) const;
+
+  /**
    * @brief Handle event for media control (e.g., play/pause, stop, clear and skip song)
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
@@ -156,6 +169,7 @@ class MediaPlayer : public Block {
   ftxui::Box shuffle_box_;      //!< Box for shuffle mode
   ftxui::Box repeat_box_;       //!< Box for repeat mode
   ftxui::Box volume_box_;       //!< Box for volume (label, line and percentage)
+  ftxui::Box volume_label_box_; //!< Box for label from volume
   ftxui::Box volume_line_box_;  //!< Box for line with volume level
 
   bool is_shuffle_hovered_ = false;  //!< Flag to control if mouse cursor is over shuffle mode
@@ -164,6 +178,9 @@ class MediaPlayer : public Block {
 
   ftxui::Box duration_box_;           //!< Box for song duration component (line)
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused
+
+  //! Song position (in seconds) picked with mouse, while its button is still held
+  std::optional<uint32_t> seek_drag_;
 
   FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)
 

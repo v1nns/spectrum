@@ -335,6 +335,8 @@ class AudioEqualizer : public TabItem {
     std::vector<model::MusicGenre> presets;  //!< All available presets
     int entry_focused = 0;                   //!< Index for entry selected (title + presets list)
     int entry_hovered = -1;                  //!< Index for entry focused (default is none)
+    int entry_centered = -1;                 //!< Index for preset kept at the center of list, after
+                                             //!< scrolling it with mouse wheel (default is none)
     bool title_hovered = false;              //!< Flag to control hover state on title
 
     model::MusicGenre* preset_name;  //!< Current preset
@@ -403,7 +405,10 @@ class AudioEqualizer : public TabItem {
 
         // Entry focused (or the one from current preset) is always kept visible, as not all
         // entries may fit in the space available for list
-        const bool visible = entry_focused > 0 ? i == (entry_focused - 1) : active;
+        // (unless list was scrolled with mouse wheel)
+        const bool visible = entry_centered >= 0  ? i == entry_centered
+                             : entry_focused > 0 ? i == (entry_focused - 1)
+                                                 : active;
 
         entries.push_back(ftxui::RadioboxOption::Simple().transform(state) |
                           (visible ? ftxui::focus : ftxui::nothing) | ftxui::reflect(boxes[i + 1]));
@@ -441,6 +446,21 @@ class AudioEqualizer : public TabItem {
     }
 
     /**
+     * @brief Handles a mouse event, only when mouse cursor is over what is rendered by this element
+     * @param event Received event from screen
+     * @return true if event was handled, otherwise false
+     */
+    bool OnMouseEvent(ftxui::Event& event) override {
+      if (opened && !IsMouseOver(event.mouse())) {
+        entry_hovered = -1;
+        title_hovered = false;
+        return false;
+      }
+
+      return Element::OnMouseEvent(event);
+    }
+
+    /**
      * @brief Close list of presets when mouse is clicked on anything else
      * @param event Received event from screen
      * @return true if list was closed, otherwise false
@@ -453,8 +473,7 @@ class AudioEqualizer : public TabItem {
         return false;
       }
 
-      // Title is the first box, and it is not part of list
-      if (boxes[0].Contain(mouse.x, mouse.y) || list_box.Contain(mouse.x, mouse.y)) return false;
+      if (IsMouseOver(mouse)) return false;
 
       Close();
       return true;
@@ -467,13 +486,53 @@ class AudioEqualizer : public TabItem {
 
       // Note: +1 is used to ignore the title index
       entry_focused = it != presets.end() ? static_cast<int>(it - presets.begin()) + 1 : 0;
+      entry_centered = -1;
       opened = true;
     }
 
     //! Close list of presets, with focus back on title
     void Close() {
       entry_focused = 0;
+      entry_centered = -1;
       opened = false;
+    }
+
+    //! Check if mouse cursor is over what is rendered by this element (title, and list while it
+    //! is opened), as its box also includes the empty space next to list
+    bool IsMouseOver(const ftxui::Mouse& mouse) const {
+      return boxes[0].Contain(mouse.x, mouse.y) || (opened && list_box.Contain(mouse.x, mouse.y));
+    }
+
+    /**
+     * @brief Scroll list of presets by a single row (entry focused by keyboard is not changed)
+     * @param down Direction to scroll
+     */
+    void ScrollList(bool down) {
+      static constexpr int kBorderRows = 2;
+
+      const int size = static_cast<int>(presets.size());
+      const int rows = list_box.y_max - list_box.y_min + 1 - kBorderRows;
+
+      // Nothing to scroll when all presets fit in list
+      if (rows <= 0 || rows >= size) return;
+
+      // Preset at the center of list is the one kept visible, so these are the first and the
+      // last ones that still scroll it
+      const int first = (rows - 1) / 2;
+      const int last = size - rows + first;
+
+      // Start from what is at the center right now: preset focused or the current one
+      if (entry_centered < 0) {
+        auto it = std::find(presets.begin(), presets.end(), *preset_name);
+        entry_centered = entry_focused > 0 ? entry_focused - 1
+                                           : static_cast<int>(it - presets.begin());
+      }
+
+      const int previous = std::clamp(entry_centered, first, last);
+      entry_centered = std::clamp(previous + (down ? 1 : -1), first, last);
+
+      // Mouse did not move, so it is now over the next entry (or the previous one)
+      if (entry_hovered > 0) entry_hovered += entry_centered - previous;
     }
 
     //! Render label and current preset
@@ -546,10 +605,12 @@ class AudioEqualizer : public TabItem {
 
       if (event == keybinding::Navigation::ArrowDown || event == keybinding::Navigation::Down) {
         entry_focused = entry_focused + (entry_focused < static_cast<int>(presets.size()) ? 1 : 0);
+        entry_centered = -1;
       }
 
       if (event == keybinding::Navigation::ArrowUp || event == keybinding::Navigation::Up) {
         entry_focused = entry_focused - (entry_focused > 0 ? 1 : 0);
+        entry_centered = -1;
       }
 
       return true;
@@ -560,17 +621,9 @@ class AudioEqualizer : public TabItem {
      * @param button Received button event from screen
      */
     void HandleWheel(const ftxui::Mouse::Button& button) override {
-      // Update index based on internal state (if focused or hovered)
-      auto update_index = [this, &button](int& index) {
-        if (button == ftxui::Mouse::WheelUp)
-          index = index - (index > 0 ? 1 : 0);
-        else if (button == ftxui::Mouse::WheelDown) {
-          index = index + (index < static_cast<int>(presets.size()) ? 1 : 0);
-        }
-      };
-
+      // While opened, scroll list (without changing entry focused by keyboard)
       if (opened) {
-        update_index(IsFocused() ? entry_focused : entry_hovered);
+        ScrollList(button == ftxui::Mouse::WheelDown);
         return;
       }
 

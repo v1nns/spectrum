@@ -103,6 +103,12 @@ class UrlInput : public Element {
   //! Submit typed text to owner
   void Submit();
 
+  //! Place cursor on the character clicked
+  void HandleClick(ftxui::Event& event) override;
+
+  //! A click right after another one is still a click (e.g. to place cursor somewhere else)
+  void HandleDoubleClick(ftxui::Event& event) override;
+
   /* ******************************************************************************************** */
   //! Variables
 

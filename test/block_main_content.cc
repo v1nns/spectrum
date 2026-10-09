@@ -1495,6 +1495,62 @@ TEST_F(MainContentTest, MouseOnPresetPicker) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, MouseWheelOnPresetList) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  auto wheel = [this](ftxui::Mouse::Button button) {
+    return block->OnEvent(MouseEventAt("Acoustic", button, ftxui::Mouse::Pressed));
+  };
+
+  // Set focus on tab item 2 and open list of presets, which does not fit on screen
+  block->OnEvent(ftxui::Event::Character('2'));
+  render();
+
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Custom", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  ASSERT_THAT(rendered, HasSubstr("◉ Custom"));
+  ASSERT_THAT(rendered, HasSubstr("○ Flat"));
+  ASSERT_THAT(rendered, Not(HasSubstr("Vocal")));
+
+  // Mouse wheel scrolls list by a single row, without changing preset
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("↓ Custom"));
+  EXPECT_THAT(rendered, Not(HasSubstr("◉ Custom")));
+  EXPECT_THAT(rendered, HasSubstr("○ Flat"));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown));
+
+  rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("○ Flat")));
+  EXPECT_THAT(rendered, HasSubstr("○ Acoustic"));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp));
+  EXPECT_THAT(render(), HasSubstr("○ Flat"));
+
+  // It stops at the last preset
+  for (int i = 0; i < 20; i++) wheel(ftxui::Mouse::WheelDown);
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("○ Vocal"));
+  EXPECT_THAT(rendered, HasSubstr("↓ Custom"));
+
+  // And list follows entry focused again, when it is changed by a key
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("◉ Custom"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Vocal")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, OpenPresetPickerOnCurrentPresetAndCloseIt) {
   auto render = [this]() {
     screen->Clear();

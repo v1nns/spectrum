@@ -253,6 +253,18 @@ class PlaylistDialog : public Dialog {
   mutable ftxui::Box name_box_;  //!< Box to control if mouse cursor is over playlist name
   bool name_hovered_ = false;    //!< Flag to control if mouse cursor is over playlist name
 
+  //! Hint for an action on playlist, shown on its pane border (and it may also be clicked)
+  struct Hint {
+    std::string text;      //!< Key and action (e.g. "r:rename")
+    ftxui::Box box;        //!< Box to control if mouse cursor is over it
+    bool visible = false;  //!< Flag to control if it was rendered (there may be no space for it)
+    bool hovered = false;  //!< Flag to control if mouse cursor is over it
+  };
+
+  mutable Hint hint_rename_;  //!< Hint to rename playlist
+  mutable Hint hint_remove_;  //!< Hint to remove selected song from playlist
+  mutable Hint hint_cancel_;  //!< Hint to cancel renaming playlist
+
   SongMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_save_;  //!< Button to save (persist) playlist

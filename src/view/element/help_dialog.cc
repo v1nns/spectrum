@@ -413,6 +413,12 @@ bool HelpDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool HelpDialog::OnMouseEventImpl(ftxui::Event event) {
+  // A click on text to search places cursor on it (going back to typing, when it was finished)
+  if (searching_ && search_input_.OnMouseEvent(event)) {
+    typing_ = true;
+    return true;
+  }
+
   if (event.mouse().button == ftxui::Mouse::WheelUp) {
     Scroll(-1);
     return true;

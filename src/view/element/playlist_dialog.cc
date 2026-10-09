@@ -378,6 +378,35 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnMouseEventImpl(ftxui::Event event) {
+  const bool clicked = event.mouse().button == ftxui::Mouse::Left &&
+                       event.mouse().motion == ftxui::Mouse::Released;
+
+  // Mouse on hints from playlist pane: a click on one of them acts like its key
+  Hint* hint_clicked = nullptr;
+
+  for (auto* hint : {&hint_rename_, &hint_remove_, &hint_cancel_}) {
+    hint->hovered = hint->visible && hint->box.Contain(event.mouse().x, event.mouse().y);
+    if (hint->hovered && clicked) hint_clicked = hint;
+  }
+
+  if (hint_clicked) {
+    LOG("Handle left click mouse event on hint=", hint_clicked->text);
+    hint_clicked->hovered = false;
+
+    if (hint_clicked == &hint_rename_) {
+      StartRename();
+    } else if (hint_clicked == &hint_remove_) {
+      menu_playlist_->OnClick();
+    } else {
+      FinishRename(false);
+    }
+
+    return true;
+  }
+
+  // A click on name being edited places cursor on it
+  if (rename_.editing && rename_.input.OnMouseEvent(event)) return true;
+
   // Mouse on playlist name (which is replaced by a text input while it is edited)
   name_hovered_ = !rename_.editing && name_box_.Contain(event.mouse().x, event.mouse().y);
 
@@ -416,6 +445,7 @@ void PlaylistDialog::OnClose() {
   rename_.editing = false;
   rename_.error.reset();
   name_hovered_ = false;
+  for (auto* hint : {&hint_rename_, &hint_remove_, &hint_cancel_}) hint->hovered = false;
   btn_save_->Disable();
   message_.Hide();
 
@@ -542,20 +572,21 @@ void PlaylistDialog::FinishRename(bool keep_name) {
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
+  hint_rename_.text = util::EventToString(keybinding::Playlist::Rename) + ":rename";
+  hint_remove_.text = util::EventToString(keybinding::Playlist::RemoveSong) + ":remove";
+  hint_cancel_.text = util::EventToString(keybinding::Navigation::Escape) + ":cancel";
+
   // Hints for the next possible actions on playlist (from the most to the least detailed one)
-  std::vector<std::string> hints;
+  std::vector<std::vector<Hint*>> hints;
 
   if (rename_.editing) {
-    hints.push_back("[" + util::EventToString(keybinding::Navigation::Escape) + ":cancel]");
+    hints.push_back({&hint_cancel_});
   } else if (menu_playlist_->IsFocused()) {
-    std::string rename = util::EventToString(keybinding::Playlist::Rename) + ":rename";
-
     if (modified_playlist_.has_value() && !modified_playlist_->IsEmpty()) {
-      hints.push_back("[" + rename + " " + util::EventToString(keybinding::Playlist::RemoveSong) +
-                      ":remove]");
+      hints.push_back({&hint_rename_, &hint_remove_});
     }
 
-    hints.push_back("[" + rename + "]");
+    hints.push_back({&hint_rename_});
   }
 
   std::string name = modified_playlist_.has_value() ? modified_playlist_->name : "";
@@ -570,15 +601,38 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
   int required =
       rename_.editing ? kMinTitleColumns : std::max(kMinTitleColumns, ftxui::string_width(name));
 
-  // Use the first hint that fits along with title
-  std::string hint;
+  // Use the first hint that fits along with title (as "[first second]")
+  static constexpr int kBracketColumns = 2;
+  ftxui::Elements hint;
+
+  for (auto* candidate : {&hint_rename_, &hint_remove_, &hint_cancel_}) candidate->visible = false;
 
   for (const auto& candidate : hints) {
-    int hint_columns = static_cast<int>(candidate.size()) + 1;
+    int hint_columns = kBracketColumns + static_cast<int>(candidate.size());
+    for (const auto* part : candidate) hint_columns += static_cast<int>(part->text.size());
+
     if (title_columns - hint_columns < required) continue;
 
     title_columns -= hint_columns;
-    hint = candidate;
+
+    // With mouse over it, hint uses the same colors from a tab hovered on the other pane
+    const auto& theme = GetTheme().dialog;
+
+    hint.push_back(ftxui::text("["));
+
+    for (auto* part : candidate) {
+      if (part != candidate.front()) hint.push_back(ftxui::text(" "));
+
+      part->visible = true;
+      hint.push_back(ftxui::text(part->text) |
+                     (part->hovered ? ftxui::bgcolor(theme.tab.focused.background) |
+                                          ftxui::color(theme.tab.focused.foreground) |
+                                          ftxui::inverted
+                                    : ftxui::nothing) |
+                     ftxui::reflect(part->box));
+    }
+
+    hint.push_back(ftxui::text("]"));
     break;
   }
 
@@ -603,7 +657,7 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
       title,
       ftxui::text(" "),
       ftxui::filler(),
-      ftxui::text(hint) | ftxui::color(GetTheme().dialog.hint),
+      ftxui::hbox(std::move(hint)) | ftxui::color(GetTheme().dialog.hint),
   });
 }
 

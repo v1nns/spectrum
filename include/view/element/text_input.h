@@ -46,6 +46,14 @@ class TextInput {
   bool OnEvent(const ftxui::Event& event);
 
   /**
+   * @brief Handles a mouse event: a click on text places cursor on the character clicked (or after
+   * the last one, when clicked past the end of text)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnMouseEvent(ftxui::Event& event);
+
+  /**
    * @brief Renders text input as a field with fixed width
    * @param width Number of columns for field
    * @param show_cursor Flag to render cursor (scrolling text to keep it visible)
@@ -89,6 +97,9 @@ class TextInput {
   Filter filter_;     //!< Filter for typed characters
   std::string text_;  //!< Text content
   int cursor_ = 0;    //!< Cursor position (as glyph index)
+
+  mutable ftxui::Box box_;  //!< Box to control if mouse cursor is over the field
+  mutable int first_ = 0;   //!< First glyph rendered (as text is scrolled to keep cursor visible)
 };
 
 }  // namespace interface

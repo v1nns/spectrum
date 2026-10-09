@@ -1090,9 +1090,67 @@ TEST_F(MediaPlayerMouseTest, ClickOnVolumeLine) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
 
   EXPECT_TRUE(SendMouse(kVolumeLastColumn, kVolumeRow));
-  EXPECT_FALSE(SendMouse(kVolumeLabelColumn, kVolumeRow));
   EXPECT_FALSE(SendMouse(kVolumePercentageColumn, kVolumeRow));
   EXPECT_FALSE(SendMouse(kVolumeFirstColumn, kVolumeRow + 1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnVolumeLabelTogglesMute) {
+  using Identifier = interface::CustomEvent::Identifier;
+  RenderBlock();
+
+  auto is_muted = [](bool muted) {
+    return AllOf(Field(&interface::CustomEvent::id, Identifier::SetAudioVolume),
+                 Field(&interface::CustomEvent::content,
+                       VariantWith<model::Volume>(
+                           testing::Property(&model::Volume::IsMuted, muted))));
+  };
+
+  // A click on label acts like the key to mute volume, as line cannot be clicked before its start
+  EXPECT_CALL(*dispatcher, SendEvent(is_muted(true)));
+  EXPECT_TRUE(SendMouse(kVolumeLabelColumn, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  EXPECT_CALL(*dispatcher, SendEvent(is_muted(false)));
+  EXPECT_TRUE(SendMouse(kVolumeLabelColumn, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Only when mouse button is released on it
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_FALSE(SendMouse(kVolumeLabelColumn, kVolumeRow, ftxui::Mouse::Left, ftxui::Mouse::Pressed));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, HoverOnVolumeWhileMuted) {
+  using Identifier = interface::CustomEvent::Identifier;
+  utils::ThemeGuard guard;
+
+  const auto hovered = utils::MarkerColor(1);
+
+  interface::Theme theme;
+  theme.player.duration_focused =
+      interface::Theme::State{.foreground = hovered, .background = hovered};
+  interface::SetTheme(theme);
+
+  // Mute volume, which is informed by player
+  ExpectEvent(Identifier::SetAudioVolume);
+  block->OnEvent(ftxui::Event::Character('m'));
+
+  model::Volume muted;
+  muted.ToggleMute();
+  Process(interface::CustomEvent::UpdateVolume(muted));
+
+  screen->Clear();
+  RenderBlock();
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  // Label is the one hovered, as there is nothing filled on line while volume is muted
+  EXPECT_FALSE(Hover(kVolumeLabelColumn, kVolumeRow));
+  EXPECT_EQ(screen->PixelAt(kVolumeLabelColumn, kVolumeRow).foreground_color, hovered);
+  EXPECT_TRUE(screen->PixelAt(kVolumeLabelColumn, kVolumeRow).bold);
+  EXPECT_FALSE(screen->PixelAt(kVolumeLabelColumn, kVolumeRow).dim);
 }
 
 /* ********************************************************************************************** */
@@ -1234,6 +1292,65 @@ TEST_F(MediaPlayerMouseTest, ClickOnDurationBar) {
   EXPECT_TRUE(SendMouse(kDurationMiddleColumn, kDurationRow));
   EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow, ftxui::Mouse::None));
   EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow + 1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, DragKnobOnDurationBar) {
+  using Identifier = interface::CustomEvent::Identifier;
+  SetSongState(model::Song::MediaState::Play);
+
+  ASSERT_EQ(GetKnobColumn(), kDurationMiddleColumn);
+
+  //! Simulate mouse moved to the given position with left button held, and render block
+  auto drag_to = [this](int x, int y) {
+    bool handled = SendMouse(x, y, ftxui::Mouse::Left, ftxui::Mouse::Pressed);
+
+    screen->Clear();
+    RenderBlock();
+
+    return handled;
+  };
+
+  // While button is held, knob follows mouse and song position is not changed
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  static constexpr int kColumn = kDurationMiddleColumn + 10;
+
+  EXPECT_TRUE(drag_to(kColumn, kDurationRow));
+  EXPECT_EQ(GetKnobColumn(), kColumn);
+
+  EXPECT_TRUE(drag_to(kColumn - 20, kDurationRow));
+  EXPECT_EQ(GetKnobColumn(), kColumn - 20);
+
+  // Even past both ends of line (which is where media buttons are)
+  EXPECT_TRUE(drag_to(kPlayColumn, kDurationRow));
+  EXPECT_EQ(GetKnobColumn(), kDurationFirstColumn);
+
+  EXPECT_TRUE(drag_to(kDurationLastColumn + 3, kDurationRow));
+  EXPECT_EQ(GetKnobColumn(), kDurationLastColumn);
+
+  // Knob goes back to song position if mouse leaves the line
+  EXPECT_FALSE(drag_to(kColumn, kDurationRow - 1));
+  EXPECT_EQ(GetKnobColumn(), kDurationMiddleColumn);
+
+  EXPECT_FALSE(SendMouse(kColumn, kDurationRow - 1));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Song position is changed only once, when button is released (even over a media button,
+  // which is not clicked)
+  EXPECT_TRUE(drag_to(kColumn, kDurationRow));
+  EXPECT_TRUE(drag_to(kPlayColumn, kDurationRow));
+
+  ExpectEvent(Identifier::SeekBackwardPosition, kSongPosition);
+  ExpectEvent(Identifier::SetFocused, model::BlockIdentifier::MediaPlayer);
+
+  EXPECT_TRUE(SendMouse(kPlayColumn, kDurationRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Nothing else is picked after that
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_FALSE(SendMouse(kColumn, kDurationRow - 1));
 }
 
 /* ********************************************************************************************** */

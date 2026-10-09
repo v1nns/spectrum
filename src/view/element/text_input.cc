@@ -81,12 +81,39 @@ bool TextInput::OnEvent(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
+bool TextInput::OnMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+
+  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released ||
+      !box_.Contain(mouse.x, mouse.y)) {
+    return false;
+  }
+
+  const auto glyphs = GetGlyphs();
+  const int size = static_cast<int>(glyphs.size());
+
+  // Find glyph rendered on the column clicked (a glyph may use more than one column)
+  int index = std::min(first_, size);
+
+  for (int column = box_.x_min; index < size; ++index) {
+    column += ftxui::string_width(glyphs[static_cast<size_t>(index)]);
+    if (mouse.x < column) break;
+  }
+
+  cursor_ = index;
+  return true;
+}
+
+/* ********************************************************************************************** */
+
 ftxui::Element TextInput::Render(int width, bool show_cursor,
                                  const std::string& placeholder) const {
   const auto& theme = GetTheme().dialog;
 
   auto field = ftxui::bgcolor(theme.input.background) | ftxui::color(theme.input.foreground) |
-               ftxui::size(ftxui::WIDTH, ftxui::EQUAL, width);
+               ftxui::size(ftxui::WIDTH, ftxui::EQUAL, width) | ftxui::reflect(box_);
+
+  first_ = 0;
 
   auto cursor = [show_cursor](const std::string& glyph) {
     return show_cursor ? ftxui::text(glyph) | ftxui::inverted : ftxui::text(glyph);
@@ -128,6 +155,8 @@ ftxui::Element TextInput::Render(int width, bool show_cursor,
 
   int start = 0;
   while (start < cursor_ && columns(start, cursor_) + cursor_width > width) start++;
+
+  first_ = start;
 
   auto join = [&glyphs](int begin, int end) {
     return std::accumulate(glyphs.begin() + begin, glyphs.begin() + end, std::string{});

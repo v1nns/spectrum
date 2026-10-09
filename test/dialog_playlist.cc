@@ -2777,6 +2777,124 @@ TEST_F(PlaylistDialogTest, RenameWithMouse) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, ClickOnHints) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Mix",
+                                         .songs = {model::Song{.filepath = "dance.mp3"},
+                                                   model::Song{.filepath = "trance.mp3"}},
+                                     }};
+
+  // Use a screen wide enough for both hints
+  ftxui::Dimensions wide{.dimx = 180, .dimy = size.dimy};
+  screen = std::make_unique<ftxui::Screen>(wide.dimx, wide.dimy);
+
+  auto render = [this, &wide] {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(wide));
+    return GetRenderedScreen();
+  };
+
+  GetPlaylistDialog()->Open(operation);
+  dialog->OnEvent(ftxui::Event::Tab);
+  ASSERT_THAT(render(), HasSubstr("[r:rename d:remove]"));
+
+  // Each hint acts like its key: remove selected song
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "d:remove", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("dance.mp3")));
+  EXPECT_THAT(rendered, HasSubstr("trance.mp3"));
+
+  // Rename playlist
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "r:rename", ftxui::Mouse::Left)));
+  ASSERT_THAT(render(), HasSubstr("[Escape:cancel]"));
+
+  // And cancel it, keeping the name from before
+  utils::QueueCharacterEvents(*dialog, "tape");
+  ASSERT_THAT(render(), HasSubstr("Mixtape"));
+
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "Escape:cancel", ftxui::Mouse::Left)));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("[r:rename d:remove]"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Mixtape")));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Brackets around hints are not part of them
+  EXPECT_FALSE(dialog->OnEvent(MouseEventAt(*screen, "[r:rename", ftxui::Mouse::Left)));
+  EXPECT_THAT(render(), HasSubstr("[r:rename d:remove]"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, PlaceCursorWithMouse) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Lofi",
+                                         .songs = {model::Song{.filepath = "Love song.mp3"}},
+                                     }};
+
+  auto render = [this] {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return GetRenderedScreen();
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // A click on text typed as URL places cursor on the character clicked
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "youtube.com");
+  render();
+
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, ".com", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "!");
+  EXPECT_THAT(render(), HasSubstr("youtube!.com"));
+
+  // A second click right after the first one is still a click
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "be!", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "?");
+  EXPECT_THAT(render(), HasSubstr("youtu?be!.com"));
+
+  // Same for playlist name, while it is renamed
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(interface::keybinding::Playlist::Rename);
+  render();
+
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "ofi", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "-");
+  EXPECT_THAT(render(), HasSubstr("L-ofi"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, PlaceCursorOnSearchWithMouse) {
+  help_dialog->Show();
+
+  // Search and stop typing, so keys are used to scroll content again
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  utils::QueueCharacterEvents(*dialog, "shufle");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  std::string rendered = Render();
+  ASSERT_THAT(rendered, HasSubstr("No matches"));
+  ASSERT_THAT(rendered, HasSubstr("edit search"));
+
+  // A click on text places cursor on the character clicked, and it is edited again
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "le", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "f");
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("Search: shuffle"));
+  EXPECT_THAT(rendered, HasSubstr("Toggle shuffle"));
+  EXPECT_THAT(rendered, Not(HasSubstr("edit search")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(HelpDialogTest, CloseWithMouse) {
   help_dialog->Show();
   Render();
