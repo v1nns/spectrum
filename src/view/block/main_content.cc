@@ -173,7 +173,17 @@ int MainContent::GetBarWidth() {
 
 /* ********************************************************************************************** */
 
+bool MainContent::OnPickerMouseEvent(ftxui::Event event) {
+  // Picker is the only thing from visualizer that handles mouse
+  return tab_elem_.active() == View::Visualizer && visualizer_->OnMouseEvent(event);
+}
+
+/* ********************************************************************************************** */
+
 bool MainContent::OnMouseEvent(ftxui::Event event) {
+  // Animation picker comes first, so a click on any button from this block also closes it
+  if (OnPickerMouseEvent(event)) return true;
+
   // Buttons are not rendered in fullscreen mode, so do not let user click on where they were
   if (is_fullscreen_) return tab_elem_.active_item()->OnMouseEvent(event);
 

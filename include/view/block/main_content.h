@@ -92,6 +92,14 @@ class MainContent : public Block {
    */
   int GetBarWidth();
 
+  /**
+   * @brief Handle mouse event on animation picker (while it is open), which must be done before
+   * any other block, as a click anywhere outside of picker closes it
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnPickerMouseEvent(ftxui::Event event);
+
   /* ******************************************************************************************** */
   //! Private methods
  private:

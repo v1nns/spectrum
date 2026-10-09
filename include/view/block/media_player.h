@@ -32,6 +32,13 @@ class MediaPlayer : public Block {
   static constexpr int kSeekSeconds = 5;     //!< Seconds to seek forward or backward by a key
   static constexpr int kVolumeColumns = 10;  //!< Columns for line with volume level
 
+  //! Seconds that position informed by player may differ from the one asked with mouse
+  static constexpr int kSeekTolerance = 1;
+
+  //! Updates from player to wait for the position asked with mouse (it may never come, as player
+  //! ignores a position outside of song)
+  static constexpr int kMaxSeekPendingUpdates = 2;
+
   //! Time that a warning stays visible
   static constexpr std::chrono::milliseconds kWarningDuration{4000};
 
@@ -181,6 +188,11 @@ class MediaPlayer : public Block {
 
   //! Song position (in seconds) picked with mouse, while its button is still held
   std::optional<uint32_t> seek_drag_;
+
+  //! Song position (in seconds) asked to player with mouse, which is shown until player informs
+  //! it (otherwise knob would go back to the old position for a moment)
+  std::optional<uint32_t> seek_pending_;
+  int seek_pending_updates_ = 0;  //!< Updates from player without the position asked
 
   FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)
 

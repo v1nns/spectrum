@@ -227,7 +227,9 @@ ftxui::Element MediaPlayer::Render() {
   // Only fill these fields when exists a current song playing
   if (IsPlaying() || song_.duration > 0) {
     // Knob follows mouse while song position is being picked with it
-    const uint32_t current = seek_drag_.value_or(song_.curr_info.position);
+    // (and it stays there until player informs the new position)
+    const uint32_t current =
+        seek_drag_.value_or(seek_pending_.value_or(song_.curr_info.position));
 
     position = (float)current / (float)song_.duration;
     curr_time = model::time_to_string(current);
@@ -398,6 +400,7 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
     LOG("Clear current song information");
     song_ = model::Song{.curr_info = {.state = model::Song::MediaState::Empty}};
     seek_drag_.reset();
+    seek_pending_.reset();
     btn_play_->ResetState();
   }
 
@@ -405,11 +408,24 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
     LOG("Received new song information from player");
     song_ = event.GetContent<model::Song>();
+    seek_pending_.reset();
   }
 
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::UpdateSongState) {
     song_.curr_info = event.GetContent<model::Song::CurrentInformation>();
+
+    // Stop showing the position asked with mouse, as player is already on it (or it gave up)
+    if (seek_pending_.has_value()) {
+      const int difference = std::abs(static_cast<int>(song_.curr_info.position) -
+                                      static_cast<int>(*seek_pending_));
+
+      if (difference <= kSeekTolerance || ++seek_pending_updates_ >= kMaxSeekPendingUpdates ||
+          !IsPlaying()) {
+        seek_pending_.reset();
+      }
+    }
+
     if (song_.curr_info.state == model::Song::MediaState::Play) btn_play_->SetState(true);
   }
 
@@ -505,6 +521,13 @@ bool MediaPlayer::HandleSeekMouseEvent(ftxui::Event& event) {
 
   LOG("Sending event to ", event_seek.GetId(), " with offset=", offset);
   dispatcher->SendEvent(event_seek);
+
+  // Keep knob on this position until player informs it (unless it is the end of song, which is
+  // ignored by player)
+  if (static_cast<uint32_t>(new_position) < song_.duration) {
+    seek_pending_ = static_cast<uint32_t>(new_position);
+    seek_pending_updates_ = 0;
+  }
 
   // Set this block as active (focused)
   auto event_focus = interface::CustomEvent::SetFocused(GetId());

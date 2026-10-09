@@ -283,6 +283,14 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Or if device picker is opened
   if (device_picker_->IsVisible()) return device_picker_->OnEvent(event);
 
+  // Animation picker is shown over spectrum visualizer without blocking anything else, but a
+  // click anywhere outside of it closes it (so it must handle mouse before any block)
+  if (event.is_mouse() &&
+      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))
+          ->OnPickerMouseEvent(event)) {
+    return true;
+  }
+
   // Global commands
   if (global_mode_ && OnGlobalModeEvent(event)) return true;
 

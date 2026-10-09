@@ -1355,6 +1355,67 @@ TEST_F(MediaPlayerMouseTest, DragKnobOnDurationBar) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MediaPlayerMouseTest, KeepKnobOnPickedPositionUntilInformedByPlayer) {
+  SetSongState(model::Song::MediaState::Play);
+
+  static constexpr int kColumns = 10;
+  static constexpr int kColumn = kDurationMiddleColumn + kColumns;
+  static constexpr int kOffset = kColumns * kSecondsPerColumn;
+
+  //! Simulate player informing its position, and render block
+  auto update_position = [this](int position) {
+    Process(interface::CustomEvent::UpdateSongState(model::Song::CurrentInformation{
+        .state = model::Song::MediaState::Play,
+        .position = static_cast<uint32_t>(position),
+    }));
+
+    screen->Clear();
+    RenderBlock();
+  };
+
+  //! Simulate a click on the given column from duration line, and render block
+  auto click_on = [this](int column) {
+    EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+    EXPECT_TRUE(SendMouse(column, kDurationRow));
+    testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+    screen->Clear();
+    RenderBlock();
+  };
+
+  // Knob goes to the position picked right away
+  click_on(kColumn);
+  EXPECT_EQ(GetKnobColumn(), kColumn);
+
+  // And it does not go back to the old one, which may still be informed by player before it
+  // changes song position
+  update_position(kSongPosition + 1);
+  EXPECT_EQ(GetKnobColumn(), kColumn);
+
+  // After that, it follows player again
+  update_position(kSongPosition + kOffset);
+  EXPECT_EQ(GetKnobColumn(), kColumn);
+
+  update_position(kSongPosition + kOffset + kSecondsPerColumn);
+  EXPECT_EQ(GetKnobColumn(), kColumn + 1);
+
+  // Position picked is not shown forever when player never informs it
+  click_on(kDurationMiddleColumn);
+  EXPECT_EQ(GetKnobColumn(), kDurationMiddleColumn);
+
+  update_position(kSongPosition + kOffset + kSecondsPerColumn);
+  EXPECT_EQ(GetKnobColumn(), kDurationMiddleColumn);
+
+  update_position(kSongPosition + kOffset + 2 * kSecondsPerColumn);
+  EXPECT_EQ(GetKnobColumn(), kColumn + 2);
+
+  // And not at all for the end of song, as player ignores it
+  click_on(kDurationLastColumn);
+  EXPECT_EQ(GetKnobColumn(), kColumn + 2);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MediaPlayerMouseTest, ClickOnDurationBarSeeksOnlyOnce) {
   using Identifier = interface::CustomEvent::Identifier;
   SetSongState(model::Song::MediaState::Play);

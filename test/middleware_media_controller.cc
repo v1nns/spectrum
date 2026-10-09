@@ -1644,6 +1644,47 @@ TEST_F(TerminalTest, ShowHelpForFocusedBlock) {
 
 /* ********************************************************************************************** */
 
+TEST_F(TerminalTest, ClickOnAnotherBlockClosesAnimationPicker) {
+  RegisterNotifier();
+
+  // Open animation picker from spectrum visualizer
+  Send(interface::keybinding::General::FocusMainContent);
+  HandlePendingEvents();
+  ASSERT_EQ(GetFocusedIndex(), kMainContent);
+
+  EXPECT_TRUE(Send(interface::keybinding::Visualizer::ChangeAnimation));
+  ASSERT_THAT(Render(), ::testing::HasSubstr(" animation "));
+
+  //! Create mouse event on the first rows from sidebar (which is the list of files)
+  auto mouse_on_sidebar = [](ftxui::Mouse::Button button, ftxui::Mouse::Motion motion) {
+    static constexpr int kColumn = 5;
+    static constexpr int kRow = 4;
+
+    return ftxui::Event::Mouse(
+        "", ftxui::Mouse{.button = button, .motion = motion, .x = kColumn, .y = kRow});
+  };
+
+  // A click on another block only closes picker: it is not handled by this block (otherwise,
+  // sidebar would be focused)
+  EXPECT_TRUE(Send(mouse_on_sidebar(ftxui::Mouse::Left, ftxui::Mouse::Released)));
+  HandlePendingEvents();
+
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr(" animation ")));
+  EXPECT_EQ(GetFocusedIndex(), kMainContent);
+
+  // Anything else is still handled by other blocks while picker is open, like mouse wheel
+  EXPECT_TRUE(Send(interface::keybinding::Visualizer::ChangeAnimation));
+  ASSERT_THAT(Render(), ::testing::HasSubstr(" animation "));
+
+  EXPECT_TRUE(Send(mouse_on_sidebar(ftxui::Mouse::WheelDown, ftxui::Mouse::Pressed)));
+  HandlePendingEvents();
+
+  EXPECT_THAT(Render(), ::testing::HasSubstr(" animation "));
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(TerminalTest, ShowThemePicker) {
   EXPECT_TRUE(Send(interface::keybinding::General::ChangeTheme));
   EXPECT_TRUE(IsThemePickerVisible());

@@ -566,6 +566,47 @@ TEST_F(MainContentTest, ChangeBarWidthWithAnimationPickerOpen) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, ClickOnButtonClosesAnimationPicker) {
+  using interface::CustomEvent;
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  block->OnEvent(ftxui::Event::Character('a'));
+  ASSERT_THAT(render(), HasSubstr("animation"));
+
+  // A click on any button from this block only closes picker (as it is a click outside of it)
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::Exit)))
+      .Times(0);
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::ShowHelper)))
+      .Times(0);
+
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("2:equalizer", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("animation")));
+  EXPECT_THAT(rendered, Not(HasSubstr("preset")));
+
+  for (const std::string button : {"F12:help", " X "}) {
+    block->OnEvent(ftxui::Event::Character('a'));
+    ASSERT_THAT(render(), HasSubstr("animation"));
+
+    EXPECT_TRUE(block->OnEvent(MouseEventAt(button, ftxui::Mouse::Left)));
+    EXPECT_THAT(render(), Not(HasSubstr("animation")));
+  }
+
+  // With picker closed, they are clicked as usual
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("2:equalizer", ftxui::Mouse::Left)));
+  EXPECT_THAT(render(), HasSubstr("preset"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
   EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
