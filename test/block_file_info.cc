@@ -7,8 +7,12 @@
 
 namespace {
 
+using ::testing::_;
+using ::testing::AllOf;
+using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::StrEq;
+using ::testing::VariantWith;
 
 /**
  * @brief Tests with FileInfo class
@@ -241,6 +245,59 @@ TEST_F(FileInfoTest, ShowLossySongWithLongDuration) {
   // Bit depth is not shown at all
   EXPECT_THAT(rendered, HasSubstr("│format   44.1 kHz · stereo          │"));
   EXPECT_THAT(rendered, HasSubstr("│length   01:02:03                   │"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, MouseOnTitle) {
+  using interface::CustomEvent;
+  utils::ThemeGuard guard;
+
+  //! Position of block title on screen
+  static constexpr int kTitleRow = 0;
+  static constexpr int kTitleColumn = 2;
+
+  const auto hovered = utils::MarkerColor(1);
+
+  //! Simulate a mouse event on the given position, and render block
+  auto send_mouse = [this](int x, int y, ftxui::Mouse::Button button, ftxui::Mouse::Motion motion) {
+    bool handled = block->OnEvent(ftxui::Event::Mouse(
+        "", ftxui::Mouse{.button = button, .motion = motion, .x = x, .y = y}));
+
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+
+    return handled;
+  };
+
+  // Title is hovered like the tab selected from other blocks
+  interface::Theme theme;
+  theme.block.tab.selected = interface::Theme::State{.foreground = hovered, .background = hovered};
+  interface::SetTheme(theme);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  EXPECT_FALSE(send_mouse(kTitleColumn, kTitleRow, ftxui::Mouse::None, ftxui::Mouse::Pressed));
+  EXPECT_TRUE(utils::HasColor(*screen, hovered));
+
+  EXPECT_FALSE(send_mouse(kTitleColumn, kTitleRow + 1, ftxui::Mouse::None, ftxui::Mouse::Pressed));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  // A click anywhere else is not handled
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_FALSE(send_mouse(kTitleColumn, kTitleRow + 1, ftxui::Mouse::Left, ftxui::Mouse::Released));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // And a click on title asks for focus, when another block is the one focused
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::SetFocused),
+                              Field(&CustomEvent::content, VariantWith<model::BlockIdentifier>(
+                                                               model::BlockIdentifier::FileInfo)))));
+
+  EXPECT_TRUE(send_mouse(kTitleColumn, kTitleRow, ftxui::Mouse::Left, ftxui::Mouse::Released));
 }
 
 }  // namespace

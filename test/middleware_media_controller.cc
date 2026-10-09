@@ -1571,6 +1571,41 @@ TEST_F(TerminalTest, ShowErrorDialog) {
 
 /* ********************************************************************************************** */
 
+TEST_F(TerminalTest, CloseErrorDialogWithMouse) {
+  RegisterNotifier();
+
+  terminal->SetApplicationError(error::kTooManyFailedSongs, "");
+  ASSERT_TRUE(IsErrorVisible());
+
+  // Render dialog, to calculate its position on screen
+  Render();
+
+  auto click_at = [](int x, int y) {
+    return ftxui::Event::Mouse(
+        "", ftxui::Mouse{
+                .button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released, .x = x, .y = y});
+  };
+
+  // Dialog is not closed by a click outside of it (and nothing behind it is clicked either)
+  EXPECT_CALL(*notifier, NotifyErrorDialogClosed()).Times(0);
+
+  EXPECT_FALSE(Send(click_at(0, 0)));
+  HandlePendingEvents();
+
+  EXPECT_TRUE(IsErrorVisible());
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // Only by a click on it (dialog is rendered at the center of screen)
+  EXPECT_CALL(*notifier, NotifyErrorDialogClosed());
+
+  EXPECT_TRUE(Send(click_at(kColumns / 2, kLines / 2)));
+  HandlePendingEvents();
+
+  EXPECT_FALSE(IsErrorVisible());
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(TerminalTest, ShowHelpForFocusedBlock) {
   using interface::CustomEvent;
   using interface::keybinding::General;

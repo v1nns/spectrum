@@ -91,13 +91,13 @@ ftxui::Element FileInfo::Render() {
 
   ftxui::Element content = ftxui::vbox(lines);
 
-  return RenderWindow(ftxui::hbox(ftxui::text(" information ") | GetTitleDecorator()), content) |
+  return RenderWindow(RenderTitle(" information "), content) |
          ftxui::size(HEIGHT, EQUAL, kMaxRows);
 }
 
 /* ********************************************************************************************** */
 
-bool FileInfo::OnEvent(ftxui::Event event) { return false; }
+bool FileInfo::OnEvent(ftxui::Event event) { return event.is_mouse() && OnTitleMouseEvent(event); }
 
 /* ********************************************************************************************** */
 

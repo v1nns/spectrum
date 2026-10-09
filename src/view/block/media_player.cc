@@ -245,18 +245,25 @@ ftxui::Element MediaPlayer::Render() {
 
   // Repeat and shuffle modes (dimmed when disabled, with space around text to not change its
   // size when enabled)
-  auto mode = [&theme](const std::string& text, bool enabled) {
+  auto mode = [&theme](const std::string& text, bool enabled, bool hovered) {
     const auto& colors = theme.mode_enabled;
+    ftxui::Element content = ftxui::text(" " + text + " ");
 
-    return ftxui::text(" " + text + " ") |
-           (enabled ? ftxui::color(colors.foreground) | ftxui::bgcolor(colors.background)
-                    : ftxui::dim);
+    // With mouse over it, mode uses the same colors from anything else hovered in this block
+    if (enabled) {
+      return content | ftxui::color(colors.foreground) |
+             ftxui::bgcolor(hovered ? theme.duration_focused.foreground : colors.background);
+    }
+
+    return content | ftxui::dim | (hovered ? ftxui::bgcolor(theme.button_hovered) : ftxui::nothing);
   };
 
   ftxui::Element modes = ftxui::hbox({
-      mode(std::string{"shuffle "} + (shuffle_ ? "on" : "off"), shuffle_),
+      mode(std::string{"shuffle "} + (shuffle_ ? "on" : "off"), shuffle_, is_shuffle_hovered_) |
+          ftxui::reflect(shuffle_box_),
       mode("repeat " + std::string{model::GetRepeatModeName(repeat_)},
-           repeat_ != model::RepeatMode::Off),
+           repeat_ != model::RepeatMode::Off, is_repeat_hovered_) |
+          ftxui::reflect(repeat_box_),
   });
 
   // Current volume, as a line and as a percentage
@@ -265,12 +272,15 @@ ftxui::Element MediaPlayer::Render() {
 
   ftxui::Element volume = ftxui::hbox({
       ftxui::text("vol ") | ftxui::dim,
-      progress_line(static_cast<float>(volume_), theme.duration) |
-          ftxui::size(WIDTH, EQUAL, kVolumeColumns),
+      progress_line(static_cast<float>(volume_),
+                    is_volume_hovered_ ? theme.duration_focused : theme.duration) |
+          ftxui::size(WIDTH, EQUAL, kVolumeColumns) | ftxui::reflect(volume_line_box_),
       ftxui::text(std::move(ss).str()) | ftxui::color(theme.text),
   });
 
   if (volume_.IsMuted()) volume = volume | ftxui::dim | ftxui::color(theme.volume_muted);
+
+  volume = volume | ftxui::reflect(volume_box_);
 
   // Fixed margin for content
   ftxui::Element margin = ftxui::text(std::string(kMarginColumns, ' '));
@@ -316,8 +326,7 @@ ftxui::Element MediaPlayer::Render() {
       }),
   });
 
-  return RenderWindow(ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
-                      content | ftxui::size(HEIGHT, EQUAL, kMaxRows));
+  return RenderWindow(RenderTitle(" player "), content | ftxui::size(HEIGHT, EQUAL, kMaxRows));
 }
 
 /* ********************************************************************************************** */
@@ -399,11 +408,22 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
+  if (OnTitleMouseEvent(event)) return true;
+
+  // Mouse focus on shuffle mode, repeat mode and volume
+  is_shuffle_hovered_ = shuffle_box_.Contain(event.mouse().x, event.mouse().y);
+  is_repeat_hovered_ = repeat_box_.Contain(event.mouse().x, event.mouse().y);
+  is_volume_hovered_ = volume_box_.Contain(event.mouse().x, event.mouse().y);
+
   // Media buttons
   if (btn_previous_->OnMouseEvent(event)) return true;
   if (btn_play_->OnMouseEvent(event)) return true;
   if (btn_stop_->OnMouseEvent(event)) return true;
   if (btn_next_->OnMouseEvent(event)) return true;
+
+  if (HandleModeMouseEvent(event)) return true;
+
+  if (HandleVolumeMouseEvent(event)) return true;
 
   if (!IsPlaying()) return false;
 
@@ -450,6 +470,64 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+bool MediaPlayer::HandleModeMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+
+  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released) return false;
+
+  const keybinding::Key* key = nullptr;
+
+  if (shuffle_box_.Contain(mouse.x, mouse.y)) key = &keybinding::MediaPlayer::ToggleShuffle;
+  if (repeat_box_.Contain(mouse.x, mouse.y)) key = &keybinding::MediaPlayer::ToggleRepeat;
+
+  if (!key) return false;
+
+  LOG("Handle left click mouse event on shuffle/repeat mode");
+  AskForFocus();
+
+  // Reuse handler from keyboard, to keep the same behavior for both of them
+  return HandleMediaEvent(*key);
+}
+
+/* ********************************************************************************************** */
+
+bool MediaPlayer::HandleVolumeMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+
+  if (!volume_box_.Contain(mouse.x, mouse.y)) return false;
+
+  // Mouse wheel changes volume by the same step used by its keys
+  if (mouse.button == ftxui::Mouse::WheelUp || mouse.button == ftxui::Mouse::WheelDown) {
+    LOG("Handle mouse wheel event on volume");
+    AskForFocus();
+
+    HandleVolumeEvent(mouse.button == ftxui::Mouse::WheelUp ? keybinding::MediaPlayer::VolumeUp
+                                                            : keybinding::MediaPlayer::VolumeDown);
+    return true;
+  }
+
+  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released ||
+      !volume_line_box_.Contain(mouse.x, mouse.y)) {
+    return false;
+  }
+
+  LOG("Handle left click mouse event on volume line");
+  AskForFocus();
+
+  // Line is filled up to the column clicked (which is the last one for maximum volume)
+  const int columns = volume_line_box_.x_max - volume_line_box_.x_min + 1;
+  const int clicked = mouse.x - volume_line_box_.x_min + 1;
+  const int level = static_cast<int>(std::lround(kMaxVolume * static_cast<float>(clicked) /
+                                                 static_cast<float>(columns)));
+
+  // Reuse handler from remote command, as it also sets volume to a given level
+  HandleRemoteValue(model::RemoteRequest{model::RemoteCommand::SetVolume,
+                                         model::RemoteNumber{.value = level, .relative = false}});
+  return true;
 }
 
 /* ********************************************************************************************** */

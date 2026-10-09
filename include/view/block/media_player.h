@@ -76,6 +76,20 @@ class MediaPlayer : public Block {
   bool OnMouseEvent(ftxui::Event event);
 
   /**
+   * @brief Handle mouse event on shuffle and repeat modes
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleModeMouseEvent(ftxui::Event& event);
+
+  /**
+   * @brief Handle mouse event on volume
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool HandleVolumeMouseEvent(ftxui::Event& event);
+
+  /**
    * @brief Handle event for media control (e.g., play/pause, stop, clear and skip song)
    * @param event Received event from screen
    * @return true if event was handled, otherwise false
@@ -138,6 +152,15 @@ class MediaPlayer : public Block {
 
   model::RepeatMode repeat_ = model::RepeatMode::Off;  //!< Repeat mode for songs from queue
   bool shuffle_ = false;                               //!< Shuffle songs from queue
+
+  ftxui::Box shuffle_box_;      //!< Box for shuffle mode
+  ftxui::Box repeat_box_;       //!< Box for repeat mode
+  ftxui::Box volume_box_;       //!< Box for volume (label, line and percentage)
+  ftxui::Box volume_line_box_;  //!< Box for line with volume level
+
+  bool is_shuffle_hovered_ = false;  //!< Flag to control if mouse cursor is over shuffle mode
+  bool is_repeat_hovered_ = false;   //!< Flag to control if mouse cursor is over repeat mode
+  bool is_volume_hovered_ = false;   //!< Flag to control if mouse cursor is over volume
 
   ftxui::Box duration_box_;           //!< Box for song duration component (line)
   bool is_duration_focused_ = false;  //!< Flag to control if song duration box is focused

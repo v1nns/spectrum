@@ -31,6 +31,13 @@ ftxui::Decorator Block::GetTitleDecorator() const {
   using ftxui::color;
 
   const auto& theme = GetTheme().block;
+
+  // With mouse over it, title looks like the tab selected from other blocks does in this state
+  if (title_hovered_) {
+    const auto& tab = theme.tab.selected;
+    return bgcolor(tab.background) | color(tab.foreground) | ftxui::inverted | bold;
+  }
+
   const auto& title = focused_ ? theme.title_focused : theme.title;
 
   ftxui::Decorator decorator = bgcolor(title.background) | color(title.foreground);
@@ -60,6 +67,29 @@ ftxui::Element Block::RenderWindow(ftxui::Element title, ftxui::Element content)
   // Title is not decorated here, otherwise it would also change the border line around it
   return ftxui::window(std::move(title), std::move(content) | GetContentDecorator()) |
          GetBorderDecorator();
+}
+
+/* ********************************************************************************************** */
+
+ftxui::Element Block::RenderTitle(const std::string& title) {
+  return ftxui::hbox(ftxui::text(title) | GetTitleDecorator() | ftxui::reflect(title_box_));
+}
+
+/* ********************************************************************************************** */
+
+bool Block::OnTitleMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+  title_hovered_ = title_box_.Contain(mouse.x, mouse.y);
+
+  if (!title_hovered_ || mouse.button != ftxui::Mouse::Left ||
+      mouse.motion != ftxui::Mouse::Released) {
+    return false;
+  }
+
+  LOG("Handle left click mouse event on block title");
+  AskForFocus();
+
+  return true;
 }
 
 /* ********************************************************************************************** */

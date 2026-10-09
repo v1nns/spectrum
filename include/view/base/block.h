@@ -75,6 +75,21 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
    */
   ftxui::Element RenderWindow(ftxui::Element title, ftxui::Element content) const;
 
+  /**
+   * @brief Render title shown on top border (for a block without tabs), which reacts to mouse
+   * exactly like the tab selected from other blocks
+   * @param title Text for title
+   * @return Title element
+   */
+  ftxui::Element RenderTitle(const std::string& title);
+
+  /**
+   * @brief Handle mouse event on title rendered by RenderTitle (a click on it asks for focus)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnTitleMouseEvent(ftxui::Event& event);
+
   //! Dispatch event to set focus
   void AskForFocus() const;
 
@@ -109,6 +124,9 @@ class Block : public std::enable_shared_from_this<Block>, public ftxui::Componen
   model::BlockIdentifier id_;                  //!< Block identification
   Size size_;                                  //!< Block size
   bool focused_ = false;  //!< Control flag for focus state, to help with UI navigation
+
+  ftxui::Box title_box_;        //!< Box to control if mouse cursor is over the title
+  bool title_hovered_ = false;  //!< Control flag for mouse cursor over the title
 };
 
 }  // namespace interface

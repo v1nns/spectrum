@@ -104,6 +104,15 @@ class MainContentTest : public ::BlockTest {
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
   }
 
+  //! Getter for index of paragraph focused from song lyric
+  int GetLyricFocused() {
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
+    auto song_lyric = static_cast<interface::SongLyric*>(
+        main_tab->tab_elem_[interface::MainContent::View::Lyric].get());
+
+    return song_lyric->focused_;
+  }
+
   //! Select animation using picker: open it, move selection until animation and keep it
   void SelectAnimation(model::BarAnimation animation) {
     block->OnEvent(ftxui::Event::Character('a'));
@@ -2504,6 +2513,71 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, MouseWheelOnSongLyrics) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  // More lines than the ones that fit on screen
+  EXPECT_CALL(*finder, Search(_, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        return MakeSearchResult(model::SongLyric{
+            "First 1\nFirst 2\nFirst 3\nFirst 4\nFirst 5\n",
+            "Second 1\nSecond 2\nSecond 3\nSecond 4\nSecond 5\n",
+            "Third 1\nThird 2\nThird 3\nThird 4\nThird 5\n",
+            "Fourth 1\nFourth 2\nFourth 3\nFourth 4\nFourth 5\n",
+        });
+      }));
+
+  model::Song audio{.filepath = "Rüfüs Du Sol-Innerbloom.mp3"};
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  std::string rendered = RenderUntilFetched();
+  ASSERT_THAT(rendered, HasSubstr("First 1"));
+  ASSERT_THAT(rendered, Not(HasSubstr("Fourth 5")));
+
+  auto wheel = [this](ftxui::Mouse::Button button, int x, int y) {
+    return block->OnEvent(ftxui::Event::Mouse(
+        "", ftxui::Mouse{.button = button, .motion = ftxui::Mouse::Pressed, .x = x, .y = y}));
+  };
+
+  const int center_x = screen->dimx() / 2;
+  const int center_y = screen->dimy() / 2;
+
+  // Mouse wheel scrolls song lyrics exactly like its keys (one paragraph at a time)
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, center_x, center_y));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, center_x, center_y));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, center_x, center_y));
+  EXPECT_EQ(GetLyricFocused(), 3);
+
+  rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Fourth 5"));
+  EXPECT_THAT(rendered, Not(HasSubstr("First 1")));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp, center_x, center_y));
+  EXPECT_EQ(GetLyricFocused(), 2);
+
+  // Nothing happens when mouse is not over song lyrics (e.g. on block border)
+  EXPECT_FALSE(wheel(ftxui::Mouse::WheelDown, 0, 0));
+  EXPECT_EQ(GetLyricFocused(), 2);
+
+  // And it asks for focus, when another block is the one focused
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::MainContent)))));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp, center_x, center_y));
+  EXPECT_EQ(GetLyricFocused(), 1);
 }
 
 /* ********************************************************************************************** */

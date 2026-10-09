@@ -64,6 +64,13 @@ class SongLyric : public TabItem {
   bool OnEvent(const ftxui::Event& event) override;
 
   /**
+   * @brief Handles an event (from mouse)
+   * @param event Received event from screen
+   * @return true if event was handled, otherwise false
+   */
+  bool OnMouseEvent(ftxui::Event& event) override;
+
+  /**
    * @brief Handles a custom event
    * @param event Received event (probably sent by Audio thread)
    * @return true if event was handled, otherwise false
@@ -141,6 +148,7 @@ class SongLyric : public TabItem {
 
   std::optional<lyric::SearchResult::Status> status_;  //!< Outcome from last search
   int focused_ = 0;  //!< Index for paragraph focused from song lyric
+  ftxui::Box box_;   //!< Box to control if mouse cursor is over song lyric
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
 

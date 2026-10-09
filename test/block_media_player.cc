@@ -878,6 +878,22 @@ class MediaPlayerMouseTest : public MediaPlayerTest {
   static constexpr int kDurationMiddleColumn = 57;
   static constexpr int kDurationLastColumn = 86;
 
+  //! Position of block title on screen
+  static constexpr int kTitleRow = 0;
+  static constexpr int kTitleColumn = 2;
+
+  //! Position of shuffle and repeat modes on screen
+  static constexpr int kModeRow = 1;
+  static constexpr int kShuffleColumn = 70;
+  static constexpr int kRepeatColumn = 83;
+
+  //! Position of volume on screen (label, line and percentage)
+  static constexpr int kVolumeRow = 2;
+  static constexpr int kVolumeLabelColumn = 73;
+  static constexpr int kVolumeFirstColumn = 77;
+  static constexpr int kVolumeLastColumn = 86;
+  static constexpr int kVolumePercentageColumn = 88;
+
   //! Seconds from song for each column from duration line, to have an exact position for each one
   static constexpr int kSecondsPerColumn = 2;
 
@@ -906,6 +922,16 @@ class MediaPlayerMouseTest : public MediaPlayerTest {
 
   //! Render block to calculate position of each element on screen
   void RenderBlock() { ftxui::Render(*screen, block->Render()); }
+
+  //! Simulate mouse cursor moved to the given position (without any button), and render block
+  bool Hover(int x, int y) {
+    bool handled = SendMouse(x, y, ftxui::Mouse::None, ftxui::Mouse::Pressed);
+
+    screen->Clear();
+    RenderBlock();
+
+    return handled;
+  }
 
   //! Simulate a mouse event on the given position
   bool SendMouse(int x, int y, ftxui::Mouse::Button button = ftxui::Mouse::Left,
@@ -999,6 +1025,189 @@ TEST_F(MediaPlayerMouseTest, ClickOnButtonAsksForFocus) {
     EXPECT_TRUE(SendMouse(column, kButtonRow));
     testing::Mock::VerifyAndClearExpectations(dispatcher.get());
   }
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnShuffleAndRepeat) {
+  using Identifier = interface::CustomEvent::Identifier;
+  RenderBlock();
+
+  // Each click acts like its key was pressed
+  ExpectEvent(Identifier::SetShuffle, true);
+  EXPECT_TRUE(SendMouse(kShuffleColumn, kModeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  ExpectEvent(Identifier::SetShuffle, false);
+  EXPECT_TRUE(SendMouse(kShuffleColumn, kModeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  for (auto mode : {model::RepeatMode::All, model::RepeatMode::One, model::RepeatMode::Off}) {
+    ExpectEvent(Identifier::SetRepeatMode, mode);
+    EXPECT_TRUE(SendMouse(kRepeatColumn, kModeRow));
+    testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  }
+
+  // Only when mouse button is released on one of them
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  EXPECT_FALSE(SendMouse(kShuffleColumn, kModeRow, ftxui::Mouse::Left, ftxui::Mouse::Pressed));
+  EXPECT_FALSE(SendMouse(kRepeatColumn, kModeRow, ftxui::Mouse::None));
+  EXPECT_FALSE(SendMouse(kShuffleColumn, kModeRow + 1));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // And it asks for focus, when another block is the one focused
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  ExpectEvent(Identifier::SetShuffle, true);
+  ExpectEvent(Identifier::SetFocused, model::BlockIdentifier::MediaPlayer);
+  EXPECT_TRUE(SendMouse(kShuffleColumn, kModeRow));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnVolumeLine) {
+  using Identifier = interface::CustomEvent::Identifier;
+  RenderBlock();
+
+  // Line is filled up to the column clicked, and volume is saved as it is done when changed by key
+  ExpectEvent(Identifier::SetAudioVolume, model::Volume{0.1F});
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(10))));
+  EXPECT_TRUE(SendMouse(kVolumeFirstColumn, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  ExpectEvent(Identifier::SetAudioVolume, model::Volume{0.5F});
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(50))));
+  EXPECT_TRUE(SendMouse(kVolumeFirstColumn + 4, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  ExpectEvent(Identifier::SetAudioVolume, model::Volume{1.F});
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(100))));
+  EXPECT_TRUE(SendMouse(kVolumeLastColumn, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Nothing changes with a click on the same level, or on anything else from volume
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  EXPECT_TRUE(SendMouse(kVolumeLastColumn, kVolumeRow));
+  EXPECT_FALSE(SendMouse(kVolumeLabelColumn, kVolumeRow));
+  EXPECT_FALSE(SendMouse(kVolumePercentageColumn, kVolumeRow));
+  EXPECT_FALSE(SendMouse(kVolumeFirstColumn, kVolumeRow + 1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, MouseWheelOnVolume) {
+  using Identifier = interface::CustomEvent::Identifier;
+  RenderBlock();
+
+  auto wheel = [this](ftxui::Mouse::Button button, int column, int row = kVolumeRow) {
+    return SendMouse(column, row, button, ftxui::Mouse::Pressed);
+  };
+
+  // Mouse wheel changes volume by the same step used by its keys, anywhere on volume
+  ExpectEvent(Identifier::SetAudioVolume);
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(95))));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, kVolumeLabelColumn));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  ExpectEvent(Identifier::SetAudioVolume);
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(90))));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, kVolumePercentageColumn));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  ExpectEvent(Identifier::SetAudioVolume);
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(95))));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp, kVolumeFirstColumn));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // But not anywhere else
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  EXPECT_FALSE(wheel(ftxui::Mouse::WheelDown, kShuffleColumn, kModeRow));
+  EXPECT_FALSE(wheel(ftxui::Mouse::WheelDown, kVolumeFirstColumn, kVolumeRow + 1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, HoverOnModesAndVolume) {
+  using Identifier = interface::CustomEvent::Identifier;
+  utils::ThemeGuard guard;
+
+  const auto hovered = utils::MarkerColor(1);
+  const auto hovered_accent = utils::MarkerColor(2);
+
+  interface::Theme theme;
+  theme.player.button_hovered = hovered;
+  theme.player.duration_focused =
+      interface::Theme::State{.foreground = hovered_accent, .background = hovered_accent};
+  interface::SetTheme(theme);
+
+  RenderBlock();
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered_accent));
+
+  // Mode disabled is hovered like a media button
+  for (int column : {kShuffleColumn, kRepeatColumn}) {
+    EXPECT_FALSE(Hover(column, kModeRow));
+    EXPECT_TRUE(utils::HasColor(*screen, hovered));
+    EXPECT_FALSE(utils::HasColor(*screen, hovered_accent));
+  }
+
+  // While mode enabled and line with volume level are hovered like the line with song duration
+  ExpectEvent(Identifier::SetShuffle, true);
+  EXPECT_TRUE(SendMouse(kShuffleColumn, kModeRow));
+
+  EXPECT_FALSE(Hover(kShuffleColumn, kModeRow));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+  EXPECT_TRUE(utils::HasColor(*screen, hovered_accent));
+
+  EXPECT_FALSE(Hover(kShuffleColumn, kModeRow + 2));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered_accent));
+
+  for (int column : {kVolumeLabelColumn, kVolumeFirstColumn, kVolumePercentageColumn}) {
+    EXPECT_FALSE(Hover(column, kVolumeRow));
+    EXPECT_FALSE(utils::HasColor(*screen, hovered));
+    EXPECT_TRUE(utils::HasColor(*screen, hovered_accent));
+  }
+
+  // Nothing is hovered after mouse leaves them
+  EXPECT_FALSE(Hover(0, 0));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered_accent));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, MouseOnTitle) {
+  using Identifier = interface::CustomEvent::Identifier;
+  utils::ThemeGuard guard;
+
+  const auto hovered = utils::MarkerColor(1);
+
+  // Title is hovered like the tab selected from other blocks
+  interface::Theme theme;
+  theme.block.tab.selected = interface::Theme::State{.foreground = hovered, .background = hovered};
+  interface::SetTheme(theme);
+
+  RenderBlock();
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  EXPECT_FALSE(Hover(kTitleColumn, kTitleRow));
+  EXPECT_TRUE(utils::HasColor(*screen, hovered));
+
+  EXPECT_FALSE(Hover(kTitleColumn, kTitleRow + 1));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  // A click on it asks for focus, when another block is the one focused
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_TRUE(SendMouse(kTitleColumn, kTitleRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  ExpectEvent(Identifier::SetFocused, model::BlockIdentifier::MediaPlayer);
+  EXPECT_TRUE(SendMouse(kTitleColumn, kTitleRow));
 }
 
 /* ********************************************************************************************** */

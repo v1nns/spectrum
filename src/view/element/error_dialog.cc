@@ -40,7 +40,7 @@ ftxui::Element ErrorDialog::RenderImpl(const ftxui::Dimensions& curr_size) const
     content.push_back(ftxui::paragraph(detail_) | ftxui::center);
   }
 
-  return ftxui::vbox(content);
+  return ftxui::vbox(content) | ftxui::flex | ftxui::reflect(box_);
 }
 
 /* ********************************************************************************************** */
@@ -58,7 +58,19 @@ bool ErrorDialog::OnEventImpl(const ftxui::Event& event) {
 
 /* ********************************************************************************************** */
 
-bool ErrorDialog::OnMouseEventImpl(ftxui::Event event) { return false; }
+bool ErrorDialog::OnMouseEventImpl(ftxui::Event event) {
+  const auto& mouse = event.mouse();
+
+  // Close it with a click on dialog (and not anywhere else, as user may still be clicking on
+  // what caused the error)
+  if (mouse.button == ftxui::Mouse::Left && mouse.motion == ftxui::Mouse::Released &&
+      box_.Contain(mouse.x, mouse.y)) {
+    Close();
+    return true;
+  }
+
+  return false;
+}
 
 /* ********************************************************************************************** */
 
