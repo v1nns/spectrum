@@ -22,6 +22,9 @@ struct Settings {
   std::optional<int> volume;              //!< Player volume (percentage, from 0 to 100)
   std::optional<std::string> device;      //!< Audio output device (empty to not choose any)
   std::optional<std::string> theme;       //!< Identifier from UI theme
+
+  //! Browser whose cookies are sent to site when it refuses to stream songs (as expected by yt-dlp)
+  std::optional<std::string> cookies_from_browser;
 };
 
 }  // namespace model

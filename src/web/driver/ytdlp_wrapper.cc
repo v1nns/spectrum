@@ -90,28 +90,16 @@ error::Code YtDlpWrapper::ExtractPlaylist(const std::string& url, std::vector<mo
 
   // Only list entries from playlist (much faster than extracting information from every song)
   INFO("Extract songs from playlist URL=", url);
-  auto result = util::RunProcess(
-      {program->string(), "--flat-playlist", "--dump-single-json", "--no-warnings", "--", url},
-      kTimeout, cancel);
+  std::string output;
 
-  if (!result || result->exit_code != 0) {
-    if (result && result->canceled) {
-      LOG("Canceled extracting playlist from URL=", url);
-    } else {
-      ERROR("Could not extract playlist from URL=", url,
-            result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
-                   : ", program could not be started");
-
-      // Let user know the reason, instead of only that it failed
-      if (result) {
-        return result->timed_out ? error::kStreamTimedOut : GetFailureReason(result->error);
-      }
-    }
-
-    return error::kStreamFetchFailed;
+  if (error::Code result =
+          Run(program->string(), {"--flat-playlist", "--dump-single-json", "--no-warnings"}, url,
+              output, cancel);
+      result != error::kSuccess) {
+    return result;
   }
 
-  nlohmann::json info = nlohmann::json::parse(result->output, nullptr, /*allow_exceptions=*/false);
+  nlohmann::json info = nlohmann::json::parse(output, nullptr, /*allow_exceptions=*/false);
   return ParsePlaylist(info, songs);
 }
 
@@ -155,6 +143,69 @@ error::Code YtDlpWrapper::ParsePlaylist(const nlohmann::json& info,
 
 /* ********************************************************************************************** */
 
+void YtDlpWrapper::SetCookiesFromBrowser(const std::string& browser) {
+  cookies_browser_ = browser;
+  use_cookies_ = false;
+
+  if (!browser.empty()) INFO("Cookies used when requests are refused, from browser=", browser);
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::Run(const std::string& program, const std::vector<std::string>& options,
+                              const std::string& url, std::string& output,
+                              const std::atomic<bool>* cancel) {
+  auto execute = [&](bool with_cookies) {
+    std::vector<std::string> args{program};
+    args.insert(args.end(), options.begin(), options.end());
+
+    // Browser is a single argument, so program is the only one to make sense of its content
+    if (with_cookies) args.insert(args.end(), {std::string{kOptionCookies}, cookies_browser_});
+
+    args.insert(args.end(), {"--", url});
+    auto result = util::RunProcess(args, kTimeout, cancel);
+
+    if (result && result->exit_code == 0) {
+      output = std::move(result->output);
+      return error::kSuccess;
+    }
+
+    if (result && result->canceled) {
+      LOG("Canceled extracting information from URL=", url);
+      return error::kStreamFetchFailed;
+    }
+
+    ERROR("Could not extract information from URL=", url, " cookies=", with_cookies,
+          result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
+                 : ", program could not be started");
+
+    // Let user know the reason, instead of only that it failed
+    if (!result) return error::kStreamFetchFailed;
+    if (result->timed_out) return error::kStreamTimedOut;
+
+    error::Code reason = GetFailureReason(result->error);
+    return reason == error::kStreamBlocked && with_cookies ? error::kStreamBlockedWithCookies
+                                                           : reason;
+  };
+
+  error::Code result = execute(use_cookies_);
+
+  // Cookies are only sent after site refuses a request, and then they are sent by all the next
+  // ones (as site would refuse them too)
+  if (result == error::kStreamBlocked && !cookies_browser_.empty()) {
+    WARN("Requests are being refused, use cookies from browser=", cookies_browser_);
+    use_cookies_ = true;
+    result = execute(true);
+  }
+
+  // Without any cookies to send, there is no reason to keep asking for them
+  if (result == error::kStreamCookiesFailed) use_cookies_ = false;
+
+  return result;
+}
+
+/* ********************************************************************************************** */
+
 error::Code YtDlpWrapper::GetFailureReason(const std::string& error) {
   using std::string_view_literals::operator""sv;
 
@@ -167,12 +218,18 @@ error::Code YtDlpWrapper::GetFailureReason(const std::string& error) {
                                            "has been removed"sv, "is not available"sv,
                                            "does not exist"sv};
 
+  //! Texts printed by program when it cannot read cookies from browser (e.g. browser or profile
+  //! does not exist, or it is not a browser known by program)
+  static constexpr std::array kCookies{"cookies database"sv, "specified for cookies"sv,
+                                       "failed to load cookies"sv};
+
   auto contains = [&error](const auto& texts) {
     return std::any_of(texts.begin(), texts.end(), [&error](std::string_view text) {
       return error.find(text) != std::string::npos;
     });
   };
 
+  if (contains(kCookies)) return error::kStreamCookiesFailed;
   if (contains(kBlocked)) return error::kStreamBlocked;
   if (contains(kUnavailable)) return error::kStreamUnavailable;
 
@@ -210,22 +267,15 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
 
   // Extract information as JSON (only for the given video, even if URL contains a playlist)
   const std::string& url = song.stream_info->base_url;
-  auto result = util::RunProcess(
-      {program->string(), "--dump-single-json", "--no-playlist", "--no-warnings", "--", url},
-      kTimeout);
+  std::string output;
 
-  if (!result || result->exit_code != 0) {
-    ERROR("Could not fetch streaming format from URL=", url,
-          result ? (result->timed_out ? ", timed out" : ", error=" + util::trim(result->error))
-                 : ", program could not be started");
-
-    // Let user know the reason, instead of only that it failed
-    if (!result) return error::kStreamFetchFailed;
-
-    return result->timed_out ? error::kStreamTimedOut : GetFailureReason(result->error);
+  if (error::Code result = Run(
+          program->string(), {"--dump-single-json", "--no-playlist", "--no-warnings"}, url, output);
+      result != error::kSuccess) {
+    return result;
   }
 
-  nlohmann::json info = nlohmann::json::parse(result->output, nullptr, /*allow_exceptions=*/false);
+  nlohmann::json info = nlohmann::json::parse(output, nullptr, /*allow_exceptions=*/false);
   if (error::Code parsed = ParseInfo(info, song); parsed != error::kSuccess) return parsed;
 
   LOG("Parsed stream info=", *song.stream_info);

@@ -1138,6 +1138,8 @@ TEST_F(PlaylistDialogTest, ShowReasonWhenPlaylistCannotBeImported) {
   // Each reason informed by extraction and what is shown for it
   const std::vector<std::pair<error::Code, std::string>> reasons{
       {error::kStreamBlocked, "✗ Refused by YouTube"},
+      {error::kStreamBlockedWithCookies, "✗ Refused by YouTube"},
+      {error::kStreamCookiesFailed, "✗ Cannot read cookies"},
       {error::kStreamUnavailable, "✗ Playlist is not available"},
       {error::kStreamTimedOut, "✗ Took too long to import"},
       {error::kStreamFetchFailed, "✗ Cannot import playlist"},

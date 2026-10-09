@@ -746,7 +746,10 @@ void PlaylistDialog::FinishImport() {
         case error::kStreamFetcherNotFound:
           return "yt-dlp not found";
         case error::kStreamBlocked:
+        case error::kStreamBlockedWithCookies:
           return "Refused by YouTube";
+        case error::kStreamCookiesFailed:
+          return "Cannot read cookies";
         case error::kStreamUnavailable:
           return "Playlist is not available";
         case error::kStreamTimedOut:

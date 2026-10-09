@@ -19,8 +19,11 @@
 
 namespace {
 
+using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::StrEq;
 
 /**
@@ -361,6 +364,9 @@ class YtDlpProgramTest : public ::testing::Test {
   }
 
   void TearDown() override {
+    // It is shared by all instances, so do not let it change any other test
+    driver::YtDlpWrapper::SetCookiesFromBrowser("");
+
     if (original_path.has_value()) {
       setenv("PATH", original_path->c_str(), 1);
     } else {
@@ -376,6 +382,34 @@ class YtDlpProgramTest : public ::testing::Test {
 
     std::ofstream(program) << "#!/bin/sh\n" << script << "\n";
     std::filesystem::permissions(program, std::filesystem::perms::owner_all);
+  }
+
+  //! Create script that writes its arguments to a file (one line per execution), and then only
+  //! prints information when it is asked to read cookies from browser. Otherwise, it fails just
+  //! like when site refuses the request (and also when the given text is among its arguments)
+  void InstallProgramRefusedWithoutCookies(const std::string& failure = "",
+                                           const std::string& failed_by = "nothing") const {
+    InstallProgram("echo \"$*\" >> " + (dir / "calls").string() + R"sh(
+case "$*" in
+  *)sh" + failed_by +
+                   R"sh(*) echo "ERROR: )sh" + failure + R"sh(" >&2; exit 1 ;;
+  *--flat-playlist*--cookies-from-browser*) printf '%s' '{"title": "So be it", "entries": []}' ;;
+  *--cookies-from-browser*) printf '%s' '{
+  "title": "Clipse - So Be It", "duration": 212,
+  "formats": [{"format_id": "251", "url": "https://best", "protocol": "https",
+               "resolution": "audio only", "abr": 128, "acodec": "opus"}]
+}' ;;
+  *) echo "ERROR: [youtube] id: Sign in to confirm you’re not a bot. Use" >&2; exit 1 ;;
+esac)sh");
+  }
+
+  //! Get arguments from every execution of the script above
+  std::vector<std::string> GetCalls() const {
+    std::vector<std::string> calls;
+    std::ifstream file(dir / "calls");
+
+    for (std::string line; std::getline(file, line);) calls.push_back(line);
+    return calls;
   }
 
   //! Create song with only its URL, as it is before extracting information
@@ -675,6 +709,94 @@ TEST_F(YtDlpProgramTest, ExtractPlaylistFails) {
 
   // List of songs is not changed by any of them
   EXPECT_THAT(songs.size(), Eq(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, SendCookiesOnlyAfterRequestIsRefused) {
+  InstallProgramRefusedWithoutCookies();
+
+  // Without any browser to read cookies from, request is refused and nothing else is tried
+  model::Song song = CreateSong();
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlocked);
+  EXPECT_THAT(GetCalls(), ElementsAre("--dump-single-json --no-playlist --no-warnings -- " +
+                                      std::string{kSongUrl}));
+
+  // With a browser, program is executed once more to send cookies (browser as a single argument)
+  driver::YtDlpWrapper::SetCookiesFromBrowser("firefox:my music");
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+  EXPECT_THAT(song.title, StrEq("So Be It"));
+
+  const std::string cookies = " --cookies-from-browser firefox:my music -- ";
+  auto calls = GetCalls();
+  ASSERT_THAT(calls.size(), Eq(3));
+  EXPECT_THAT(calls[1], StrEq(calls[0]));
+  EXPECT_THAT(calls[2],
+              StrEq("--dump-single-json --no-playlist --no-warnings" + cookies + kSongUrl));
+
+  // From then on, cookies are sent by every request (even by the ones from another instance)
+  model::Song other{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/other"}};
+  ASSERT_EQ(driver::YtDlpWrapper{}.ExtractInfo(other), error::kSuccess);
+
+  std::vector<model::Song> songs;
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kSuccess);
+
+  calls = GetCalls();
+  ASSERT_THAT(calls.size(), Eq(5));
+  EXPECT_THAT(calls[3], HasSubstr(cookies + "https://youtu.be/other"));
+  EXPECT_THAT(calls[4],
+              StrEq("--flat-playlist --dump-single-json --no-warnings" + cookies + kPlaylistUrl));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, RequestIsRefusedEvenWithCookies) {
+  InstallProgramRefusedWithoutCookies("[youtube] id: Sign in to confirm you’re not a bot. Use",
+                                      "firefox");
+  driver::YtDlpWrapper::SetCookiesFromBrowser("firefox");
+
+  // User is informed that cookies did not help (so there is no reason to suggest them)
+  model::Song song = CreateSong();
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlockedWithCookies);
+  EXPECT_THAT(GetCalls().size(), Eq(2));
+
+  // And they keep being sent, as request without them was refused
+  std::vector<model::Song> songs;
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs),
+            error::kStreamBlockedWithCookies);
+  EXPECT_THAT(GetCalls().size(), Eq(3));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, CookiesCannotBeRead) {
+  // Each reason printed by program when it cannot read cookies from the given browser
+  const std::vector<std::pair<std::string, std::string>> failures{
+      {"firefox:nobody", "could not find firefox cookies database in '/home/user/.mozilla'"},
+      {"netscape", "unsupported browser specified for cookies: \\\"netscape\\\". Supported"},
+      {"chrome", "failed to load cookies"},
+  };
+
+  for (const auto& [browser, failure] : failures) {
+    std::filesystem::remove(dir / "calls");
+
+    InstallProgramRefusedWithoutCookies(failure, browser);
+    driver::YtDlpWrapper::SetCookiesFromBrowser(browser);
+
+    model::Song song = CreateSong();
+    EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamCookiesFailed) << browser;
+    EXPECT_THAT(GetCalls().size(), Eq(2));
+
+    // Next request is sent without cookies again, as it may not be refused anymore
+    std::vector<model::Song> songs;
+    EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs),
+              error::kStreamCookiesFailed);
+
+    auto calls = GetCalls();
+    ASSERT_THAT(calls.size(), Eq(4));
+    EXPECT_THAT(calls[2], Not(HasSubstr("--cookies-from-browser")));
+    EXPECT_THAT(calls[3], HasSubstr("--cookies-from-browser " + browser));
+  }
 }
 
 }  // namespace

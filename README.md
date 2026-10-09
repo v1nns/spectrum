@@ -67,6 +67,23 @@ To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be i
 3. Press <kbd>r</kbd> to give it a name, and <kbd>s</kbd> to save;
 4. Back in the playlists list, press <kbd>Return</kbd> on a playlist (or on a song from it) to play.
 
+#### When YouTube refuses to answer
+
+After too many requests, YouTube may refuse new ones and ask for a login to prove that they do not come from a bot. It usually goes away by itself after some time, but spectrum can also ask yt-dlp to send the cookies from your browser, where you are already logged in. To allow it, add this to `settings.json` (see [Files](#files)), using the browser as [expected by yt-dlp](https://github.com/yt-dlp/yt-dlp#filesystem-options) (`BROWSER[+KEYRING][:PROFILE][::CONTAINER]`):
+
+```json
+{
+  "stream": {
+    "cookies_from_browser": "firefox"
+  }
+}
+```
+
+Cookies are read by yt-dlp (never by spectrum), and only after a request is refused; from then on, they are sent by every request until spectrum is closed. A few things to know before using it:
+
+- these cookies are your login, and yt-dlp warns that an account used like this may be flagged (or even banned) by YouTube, so prefer a secondary account in a separate browser profile (e.g. `firefox:music`);
+- Firefox is the simplest choice on Linux, as browsers based on Chromium keep cookies encrypted by the system keyring, which yt-dlp must be able to reach.
+
 ### Most used keys
 
 | Key | Action |

@@ -147,7 +147,8 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
     // Site is refusing requests, so every other song from URL would also fail (and asking for
     // them could make it refuse requests for even longer)
-    if (result == error::kStreamBlocked) {
+    if (result == error::kStreamBlocked || result == error::kStreamBlockedWithCookies ||
+        result == error::kStreamCookiesFailed) {
       WARN("Stop playlist, as requests for songs from URL are being refused");
       curr_playlist_.reset();
       failed_songs_ = 0;

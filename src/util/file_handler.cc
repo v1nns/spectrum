@@ -406,6 +406,13 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
     }
   }
 
+  if (auto stream = parsed.find("stream"); stream != parsed.end() && stream->is_object()) {
+    if (auto browser = stream->find("cookies_from_browser");
+        browser != stream->end() && browser->is_string()) {
+      settings.cookies_from_browser = browser->get<std::string>();
+    }
+  }
+
   LOG("Parsed settings from file=", std::quoted(file_path));
   return true;
 }
@@ -439,6 +446,8 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
   if (settings.volume) section("player")["volume"] = *settings.volume;
   if (settings.device) section("player")["device"] = *settings.device;
   if (settings.theme) section("interface")["theme"] = *settings.theme;
+  if (settings.cookies_from_browser)
+    section("stream")["cookies_from_browser"] = *settings.cookies_from_browser;
 
   std::error_code error;
 

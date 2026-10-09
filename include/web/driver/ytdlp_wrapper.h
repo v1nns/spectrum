@@ -40,6 +40,9 @@ class YtDlpWrapper : public web::StreamFetcher {
   //! Maximum time to wait for program to extract information (it fetches content from network)
   static constexpr std::chrono::seconds kTimeout{60};
 
+  //! Option for program to read cookies from a browser and send them to site
+  static constexpr std::string_view kOptionCookies = "--cookies-from-browser";
+
  public:
   /**
    * @brief Construct a new YtDlpWrapper object
@@ -97,6 +100,16 @@ class YtDlpWrapper : public web::StreamFetcher {
   static error::Code ExtractPlaylist(const std::string& url, std::vector<model::Song>& songs,
                                      const std::atomic<bool>* cancel = nullptr);
 
+  /**
+   * @brief Set browser whose cookies are sent to site when it refuses requests (asking for a login
+   * to prove that they do not come from a bot). Cookies are read by yt-dlp itself, and only after a
+   * request is refused; from then on, they are sent by every request. It must be set before any
+   * information is extracted (as it is shared by all instances)
+   * @param browser Browser as expected by yt-dlp (BROWSER[+KEYRING][:PROFILE][::CONTAINER]), or
+   * empty to never send any cookies
+   */
+  static void SetCookiesFromBrowser(const std::string& browser);
+
   /* ******************************************************************************************** */
   //! Internal methods
  private:
@@ -136,6 +149,20 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @return true if song was filled, otherwise false
    */
   bool Reuse(model::Song& song);
+
+  /**
+   * @brief Run program to extract information from URL. When site refuses the request and there is
+   * a browser to read cookies from, program is executed once more to send them
+   * @param program Full path to program
+   * @param options Options for program (URL is always the last argument)
+   * @param url URL to extract information from
+   * @param output Content written by program to standard output (out)
+   * @param cancel Flag to cancel program while it is running (optional)
+   * @return Error code from operation (with the reason for program to fail, when it is known)
+   */
+  static error::Code Run(const std::string& program, const std::vector<std::string>& options,
+                         const std::string& url, std::string& output,
+                         const std::atomic<bool>* cancel = nullptr);
 
   /**
    * @brief Find out why program failed, based on what it printed as error
@@ -191,6 +218,9 @@ class YtDlpWrapper : public web::StreamFetcher {
 
   //! Information kept for each song (by its original URL)
   std::map<std::string, SongKept, std::less<>> songs_kept_;
+
+  static inline std::string cookies_browser_;           //!< Browser to read cookies from (if any)
+  static inline std::atomic<bool> use_cookies_{false};  //!< A request was refused without cookies
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

@@ -55,6 +55,8 @@ static constexpr Code kStreamFetcherNotFound = 91;
 static constexpr Code kStreamBlocked = 92;
 static constexpr Code kStreamUnavailable = 93;
 static constexpr Code kStreamTimedOut = 94;
+static constexpr Code kStreamBlockedWithCookies = 96;
+static constexpr Code kStreamCookiesFailed = 97;
 
 //! Web errors
 static constexpr Code kUrlNotFound = 95;
@@ -80,7 +82,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 23> kErrorMap{{
+  static constexpr std::array<Message, 25> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -102,7 +104,12 @@ class ApplicationError {
       {kStreamFetchFailed, Level::Warning, "Cannot fetch song from URL"},
       {kStreamFetcherNotFound, Level::Warning, "Cannot play song from URL, yt-dlp was not found"},
       {kStreamBlocked, Level::Critical,
-       "YouTube is refusing requests from this network (too many of them?), try again later"},
+       "YouTube is refusing requests from this network, try again later or set "
+       "cookies_from_browser (README)"},
+      {kStreamBlockedWithCookies, Level::Critical,
+       "YouTube is refusing requests even with cookies from browser, try again later"},
+      {kStreamCookiesFailed, Level::Critical,
+       "Cannot read cookies from browser, check cookies_from_browser in settings"},
       {kStreamUnavailable, Level::Warning, "Song from URL is not available anymore"},
       {kStreamTimedOut, Level::Warning, "Took too long to fetch song from URL"},
       {kUrlNotFound, Level::Warning, "Content not found in URL"},

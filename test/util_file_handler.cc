@@ -282,6 +282,34 @@ TEST_F(FileHandlerTest, SaveAndParseDevice) {
 
 /* ********************************************************************************************** */
 
+TEST_F(FileHandlerTest, ParseCookiesFromBrowser) {
+  std::filesystem::create_directories(
+      std::filesystem::path{handler.GetSettingsPath()}.parent_path());
+
+  // It is written by user, as there is nothing in the interface to change it
+  std::ofstream(handler.GetSettingsPath())
+      << R"({"stream": {"cookies_from_browser": "firefox:music"}})";
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.cookies_from_browser, "firefox:music");
+
+  // And it is kept when any other setting is saved
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{.volume = 35}));
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.cookies_from_browser, "firefox:music");
+  EXPECT_EQ(settings.volume, 35);
+
+  // Value with unexpected type is not filled
+  std::ofstream(handler.GetSettingsPath()) << R"({"stream": {"cookies_from_browser": true}})";
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.cookies_from_browser.has_value());
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with FileSink class (using a temporary directory for log files)
  */
