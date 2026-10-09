@@ -38,20 +38,6 @@ If you're using Arch Linux or any derivative, you can install spectrum through y
    yay -S spectrum-git
    ```
 
-### Flatpak (still in progress)
-
-To install spectrum using Flatpak:
-
-1. Add the Flathub repository:
-   ```bash
-   flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-   ```
-
-2. Install spectrum:
-   ```bash
-   flatpak install flathub io.github.v1nns.spectrum
-   ```
-
 ## Usage :musical_keyboard:
 
 Run `spectrum` to start listing files from the current directory, or `spectrum -d <path>` to start from another one. Everything is controlled by keyboard (mouse also works), and <kbd>F12</kbd> shows all keybindings, starting from the ones related to what is focused.
@@ -69,7 +55,7 @@ To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be i
 
 #### When YouTube refuses to answer
 
-After too many requests, YouTube may refuse new ones and ask for a login to prove that they do not come from a bot. It usually goes away by itself after some time, but spectrum can also ask yt-dlp to send the cookies from your browser, where you are already logged in. To allow it, add this to `settings.json` (see [Files](#files)), using the browser as [expected by yt-dlp](https://github.com/yt-dlp/yt-dlp#filesystem-options) (`BROWSER[+KEYRING][:PROFILE][::CONTAINER]`):
+After too many requests, YouTube may refuse new ones and ask for a login to prove that they do not come from a bot. It usually goes away by itself after some time, but spectrum can also ask yt-dlp to send the cookies from your browser, where you are already logged in. To allow it, add this to `settings.json` (see [Files and settings](#files-and-settings)), using the browser as [expected by yt-dlp](https://github.com/yt-dlp/yt-dlp#filesystem-options) (`BROWSER[+KEYRING][:PROFILE][::CONTAINER]`):
 
 ```json
 {
@@ -145,11 +131,9 @@ With `subscribe`, a status bar does not need to ask for status from time to time
 
 When more than one instance is running, only the first one started receives the commands.
 
-### Files
+### Files and settings
 
 Playlists (`playlists.json`) and settings (`settings.json`) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
-
-### Settings
 
 Almost everything in `settings.json` is saved by spectrum itself, right when it is changed in the interface, so there is usually no need to edit this file (and it does not even exist until something is changed). This is all it may contain:
 
