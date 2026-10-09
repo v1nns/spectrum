@@ -71,4 +71,45 @@ std::string_view GetAnimationName(const BarAnimation& animation) {
   }
 }
 
+/* ********************************************************************************************** */
+
+std::string_view GetAnimationId(const BarAnimation& animation) {
+  switch (animation) {
+    case BarAnimation::HorizontalMirror:
+      return "horizontal-mirror";
+    case BarAnimation::VerticalMirror:
+      return "vertical-mirror";
+    case BarAnimation::Mono:
+      return "mono";
+    case BarAnimation::HorizontalMirrorNoSpace:
+      return "horizontal-mirror-no-space";
+    case BarAnimation::VerticalMirrorNoSpace:
+      return "vertical-mirror-no-space";
+    case BarAnimation::MonoNoSpace:
+      return "mono-no-space";
+    case BarAnimation::SpectrumLine:
+      return "line";
+    case BarAnimation::SpectrumLineMirror:
+      return "line-mirror";
+    case BarAnimation::SpectrumLineFilled:
+      return "line-filled";
+    case BarAnimation::SpectrumLineFilledMirror:
+      return "line-filled-mirror";
+    case BarAnimation::LAST:
+    default:
+      return "invalid";
+  }
+}
+
+/* ********************************************************************************************** */
+
+std::optional<BarAnimation> GetAnimationFromId(std::string_view id) {
+  for (int value = BarAnimation::HorizontalMirror; value < BarAnimation::LAST; value++) {
+    const auto animation = static_cast<BarAnimation>(value);
+    if (GetAnimationId(animation) == id) return animation;
+  }
+
+  return std::nullopt;
+}
+
 }  // namespace model

@@ -3,6 +3,7 @@
 #include <functional>
 
 #include "ftxui/dom/elements.hpp"
+#include "model/settings.h"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 #include "view/element/style.h"
@@ -12,8 +13,10 @@ namespace interface {
 
 AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
                                const std::shared_ptr<EventDispatcher>& dispatcher,
-                               const FocusCallback& on_focus, const keybinding::Key& keybinding)
-    : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)) {
+                               const FocusCallback& on_focus, const keybinding::Key& keybinding,
+                               const std::shared_ptr<util::FileHandler>& file_handler)
+    : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)),
+      file_handler_{file_handler} {
   // Initialize picker
   picker_.Initialize(presets_, &preset_name_,
                      std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
@@ -33,6 +36,8 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 
   // Initialize buttons
   CreateButtons();
+
+  RestoreSettings();
 }
 
 /* ********************************************************************************************** */
@@ -184,6 +189,7 @@ void AudioEqualizer::CreateButtons() {
 
         // Update cache
         last_applied_.Update(preset_name_, current);
+        SaveSettings();
 
         // Set this block as active (focused)
         if (on_focus_) on_focus_();
@@ -214,6 +220,9 @@ void AudioEqualizer::CreateButtons() {
                          return filter;
                        });
 
+        // Gains are saved even when there is nothing to send (as they were not applied yet)
+        SaveSettings();
+
         // Do nothing if all frequencies contains gain equal to zero
         if (bool all_zero =
                 std::all_of(last_applied_.preset.begin(), last_applied_.preset.end(),
@@ -228,6 +237,7 @@ void AudioEqualizer::CreateButtons() {
 
         // Update cache
         last_applied_.Update(preset_name_, current);
+        SaveSettings();
 
         // Set this block as active (focused)
         if (on_focus_) on_focus_();
@@ -258,6 +268,56 @@ void AudioEqualizer::UpdateButtonState() {
     btn_reset_->Enable();
   } else {
     btn_reset_->Disable();
+  }
+}
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::RestoreSettings() {
+  model::Settings settings;
+  if (!file_handler_ || !file_handler_->ParseSettings(settings)) return;
+
+  // Gains from the only preset that may be modified
+  if (settings.equalizer_custom) {
+    auto& custom = presets_.find(model::MusicGenre(kModifiablePreset))->second;
+    const auto& gains = *settings.equalizer_custom;
+
+    for (size_t i = 0; i < custom.size() && i < gains.size(); i++) {
+      custom[i].SetNormalizedGain(gains[i]);
+    }
+  }
+
+  // Preset applied on last run (an unknown one is ignored)
+  if (settings.equalizer_preset && presets_.find(*settings.equalizer_preset) != presets_.end()) {
+    UpdatePreset(*settings.equalizer_preset);
+  }
+
+  // Nothing to apply when it is the same that audio player starts with
+  if (const auto& current = current_preset(); last_applied_ != current) {
+    INFO("Restored equalizer preset=", preset_name_);
+
+    if (auto dispatcher = dispatcher_.lock(); dispatcher) {
+      dispatcher->SendEvent(interface::CustomEvent::ApplyAudioFilters(current));
+    }
+  }
+
+  last_applied_.Update(preset_name_, current_preset());
+  UpdateButtonState();
+}
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::SaveSettings() const {
+  if (!file_handler_) return;
+
+  const auto& custom = presets_.find(model::MusicGenre(kModifiablePreset))->second;
+  std::vector<double> gains;
+
+  for (const auto& filter : custom) gains.push_back(filter.gain);
+
+  if (!file_handler_->SaveSettings(model::Settings{.equalizer_preset = last_applied_.genre,
+                                                   .equalizer_custom = std::move(gains)})) {
+    ERROR("Cannot save equalizer settings");
   }
 }
 

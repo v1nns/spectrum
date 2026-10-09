@@ -18,16 +18,20 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
     : Block{dispatcher, model::BlockIdentifier::MainContent,
             interface::Size{.width = 0, .height = 0}},
       tab_elem_{} {
+  // Load/save settings from tabs
+  const auto handler = file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>();
+
   // Create all tabs (keeping a direct reference to visualizer, used to show fullscreen hint)
   auto visualizer = std::make_unique<SpectrumVisualizer>(
       GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusVisualizer,
-      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
+      handler);
 
   visualizer_ = visualizer.get();
   tab_elem_[View::Visualizer] = std::move(visualizer);
 
   tab_elem_[View::Equalizer] = std::make_unique<AudioEqualizer>(
-      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusEqualizer);
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusEqualizer,
+      handler);
 
   tab_elem_[View::Lyric] = std::make_unique<SongLyric>(
       GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusLyric);

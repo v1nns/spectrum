@@ -670,12 +670,11 @@ TEST_F(MainContentTest, CancelAnimationPicker) {
 /* ********************************************************************************************** */
 
 TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
-  // Saved settings are restored when block is created (invalid bar width is ignored)
+  // Saved settings are restored when block is created (they are read by each tab that has any)
   EXPECT_CALL(*file_handler, ParseSettings(_))
-      .WillOnce(DoAll(
+      .WillRepeatedly(DoAll(
           SetArgReferee<0>(model::Settings{.animation = model::BarAnimation::Mono, .bar_width = 3}),
-          Return(true)))
-      .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.bar_width = 99}), Return(true)));
+          Return(true)));
 
   auto restored = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
   auto main_content = std::static_pointer_cast<interface::MainContent>(restored);
@@ -686,6 +685,11 @@ TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
   ftxui::Render(*screen, restored->Render());
   EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Mono"));
 
+  // Invalid bar width is ignored
+  testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(model::Settings{.bar_width = 99}), Return(true)));
+
   auto invalid = std::static_pointer_cast<interface::MainContent>(
       ftxui::Make<interface::MainContent>(dispatcher, file_handler));
   EXPECT_EQ(invalid->GetBarWidth(), 2);
@@ -695,6 +699,89 @@ TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
   EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::bar_width, Optional(3))))
       .WillOnce(Return(true));
   block->OnEvent(ftxui::Event::Character('.'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RestoreAndSaveEqualizerSettings) {
+  using interface::CustomEvent;
+  using model::AudioFilter;
+
+  auto render = [this](const ftxui::Component& component) {
+    screen->Clear();
+    ftxui::Render(*screen, component->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  auto filters_applied = [](const model::EqualizerPreset& preset) {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ApplyAudioFilters),
+                 Field(&CustomEvent::content, VariantWith<model::EqualizerPreset>(preset)));
+  };
+
+  // Preset applied on last run is restored and sent to audio player, along with gains from the
+  // preset that may be modified
+  const std::vector<double> gains{3, 0, 0, -2, 0, 0, 0, 0, 0, 5};
+
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(DoAll(
+          SetArgReferee<0>(model::Settings{.equalizer_preset = "Rock", .equalizer_custom = gains}),
+          Return(true)));
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*dispatcher, SendEvent(filters_applied(AudioFilter::CreatePresets()["Rock"])));
+
+  auto restored = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(restored)->SetFocused(true);
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  restored->OnEvent(ftxui::Event::Character('2'));
+  EXPECT_THAT(render(restored), HasSubstr("→ Rock"));
+
+  // Choose preset "Custom" (the first one in list) and apply it, which saves these settings
+  model::EqualizerPreset custom = AudioFilter::CreatePresets()["Custom"];
+  for (size_t i = 0; i < custom.size(); i++) custom[i].gain = gains[i];
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*dispatcher, SendEvent(filters_applied(custom)));
+
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::equalizer_preset, Optional(StrEq("Custom"))),
+                                 Field(&model::Settings::equalizer_custom, Optional(gains)))))
+      .WillOnce(Return(true));
+
+  restored->OnEvent(ftxui::Event::Character('l'));
+  restored->OnEvent(ftxui::Event::Character('h'));
+  restored->OnEvent(ftxui::Event::Character(' '));
+
+  for (size_t i = 0; i < AudioFilter::CreatePresets().size(); i++) {
+    restored->OnEvent(ftxui::Event::Character('k'));
+  }
+
+  restored->OnEvent(ftxui::Event::Character('j'));
+  restored->OnEvent(ftxui::Event::Character(' '));
+  restored->OnEvent(ftxui::Event::Character('a'));
+
+  std::string rendered = render(restored);
+  EXPECT_THAT(rendered, HasSubstr("→ Custom"));
+  EXPECT_THAT(rendered, HasSubstr("+3"));
+  EXPECT_THAT(rendered, HasSubstr("+5"));
+
+  // Unknown preset is ignored, and nothing is sent when settings are the ones player starts with
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(
+          DoAll(SetArgReferee<0>(model::Settings{.equalizer_preset = "Unknown"}), Return(true)));
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::ApplyAudioFilters)))
+      .Times(0);
+
+  auto unknown = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  unknown->OnEvent(ftxui::Event::Character('2'));
+  EXPECT_THAT(render(unknown), HasSubstr("→ Custom"));
 }
 
 /* ********************************************************************************************** */

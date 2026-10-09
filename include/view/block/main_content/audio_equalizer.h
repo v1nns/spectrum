@@ -20,6 +20,7 @@
 #include "ftxui/dom/node.hpp"
 #include "ftxui/screen/screen.hpp"
 #include "model/audio_filter.h"
+#include "util/file_handler.h"
 #include "util/formatter.h"
 #include "view/base/element.h"
 #include "view/base/keybinding.h"
@@ -139,10 +140,12 @@ class AudioEqualizer : public TabItem {
    * @param dispatcher Block event dispatcher
    * @param on_focus Callback function to ask for focus
    * @param keybinding Keybinding to set item as active
+   * @param file_handler Interface to load/save equalizer settings (optional)
    */
   explicit AudioEqualizer(const model::BlockIdentifier& id,
                           const std::shared_ptr<EventDispatcher>& dispatcher,
-                          const FocusCallback& on_focus, const keybinding::Key& keybinding);
+                          const FocusCallback& on_focus, const keybinding::Key& keybinding,
+                          const std::shared_ptr<util::FileHandler>& file_handler = nullptr);
 
   /**
    * @brief Destroy the AudioEqualizer object
@@ -196,6 +199,13 @@ class AudioEqualizer : public TabItem {
 
   //! Update current preset selected
   void UpdatePreset(const model::MusicGenre& preset);
+
+  //! Restore EQ settings applied on last run, and let audio player know about them
+  void RestoreSettings();
+
+  //! Save EQ settings applied (and gains from the preset that may be modified), so they are
+  //! restored on next run
+  void SaveSettings() const;
 
   //! Utility to return current EQ settings
   model::EqualizerPreset& current_preset() {
@@ -723,6 +733,8 @@ class AudioEqualizer : public TabItem {
 
   //! Equalizer settings
   PresetApplied last_applied_;  //!< Last EQ settings applied
+
+  std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save EQ settings
 
   model::EqualizerPresets presets_ =
       model::AudioFilter::CreatePresets();  //!< List of EQ settings available to use

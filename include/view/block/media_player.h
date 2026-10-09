@@ -130,6 +130,9 @@ class MediaPlayer : public Block {
   //! Save current volume level, so it is restored on next run
   void SaveVolume() const;
 
+  //! Save repeat mode and shuffle state, so they are restored on next run
+  void SaveModes() const;
+
   /**
    * @brief Handle event for seek position in song
    * @param event Received event from screen

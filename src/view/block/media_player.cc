@@ -130,12 +130,28 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
                kWarningDuration},
       file_handler_{file_handler != nullptr ? file_handler
                                             : std::make_shared<util::FileHandler>()} {
-  // Restore volume from last run, and let audio player know about it
-  if (model::Settings settings; file_handler_->ParseSettings(settings) && settings.volume) {
-    volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
-    INFO("Restored volume=", volume_);
+  // Restore volume, repeat mode and shuffle from last run, and let audio player know about them
+  if (model::Settings settings; file_handler_->ParseSettings(settings)) {
+    if (settings.volume) {
+      volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
+      INFO("Restored volume=", volume_);
 
-    if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
+      if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
+    }
+
+    if (settings.repeat) {
+      repeat_ = *settings.repeat;
+      INFO("Restored repeat mode=", repeat_);
+
+      if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetRepeatMode(repeat_));
+    }
+
+    if (settings.shuffle) {
+      shuffle_ = *settings.shuffle;
+      INFO("Restored shuffle=", shuffle_ ? "on" : "off");
+
+      if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetShuffle(shuffle_));
+    }
   }
 
   btn_play_ = Button::make_button_play([this]() {
@@ -648,6 +664,8 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
 
     auto dispatcher = GetDispatcher();
     dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+
+    SaveModes();
     return true;
   }
 
@@ -657,6 +675,8 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
 
     auto dispatcher = GetDispatcher();
     dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
+
+    SaveModes();
     return true;
   }
 
@@ -901,6 +921,8 @@ bool MediaPlayer::HandleRemoteValue(const model::RemoteRequest& request) {
 
     repeat_ = *mode;
     dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+
+    SaveModes();
     return true;
   }
 
@@ -910,6 +932,8 @@ bool MediaPlayer::HandleRemoteValue(const model::RemoteRequest& request) {
 
     shuffle_ = *enabled;
     dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
+
+    SaveModes();
     return true;
   }
 
@@ -922,6 +946,14 @@ void MediaPlayer::SaveVolume() const {
   // Mute state is not saved, only the volume level
   const int level = static_cast<int>(std::round(volume_.GetLevel() * kMaxVolume));
   if (!file_handler_->SaveSettings(model::Settings{.volume = level})) ERROR("Cannot save volume");
+}
+
+/* ********************************************************************************************** */
+
+void MediaPlayer::SaveModes() const {
+  if (!file_handler_->SaveSettings(model::Settings{.repeat = repeat_, .shuffle = shuffle_})) {
+    ERROR("Cannot save repeat mode and shuffle");
+  }
 }
 
 }  // namespace interface

@@ -18,6 +18,7 @@
 #include "model/playlist.h"
 #include "model/remote_command.h"
 #include "model/settings.h"
+#include "nlohmann/json.hpp"
 #include "model/song.h"
 #include "model/stream_info.h"
 #include "util/file_handler.h"
@@ -192,6 +193,105 @@ TEST_F(FileHandlerTest, SaveAndParseSettings) {
   ASSERT_TRUE(handler.ParseSettings(settings));
   EXPECT_EQ(settings.animation, model::BarAnimation::SpectrumLine);
   EXPECT_EQ(settings.bar_width, 3);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveAndParsePlayerModesAndEqualizer) {
+  const std::vector<double> gains{3, 0, -2, 0, 0, 12, 0, -12, 0, 1.5};
+
+  ASSERT_TRUE(handler.SaveSettings(
+      model::Settings{.repeat = model::RepeatMode::One, .shuffle = true}));
+  ASSERT_TRUE(handler.SaveSettings(
+      model::Settings{.equalizer_preset = "Rock", .equalizer_custom = gains}));
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.repeat, model::RepeatMode::One);
+  EXPECT_EQ(settings.shuffle, true);
+  EXPECT_EQ(settings.equalizer_preset, "Rock");
+  EXPECT_EQ(settings.equalizer_custom, gains);
+
+  // They are saved in a way that may be read (and changed) by user
+  std::ifstream file(handler.GetSettingsPath());
+  const auto json = nlohmann::json::parse(file);
+
+  EXPECT_EQ(json["player"]["repeat"], "one");
+  EXPECT_EQ(json["player"]["shuffle"], true);
+  EXPECT_EQ(json["equalizer"]["preset"], "Rock");
+  EXPECT_EQ(json["equalizer"]["custom"].size(), gains.size());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, ParseInvalidPlayerModesAndEqualizer) {
+  std::filesystem::create_directories(
+      std::filesystem::path{handler.GetSettingsPath()}.parent_path());
+
+  auto parse = [this](const std::string& content) {
+    std::ofstream(handler.GetSettingsPath()) << content;
+
+    model::Settings settings;
+    EXPECT_TRUE(handler.ParseSettings(settings));
+    return settings;
+  };
+
+  // Unknown repeat mode and values with unexpected type are not filled
+  auto settings = parse(R"({"player": {"repeat": "twice", "shuffle": "on"}})");
+  EXPECT_FALSE(settings.repeat.has_value());
+  EXPECT_FALSE(settings.shuffle.has_value());
+
+  settings = parse(R"({"equalizer": {"preset": 3, "custom": "flat"}})");
+  EXPECT_FALSE(settings.equalizer_preset.has_value());
+  EXPECT_FALSE(settings.equalizer_custom.has_value());
+
+  // There must be a gain for each frequency
+  settings = parse(R"({"equalizer": {"custom": [1, 2, 3]}})");
+  EXPECT_FALSE(settings.equalizer_custom.has_value());
+
+  // And all of them must be numbers inside the limits for gain
+  settings = parse(R"({"equalizer": {"custom": [0, 0, 0, 0, 0, 0, 0, 0, 0, 13]}})");
+  EXPECT_FALSE(settings.equalizer_custom.has_value());
+
+  settings = parse(R"({"equalizer": {"custom": [0, 0, 0, 0, 0, 0, 0, 0, 0, "max"]}})");
+  EXPECT_FALSE(settings.equalizer_custom.has_value());
+
+  settings = parse(R"({"equalizer": {"custom": [0, 0, 0, 0, 0, 0, 0, 0, 0, -12]}})");
+  EXPECT_TRUE(settings.equalizer_custom.has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveAnimationByItsIdentifier) {
+  ASSERT_TRUE(
+      handler.SaveSettings(model::Settings{.animation = model::BarAnimation::SpectrumLineFilled}));
+
+  {
+    std::ifstream file(handler.GetSettingsPath());
+    EXPECT_EQ(nlohmann::json::parse(file)["visualizer"]["animation"], "line-filled");
+  }
+
+  // Every animation has its own identifier
+  for (int value = model::BarAnimation::HorizontalMirror; value < model::BarAnimation::LAST;
+       value++) {
+    const auto animation = static_cast<model::BarAnimation>(value);
+    EXPECT_EQ(model::GetAnimationFromId(model::GetAnimationId(animation)), animation);
+  }
+
+  EXPECT_FALSE(model::GetAnimationFromId("invalid").has_value());
+
+  // Unknown identifier is not filled
+  std::ofstream(handler.GetSettingsPath()) << R"({"visualizer": {"animation": "spiral"}})";
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.animation.has_value());
+
+  // Animation saved as a number (by older versions) is still restored
+  std::ofstream(handler.GetSettingsPath()) << R"({"visualizer": {"animation": 11002}})";
+
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.animation, model::BarAnimation::Mono);
 }
 
 /* ********************************************************************************************** */

@@ -776,6 +776,68 @@ TEST_F(MediaPlayerTest, ChangeRepeatModeAndShuffle) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MediaPlayerTest, RestoreAndSaveRepeatAndShuffle) {
+  using Identifier = interface::CustomEvent::Identifier;
+
+  auto mode_event = [](Identifier id, const auto& value) {
+    using Content = std::decay_t<decltype(value)>;
+
+    return AllOf(Field(&interface::CustomEvent::id, id),
+                 Field(&interface::CustomEvent::content, VariantWith<Content>(value)));
+  };
+
+  // Repeat mode and shuffle from last run are restored, and sent to audio player
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillOnce(DoAll(
+          SetArgReferee<0>(model::Settings{.repeat = model::RepeatMode::All, .shuffle = true}),
+          Return(true)));
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(mode_event(Identifier::SetRepeatMode, model::RepeatMode::All)));
+  EXPECT_CALL(*dispatcher, SendEvent(mode_event(Identifier::SetShuffle, true)));
+
+  auto restored = ftxui::Make<interface::MediaPlayer>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(restored)->SetFocused(true);
+
+  ftxui::Render(*screen, restored->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("shuffle on  repeat all"));
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Changing any of them saves both
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::repeat, Optional(model::RepeatMode::One)),
+                                 Field(&model::Settings::shuffle, Optional(true)))))
+      .WillOnce(Return(true));
+  restored->OnEvent(ftxui::Event::Character('R'));
+
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::repeat, Optional(model::RepeatMode::One)),
+                                 Field(&model::Settings::shuffle, Optional(false)))))
+      .WillOnce(Return(true));
+  restored->OnEvent(ftxui::Event::Character('x'));
+
+  // Even when changed by a command sent from command-line
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::repeat, Optional(model::RepeatMode::Off)),
+                                 Field(&model::Settings::shuffle, Optional(false)))))
+      .WillOnce(Return(true));
+
+  std::static_pointer_cast<interface::Block>(restored)->OnCustomEvent(
+      interface::CustomEvent::RunRemoteCommand(model::RemoteRequest{
+          model::RemoteCommand::ToggleRepeat, model::RepeatMode::Off}));
+
+  // Nothing is restored (or sent to audio player) without settings
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  ftxui::Make<interface::MediaPlayer>(dispatcher, file_handler);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MediaPlayerTest, RestoreAndSaveVolume) {
   // Volume from last run is restored, and sent to audio player
   EXPECT_CALL(*file_handler, ParseSettings(_))

@@ -147,7 +147,51 @@ When more than one instance is running, only the first one started receives the 
 
 ### Files
 
-Playlists and settings (volume, theme, audio output device and visualizer animation) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
+Playlists (`playlists.json`) and settings (`settings.json`) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
+
+### Settings
+
+Almost everything in `settings.json` is saved by spectrum itself, right when it is changed in the interface, so there is usually no need to edit this file (and it does not even exist until something is changed). This is all it may contain:
+
+```json
+{
+  "interface": {
+    "theme": "tokyo-night"
+  },
+  "player": {
+    "volume": 80,
+    "device": "default",
+    "repeat": "off",
+    "shuffle": false
+  },
+  "equalizer": {
+    "preset": "Custom",
+    "custom": [3, 2, 0, 0, -1, 0, 0, 1, 2, 4]
+  },
+  "visualizer": {
+    "animation": "horizontal-mirror",
+    "bar_width": 2
+  },
+  "stream": {
+    "cookies_from_browser": "firefox"
+  }
+}
+```
+
+| Setting | Value | Default | Changed with |
+| --- | --- | --- | --- |
+| `interface.theme` | `tokyo-night`, `catppuccin-mocha`, `gruvbox-dark`, `nord`, `dracula`, `catppuccin-latte` or `terminal` (colors from your terminal) | `tokyo-night` | <kbd>t</kbd> |
+| `player.volume` | Percentage, from `0` to `100` (mute is not saved) | `100` | <kbd>+</kbd> / <kbd>-</kbd>, or `-r volume` |
+| `player.device` | Name of an audio output device from ALSA, or an empty text to let spectrum choose (default device from system, or the first one available) | empty | <kbd>O</kbd> |
+| `player.repeat` | `off`, `all` or `one` | `off` | <kbd>R</kbd>, or `-r repeat` |
+| `player.shuffle` | `true` or `false` | `false` | <kbd>x</kbd>, or `-r shuffle` |
+| `equalizer.preset` | Preset in use: `Custom`, `Flat`, `Acoustic`, `Bass Boost`, `Classical`, `Dance`, `Electronic`, `Hip-Hop`, `Jazz`, `Loudness`, `Pop`, `Rock`, `Treble Boost` or `Vocal` | `Custom` | <kbd>a</kbd> (apply) on equalizer |
+| `equalizer.custom` | Gains (in dB, from `-12` to `12`) from preset `Custom`, one for each of its ten frequencies (32, 64, 125, 250, 500, 1k, 2k, 4k, 8k and 16k Hz) | all `0` | <kbd>a</kbd> (apply) or <kbd>r</kbd> (reset) on equalizer |
+| `visualizer.animation` | `horizontal-mirror`, `vertical-mirror`, `mono`, `horizontal-mirror-no-space`, `vertical-mirror-no-space`, `mono-no-space`, `line`, `line-mirror`, `line-filled` or `line-filled-mirror` (a number saved by older versions is still accepted) | `horizontal-mirror` | <kbd>a</kbd> on visualizer |
+| `visualizer.bar_width` | Columns used by each bar, from `1` to `4` | `2` | <kbd>,</kbd> / <kbd>.</kbd> |
+| `stream.cookies_from_browser` | Browser that yt-dlp reads cookies from (see [When YouTube refuses to answer](#when-youtube-refuses-to-answer)) | not set | only by editing this file |
+
+Any setting may be missing, and a value that is not valid is ignored (default is used instead). Settings are read only when spectrum starts, so edit this file while it is not running. When the file itself cannot be read as JSON, it is copied to `settings.json.bak` before spectrum saves a new one.
 
 ## Development :memo:
 
