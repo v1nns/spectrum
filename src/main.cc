@@ -26,10 +26,6 @@
 #include "util/remote.h"
 #include "view/base/terminal.h"
 
-#ifndef SPECTRUM_DEBUG
-#include "web/driver/ytdlp_wrapper.h"
-#endif
-
 /**
  * @brief A structure containing all available options to configure using command-line arguments
  */
@@ -294,17 +290,13 @@ int main(int argc, char** argv) {
        " settings=", std::quoted(file_handler.GetSettingsPath()));
   INFO("Terminal size=", terminal_size.dimx, "x", terminal_size.dimy);
 
-  // Audio output device chosen by user on last run (if any) is used since the beginning
+  // Settings from last run that are used by player since the beginning (audio output device chosen
+  // by user and browser whose cookies may be sent when streaming songs)
   model::Settings settings;
   file_handler.ParseSettings(settings);
 
-#ifndef SPECTRUM_DEBUG
-  // Cookies from browser are only read (by yt-dlp) when user asks for it
-  driver::YtDlpWrapper::SetCookiesFromBrowser(settings.cookies_from_browser.value_or(""));
-#endif
-
   // Create and initialize a new player
-  auto player = audio::Player::Create(options.verbose_logging, settings.device.value_or(""));
+  auto player = audio::Player::Create(options.verbose_logging, settings);
 
   // Create and initialize a new terminal window
   auto terminal = interface::Terminal::Create(options.initial_dir);

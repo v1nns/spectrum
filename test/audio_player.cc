@@ -95,8 +95,8 @@ class PlayerTest : public ::testing::Test {
     }
 
     // Create Player without thread
-    audio_player =
-        audio::Player::Create(/*verbose=*/true, device, pb_mock, dc_mock, sf_mock, asynchronous);
+    audio_player = audio::Player::Create(/*verbose=*/true, model::Settings{.device = device},
+                                         pb_mock, dc_mock, sf_mock, asynchronous);
 
     // Register interface notifier to Audio Player
     audio_player->RegisterInterfaceNotifier(notifier);

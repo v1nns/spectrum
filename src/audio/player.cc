@@ -22,7 +22,7 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(bool verbose, const std::string& device,
+std::shared_ptr<Player> Player::Create(bool verbose, const model::Settings& settings,
                                        audio::Playback* playback, audio::Decoder* decoder,
                                        web::StreamFetcher* fetcher, bool asynchronous) {
   LOG("Create new instance of player");
@@ -39,6 +39,9 @@ std::shared_ptr<Player> Player::Create(bool verbose, const std::string& device,
   // Create fetcher object
   auto ft = fetcher != nullptr ? std::unique_ptr<web::StreamFetcher>(std::move(fetcher))
                                : std::make_unique<driver::YtDlpWrapper>();
+
+  // Cookies from browser are only read (by yt-dlp) when user asks for it
+  driver::YtDlpWrapper::SetCookiesFromBrowser(settings.cookies_from_browser.value_or(""));
 
 #else
   // Create playback object
@@ -64,7 +67,7 @@ std::shared_ptr<Player> Player::Create(bool verbose, const std::string& device,
   auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dc), std::move(ft));
 
   // Initialize internal components
-  player->Init(asynchronous, device);
+  player->Init(asynchronous, settings.device.value_or(""));
 
   return player;
 }

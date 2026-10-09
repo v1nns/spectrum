@@ -25,6 +25,7 @@
 #include "model/audio_format.h"
 #include "model/playlist.h"
 #include "model/repeat_mode.h"
+#include "model/settings.h"
 #include "model/song.h"
 #include "model/volume.h"
 #include "util/logger.h"
@@ -95,15 +96,16 @@ class Player : public AudioControl {
   /**
    * @brief Factory method: Create, initialize internal components and return Player object
    * @param verbose Enable verbose logging messages
-   * @param device Name of output device chosen by user (empty to let Playback driver choose it,
-   * which is also done when the chosen one cannot be used)
+   * @param settings Settings from last run that are used by player: output device chosen by user
+   * (without one, Playback driver chooses it, which is also done when the chosen one cannot be
+   * used) and browser whose cookies may be sent by streaming fetcher
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
    * @param fetcher Pass streaming fetcher to be used within Audio thread (optional)
    * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(bool verbose, const std::string& device = "",
+  static std::shared_ptr<Player> Create(bool verbose, const model::Settings& settings = {},
                                         audio::Playback* playback = nullptr,
                                         audio::Decoder* decoder = nullptr,
                                         web::StreamFetcher* fetcher = nullptr,
