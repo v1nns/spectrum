@@ -100,7 +100,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -158,7 +158,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -228,7 +228,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -278,7 +278,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -340,7 +340,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -440,7 +440,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -503,7 +503,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -567,7 +567,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -639,7 +639,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -704,7 +704,7 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -784,7 +784,7 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -913,7 +913,7 @@ TEST_F(PlaylistDialogTest, AddYoutubeUrlAndSave) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -989,7 +989,7 @@ TEST_F(PlaylistDialogTest, CannotAddUrlWithoutYtDlp) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1572,7 +1572,7 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -1642,7 +1642,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1701,7 +1701,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1774,7 +1774,7 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1831,7 +1831,7 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1882,7 +1882,7 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -1971,7 +1971,7 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -2702,6 +2702,110 @@ ftxui::Event MouseEventAt(ftxui::Screen& screen, const std::string& text,
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, CloseWithMouse) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+  ftxui::Render(*screen, dialog->Render(size));
+
+  // Dialog is not closed by a click on anything else from it, or outside of it
+  dialog->OnEvent(MouseEventAt(*screen, "Create Playlist", ftxui::Mouse::Left));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released});
+
+  EXPECT_FALSE(dialog->OnEvent(outside));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Only by a click on the button from its border
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, " X ", ftxui::Mouse::Left)));
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RenameWithMouse) {
+  utils::ThemeGuard guard;
+  const auto hovered = utils::MarkerColor(1);
+
+  interface::Theme theme;
+  theme.dialog.tab.focused = interface::Theme::State{.foreground = hovered, .background = hovered};
+  interface::SetTheme(theme);
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Lofi",
+                                         .songs = {model::Song{.filepath = "Love song.mp3"}},
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  auto render = [this] {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return GetRenderedScreen();
+  };
+
+  render();
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  // Playlist name is hovered like a tab from the other pane
+  auto hover = MouseEventAt(*screen, "Lofi", ftxui::Mouse::None);
+  hover.mouse().motion = ftxui::Mouse::Pressed;
+
+  EXPECT_FALSE(dialog->OnEvent(hover));
+  render();
+  EXPECT_TRUE(utils::HasColor(*screen, hovered));
+
+  // A click on it starts renaming playlist, exactly like its key (even with focus on files)
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "Lofi", ftxui::Mouse::Left)));
+
+  EXPECT_THAT(render(), HasSubstr("[Escape:cancel]"));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  std::string typed{" beats"};
+  utils::QueueCharacterEvents(*dialog, typed);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  EXPECT_THAT(render(), HasSubstr("Lofi beats"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, CloseWithMouse) {
+  help_dialog->Show();
+  Render();
+
+  // Dialog is not closed by a click on anything else from it, or outside of it
+  dialog->OnEvent(MouseEventAt(*screen, "Help", ftxui::Mouse::Left));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released});
+
+  EXPECT_FALSE(dialog->OnEvent(outside));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Only by a click on the button from its border
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, " X ", ftxui::Mouse::Left)));
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ErrorDialogTest, DoNotShowButtonToClose) {
+  // A click anywhere on this dialog already closes it
+  GetErrorDialog()->SetErrorMessage("Cannot decode song", "");
+  EXPECT_THAT(Render(), Not(HasSubstr(" X ")));
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with ThemePicker class
  */
@@ -2925,6 +3029,33 @@ TEST_F(ThemePickerTest, MouseClickPreviewsTheme) {
 
   // And theme from before opening picker is still restored when it is cancelled
   EXPECT_TRUE(picker->OnEvent(interface::keybinding::Navigation::Escape));
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseClickOutsideCancels) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsThemeInUse("nord"));
+
+  // Mouse button pressed outside of picker is not a click yet
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Pressed});
+
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_TRUE(picker->IsVisible());
+
+  // Picker is closed when it is released, exactly like the key to cancel it
+  outside.mouse().motion = ftxui::Mouse::Released;
+
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_FALSE(picker->IsVisible());
   EXPECT_TRUE(IsThemeInUse("tokyo-night"));
 }
 

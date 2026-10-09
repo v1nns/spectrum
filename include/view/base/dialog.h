@@ -13,6 +13,8 @@
 
 namespace interface {
 
+class Button;
+
 class Dialog {
  protected:
   static constexpr int kBorderSize = 2;  //!< Extra padding based on border size
@@ -32,6 +34,8 @@ class Dialog {
   struct Style {
     ftxui::Color Theme::Dialog::* background;
     ftxui::Color Theme::Dialog::* foreground;
+
+    bool close_button = false;  //!< Show a button on dialog border to close it with mouse
   };
 
   /**
@@ -141,6 +145,7 @@ class Dialog {
  private:
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   bool opened_ = false;                        //!< Flag to indicate dialog visilibity
+  std::shared_ptr<Button> btn_close_;          //!< Button to close dialog (optional)
   Size size_;                                  //!< Dialog size settings
   Style style_;                                //!< Color style
 };

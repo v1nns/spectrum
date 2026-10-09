@@ -43,7 +43,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = &Theme::Dialog::background,
-                   .foreground = &Theme::Dialog::foreground}),
+                   .foreground = &Theme::Dialog::foreground,
+                   .close_button = true}),
       base_path_(),
       stream_available_cb_(stream_available_cb),
       fetch_playlist_cb_(fetch_playlist_cb),
@@ -377,6 +378,20 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnMouseEventImpl(ftxui::Event event) {
+  // Mouse on playlist name (which is replaced by a text input while it is edited)
+  name_hovered_ = !rename_.editing && name_box_.Contain(event.mouse().x, event.mouse().y);
+
+  if (name_hovered_ && event.mouse().button == ftxui::Mouse::Left &&
+      event.mouse().motion == ftxui::Mouse::Released) {
+    LOG("Handle left click mouse event on playlist name");
+    name_hovered_ = false;
+
+    // Name is edited on playlist pane, so move focus to it
+    focus_ctl_.SetFocus(kPlaylistPane);
+    StartRename();
+    return true;
+  }
+
   if (btn_files_->OnMouseEvent(event)) return true;
   if (btn_youtube_->OnMouseEvent(event)) return true;
 
@@ -400,6 +415,7 @@ void PlaylistDialog::OnClose() {
   modified_playlist_.reset();
   rename_.editing = false;
   rename_.error.reset();
+  name_hovered_ = false;
   btn_save_->Disable();
   message_.Hide();
 
@@ -566,10 +582,21 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
     break;
   }
 
-  ftxui::Element title =
-      rename_.editing ? rename_.input.Render(title_columns, true, std::string(kNamePlaceholder))
-                      : ftxui::text(name) | ftxui::color(GetTheme().dialog.pane_title) |
-                            ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, title_columns);
+  ftxui::Element title;
+
+  if (rename_.editing) {
+    title = rename_.input.Render(title_columns, true, std::string(kNamePlaceholder));
+  } else {
+    // With mouse over it, name uses the same colors from a tab hovered on the other pane
+    const auto& theme = GetTheme().dialog;
+    const auto style = name_hovered_ ? ftxui::bgcolor(theme.tab.focused.background) |
+                                           ftxui::color(theme.tab.focused.foreground) |
+                                           ftxui::inverted
+                                     : ftxui::color(theme.pane_title);
+
+    title = ftxui::text(name) | style | ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, title_columns) |
+            ftxui::reflect(name_box_);
+  }
 
   return ftxui::hbox({
       ftxui::text(" "),

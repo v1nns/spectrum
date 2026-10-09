@@ -249,6 +249,10 @@ class PlaylistDialog : public Dialog {
   };
 
   Rename rename_;           //!< Rename playlist state
+
+  mutable ftxui::Box name_box_;  //!< Box to control if mouse cursor is over playlist name
+  bool name_hovered_ = false;    //!< Flag to control if mouse cursor is over playlist name
+
   SongMenu menu_playlist_;  //!< Menu containing only files for the current playlist
 
   GenericButton btn_save_;  //!< Button to save (persist) playlist

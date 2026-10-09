@@ -75,7 +75,18 @@ bool Picker::HandleEvent(const ftxui::Event& event) {
 
   if (event.is_mouse()) {
     ftxui::Event mouse_event = event;
-    return OnMouseEvent(mouse_event);
+    if (OnMouseEvent(mouse_event)) return true;
+
+    // A click outside of picker closes it, exactly like the key to cancel it
+    const auto& mouse = mouse_event.mouse();
+
+    if (mouse.button == ftxui::Mouse::Left && mouse.motion == ftxui::Mouse::Released &&
+        !Box().Contain(mouse.x, mouse.y)) {
+      Cancel();
+      return true;
+    }
+
+    return false;
   }
 
   // Move selection
@@ -93,9 +104,7 @@ bool Picker::HandleEvent(const ftxui::Event& event) {
 
   // Close picker without choosing anything
   if (event == Keybind::Escape || event == Keybind::Close) {
-    LOG("Cancel picker=", title_);
-    visible_ = false;
-    OnCancel();
+    Cancel();
     return true;
   }
 
@@ -123,6 +132,14 @@ void Picker::Move(bool next) {
 void Picker::Choose() {
   visible_ = false;
   OnChoose(selected_);
+}
+
+/* ********************************************************************************************** */
+
+void Picker::Cancel() {
+  LOG("Cancel picker=", title_);
+  visible_ = false;
+  OnCancel();
 }
 
 /* ********************************************************************************************** */
