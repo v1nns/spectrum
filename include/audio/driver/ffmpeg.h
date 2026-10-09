@@ -214,8 +214,11 @@ class FFmpeg final : public audio::Decoder {
   static constexpr char kFilterAbufferSink[] = "abuffersink";
   static constexpr char kFilterAsplit[] = "asplit";
 
-  //! Names for filter instances that exist in both branches from filtergraph (playback/analysis)
+  //! Names for filter instances that exist in both branches from filtergraph (playback/analysis),
+  //! or more than once in it. They must not be the name of any filter from AVFilter library, as a
+  //! command sent to a filter instance is also received by instances of the filter with that name
   static constexpr char kVolumePreamp[] = "preamp";
+  static constexpr char kVolumePlayback[] = "volume_playback";
   static constexpr char kAformatPlayback[] = "aformat";
   static constexpr char kAformatAnalysis[] = "aformat_analysis";
   static constexpr char kSinkPlayback[] = "sink";

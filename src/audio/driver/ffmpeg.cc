@@ -243,7 +243,7 @@ error::Code FFmpeg::ConfigureFilters() {
   if (result != error::kSuccess) return result;
 
   // Create and configure volume filter
-  result = CreateFilterVolume(kFilterVolume, GetPlaybackVolume());
+  result = CreateFilterVolume(kVolumePlayback, GetPlaybackVolume());
   if (result != error::kSuccess) return result;
 
   // Create and configure all equalizer filters
@@ -547,7 +547,7 @@ error::Code FFmpeg::ConnectFilters() {
   LOG("Connect all filters");
 
   // Find existing instance of filters
-  AVFilterContext* volume_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterVolume);
+  AVFilterContext* volume_ctx = avfilter_graph_get_filter(filter_graph_.get(), kVolumePlayback);
   AVFilterContext* asplit_ctx = avfilter_graph_get_filter(filter_graph_.get(), kFilterAsplit);
   AVFilterContext* aformat_playback =
       avfilter_graph_get_filter(filter_graph_.get(), kAformatPlayback);
@@ -883,10 +883,10 @@ error::Code FFmpeg::SetVolume(model::Volume value) {
   std::string volume = GetPlaybackVolume();
   LOG("Found volume filter, update value to ", volume);
 
-  // Set filter option
+  // Set filter option (only for this filter instance, as there is another volume filter)
   if (std::string response(kResponseSize, ' ');
-      avfilter_graph_send_command(filter_graph_.get(), kFilterVolume, "volume", volume.c_str(),
-                                  response.data(), kResponseSize, AV_OPT_SEARCH_CHILDREN)) {
+      avfilter_graph_send_command(filter_graph_.get(), kVolumePlayback, "volume", volume.c_str(),
+                                  response.data(), kResponseSize, AVFILTER_CMD_FLAG_ONE)) {
     ERROR("Cannot set new value for volume filter, error=", response);
     return error::kUnknownError;
   }
