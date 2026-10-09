@@ -316,6 +316,13 @@ class AudioEqualizer : public TabItem {
 
       filter->SetNormalizedGain(value);
     }
+
+    /**
+     * @brief Handles a mouse double click event, which is just another click here (otherwise, a
+     * click on this bar right after another one would be ignored)
+     * @param event Received event from screen
+     */
+    void HandleDoubleClick(ftxui::Event& event) override { HandleClick(event); }
   };
 
   /* ******************************************************************************************** */

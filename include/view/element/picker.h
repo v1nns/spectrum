@@ -68,6 +68,11 @@ class Picker : public Element {
    */
   bool IsVisible() const { return visible_; }
 
+  /**
+   * @brief Close picker without choosing anything (exactly like the key to cancel it)
+   */
+  void Cancel();
+
   /* ******************************************************************************************** */
   //! Operations for derived class
  protected:
@@ -116,9 +121,6 @@ class Picker : public Element {
 
   //! Close picker, choosing selected entry
   void Choose();
-
-  //! Close picker, without choosing anything
-  void Cancel();
 
   //! Get index of entry rendered at the position of mouse cursor (if any)
   std::optional<size_t> GetEntryAt(const ftxui::Mouse& mouse) const;

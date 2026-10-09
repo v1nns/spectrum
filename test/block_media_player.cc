@@ -1086,6 +1086,17 @@ TEST_F(MediaPlayerMouseTest, ClickOnVolumeLine) {
   EXPECT_TRUE(SendMouse(kVolumeLastColumn, kVolumeRow));
   testing::Mock::VerifyAndClearExpectations(dispatcher.get());
 
+  // Empty space right before line is the one for no volume at all (without muting it)
+  ExpectEvent(Identifier::SetAudioVolume, model::Volume{0.F});
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(0))));
+  EXPECT_TRUE(SendMouse(kVolumeFirstColumn - 1, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  ExpectEvent(Identifier::SetAudioVolume, model::Volume{1.F});
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::volume, Optional(100))));
+  EXPECT_TRUE(SendMouse(kVolumeLastColumn, kVolumeRow));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
   // Nothing changes with a click on the same level, or on anything else from volume
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
 

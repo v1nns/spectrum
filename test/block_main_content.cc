@@ -607,6 +607,45 @@ TEST_F(MainContentTest, ClickOnButtonClosesAnimationPicker) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, ChangeTabClosesAnimationPicker) {
+  using interface::CustomEvent;
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  auto animation_changed_to = [](model::BarAnimation animation) {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ChangeBarAnimation),
+                 Field(&CustomEvent::content, VariantWith<model::BarAnimation>(animation)));
+  };
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  // Open picker and preview another animation
+  block->OnEvent(ftxui::Event::Character('a'));
+  block->OnEvent(ftxui::Event::Character('j'));
+  ASSERT_THAT(render(), HasSubstr("animation"));
+
+  // Showing another tab closes picker, restoring animation from before opening it
+  EXPECT_CALL(*dispatcher,
+              SendEvent(animation_changed_to(model::BarAnimation::HorizontalMirror)));
+
+  block->OnEvent(ftxui::Event::Character('2'));
+  ASSERT_THAT(render(), HasSubstr("preset"));
+
+  // So it is not there anymore when visualizer is shown again
+  block->OnEvent(ftxui::Event::Character('1'));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("preset")));
+  EXPECT_THAT(rendered, Not(HasSubstr("animation")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
   EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
@@ -1192,6 +1231,32 @@ TEST_F(MainContentTest, ClickOnEqualizerFocusesBlockAndBand) {
 
   // And clicked band is the one focused (instead of any band focused before)
   EXPECT_TRUE(IsFrequencyBarFocused(kBand));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ClickTwiceOnEqualizerBand) {
+  constexpr int kBand = 1;
+
+  // Show equalizer, and render block to calculate position of each element on screen
+  block->OnEvent(ftxui::Event::Character('2'));
+  ftxui::Render(*screen, block->Render());
+
+  const ftxui::Box box = GetFrequencyBarBox(kBand);
+
+  auto click_at = [this, &box](int y) {
+    ftxui::Mouse mouse{
+        .button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released, .x = box.x_min, .y = y};
+
+    return block->OnEvent(ftxui::Event::Mouse("", mouse));
+  };
+
+  EXPECT_TRUE(click_at(box.y_min));
+  EXPECT_DOUBLE_EQ(GetFrequencyBarGain(kBand), model::AudioFilter::kMaxGain);
+
+  // A click right after another one is still a click (and not a double click, to ignore)
+  EXPECT_TRUE(click_at(box.y_max));
+  EXPECT_DOUBLE_EQ(GetFrequencyBarGain(kBand), model::AudioFilter::kMinGain);
 }
 
 /* ********************************************************************************************** */

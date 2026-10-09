@@ -203,6 +203,12 @@ bool SpectrumVisualizer::OnMouseEvent(ftxui::Event& event) { return picker_.OnEv
 
 /* ********************************************************************************************** */
 
+void SpectrumVisualizer::OnLostFocus() {
+  if (picker_.IsVisible()) picker_.Cancel();
+}
+
+/* ********************************************************************************************** */
+
 void SpectrumVisualizer::SetAnimation(model::BarAnimation animation) {
   if (animation == curr_anim_) return;
 

@@ -276,10 +276,11 @@ ftxui::Element MediaPlayer::Render() {
   ss << std::setfill(' ') << std::setw(4) << ((int)volume_) << "% ";
 
   ftxui::Element volume = ftxui::hbox({
-      ftxui::text("vol ") |
+      ftxui::text("vol") |
           (is_volume_hovered_ ? ftxui::color(theme.duration_focused.foreground) | ftxui::bold
                               : ftxui::dim) |
           ftxui::reflect(volume_label_box_),
+      ftxui::text(std::string(kVolumeZeroColumns, ' ')),
       progress_line(static_cast<float>(volume_),
                     is_volume_hovered_ ? theme.duration_focused : theme.duration) |
           ftxui::size(WIDTH, EQUAL, kVolumeColumns) | ftxui::reflect(volume_line_box_),
@@ -576,7 +577,7 @@ bool MediaPlayer::HandleVolumeMouseEvent(ftxui::Event& event) {
 
   if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released) return false;
 
-  // A click on label mutes volume (or restores it), as line cannot be clicked before its start
+  // A click on label mutes volume (or restores it)
   if (volume_label_box_.Contain(mouse.x, mouse.y)) {
     LOG("Handle left click mouse event on volume label");
     AskForFocus();
@@ -585,7 +586,11 @@ bool MediaPlayer::HandleVolumeMouseEvent(ftxui::Event& event) {
     return true;
   }
 
-  if (!volume_line_box_.Contain(mouse.x, mouse.y)) return false;
+  // Line also takes the empty space right before it, which is the one for no volume at all
+  ftxui::Box line = volume_line_box_;
+  line.x_min -= kVolumeZeroColumns;
+
+  if (!line.Contain(mouse.x, mouse.y)) return false;
 
   LOG("Handle left click mouse event on volume line");
   AskForFocus();

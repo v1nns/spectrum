@@ -83,6 +83,12 @@ class SpectrumVisualizer : public TabItem {
   bool OnMouseEvent(ftxui::Event& event) override;
 
   /**
+   * @brief Close animation picker when another tab item is shown instead of this one (otherwise,
+   * it would still be open when this one is shown again)
+   */
+  void OnLostFocus() override;
+
+  /**
    * @brief Handles a custom event
    * @param event Received event (probably sent by Audio thread)
    * @return true if event was handled, otherwise false

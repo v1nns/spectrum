@@ -32,6 +32,10 @@ class MediaPlayer : public Block {
   static constexpr int kSeekSeconds = 5;     //!< Seconds to seek forward or backward by a key
   static constexpr int kVolumeColumns = 10;  //!< Columns for line with volume level
 
+  //! Empty columns between label and line with volume level, where a click silences volume (as
+  //! line is filled up to the column clicked, there is no column in it for that)
+  static constexpr int kVolumeZeroColumns = 1;
+
   //! Seconds that position informed by player may differ from the one asked with mouse
   static constexpr int kSeekTolerance = 1;
 
