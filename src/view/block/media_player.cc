@@ -52,8 +52,11 @@ class ProgressLine : public ftxui::Node {
     const int width = box_.x_max - box_.x_min + 1;
     if (width <= 0) return;
 
-    const int filled = static_cast<int>(std::round(progress_ * static_cast<float>(width)));
-    const int knob = std::min(filled, width - 1);
+    // Knob goes from the first column (no progress) to the last one (full), and everything
+    // before it is filled. Without a knob, all columns are filled only with full progress
+    const int knob = static_cast<int>(std::round(progress_ * static_cast<float>(width - 1)));
+    const int filled =
+        show_knob_ ? knob : static_cast<int>(std::round(progress_ * static_cast<float>(width)));
 
     for (int i = 0; i < width; i++) {
       auto& pixel = screen.PixelAt(box_.x_min + i, box_.y_min);
@@ -410,13 +413,19 @@ bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
   // Mouse click on song duration box
   if (event.mouse().button == ftxui::Mouse::Left &&
       duration_box_.Contain(event.mouse().x, event.mouse().y)) {
+    // A click sends two events (button pressed and released), and position is changed only by
+    // the last one, otherwise song would be moved twice by the same offset
+    if (event.mouse().motion != ftxui::Mouse::Released) return true;
+
     // Acquire pointer to dispatcher
     auto dispatcher = GetDispatcher();
 
-    // Calculate new song position based on screen coordinates
-    int real_x = event.mouse().x - duration_box_.x_min;
-    auto new_position =
-        (int)floor(floor(song_.duration * real_x) / (duration_box_.x_max - duration_box_.x_min));
+    // Calculate new song position based on screen coordinates, in which the first column from
+    // line is the beginning of song and the last one is its end (exactly like knob is drawn)
+    const int real_x = event.mouse().x - duration_box_.x_min;
+    const int last_x = std::max(1, duration_box_.x_max - duration_box_.x_min);
+    auto new_position = static_cast<int>(
+        std::lround(static_cast<double>(song_.duration) * real_x / static_cast<double>(last_x)));
 
     int offset = std::abs(int(new_position - song_.curr_info.position));
 

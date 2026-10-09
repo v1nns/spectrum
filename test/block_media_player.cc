@@ -135,7 +135,7 @@ TEST_F(MediaPlayerTest, StartPlaying) {
 │  After Dark                                                        shuffle off  repeat off   │
 │  Mr.Kitty                                                              vol ━━━━━━━━━━ 100%   │
 │                                                                                              │
-│   ◀◀  ∥   ■   ▶▶   01:43 ━━━━━━━━━━━━━━━━━━━━━━━━●─────────────────────────────────── 04:19  │
+│   ◀◀  ∥   ■   ▶▶   01:43 ━━━━━━━━━━━━━━━━━━━━━━━●──────────────────────────────────── 04:19  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -324,7 +324,7 @@ TEST_F(MediaPlayerTest, StartPlayingAndClear) {
 │  Sos                                                               shuffle off  repeat off   │
 │  Timothy Fleet                                                         vol ━━━━━━━━━━ 100%   │
 │                                                                                              │
-│   ◀◀  ∥   ■   ▶▶   01:43 ━━━━━━━━━━━━━━━━━━━━━━━━●─────────────────────────────────── 04:19  │
+│   ◀◀  ∥   ■   ▶▶   01:43 ━━━━━━━━━━━━━━━━━━━━━━━●──────────────────────────────────── 04:19  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -672,7 +672,7 @@ TEST_F(MediaPlayerTest, StartPlayingAndSkipToPrevious) {
 │  Save This Wrld                                                    shuffle off  repeat off   │
 │  Exyl                                                                  vol ━━━━━━━━━━ 100%   │
 │                                                                                              │
-│   ◀◀  ∥   ■   ▶▶   01:03 ━━━━━━━━━━━━━━━━━━●───────────────────────────────────────── 03:33  │
+│   ◀◀  ∥   ■   ▶▶   01:03 ━━━━━━━━━━━━━━━━━●────────────────────────────────────────── 03:33  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -878,8 +878,16 @@ class MediaPlayerMouseTest : public MediaPlayerTest {
   static constexpr int kDurationMiddleColumn = 57;
   static constexpr int kDurationLastColumn = 86;
 
-  static constexpr int kSongDuration = 100;  //!< Song duration (in seconds)
-  static constexpr int kSongPosition = 50;   //!< Song position (in seconds)
+  //! Seconds from song for each column from duration line, to have an exact position for each one
+  static constexpr int kSecondsPerColumn = 2;
+
+  //! Song duration (in seconds), which is at the last column from duration line
+  static constexpr int kSongDuration =
+      (kDurationLastColumn - kDurationFirstColumn) * kSecondsPerColumn;
+
+  //! Song position (in seconds), which is at the middle column from duration line
+  static constexpr int kSongPosition =
+      (kDurationMiddleColumn - kDurationFirstColumn) * kSecondsPerColumn;
 
   //! Update block with a song in the given state, and render it to calculate elements position
   void SetSongState(model::Song::MediaState state) {
@@ -900,9 +908,19 @@ class MediaPlayerMouseTest : public MediaPlayerTest {
   void RenderBlock() { ftxui::Render(*screen, block->Render()); }
 
   //! Simulate a mouse event on the given position
-  bool SendMouse(int x, int y, ftxui::Mouse::Button button = ftxui::Mouse::Left) {
-    ftxui::Mouse mouse{.button = button, .motion = ftxui::Mouse::Released, .x = x, .y = y};
+  bool SendMouse(int x, int y, ftxui::Mouse::Button button = ftxui::Mouse::Left,
+                 ftxui::Mouse::Motion motion = ftxui::Mouse::Released) {
+    ftxui::Mouse mouse{.button = button, .motion = motion, .x = x, .y = y};
     return block->OnEvent(ftxui::Event::Mouse("", mouse));
+  }
+
+  //! Get column where knob from duration line is rendered (or -1, if there is none)
+  int GetKnobColumn() {
+    for (int x = 0; x < screen->dimx(); x++) {
+      if (screen->PixelAt(x, kDurationRow).character == "●") return x;
+    }
+
+    return -1;
   }
 
   //! Expect a single event with the given identifier
@@ -1007,6 +1025,50 @@ TEST_F(MediaPlayerMouseTest, ClickOnDurationBar) {
   EXPECT_TRUE(SendMouse(kDurationMiddleColumn, kDurationRow));
   EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow, ftxui::Mouse::None));
   EXPECT_FALSE(SendMouse(kDurationMiddleColumn, kDurationRow + 1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerMouseTest, ClickOnDurationBarSeeksOnlyOnce) {
+  using Identifier = interface::CustomEvent::Identifier;
+  SetSongState(model::Song::MediaState::Play);
+
+  // A quarter of song is at a quarter of duration line
+  constexpr int kColumn = kDurationFirstColumn + ((kDurationLastColumn - kDurationFirstColumn) / 4);
+  constexpr int kExpectedPosition = (kColumn - kDurationFirstColumn) * kSecondsPerColumn;
+
+  // A real click is a button pressed and then released, and song must be moved a single time
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id, Identifier::SetFocused)))
+      .Times(testing::AnyNumber());
+  ExpectEvent(Identifier::SeekBackwardPosition, kSongPosition - kExpectedPosition);
+
+  EXPECT_TRUE(SendMouse(kColumn, kDurationRow, ftxui::Mouse::Left, ftxui::Mouse::Pressed));
+  EXPECT_TRUE(SendMouse(kColumn, kDurationRow, ftxui::Mouse::Left, ftxui::Mouse::Released));
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // And when song gets to this position, knob is rendered exactly where the click was
+  Process(interface::CustomEvent::UpdateSongState(model::Song::CurrentInformation{
+      .state = model::Song::MediaState::Play,
+      .position = kExpectedPosition,
+  }));
+
+  screen->Clear();
+  RenderBlock();
+  EXPECT_EQ(GetKnobColumn(), kColumn);
+
+  // Same thing for both ends of duration line
+  for (const auto& [position, column] :
+       {std::pair{0, kDurationFirstColumn}, std::pair{kSongDuration, kDurationLastColumn}}) {
+    Process(interface::CustomEvent::UpdateSongState(model::Song::CurrentInformation{
+        .state = model::Song::MediaState::Play,
+        .position = static_cast<uint32_t>(position),
+    }));
+
+    screen->Clear();
+    RenderBlock();
+    EXPECT_EQ(GetKnobColumn(), column) << "position=" << position;
+  }
 }
 
 /* ********************************************************************************************** */
