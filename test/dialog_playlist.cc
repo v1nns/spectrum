@@ -117,9 +117,9 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -175,9 +175,9 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -245,9 +245,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -295,9 +295,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -357,9 +357,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -457,9 +457,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -520,9 +520,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -584,9 +584,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -656,9 +656,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -721,9 +721,9 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -801,9 +801,9 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1589,9 +1589,9 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1659,9 +1659,9 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1718,9 +1718,9 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1791,9 +1791,9 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1848,9 +1848,9 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1899,9 +1899,9 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1988,9 +1988,9 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
+║      │  general/                    ││                              │      ║
 ║      │  middleware_media_controller…││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║

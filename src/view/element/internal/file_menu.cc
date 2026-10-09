@@ -134,9 +134,8 @@ ftxui::Element FileMenu::RenderImpl() {
 
     // In case of entry text too long, animation thread will be running, so we gotta take the
     // text content from there (any other entry too long is cut, ending with an ellipsis)
-    auto text =
-        ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                        : FitText(entry.filename().string()));
+    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                                : GetEntryText(entry, true));
 
     menu_entries.push_back(ftxui::hbox({
                                prefix,
@@ -204,9 +203,22 @@ int FileMenu::GetSizeImpl() const {
 
 /* ********************************************************************************************** */
 
+std::string FileMenu::GetEntryText(const util::File& entry, bool fit) const {
+  const std::string name = entry.filename().string();
+
+  // Parent directory is already known by its name
+  if (name == ".." || !std::filesystem::is_directory(entry)) return fit ? FitText(name) : name;
+
+  // Suffix is never cut from a name too long, as it is what tells that entry is a directory
+  const auto suffix_columns = static_cast<int>(kDirectorySuffix.size());
+  return (fit ? FitText(name, suffix_columns) : name) + std::string{kDirectorySuffix};
+}
+
+/* ********************************************************************************************** */
+
 std::string FileMenu::GetActiveEntryAsTextImpl() const {
   auto active = GetActiveEntryImpl();
-  return active.has_value() ? active->filename().string() : "";
+  return active.has_value() ? GetEntryText(*active, false) : "";
 }
 
 /* ********************************************************************************************** */

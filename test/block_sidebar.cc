@@ -201,7 +201,7 @@ TEST_F(SidebarTest, InitialRender) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -234,7 +234,7 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -390,7 +390,7 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
 │  CMakeLists.txt                    │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
 │Search:e                            │
 ╰────────────────────────────────────╯)";
@@ -507,7 +507,7 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -546,7 +546,7 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -735,7 +735,7 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -769,7 +769,7 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
   EXPECT_THAT(rendered, HasSubstr(expected));
 
   // And that the directory we came from is selected
-  EXPECT_THAT(rendered, HasSubstr("│▶ test "));
+  EXPECT_THAT(rendered, HasSubstr("│▶ test/ "));
 }
 
 /* ********************************************************************************************** */
@@ -792,7 +792,7 @@ TEST_F(SidebarTest, SelectPreviousDirectoryAfterGoingUp) {
   ftxui::Render(*screen, block->Render());
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("│▶ general "));
+  EXPECT_THAT(rendered, HasSubstr("│▶ general/ "));
 }
 
 /* ********************************************************************************************** */
@@ -911,7 +911,7 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -973,9 +973,9 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
-│  mock                              │
+│  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
 │▶ this_is_a_really_long_pathname_to_│
@@ -1002,15 +1002,49 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
-│  mock                              │
+│  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
 │▶ is_a_really_long_pathname_to_test.│
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, KeepSuffixFromDirectoryWithLongName) {
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_directory_suffix";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir / "a_really_long_directory_name_to_cut_here");
+
+  // Hacky method to add new entries (a file with the same name is not a directory)
+  EmplaceFile(dir / "a_really_long_directory_name_to_cut_here");
+  EmplaceFile(std::filesystem::path{"a_really_long_directory_name_to_cut_here.mp3"});
+  EmplaceFile(std::filesystem::path{"last.mp3"});
+
+  // Parent directory is the only one without it
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│▶ ..  "));
+  EXPECT_THAT(rendered, HasSubstr("│  general/  "));
+
+  // Go to the last entry, to show the new ones
+  block->OnEvent(ftxui::Event::End);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // Name is cut to fit, but not what tells that it is a directory
+  EXPECT_THAT(rendered, HasSubstr("│  a_really_long_directory_name_to_…/│"));
+  EXPECT_THAT(rendered, HasSubstr("│  a_really_long_directory_name_to_c…│"));
+  EXPECT_THAT(rendered, HasSubstr("│▶ last.mp3  "));
+
+  std::filesystem::remove_all(dir);
 }
 
 /* ********************************************************************************************** */
@@ -1116,9 +1150,9 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
 │test                                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
-│  mock                              │
+│  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
 │  some_music_0.mp3                  │
