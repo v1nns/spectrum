@@ -190,6 +190,24 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
 /* ********************************************************************************************** */
 
+bool Player::ChangePosition(const Command& command, int64_t& position) const {
+  const int offset = command.GetContent<int>();
+
+  if (command == Command::Identifier::SeekForward) {
+    if ((position + offset) >= curr_song_->duration) return false;
+
+    position += offset;
+    return true;
+  }
+
+  if (position <= 0 || (position - offset) < 0) return false;
+
+  position -= offset;
+  return true;
+}
+
+/* ********************************************************************************************** */
+
 bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_size,
                            int64_t& new_position, int& last_position) {
   auto command = media_control_.Pop();
@@ -237,21 +255,40 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
       Command command_after_wait = Command::None();
 
       bool keep_waiting = false;
+      bool position_changed = false;
 
       do {
-        keep_executing =
-            media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop, Cmd::SkipToNext,
-                                   Cmd::SkipToPrevious, Cmd::SetDevice);
+        keep_executing = media_control_.WaitFor(
+            Cmd::Play, Cmd::PauseOrResume, Cmd::Stop, Cmd::SkipToNext, Cmd::SkipToPrevious,
+            Cmd::SetDevice, Cmd::SeekForward, Cmd::SeekBackward);
         command_after_wait = media_control_.Pop();
 
         bool change_device = keep_executing && command_after_wait == Cmd::SetDevice;
         bool skip =
             command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious;
+        bool seek = keep_executing && (command_after_wait == Cmd::SeekForward ||
+                                       command_after_wait == Cmd::SeekBackward);
 
         // Output device may be changed while song is paused
         if (change_device) ChangeDevice(command_after_wait.GetContent<std::string>());
 
-        keep_waiting = keep_executing && (change_device || (skip && !CanSkip(command_after_wait)));
+        // Song position may also be changed while song is paused (decoder only seeks to it when
+        // song is resumed), so let interface know about it right away
+        if (seek && ChangePosition(command_after_wait, new_position)) {
+          LOG("Audio handler changed position while song is paused, position=", new_position);
+          position_changed = true;
+          last_position = static_cast<int>(new_position);
+
+          if (media_notifier) {
+            media_notifier->NotifySongState(model::Song::CurrentInformation{
+                .state = model::Song::MediaState::Pause,
+                .position = (uint32_t)last_position,
+            });
+          }
+        }
+
+        keep_waiting =
+            keep_executing && (change_device || seek || (skip && !CanSkip(command_after_wait)));
       } while (keep_waiting);
 
       // Received command different from PauseOrResume
@@ -283,6 +320,10 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
       INFO("Audio handler received command to resume song");
       media_control_.state = State::Play;
       playback_->Prepare();
+
+      // Samples in buffer are from the position where song was paused, so do not play them when
+      // position was changed in the meantime (decoder seeks to it before the next samples)
+      if (position_changed) return true;
     } break;
 
     case Command::Identifier::SkipToNext:
@@ -313,24 +354,11 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
       return false;
     } break;
 
-    case Command::Identifier::SeekForward: {
-      int offset = command.GetContent<int>();
-      LOG("Audio handler received command to seek forward with value=", offset);
-
-      if ((new_position + offset) < curr_song_->duration) {
-        new_position += offset;
-        return true;
-      }
-    } break;
-
+    case Command::Identifier::SeekForward:
     case Command::Identifier::SeekBackward: {
-      int offset = command.GetContent<int>();
-      LOG("Audio handler received command to seek backward with value=", offset);
+      LOG("Audio handler received command to ", command, " with value=", command.GetContent<int>());
 
-      if (new_position > 0 && (new_position - offset) >= 0) {
-        new_position -= offset;
-        return true;
-      }
+      if (ChangePosition(command, new_position)) return true;
     } break;
 
     case Command::Identifier::SetVolume: {

@@ -428,12 +428,17 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& curr_info) {
-  UpdateStatus([&curr_info](model::PlayerStatus& status) {
+  // Song may be notified as paused more than once (when its position is changed while paused)
+  bool already_paused = false;
+
+  UpdateStatus([&curr_info, &already_paused](model::PlayerStatus& status) {
+    already_paused = status.state == model::Song::MediaState::Pause;
+
     status.state = curr_info.state;
     status.position = curr_info.position;
   });
 
-  if (curr_info.state == model::Song::MediaState::Pause ||
+  if ((curr_info.state == model::Song::MediaState::Pause && !already_paused) ||
       curr_info.state == model::Song::MediaState::Finished) {
     // Enqueue animation to thread
     sync_data_.Push(Command::RunClearAnimation);

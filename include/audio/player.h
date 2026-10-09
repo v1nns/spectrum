@@ -152,6 +152,15 @@ class Player : public AudioControl {
                      int64_t& new_position, int& last_position);
 
   /**
+   * @brief Change song position as asked by command to seek forward or backward, unless it would
+   * get out of song
+   * @param command Command to seek forward or backward (with its offset in seconds)
+   * @param position Position in the song (in seconds), which is changed by this method (out)
+   * @return True if position was changed, False if not
+   */
+  bool ChangePosition(const Command& command, int64_t& position) const;
+
+  /**
    * @brief Main-loop function to decode input stream and write to playback stream
    */
   void AudioHandler();

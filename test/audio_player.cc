@@ -1268,7 +1268,7 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
 
 /* ********************************************************************************************** */
 
-TEST_F(PlayerTest, TryToSeekWhilePaused) {
+TEST_F(PlayerTest, SeekWhilePaused) {
   const std::string song{"Joji - Glimpse of Us"};
 
   auto player = [&](TestSyncer& syncer) {
@@ -1304,28 +1304,37 @@ TEST_F(PlayerTest, TryToSeekWhilePaused) {
             callback(0, 0, 0, 0, position);
           }
 
-          // This value is considering the seek backward/forward commands + sum in the for-loop
-          EXPECT_EQ(4, position);
+          // This value is considering the seek forward commands received while song was paused
+          // (which are used by decoder as soon as song is resumed) + sum in the for-loop
+          EXPECT_EQ(7, position);
 
           return error::kSuccess;
         }));
 
     EXPECT_CALL(*playback, Pause());
 
-    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(5);
-    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(5);
+    // Samples from the position where song was paused are not played after changing position
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(4);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(4);
 
     // Using-declaration to improve readability
     using State = model::Song::MediaState;
 
-    // This is called 5 times because of position update notification
+    // This is called 4 times because of position update notification
     EXPECT_CALL(*notifier,
                 NotifySongState(Field(&model::Song::CurrentInformation::state, State::Play)))
-        .Times(5);
+        .Times(4);
 
-    EXPECT_CALL(*notifier,
-                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
+    // Song is paused with the last position notified, and each position changed while paused is
+    // notified right away (so interface does not have to wait until song is resumed to show it)
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{.state = State::Pause,
+                                                                           .position = 0}))
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+
+    for (uint32_t position : {2, 3, 4}) {
+      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                                 .state = State::Pause, .position = position}));
+    }
 
     // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
@@ -1549,8 +1558,11 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::position,
                                                  expected_position)));
 
+    // Song is notified as paused, and once again when its position is changed while paused (seek
+    // forward is not possible, as duration from this song is not known)
     EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::state,
-                                                 model::Song::MediaState::Pause)));
+                                                 model::Song::MediaState::Pause)))
+        .Times(2);
 
     // These are called by Player::ResetMediaControl()
     EXPECT_CALL(*decoder, ClearCache());
@@ -1622,7 +1634,8 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndRequestNewSong) {
     // Wait a bit, just until Player pauses
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    // Send any command, just to check that it will be ignored by audio thread
+    // Send any command: position may be changed while paused, anything else is ignored by audio
+    // thread
     player_ctl->SeekForwardPosition(1);
     player_ctl->SeekBackwardPosition(1);
     player_ctl->SetAudioVolume(model::Volume{0.5f});
