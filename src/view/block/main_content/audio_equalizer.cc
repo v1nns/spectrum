@@ -134,11 +134,15 @@ bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
+  // List of presets is closed by a click on anything else (which is not handled by what is
+  // behind it, except for buttons)
+  const bool list_closed = picker_.CloseOnClickOutside(event);
+
   if (btn_apply_->OnMouseEvent(event)) return true;
 
   if (btn_reset_->OnMouseEvent(event)) return true;
 
-  if (focus_ctl_.OnMouseEvent(event)) {
+  if (list_closed || focus_ctl_.OnMouseEvent(event)) {
     // Set focus on parent block, so keys go to equalizer after clicking on it
     if (on_focus_) on_focus_();
 

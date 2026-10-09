@@ -1250,6 +1250,48 @@ TEST_F(SidebarTest, MouseWheelOnMenus) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, MouseWheelOnEmptySpaceFromMenu) {
+  //! Row without any entry, as there are only two playlists
+  static constexpr int kEmptyRow = 5;
+
+  const std::filesystem::path file{"/tmp/song.mp3"};
+
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+  ftxui::Render(*screen, block->Render());
+
+  ftxui::Box box = GetPlaylistsMenuBox();
+
+  auto wheel = [&box](ftxui::Mouse::Button button, int row) {
+    return ftxui::Event::Mouse("", ftxui::Mouse{.button = button,
+                                                .motion = ftxui::Mouse::Pressed,
+                                                .x = box.x_min + 1,
+                                                .y = box.y_min + row});
+  };
+
+  // Mouse wheel works anywhere on menu, and not only on rows with an entry
+  ASSERT_EQ(GetSelectedPlaylistEntry(), 0);
+
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, kEmptyRow)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelUp, kEmptyRow)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+
+  // But not on buttons below it
+  EXPECT_FALSE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, box.y_max - box.y_min + 1)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, MouseOnMenusAsksForFocus) {
   using interface::CustomEvent;
 

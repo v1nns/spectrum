@@ -344,6 +344,7 @@ class AudioEqualizer : public TabItem {
     Callback update_preset;  //!< Notify AudioVisualizer to update preset
 
     std::vector<ftxui::Box> boxes;  //!< Single box for each entry
+    ftxui::Box list_box;            //!< Box for list of presets (with its border)
     bool opened = false;            //!< Control if element is opened, to list all presets
 
     /**
@@ -413,7 +414,8 @@ class AudioEqualizer : public TabItem {
       ftxui::Element list = ftxui::vbox(entries) | ftxui::vscroll_indicator | ftxui::yframe |
                             ftxui::size(WIDTH, EQUAL, kPrefixColumns + kMaxWidth + kScrollColumns) |
                             ftxui::color(GetTheme().equalizer.text) | ftxui::border |
-                            ftxui::bgcolor(GetTheme().screen.background);
+                            ftxui::bgcolor(GetTheme().screen.background) |
+                            ftxui::reflect(list_box);
 
       // List uses only the columns it needs, instead of all the ones used by title
       return ftxui::vbox({
@@ -436,6 +438,26 @@ class AudioEqualizer : public TabItem {
       }
 
       return false;
+    }
+
+    /**
+     * @brief Close list of presets when mouse is clicked on anything else
+     * @param event Received event from screen
+     * @return true if list was closed, otherwise false
+     */
+    bool CloseOnClickOutside(ftxui::Event& event) {
+      const auto& mouse = event.mouse();
+
+      if (!opened || mouse.button != ftxui::Mouse::Left ||
+          mouse.motion != ftxui::Mouse::Released) {
+        return false;
+      }
+
+      // Title is the first box, and it is not part of list
+      if (boxes[0].Contain(mouse.x, mouse.y) || list_box.Contain(mouse.x, mouse.y)) return false;
+
+      Close();
+      return true;
     }
 
    private:
@@ -493,11 +515,14 @@ class AudioEqualizer : public TabItem {
           return false;
         }
 
-        // Select a new preset
+        // Select a new preset (list is not needed anymore, as preset was chosen)
         int offset = entry_focused - 1;
         if (presets[offset] != *preset_name) {
           update_preset(presets[offset]);
         }
+
+        Close();
+        return true;
       }
 
       // While closed, cycle through presets
@@ -546,7 +571,12 @@ class AudioEqualizer : public TabItem {
 
       if (opened) {
         update_index(IsFocused() ? entry_focused : entry_hovered);
+        return;
       }
+
+      // While closed, cycle through presets exactly like its keys
+      HandleActionKey(button == ftxui::Mouse::WheelUp ? keybinding::Navigation::ArrowUp
+                                                      : keybinding::Navigation::ArrowDown);
     }
 
     /**
@@ -565,13 +595,22 @@ class AudioEqualizer : public TabItem {
             }
           } else {
             // Otherwise, it is a click on preset, so fix offset and use it to update current preset
+            // (list is not needed anymore, as preset was chosen)
             --i;
             update_preset(presets[i]);
+            Close();
           }
           break;
         }
       }
     }
+
+    /**
+     * @brief Handles a mouse double click event, which is just another click here (otherwise, a
+     * click on preset right after opening list would be ignored)
+     * @param event Received event from screen
+     */
+    void HandleDoubleClick(ftxui::Event& event) override { HandleClick(event); }
 
     /**
      * @brief Handles a mouse hover event

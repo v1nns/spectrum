@@ -150,7 +150,8 @@ ftxui::Element FileMenu::RenderImpl() {
   }
 
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
+      // Box is the whole space for entries (even when empty), so mouse wheel works anywhere on it
+      ftxui::vbox(menu_entries) | ftxui::yframe | ftxui::flex | ftxui::reflect(Box()),
   };
 
   // Append search box, if enabled

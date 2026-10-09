@@ -109,8 +109,9 @@ ftxui::Element PlaylistMenu::RenderImpl() {
         "No playlists, press " + util::EventToString(keybinding::Playlist::Create) + " to create"));
   }
 
-  ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |
-                          ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex_grow};
+  // Box is the whole space for entries (even when empty), so mouse wheel works anywhere on it
+  ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::vscroll_indicator | ftxui::yframe |
+                          ftxui::yflex_grow | ftxui::reflect(Box())};
 
   // Append search box, if enabled
   if (IsSearchEnabled()) {
