@@ -201,11 +201,11 @@ Theme MakeTheme(const Palette& p) {
   theme.sidebar = Theme::Sidebar{
       .button =
           ButtonStates{
-              .normal = State{.foreground = p.base, .background = p.accent},
-              .focused = State{.foreground = p.base, .background = p.accent_alt},
-              .pressed = State{.foreground = p.accent_alt, .background = p.overlay},
-              .disabled = State{.foreground = p.muted, .background = p.surface},
-              .highlight = State{.foreground = p.highlight},
+              .normal = State{.foreground = p.muted},
+              .focused = State{.foreground = p.text},
+              .pressed = State{.foreground = p.accent},
+              .disabled = State{.foreground = p.overlay},
+              .highlight = State{.foreground = p.accent_alt},
           },
   };
 

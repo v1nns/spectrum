@@ -1242,7 +1242,7 @@ TEST_F(SidebarTest, EmptyPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1284,7 +1284,7 @@ TEST_F(SidebarTest, SinglePlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1339,7 +1339,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1369,7 +1369,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1401,7 +1401,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1468,7 +1468,7 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
 │                                    │
 │Search:lofi 2                       │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1582,7 +1582,7 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1647,7 +1647,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1676,7 +1676,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1705,7 +1705,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1770,7 +1770,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1799,7 +1799,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1828,7 +1828,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1899,7 +1899,7 @@ TEST_F(SidebarTest, ForceClickOnEmptyPlaylistWhileOnSearchMode) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2035,7 +2035,7 @@ TEST_F(SidebarTest, SaveNewPlaylistIntoFile) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2109,7 +2109,7 @@ TEST_F(SidebarTest, SaveExistentPlaylistIntoFile) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2188,7 +2188,7 @@ TEST_F(SidebarTest, DeleteExistentPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
         EXPECT_THAT(rendered, StrEq(expected));
@@ -2226,7 +2226,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2272,7 +2272,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2325,7 +2325,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2373,7 +2373,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2401,7 +2401,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2429,7 +2429,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2458,7 +2458,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

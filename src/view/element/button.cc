@@ -289,6 +289,38 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
 
 /* ********************************************************************************************** */
 
+std::shared_ptr<Button> Button::make_button_hint(const std::string& key, const std::string& content,
+                                                 const Callback& on_click, const Style& style) {
+  class HintButton : public Button {
+   public:
+    explicit HintButton(const Style& style, const std::string& key, const std::string& content,
+                        const Callback& on_click)
+        : Button(style, on_click, true), key_{key}, content_{" " + content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element RenderImpl() override {
+      const Style::State& colors = GetStateColors();
+
+      // Key only stands out while it does something
+      ftxui::Decorator key = enabled_ ? Foreground(GetColors().highlight.foreground) | ftxui::bold
+                                      : Foreground(colors.foreground);
+
+      return ftxui::hbox({
+                 ftxui::text(key_) | key,
+                 ftxui::text(content_) | Foreground(colors.foreground),
+             }) |
+             ftxui::reflect(box_);
+    }
+
+    std::string key_;
+    std::string content_;
+  };
+
+  return std::make_shared<HintButton>(style, key, content, on_click);
+}
+
+/* ********************************************************************************************** */
+
 std::shared_ptr<Button> Button::make_button_solid(const std::string& content,
                                                   const Callback& on_click, const Style& style,
                                                   bool active) {

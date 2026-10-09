@@ -14,7 +14,6 @@ namespace interface {
 
 Button::Style PlaylistViewer::kButtonStyle = Button::Style{
     .colors = [] { return GetTheme().sidebar.button; },
-    .delimiters = Button::Delimiters(" ", " "),
 };
 
 /* ********************************************************************************************** */
@@ -77,14 +76,19 @@ ftxui::Element PlaylistViewer::Render() {
 
   entries.push_back(menu_->Render() | ftxui::yflex_grow);
 
-  // Append all buttons at the bottom of the block
+  // Append all buttons at the bottom of the block, as hints for their keybindings
+  auto separator = [] {
+    return ftxui::text(std::string{kSeparator}) |
+           ftxui::color(GetTheme().sidebar.button.disabled.foreground);
+  };
+
   entries.push_back(ftxui::hbox({
       ftxui::filler(),
-      btn_create_->Render() | ftxui::bold,
-      ftxui::filler(),
-      btn_modify_->Render() | ftxui::bold,
-      ftxui::filler(),
-      btn_delete_->Render() | ftxui::bold,
+      btn_create_->Render(),
+      separator(),
+      btn_modify_->Render(),
+      separator(),
+      btn_delete_->Render(),
       ftxui::filler(),
   }));
 
@@ -208,8 +212,8 @@ std::vector<std::string> PlaylistViewer::GetPlaylistNames(std::optional<int> ski
 /* ********************************************************************************************** */
 
 void PlaylistViewer::CreateButtons() {
-  btn_create_ = Button::make_button(
-      "create",
+  btn_create_ = Button::make_button_hint(
+      "c", "create",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -230,10 +234,10 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle, "c");
+      kButtonStyle);
 
-  btn_modify_ = Button::make_button(
-      "modify",
+  btn_modify_ = Button::make_button_hint(
+      "o", "modify",
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -256,10 +260,10 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle, "o");
+      kButtonStyle);
 
-  btn_delete_ = Button::make_button(
-      "delete",
+  btn_delete_ = Button::make_button_hint(
+      "d", "delete",
       [this]() {
         auto dispatcher = dispatcher_.lock();
         const auto& entry = menu_->GetActiveEntry();
@@ -281,7 +285,7 @@ void PlaylistViewer::CreateButtons() {
 
         return true;
       },
-      kButtonStyle, "d");
+      kButtonStyle);
 
   // Start with them disabled, until we parse some playlist from cache file
   btn_modify_->Disable();
