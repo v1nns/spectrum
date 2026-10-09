@@ -730,6 +730,7 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
   shared_context_ = DecodingData{
       .time_base = input_stream_->streams[stream_index_]->time_base,
       .position = 0,
+      .seek_target = AV_NOPTS_VALUE,
       .packet{Packet(av_packet_alloc())},
       .frame_decoded{Frame(av_frame_alloc())},
       .frame_filtered{Frame(av_frame_alloc())},
@@ -772,6 +773,19 @@ error::Code FFmpeg::Decode(int samples, AudioCallback callback) {
 
       // Receive frames from decoder
       while (avcodec_receive_frame(decoder_.get(), frame) >= 0 && shared_context_.KeepDecoding()) {
+        // Seek may end in a position before the one asked for it (the closest one from where
+        // decoding is possible), so discard everything until reaching the position asked.
+        // Otherwise, song would be played from an earlier position (in some formats, even a
+        // whole second earlier, making a seek forward by a single second do nothing)
+        if (shared_context_.seek_target != AV_NOPTS_VALUE) {
+          if (packet->pts != AV_NOPTS_VALUE && packet->pts < shared_context_.seek_target) {
+            av_frame_unref(frame);
+            continue;
+          }
+
+          shared_context_.seek_target = AV_NOPTS_VALUE;
+        }
+
         // Note that AVPacket.pts is in AVStream.time_base units, not AVCodecContext.time_base units
         shared_context_.position = packet->pts / shared_context_.time_base.den;
 
@@ -988,6 +1002,8 @@ void FFmpeg::ProcessFrame(int samples, AudioCallback& callback, bool flush) {
     if (av_seek_frame(input_stream_.get(), stream_index_, target, AVSEEK_FLAG_BACKWARD) < 0) {
       ERROR("Cannot seek frame in song");
       shared_context_.err_code = error::kSeekFrameFailed;
+    } else {
+      shared_context_.seek_target = target;
     }
 
     // Filtergraph does not accept frames after end of stream, so it must be created again

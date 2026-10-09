@@ -235,6 +235,10 @@ class FFmpeg final : public audio::Decoder {
     AVRational time_base;  //!< Unit of time from input stream
     int64_t position;      //!< Current audio position
 
+    //! Timestamp asked by the last seek (in units from time base), kept only while samples before
+    //! it are being discarded
+    int64_t seek_target;
+
     Packet packet;         //!< Raw audio data read from input stream
     Frame frame_decoded;   //!< Frame received from decoder
     Frame frame_filtered;  //!< Frame received from filtergraph (to playback)

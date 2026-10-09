@@ -28,6 +28,7 @@ namespace interface {
 class MediaPlayer : public Block {
   static constexpr int kMaxRows = 4;         //!< Maximum rows for the Component
   static constexpr int kMarginColumns = 2;   //!< Empty columns on both sides of content
+  static constexpr int kSeekSeconds = 5;     //!< Seconds to seek forward or backward by a key
   static constexpr int kVolumeColumns = 10;  //!< Columns for line with volume level
 
   //! Time that a warning stays visible

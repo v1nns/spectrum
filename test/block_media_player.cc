@@ -1084,10 +1084,13 @@ TEST_F(MediaPlayerMouseTest, SeekWithKeyboard) {
   testing::Mock::VerifyAndClearExpectations(dispatcher.get());
   SetSongState(model::Song::MediaState::Play);
 
-  ExpectEvent(Identifier::SeekForwardPosition, 2);
+  // Both keys change position by the same number of seconds
+  constexpr int kSeekSeconds = 5;
+
+  ExpectEvent(Identifier::SeekForwardPosition, kSeekSeconds);
   EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('f')));
 
-  ExpectEvent(Identifier::SeekBackwardPosition, 1);
+  ExpectEvent(Identifier::SeekBackwardPosition, kSeekSeconds);
   EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('b')));
 }
 

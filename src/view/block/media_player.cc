@@ -593,8 +593,7 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
     LOG("Handle key to seek forward in current song");
     auto dispatcher = GetDispatcher();
 
-    // Since latest FFmpeg update, must increment by 2, instead of 1...
-    auto event_seek = interface::CustomEvent::SeekForwardPosition(2);
+    auto event_seek = interface::CustomEvent::SeekForwardPosition(kSeekSeconds);
     dispatcher->SendEvent(event_seek);
 
     return true;
@@ -605,7 +604,7 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
     LOG("Handle key to seek backward in current song");
     auto dispatcher = GetDispatcher();
 
-    auto event_seek = interface::CustomEvent::SeekBackwardPosition(1);
+    auto event_seek = interface::CustomEvent::SeekBackwardPosition(kSeekSeconds);
     dispatcher->SendEvent(event_seek);
 
     return true;
