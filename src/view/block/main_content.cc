@@ -174,6 +174,9 @@ int MainContent::GetBarWidth() {
 /* ********************************************************************************************** */
 
 bool MainContent::OnMouseEvent(ftxui::Event event) {
+  // Buttons are not rendered in fullscreen mode, so do not let user click on where they were
+  if (is_fullscreen_) return tab_elem_.active_item()->OnMouseEvent(event);
+
   if (btn_help_->OnMouseEvent(event)) return true;
 
   if (btn_exit_->OnMouseEvent(event)) return true;

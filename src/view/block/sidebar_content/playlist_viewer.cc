@@ -124,7 +124,12 @@ bool PlaylistViewer::OnEvent(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool PlaylistViewer::OnMouseEvent(ftxui::Event& event) {
-  if (menu_->OnMouseEvent(event)) return true;
+  if (menu_->OnMouseEvent(event)) {
+    // Set focus on parent block, so keys go to this list after clicking on it
+    if (on_focus_) on_focus_();
+
+    return true;
+  }
 
   if (btn_create_->OnMouseEvent(event)) return true;
   if (btn_delete_->OnMouseEvent(event)) return true;

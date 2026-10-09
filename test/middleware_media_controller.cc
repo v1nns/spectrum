@@ -1833,4 +1833,72 @@ TEST_F(TerminalTest, ToggleFullscreen) {
   EXPECT_THAT(Render(), ::testing::HasSubstr(" player "));
 }
 
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, MouseClickOnHiddenButtonsInFullscreen) {
+  using interface::CustomEvent;
+
+  // Render all blocks, to calculate position of each button on screen
+  ftxui::Screen screen(size.dimx, size.dimy);
+  ftxui::Render(screen, terminal->Render());
+
+  //! Create event for mouse click at the position where the given text is rendered
+  auto click_at = [&screen](const std::string& text) {
+    const std::vector<std::string> glyphs = ftxui::Utf8ToGlyphs(text);
+    const int length = static_cast<int>(glyphs.size());
+
+    for (int y = 0; y < screen.dimy(); y++) {
+      for (int x = 0; x + length <= screen.dimx(); x++) {
+        bool found = true;
+        for (int i = 0; i < length && found; i++) {
+          found = screen.PixelAt(x + i, y).character == glyphs[static_cast<size_t>(i)];
+        }
+
+        if (found) {
+          return ftxui::Event::Mouse("", ftxui::Mouse{.button = ftxui::Mouse::Left,
+                                                      .motion = ftxui::Mouse::Released,
+                                                      .x = x,
+                                                      .y = y});
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Text not found on screen: " << text;
+    return ftxui::Event::Custom;
+  };
+
+  const ftxui::Event click_equalizer = click_at("2:equalizer");
+  const ftxui::Event click_exit = click_at("X ");
+  const ftxui::Event click_play = click_at("▶   ■");
+
+  terminal->ProcessEvent(CustomEvent::ToggleFullscreen());
+  ASSERT_THAT(Render(), ::testing::Not(::testing::HasSubstr(" player ")));
+
+  // Buttons are not visible anymore, so clicking on where they were must not do anything
+  for (const auto& click : {click_equalizer, click_exit, click_play}) {
+    EXPECT_FALSE(Send(click));
+    HandlePendingEvents();
+  }
+
+  EXPECT_EQ(exit_count, 0);
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr("preset")));
+
+  // Back to normal, where they are visible again
+  terminal->ProcessEvent(CustomEvent::ToggleFullscreen());
+  ASSERT_THAT(Render(), ::testing::HasSubstr(" player "));
+
+  EXPECT_TRUE(Send(click_play));
+  HandlePendingEvents();
+  EXPECT_EQ(GetFocusedIndex(), kMediaPlayer);
+
+  EXPECT_TRUE(Send(click_equalizer));
+  HandlePendingEvents();
+  EXPECT_THAT(Render(), ::testing::HasSubstr("preset"));
+
+  EXPECT_TRUE(Send(click_exit));
+  HandlePendingEvents();
+  EXPECT_EQ(exit_count, 1);
+}
+
 }  // namespace

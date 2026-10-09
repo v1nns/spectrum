@@ -1250,6 +1250,69 @@ TEST_F(SidebarTest, MouseWheelOnMenus) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, MouseOnMenusAsksForFocus) {
+  using interface::CustomEvent;
+
+  auto sidebar = std::static_pointer_cast<interface::Block>(block);
+
+  auto focus_on_sidebar = [] {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::SetFocused),
+                 Field(&CustomEvent::content,
+                       VariantWith<model::BlockIdentifier>(model::BlockIdentifier::Sidebar)));
+  };
+
+  //! Create mouse event on the second entry from menu
+  auto mouse_at = [](const ftxui::Box& box, ftxui::Mouse::Button button,
+                     ftxui::Mouse::Motion motion) {
+    return ftxui::Event::Mouse(
+        "",
+        ftxui::Mouse{.button = button, .motion = motion, .x = box.x_min + 1, .y = box.y_min + 1});
+  };
+
+  // Simulate another block taking focus
+  sidebar->SetFocused(false);
+  ftxui::Render(*screen, block->Render());
+
+  // Clicking on a file must play it and also ask for focus, so keys go to this list afterwards
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::NotifyPlaylistSelection)));
+  EXPECT_CALL(*dispatcher, SendEvent(focus_on_sidebar()));
+
+  EXPECT_TRUE(block->OnEvent(
+      mouse_at(GetFilesMenuBox(), ftxui::Mouse::Left, ftxui::Mouse::Released)));
+  EXPECT_THAT(GetActiveFilename(), Eq("audio_lyric_finder.cc"));
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Show playlists (as block is focused while doing it, there is nothing to ask for)
+  const std::filesystem::path file{"/tmp/song.mp3"};
+
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  sidebar->SetFocused(true);
+  block->OnEvent(ftxui::Event::F2);
+
+  // And again, another block takes focus
+  sidebar->SetFocused(false);
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  // Same for mouse wheel on playlists
+  EXPECT_CALL(*dispatcher, SendEvent(focus_on_sidebar()));
+
+  EXPECT_TRUE(block->OnEvent(
+      mouse_at(GetPlaylistsMenuBox(), ftxui::Mouse::WheelDown, ftxui::Mouse::Pressed)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, EmptyPlaylist) {
   model::Playlists data{};
 

@@ -424,6 +424,9 @@ bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
   std::vector<ftxui::Component>::const_iterator first = children_.begin() + kBlockMainContent;
   std::vector<ftxui::Component>::const_iterator last = children_.end();
 
+  // Media player is not rendered, so it must not handle mouse events (only its keybindings)
+  if (event.is_mouse()) last = first + 1;
+
   if (bool event_handled = std::any_of(
           first, last, [&event](const ftxui::Component& child) { return child->OnEvent(event); });
       event_handled)
