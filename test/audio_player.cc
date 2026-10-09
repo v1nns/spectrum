@@ -23,6 +23,7 @@
 #include "model/application_error.h"
 #include "model/playlist.h"
 #include "model/stream_info.h"
+#include "model/volume.h"
 #include "util/logger.h"
 
 namespace {
@@ -3289,6 +3290,39 @@ TEST(CommandTest, CompareCommands) {
 
   EXPECT_TRUE(Command::Stop() == Command::Identifier::Stop);
   EXPECT_TRUE(Command::Stop() != Command::Identifier::Play);
+}
+
+/* ********************************************************************************************** */
+
+TEST(VolumeTest, ConvertToDecibels) {
+  // Maximum volume is reduced only by the reference level (so it is not the full scale)
+  EXPECT_EQ(model::to_string_db(model::Volume{1.F}), "-6.00dB");
+
+  // Amplitude follows the cube of volume level, so 60 dB are reduced when it is divided by ten
+  EXPECT_EQ(model::to_string_db(model::Volume{0.5F}), "-24.06dB");
+  EXPECT_EQ(model::to_string_db(model::Volume{0.25F}), "-42.12dB");
+  EXPECT_EQ(model::to_string_db(model::Volume{0.1F}), "-66.00dB");
+  EXPECT_EQ(model::to_string_db(model::Volume{0.01F}), "-126.00dB");
+
+  // Each step in volume level changes loudness more smoothly than a linear amplitude would
+  model::Volume volume{0.5F};
+  EXPECT_EQ(model::to_string_db(--volume), "-26.81dB");
+  EXPECT_EQ(model::to_string_db(++volume), "-24.06dB");
+
+  // Gain is added to it (e.g. what was attenuated before equalization)
+  EXPECT_EQ(model::to_string_db(model::Volume{1.F}, model::kVolumeReference), "0.00dB");
+  EXPECT_EQ(model::to_string_db(model::Volume{0.5F}, 3.F), "-21.06dB");
+
+  // Nothing is heard without any volume, or when it is muted
+  EXPECT_EQ(model::to_string_db(model::Volume{0.F}), "-100dB");
+
+  model::Volume muted{0.5F};
+  muted.ToggleMute();
+  EXPECT_EQ(model::to_string_db(muted), "-100dB");
+
+  // And it is the same volume as before when it is not muted anymore
+  muted.ToggleMute();
+  EXPECT_EQ(model::to_string_db(muted), "-24.06dB");
 }
 
 }  // namespace

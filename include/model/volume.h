@@ -101,6 +101,11 @@ inline std::string to_string(const Volume& arg) {
 //! Level (in decibels) reduced from any volume, so maximum volume is not the full scale
 static constexpr float kVolumeReference = 6.0F;
 
+//! Decibels reduced each time that volume level is divided by ten. As amplitude follows the cube of
+//! volume level (the same curve used by sound servers, like PipeWire and PulseAudio), steps in the
+//! volume level are perceived as steps of about the same size in loudness
+static constexpr float kVolumeDecibelsPerDecade = 60.0F;
+
 /**
  * @brief Convert Volume to decibel scale for FFmpeg
  * @param arg Volume struct
@@ -115,7 +120,7 @@ inline std::string to_string_db(const Volume& arg, float gain = 0.0F) {
 
   // Apply -6dB reference adjustment to match streaming service loudness normalization
   // This compensates for hot-mastered tracks and provides more reasonable volume range
-  float db = 20.0f * log10f(linear) - kVolumeReference + gain;
+  float db = kVolumeDecibelsPerDecade * log10f(linear) - kVolumeReference + gain;
 
   std::ostringstream ss;
   ss << std::fixed << std::setprecision(2) << db << "dB";
