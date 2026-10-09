@@ -170,7 +170,7 @@ TEST_F(MainContentTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -205,7 +205,7 @@ TEST_F(MainContentTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                            ▇▇ ▇▇                                            │
 │                                         ▆▆ ██ ██ ▆▆                                         │
 │                                      ▅▅ ██ ██ ██ ██ ▅▅                                      │
@@ -278,7 +278,7 @@ TEST_F(MainContentTest, AnimationSpectrumLine) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -319,7 +319,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineMirror) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                   ⣀⣀                                                                        │
 │               ⣀⡤⠖⠋⠁⠈⠙⠲⢤⣀                                                                    │
 │            ⢀⡤⠞⠁        ⠈⠳⢤⡀                                 ⢀⣀⣀⣀⣀                           │
@@ -360,7 +360,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -392,7 +392,7 @@ TEST_F(MainContentTest, PickAnimationWithPreview) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │╭ animation ─────────────────────╮                                                           │
 ││▶ Horizontal mirror             │                                                           │
 ││  Vertical mirror               │                                                           │
@@ -609,7 +609,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilledMirror) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                   ▄▖                                                                        │
 │               ▄▄█████▙▄▖                                                                    │
 │            ▗▄███████████▙▄                                  ▗▄▄▄▖                           │
@@ -658,7 +658,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
 
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁                    │
 │                                                  ▂▂ ▄▄ ▇▇ ██ ██ ██ ██ ██ ▇▇ ▄▄ ▂▂           │
 │                                         ▃▃ ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▅▅ ▃▃  │
@@ -713,7 +713,7 @@ TEST_F(MainContentTest, AnimationMono) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                 ▆▆                          │
 │                                                              ▄▄ ██ ▄▄                       │
@@ -748,7 +748,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -791,7 +791,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -831,7 +831,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -960,7 +960,7 @@ TEST_F(MainContentTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1200,7 +1200,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1234,7 +1234,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1272,7 +1272,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1306,7 +1306,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Custom                                                           [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1345,7 +1345,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Electronic                                                       [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1473,7 +1473,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Pop                                                              [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1509,7 +1509,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Pop                                                              [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1554,7 +1554,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Rock                                                             [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1589,7 +1589,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Rock                                                             [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1646,7 +1646,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1686,7 +1686,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Electronic                                                       [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1722,7 +1722,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Custom                                                           [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1752,7 +1752,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1810,7 +1810,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1838,7 +1838,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1897,7 +1897,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1925,7 +1925,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1987,7 +1987,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2015,7 +2015,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2214,7 +2214,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2244,7 +2244,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2399,7 +2399,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -2431,7 +2431,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                 Feels like I'm dreaming                                     │
 │                                 Like I'm walking                                            │
 │                                 Walking by your side                                        │
@@ -2459,7 +2459,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                 If you want me                                              │
 │                                 If you need me                                              │
@@ -2487,7 +2487,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -2552,7 +2552,7 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2638,7 +2638,7 @@ TEST_F(MockMainContentTest, CheckFocus) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │

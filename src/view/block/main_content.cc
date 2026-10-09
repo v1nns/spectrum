@@ -193,7 +193,7 @@ bool MainContent::OnMouseEvent(ftxui::Event event) {
 void MainContent::CreateButtons() {
   const auto button_style = Button::Style{
       .colors = [] { return GetTheme().block.window_button; },
-      .delimiters = Button::Delimiters{"[", "]"},
+      .delimiters = Button::Delimiters{" ", " "},
   };
 
   btn_help_ = Button::make_button_for_window(

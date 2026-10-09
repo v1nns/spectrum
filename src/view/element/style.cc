@@ -178,6 +178,7 @@ Theme MakeTheme(const Palette& p) {
           },
       .window_button =
           ButtonStates{
+              .normal = State{.foreground = p.muted},
               .focused = State{.foreground = p.subtext, .background = p.surface},
               .pressed = State{.foreground = p.text, .background = p.overlay},
           },
