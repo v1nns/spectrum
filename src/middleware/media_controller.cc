@@ -357,6 +357,24 @@ void MediaController::SetShuffle(bool enabled) {
 
 /* ********************************************************************************************** */
 
+void MediaController::SetAudioDevice(const std::string& device) {
+  auto player = GetPlayer();
+  if (!player) return;
+
+  player->SetAudioDevice(device);
+}
+
+/* ********************************************************************************************** */
+
+model::AudioDevices MediaController::GetAudioDevices() {
+  auto player = GetPlayer();
+  if (!player) return {};
+
+  return player->GetAudioDevices();
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ClearSongInformation(bool playing) {
   if (playing) sync_data_.Push(Command::RunClearAnimation);
 
@@ -367,6 +385,7 @@ void MediaController::ClearSongInformation(bool playing) {
     status.title.clear();
     status.position = 0;
     status.duration = 0;
+    status.output.reset();
   });
 
   auto dispatcher = GetDispatcher();
@@ -409,12 +428,17 @@ void MediaController::NotifySongInformation(const model::Song& info) {
 /* ********************************************************************************************** */
 
 void MediaController::NotifySongState(const model::Song::CurrentInformation& curr_info) {
-  UpdateStatus([&curr_info](model::PlayerStatus& status) {
+  // Song may be notified as paused more than once (when its position is changed while paused)
+  bool already_paused = false;
+
+  UpdateStatus([&curr_info, &already_paused](model::PlayerStatus& status) {
+    already_paused = status.state == model::Song::MediaState::Pause;
+
     status.state = curr_info.state;
     status.position = curr_info.position;
   });
 
-  if (curr_info.state == model::Song::MediaState::Pause ||
+  if ((curr_info.state == model::Song::MediaState::Pause && !already_paused) ||
       curr_info.state == model::Song::MediaState::Finished) {
     // Enqueue animation to thread
     sync_data_.Push(Command::RunClearAnimation);
@@ -448,6 +472,18 @@ void MediaController::NotifyError(error::Code code, const std::string& detail) {
 
 /* ********************************************************************************************** */
 
+void MediaController::NotifyAudioOutput(const model::AudioOutput& output) {
+  UpdateStatus([&output](model::PlayerStatus& status) { status.output = output; });
+
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  // Notify all blocks with audio output used to play current song
+  dispatcher->SendEvent(interface::CustomEvent::UpdateAudioOutput(output));
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
@@ -457,6 +493,10 @@ void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
   std::vector<double> bars(data);
 
   for (double i = 0; i < 80; i++) {
+    // Number of bars may be changed in the meantime (e.g. terminal is resized), and these bars
+    // are not the ones expected by UI anymore, so just cancel animation
+    if (static_cast<int>(bars.size()) != analyzer_->GetOutputSize()) break;
+
     // Each time this loop is executed, it will reduce spectrum bar values to 75% based on its
     // previous values (this value was decided based on feeling :P)
     std::transform(bars.begin(), bars.end(), bars.begin(), [](double x) {
@@ -474,7 +514,8 @@ void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
     if (bool exit_animation = sync_data_.WaitForCommandOrUntil(timeout); exit_animation) break;
   }
 
-  bars = std::vector(data.size(), 0.001);
+  // Always finish with the number of bars currently expected by UI
+  bars = std::vector(static_cast<size_t>(analyzer_->GetOutputSize()), 0.001);
   auto event = interface::CustomEvent::DrawAudioSpectrum(bars);
   dispatcher->SendEvent(event);
 }
@@ -492,6 +533,10 @@ void MediaController::ProcessRegainAnimation(const std::vector<double>& data) {
   bars.reserve(data.size());
 
   for (double i = 1; i <= kStep; i++) {
+    // Number of bars may be changed while song was paused (e.g. terminal is resized), and these
+    // bars are not the ones expected by UI anymore, so just skip animation
+    if (static_cast<int>(data.size()) != analyzer_->GetOutputSize()) break;
+
     // Each time this loop is executed, it will increase spectrum bar values in a step of 1/20
     // based on its previous values (this value was also decided based on feeling)
     for (const auto& value : data) bars.push_back(value * (i / kStep));

@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 
+#include "model/audio_output.h"
 #include "model/repeat_mode.h"
 #include "model/song.h"
 #include "model/volume.h"
@@ -27,6 +28,9 @@ struct PlayerStatus {
 
   uint32_t position = 0;  //!< Current position (in seconds) of the audio
   uint32_t duration = 0;  //!< Audio duration (in seconds)
+
+  //! Output device and format of audio samples sent to it (nothing without a song)
+  std::optional<AudioOutput> output;
 
   Volume volume;                        //!< General sound volume
   RepeatMode repeat = RepeatMode::Off;  //!< Repeat mode for songs from queue

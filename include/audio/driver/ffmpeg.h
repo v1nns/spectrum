@@ -66,11 +66,15 @@ class FFmpeg final : public audio::Decoder {
 
   //! These are ffmpeg-specific filters
   error::Code CreateFilterAbufferSrc();
-  error::Code CreateFilterVolume();
-  error::Code CreateFilterAformat(const char* name);
+  error::Code CreateFilterVolume(const char* name, const std::string& value);
+  error::Code CreateFilterAformat(const char* name, int sample_rate, AVSampleFormat sample_format);
   error::Code CreateFilterAsplit();
   error::Code CreateFilterAbufferSink(const char* name);
   error::Code CreateFilterEqualizer(const std::string& name, const model::AudioFilter& filter);
+
+  //! Get value for volume filter from playback, which also gives back what was attenuated before
+  //! equalization filters (limited to what is always reduced from volume, to never amplify audio)
+  std::string GetPlaybackVolume() const;
 
   /**
    * @brief Connect all filters created in the filtergraph as a linear chain
@@ -88,6 +92,13 @@ class FFmpeg final : public audio::Decoder {
    */
   void FillAudioInformation(model::Song& audio_info);
 
+  /**
+   * @brief Check if audio stream being decoded is the only content from input (ignoring pictures
+   * attached to it, like an album cover)
+   * @return true if there is no other stream (like video or another audio), false otherwise
+   */
+  bool IsOnlyAudioStream() const;
+
   /* ******************************************************************************************** */
  public:
   /**
@@ -96,6 +107,16 @@ class FFmpeg final : public audio::Decoder {
    * @return error::Code Application error code
    */
   error::Code Open(model::Song& audio_info) override;
+
+  /**
+   * @brief Set format of audio samples sent to playback, creating the filter chain to convert
+   * decoded audio to it (so it must be informed after opening song and before decoding it). When
+   * it is changed while decoding, filter chain is created again before processing the next frame,
+   * and samples in the previous format are not sent anymore
+   * @param format Format of audio samples expected by playback
+   * @return error::Code Application error code
+   */
+  error::Code SetOutputFormat(const model::AudioFormat& format) override;
 
   /**
    * @brief Decode and resample input stream to desired sample format/rate
@@ -179,9 +200,11 @@ class FFmpeg final : public audio::Decoder {
   /* ******************************************************************************************** */
   //! Default Constants
 
-  static constexpr int kChannels = 2;                                 //!< Output number of channels
-  static constexpr int kSampleRate = 44100;                           //!< Output sample rate
-  static constexpr AVSampleFormat kSampleFormat = AV_SAMPLE_FMT_S16;  //!< Output sample format
+  static constexpr int kChannels = 2;  //!< Output number of channels (playback and analysis)
+
+  //! Format of samples sent to analysis (always the same one, no matter the output format)
+  static constexpr int kAnalysisSampleRate = 44100;
+  static constexpr AVSampleFormat kAnalysisSampleFormat = AV_SAMPLE_FMT_S16;
 
   //! All filters used from AVFilter library
   static constexpr char kFilterAbufferSrc[] = "abuffer";
@@ -191,14 +214,18 @@ class FFmpeg final : public audio::Decoder {
   static constexpr char kFilterAbufferSink[] = "abuffersink";
   static constexpr char kFilterAsplit[] = "asplit";
 
-  //! Names for filter instances that exist in both branches from filtergraph (playback/analysis)
+  //! Names for filter instances that exist in both branches from filtergraph (playback/analysis),
+  //! or more than once in it. They must not be the name of any filter from AVFilter library, as a
+  //! command sent to a filter instance is also received by instances of the filter with that name
+  static constexpr char kVolumePreamp[] = "preamp";
+  static constexpr char kVolumePlayback[] = "volume_playback";
   static constexpr char kAformatPlayback[] = "aformat";
   static constexpr char kAformatAnalysis[] = "aformat_analysis";
   static constexpr char kSinkPlayback[] = "sink";
   static constexpr char kSinkAnalysis[] = "sink_analysis";
 
   static constexpr int kDefaultFilterCount =
-      3;  //!< Number of filters in the main chain without considering equalizer filters
+      4;  //!< Number of filters in the main chain without considering equalizer filters
   static constexpr int kResponseSize = 64;  //!< Response message size from AVFilter command
 
   /* ******************************************************************************************** */
@@ -211,6 +238,10 @@ class FFmpeg final : public audio::Decoder {
     AVRational time_base;  //!< Unit of time from input stream
     int64_t position;      //!< Current audio position
 
+    //! Timestamp asked by the last seek (in units from time base), kept only while samples before
+    //! it are being discarded
+    int64_t seek_target;
+
     Packet packet;         //!< Raw audio data read from input stream
     Frame frame_decoded;   //!< Frame received from decoder
     Frame frame_filtered;  //!< Frame received from filtergraph (to playback)
@@ -219,6 +250,7 @@ class FFmpeg final : public audio::Decoder {
     error::Code err_code;  //!< Error code for decoding and equalizing audio
     bool keep_playing;     //!< Control flag for playing audio
     bool reset_filters;    //!< Control flag for resetting filter graph
+    bool format_changed;   //!< Samples from current filter graph are not in output format anymore
 
     /**
      * @brief Clear packet content
@@ -255,8 +287,21 @@ class FFmpeg final : public audio::Decoder {
    *
    * @param samples Maximum number of samples to send to Audio Player API callback
    * @param callback Audio Player API callback
+   * @param flush Signal end of stream to filtergraph (instead of sending decoded frame), to pull
+   * the last samples from it
    */
-  void ProcessFrame(int samples, AudioCallback& callback);
+  void ProcessFrame(int samples, AudioCallback& callback, bool flush = false);
+
+  /**
+   * @brief Flush frames still buffered by decoder and filtergraph after reaching the end of input
+   * stream, sending them to Player API callback
+   *
+   * @param samples Maximum number of samples to send to Audio Player API callback
+   * @param callback Audio Player API callback
+   * @return true if song position has changed while flushing (so decoding must be resumed), false
+   * otherwise
+   */
+  bool Flush(int samples, AudioCallback& callback);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -287,7 +332,13 @@ class FFmpeg final : public audio::Decoder {
   using FilterName = std::string;
   std::map<FilterName, model::AudioFilter, std::less<>> audio_filters_;  //!< Equalization filters
 
+  //! Highest gain (in decibels) that equalization filters apply to any frequency. Audio is
+  //! attenuated by it before these filters, otherwise it could be clipped by them
+  double equalizer_peak_ = 0;
+
   DecodingData shared_context_;  //!< Shared context for decoding and equalizing audio data
+
+  model::AudioFormat output_format_;  //!< Format of audio samples sent to playback
 };
 
 }  // namespace driver

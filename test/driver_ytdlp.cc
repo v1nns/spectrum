@@ -19,8 +19,11 @@
 
 namespace {
 
+using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::StrEq;
 
 /**
@@ -125,12 +128,36 @@ TEST_F(YtDlpWrapperTest, FillStreamInfoWithMissingFields) {
   ASSERT_TRUE(song.stream_info.has_value());
   EXPECT_THAT(song.num_channels, Eq(2));
   EXPECT_THAT(song.duration, Eq(212));
+  EXPECT_THAT(song.bit_rate, Eq(0));
   EXPECT_THAT(song.stream_info->codec, StrEq("m3u8_native"));
   EXPECT_THAT(song.stream_info->extension, IsEmpty());
   EXPECT_THAT(song.stream_info->filesize, Eq(0));
   EXPECT_THAT(song.stream_info->streaming_url, StrEq("https://stream"));
   EXPECT_THAT(song.stream_info->base_url, StrEq("https://youtu.be/dQw4w9WgXcQ"));
   EXPECT_THAT(song.stream_info->http_header.size(), Eq(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, FillStreamInfoWithAudioBitRate) {
+  // Bit rate is informed in kbps (and codec like Opus does not inform it in its own stream)
+  auto entry = nlohmann::json::parse(R"({
+    "format_id": "251", "url": "https://stream", "protocol": "https", "acodec": "opus",
+    "audio_ext": "webm", "audio_channels": 2, "abr": 128.956
+  })");
+
+  model::Song song{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/dQw4w9WgXcQ"}};
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.bit_rate, Eq(128956));
+  EXPECT_THAT(song.stream_info->codec, StrEq("opus"));
+
+  // Value with unexpected type is not used
+  entry["abr"] = "high";
+  song.bit_rate = 0;
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.bit_rate, Eq(0));
 }
 
 /* ********************************************************************************************** */
@@ -337,6 +364,9 @@ class YtDlpProgramTest : public ::testing::Test {
   }
 
   void TearDown() override {
+    // It is shared by all instances, so do not let it change any other test
+    driver::YtDlpWrapper::SetCookiesFromBrowser("");
+
     if (original_path.has_value()) {
       setenv("PATH", original_path->c_str(), 1);
     } else {
@@ -352,6 +382,34 @@ class YtDlpProgramTest : public ::testing::Test {
 
     std::ofstream(program) << "#!/bin/sh\n" << script << "\n";
     std::filesystem::permissions(program, std::filesystem::perms::owner_all);
+  }
+
+  //! Create script that writes its arguments to a file (one line per execution), and then only
+  //! prints information when it is asked to read cookies from browser. Otherwise, it fails just
+  //! like when site refuses the request (and also when the given text is among its arguments)
+  void InstallProgramRefusedWithoutCookies(const std::string& failure = "",
+                                           const std::string& failed_by = "nothing") const {
+    InstallProgram("echo \"$*\" >> " + (dir / "calls").string() + R"sh(
+case "$*" in
+  *)sh" + failed_by +
+                   R"sh(*) echo "ERROR: )sh" + failure + R"sh(" >&2; exit 1 ;;
+  *--flat-playlist*--cookies-from-browser*) printf '%s' '{"title": "So be it", "entries": []}' ;;
+  *--cookies-from-browser*) printf '%s' '{
+  "title": "Clipse - So Be It", "duration": 212,
+  "formats": [{"format_id": "251", "url": "https://best", "protocol": "https",
+               "resolution": "audio only", "abr": 128, "acodec": "opus"}]
+}' ;;
+  *) echo "ERROR: [youtube] id: Sign in to confirm you’re not a bot. Use" >&2; exit 1 ;;
+esac)sh");
+  }
+
+  //! Get arguments from every execution of the script above
+  std::vector<std::string> GetCalls() const {
+    std::vector<std::string> calls;
+    std::ifstream file(dir / "calls");
+
+    for (std::string line; std::getline(file, line);) calls.push_back(line);
+    return calls;
   }
 
   //! Create song with only its URL, as it is before extracting information
@@ -432,6 +490,119 @@ printf '%s' '{
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpProgramTest, KeepInfoWhileStreamingUrlIsValid) {
+  const std::string calls = (dir / "calls").string();
+
+  // Program informs a streaming URL with the given parameters, and each execution is counted
+  auto install = [&](const std::string& parameters) {
+    InstallProgram("echo run >> " + calls + R"sh(
+printf '%s' '{
+  "title": "Clipse - So Be It", "duration": 212,
+  "formats": [
+    {"format_id": "251", "url": "https://stream/audio?)sh" +
+                   parameters + R"sh(", "protocol": "https", "resolution": "audio only",
+     "abr": 128, "acodec": "opus", "audio_channels": 2}
+  ]
+}')sh");
+  };
+
+  auto executions = [&]() {
+    std::ifstream file(calls);
+    int count = 0;
+    for (std::string line; std::getline(file, line);) count++;
+    return count;
+  };
+
+  // Streaming URL is valid for a long time (it expires in the year 3000)
+  install("expire=32503680000&id=1");
+
+  model::Song first = CreateSong();
+  ASSERT_EQ(wrapper.ExtractInfo(first), error::kSuccess);
+  EXPECT_EQ(executions(), 1);
+
+  // So the same song is not fetched again, and it gets the same information
+  model::Song second = CreateSong();
+  ASSERT_EQ(wrapper.ExtractInfo(second), error::kSuccess);
+  EXPECT_EQ(executions(), 1);
+
+  EXPECT_THAT(second.artist, StrEq("Clipse"));
+  EXPECT_THAT(second.title, StrEq("So Be It"));
+  EXPECT_THAT(second.duration, Eq(212));
+  EXPECT_THAT(second.bit_rate, Eq(128000));
+  ASSERT_TRUE(second.stream_info.has_value());
+  EXPECT_EQ(*second.stream_info, *first.stream_info);
+
+  // But any other song is fetched
+  model::Song other{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/other"}};
+  ASSERT_EQ(wrapper.ExtractInfo(other), error::kSuccess);
+  EXPECT_EQ(executions(), 2);
+
+  // Information kept is forgotten when asked (e.g. streaming URL was not accepted), and caller is
+  // informed that it was not fetched by the last call, so it is worth to fetch it again
+  EXPECT_TRUE(wrapper.Forget(second));
+  ASSERT_EQ(wrapper.ExtractInfo(second), error::kSuccess);
+  EXPECT_EQ(executions(), 3);
+
+  // While there is no reason to fetch again what has just been fetched (or what is not kept)
+  EXPECT_FALSE(wrapper.Forget(second));
+  EXPECT_FALSE(wrapper.Forget(second));
+  EXPECT_FALSE(wrapper.Forget(model::Song{}));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, FetchInfoAgainWhenStreamingUrlCannotBeReused) {
+  const std::string calls = (dir / "calls").string();
+
+  auto install = [&](const std::string& parameters) {
+    InstallProgram("echo run >> " + calls + R"sh(
+printf '%s' '{
+  "title": "Clipse - So Be It", "duration": 212,
+  "formats": [
+    {"format_id": "251", "url": "https://stream/audio)sh" +
+                   parameters + R"sh(", "protocol": "https", "resolution": "audio only"}
+  ]
+}')sh");
+  };
+
+  auto executions = [&]() {
+    std::ifstream file(calls);
+    int count = 0;
+    for (std::string line; std::getline(file, line);) count++;
+    return count;
+  };
+
+  model::Song song = CreateSong();
+  int expected = 0;
+
+  // Streaming URL already expired, will expire before song is played until its end (as it expires
+  // right now), does not inform when it expires, or informs something that is not a moment
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+
+  for (const std::string& parameters :
+       {std::string{"?expire=1000"}, "?expire=" + std::to_string(now + 60), std::string{"?id=1"},
+        std::string{"?expire=abc"}, std::string{"?expire=99999999999999999999"}}) {
+    install(parameters);
+
+    ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess) << parameters;
+    EXPECT_EQ(executions(), ++expected) << parameters;
+
+    ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess) << parameters;
+    EXPECT_EQ(executions(), ++expected) << parameters;
+  }
+
+  // Moment is also informed as part of the path (e.g. playlist for HLS streams)
+  install("/expire/32503680000/playlist.m3u8");
+
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+  EXPECT_EQ(executions(), expected + 1);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(YtDlpProgramTest, ExtractInfoFails) {
   // Song without any URL, program is not even executed
   model::Song empty;
@@ -440,11 +611,28 @@ TEST_F(YtDlpProgramTest, ExtractInfoFails) {
   empty.stream_info = model::StreamInfo{};
   EXPECT_EQ(wrapper.ExtractInfo(empty), error::kStreamFetchFailed);
 
-  // Program fails (e.g. video is not available)
-  InstallProgram(R"sh(echo "ERROR: Video unavailable" >&2; exit 1)sh");
+  // Program fails for a reason that is not known
+  InstallProgram(R"sh(echo "ERROR: Something went wrong" >&2; exit 1)sh");
 
   model::Song song = CreateSong();
   EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamFetchFailed);
+
+  // Video is not available anymore
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube] id: Video unavailable. This video is not available" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamUnavailable);
+
+  InstallProgram(R"sh(echo "ERROR: [youtube] id: Private video. Sign in if you" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamUnavailable);
+
+  // Site is refusing requests (and it asks for a login to prove that it is not a bot)
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube] id: Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlocked);
+
+  InstallProgram(
+      R"sh(echo "ERROR: Unable to download webpage: HTTP Error 429: Too Many Requests" >&2; exit 1)sh");
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlocked);
 
   // Program prints something that is not the expected information
   InstallProgram("echo unexpected");
@@ -493,9 +681,18 @@ printf '%s' '{
 TEST_F(YtDlpProgramTest, ExtractPlaylistFails) {
   std::vector<model::Song> songs{CreateSong()};
 
-  // Program fails (e.g. playlist is private)
-  InstallProgram(R"sh(echo "ERROR: The playlist does not exist" >&2; exit 1)sh");
+  // Program fails for a reason that is not known
+  InstallProgram(R"sh(echo "ERROR: Something went wrong" >&2; exit 1)sh");
   EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamFetchFailed);
+
+  // Playlist is not available (e.g. it is private)
+  InstallProgram(R"sh(echo "ERROR: The playlist does not exist" >&2; exit 1)sh");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamUnavailable);
+
+  // Site is refusing requests
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube:tab] Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kStreamBlocked);
 
   // Program prints something that is not a playlist
   InstallProgram("echo unexpected");
@@ -512,6 +709,94 @@ TEST_F(YtDlpProgramTest, ExtractPlaylistFails) {
 
   // List of songs is not changed by any of them
   EXPECT_THAT(songs.size(), Eq(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, SendCookiesOnlyAfterRequestIsRefused) {
+  InstallProgramRefusedWithoutCookies();
+
+  // Without any browser to read cookies from, request is refused and nothing else is tried
+  model::Song song = CreateSong();
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlocked);
+  EXPECT_THAT(GetCalls(), ElementsAre("--dump-single-json --no-playlist --no-warnings -- " +
+                                      std::string{kSongUrl}));
+
+  // With a browser, program is executed once more to send cookies (browser as a single argument)
+  driver::YtDlpWrapper::SetCookiesFromBrowser("firefox:my music");
+  ASSERT_EQ(wrapper.ExtractInfo(song), error::kSuccess);
+  EXPECT_THAT(song.title, StrEq("So Be It"));
+
+  const std::string cookies = " --cookies-from-browser firefox:my music -- ";
+  auto calls = GetCalls();
+  ASSERT_THAT(calls.size(), Eq(3));
+  EXPECT_THAT(calls[1], StrEq(calls[0]));
+  EXPECT_THAT(calls[2],
+              StrEq("--dump-single-json --no-playlist --no-warnings" + cookies + kSongUrl));
+
+  // From then on, cookies are sent by every request (even by the ones from another instance)
+  model::Song other{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/other"}};
+  ASSERT_EQ(driver::YtDlpWrapper{}.ExtractInfo(other), error::kSuccess);
+
+  std::vector<model::Song> songs;
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kSuccess);
+
+  calls = GetCalls();
+  ASSERT_THAT(calls.size(), Eq(5));
+  EXPECT_THAT(calls[3], HasSubstr(cookies + "https://youtu.be/other"));
+  EXPECT_THAT(calls[4],
+              StrEq("--flat-playlist --dump-single-json --no-warnings" + cookies + kPlaylistUrl));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, RequestIsRefusedEvenWithCookies) {
+  InstallProgramRefusedWithoutCookies("[youtube] id: Sign in to confirm you’re not a bot. Use",
+                                      "firefox");
+  driver::YtDlpWrapper::SetCookiesFromBrowser("firefox");
+
+  // User is informed that cookies did not help (so there is no reason to suggest them)
+  model::Song song = CreateSong();
+  EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamBlockedWithCookies);
+  EXPECT_THAT(GetCalls().size(), Eq(2));
+
+  // And they keep being sent, as request without them was refused
+  std::vector<model::Song> songs;
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs),
+            error::kStreamBlockedWithCookies);
+  EXPECT_THAT(GetCalls().size(), Eq(3));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, CookiesCannotBeRead) {
+  // Each reason printed by program when it cannot read cookies from the given browser
+  const std::vector<std::pair<std::string, std::string>> failures{
+      {"firefox:nobody", "could not find firefox cookies database in '/home/user/.mozilla'"},
+      {"netscape", "unsupported browser specified for cookies: \\\"netscape\\\". Supported"},
+      {"chrome", "failed to load cookies"},
+  };
+
+  for (const auto& [browser, failure] : failures) {
+    std::filesystem::remove(dir / "calls");
+
+    InstallProgramRefusedWithoutCookies(failure, browser);
+    driver::YtDlpWrapper::SetCookiesFromBrowser(browser);
+
+    model::Song song = CreateSong();
+    EXPECT_EQ(wrapper.ExtractInfo(song), error::kStreamCookiesFailed) << browser;
+    EXPECT_THAT(GetCalls().size(), Eq(2));
+
+    // Next request is sent without cookies again, as it may not be refused anymore
+    std::vector<model::Song> songs;
+    EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs),
+              error::kStreamCookiesFailed);
+
+    auto calls = GetCalls();
+    ASSERT_THAT(calls.size(), Eq(4));
+    EXPECT_THAT(calls[2], Not(HasSubstr("--cookies-from-browser")));
+    EXPECT_THAT(calls[3], HasSubstr("--cookies-from-browser " + browser));
+  }
 }
 
 }  // namespace

@@ -19,6 +19,9 @@ constexpr char kFieldVolume[] = "volume";
 constexpr char kFieldMuted[] = "muted";
 constexpr char kFieldRepeat[] = "repeat";
 constexpr char kFieldShuffle[] = "shuffle";
+constexpr char kFieldOutputDevice[] = "output_device";
+constexpr char kFieldOutputSampleRate[] = "output_sample_rate";
+constexpr char kFieldOutputBitDepth[] = "output_bit_depth";
 
 //! Delimiters for a field name in the text to format
 constexpr char kFieldBegin = '{';
@@ -73,6 +76,11 @@ std::string to_json(const PlayerStatus& status) {
   json[kFieldMuted] = status.volume.IsMuted();
   json[kFieldRepeat] = GetRepeatModeName(status.repeat);
   json[kFieldShuffle] = status.shuffle;
+
+  // Without a song, there is no output in use (so these fields are empty, as the ones from song)
+  json[kFieldOutputDevice] = status.output ? status.output->device : "";
+  json[kFieldOutputSampleRate] = status.output ? status.output->format.sample_rate : 0U;
+  json[kFieldOutputBitDepth] = status.output ? status.output->format.GetBitDepth() : 0U;
 
   // Metadata from song may contain invalid text, which is replaced instead of throwing an error
   return json.dump(kNoIndentation, ' ', /*ensure_ascii=*/false,

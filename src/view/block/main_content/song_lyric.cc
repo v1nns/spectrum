@@ -57,7 +57,7 @@ ftxui::Element SongLyric::Render() {
     return DrawFailure();
   }
 
-  return DrawSongLyrics(lyrics_);
+  return DrawSongLyrics(lyrics_) | ftxui::reflect(box_);
 }
 
 /* ********************************************************************************************** */
@@ -98,6 +98,24 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
   }
 
   return focused_ != old_focus ? true : false;
+}
+
+/* ********************************************************************************************** */
+
+bool SongLyric::OnMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+  const bool wheel_up = mouse.button == ftxui::Mouse::WheelUp;
+
+  if (!wheel_up && mouse.button != ftxui::Mouse::WheelDown) return false;
+
+  if (lyrics_.empty() || !box_.Contain(mouse.x, mouse.y)) return false;
+
+  // Set focus on parent block, so keys go to song lyric after scrolling it
+  if (on_focus_) on_focus_();
+
+  // Reuse handler from keyboard, to scroll exactly like its keys
+  OnEvent(wheel_up ? keybinding::Navigation::ArrowUp : keybinding::Navigation::ArrowDown);
+  return true;
 }
 
 /* ********************************************************************************************** */

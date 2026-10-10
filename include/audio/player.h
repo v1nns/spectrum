@@ -22,8 +22,10 @@
 #include "audio/command.h"
 #include "model/application_error.h"
 #include "model/audio_filter.h"
+#include "model/audio_format.h"
 #include "model/playlist.h"
 #include "model/repeat_mode.h"
+#include "model/settings.h"
 #include "model/song.h"
 #include "model/volume.h"
 #include "util/logger.h"
@@ -64,6 +66,8 @@ class AudioControl {
   virtual void SkipToPrevious() = 0;
   virtual void SetRepeatMode(model::RepeatMode mode) = 0;
   virtual void SetShuffle(bool enabled) = 0;
+  virtual void SetAudioDevice(const std::string& device) = 0;
+  virtual model::AudioDevices GetAudioDevices() const = 0;
   virtual void Exit() = 0;
 };
 
@@ -72,6 +76,9 @@ class AudioControl {
  */
 class Player : public AudioControl {
   static constexpr int kNumberChannels = 2;  //!< Decoded audio is always stereo
+
+  //! Format of audio samples expected by analysis (16-bit stereo samples at 44.1 kHz)
+  static constexpr model::AudioFormat kAnalysisFormat{};
   static constexpr int kMaxFailedSongs = 3;  //!< Songs from playlist that may fail in a row
 
  private:
@@ -89,13 +96,17 @@ class Player : public AudioControl {
   /**
    * @brief Factory method: Create, initialize internal components and return Player object
    * @param verbose Enable verbose logging messages
+   * @param settings Settings from last run that are used by player: output device chosen by user
+   * (without one, Playback driver chooses it, which is also done when the chosen one cannot be
+   * used) and browser whose cookies may be sent by streaming fetcher
    * @param playback Pass playback to be used within Audio thread (optional)
    * @param decoder Pass decoder to be used within Audio thread (optional)
    * @param fetcher Pass streaming fetcher to be used within Audio thread (optional)
    * @param asynchronous Run Audio Player as a thread (default is true)
    * @return std::shared_ptr<Player> Player instance
    */
-  static std::shared_ptr<Player> Create(bool verbose, audio::Playback* playback = nullptr,
+  static std::shared_ptr<Player> Create(bool verbose, const model::Settings& settings = {},
+                                        audio::Playback* playback = nullptr,
                                         audio::Decoder* decoder = nullptr,
                                         web::StreamFetcher* fetcher = nullptr,
                                         bool asynchronous = true);
@@ -117,8 +128,9 @@ class Player : public AudioControl {
   /**
    * @brief Initialize internal components for Player object
    * @param asynchronous Run Audio Player as a thread
+   * @param device Name of output device chosen by user (empty to let Playback driver choose it)
    */
-  void Init(bool asynchronous);
+  void Init(bool asynchronous, const std::string& device);
 
   /**
    * @brief Reset all media controls to default value
@@ -129,15 +141,26 @@ class Player : public AudioControl {
 
   /**
    * @brief Handle an audio command from internal queue
-   * @param buffer Audio buffer (to playback)
-   * @param analysis Audio buffer to analysis (same samples, but not affected by volume)
-   * @param size Buffer size
+   * @param buffer Audio buffer (to playback, in the format expected by it)
+   * @param size Number of samples per channel in audio buffer
+   * @param analysis Audio buffer to analysis (same audio, but not affected by volume and always in
+   * the format expected by analysis)
+   * @param analysis_size Number of samples per channel in audio buffer to analysis
    * @param new_position Latest position in the song (in seconds)
    * @param last_position Last position to control when current position has changed
    * @return True if player should keep playing audio, False if not
    */
-  bool HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
-                     int& last_position);
+  bool HandleCommand(void* buffer, int size, void* analysis, int analysis_size,
+                     int64_t& new_position, int& last_position);
+
+  /**
+   * @brief Change song position as asked by command to seek forward or backward, unless it would
+   * get out of song
+   * @param command Command to seek forward or backward (with its offset in seconds)
+   * @param position Position in the song (in seconds), which is changed by this method (out)
+   * @return True if position was changed, False if not
+   */
+  bool ChangePosition(const Command& command, int64_t& position) const;
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream
@@ -170,6 +193,43 @@ class Player : public AudioControl {
    * @return True if command can be executed, False if not
    */
   bool CanSkip(const Command& command);
+
+  /**
+   * @brief Replace playback stream by a new one on the given output device, keeping the current one
+   * when it is not possible (and notifying interface about it)
+   * @param device Name of output device (empty to let Playback driver choose it)
+   */
+  void ChangeDevice(const std::string& device);
+
+  /**
+   * @brief Create playback stream on the given output device and configure its parameters, which
+   * may change the format of audio samples expected by it (as it depends on the device)
+   * @param device Name of output device (empty to let Playback driver choose it)
+   * @return error::Code Application error code
+   */
+  error::Code CreatePlaybackStream(const std::string& device);
+
+  /**
+   * @brief Configure parameters on playback stream using the desired format, and get the format of
+   * audio samples expected by it (as output device may not support the desired one)
+   * @return error::Code Application error code
+   */
+  error::Code ConfigurePlayback();
+
+  /**
+   * @brief Ask playback to use the format from the given song (configuring it again only when it
+   * is not the same one from the last song played), and decoder to create samples in the format
+   * expected by playback
+   * @param song Song to play (already opened by decoder, which fills its audio information)
+   * @return error::Code Application error code
+   */
+  error::Code ConfigureOutput(const model::Song& song);
+
+  /**
+   * @brief Notify interface with audio output used to play current song (output device in use and
+   * format of audio samples sent to it)
+   */
+  void NotifyAudioOutput();
 
   /* ******************************************************************************************** */
   //! Binds and registrations
@@ -262,6 +322,18 @@ class Player : public AudioControl {
   void SetShuffle(bool enabled) override;
 
   /**
+   * @brief Inform Audio loop to change output device (when it is not possible, current one is kept)
+   * @param device Name of output device (empty to let Playback driver choose it)
+   */
+  void SetAudioDevice(const std::string& device) override;
+
+  /**
+   * @brief Get output devices available to play songs
+   * @return Output devices
+   */
+  model::AudioDevices GetAudioDevices() const override;
+
+  /**
    * @brief Exit from Audio loop
    */
   void Exit() final;
@@ -335,9 +407,11 @@ class Player : public AudioControl {
         // Set state to idle
         state = State::Idle;
 
-        // Re-add to queue only new requests to play song
-        std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue),
-                     [](const Command& c) { return c == Command::Identifier::Play; });
+        // Re-add to queue only new requests to play song or to change output device (as they do
+        // not depend on the song that was playing)
+        std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue), [](const Command& c) {
+          return c == Command::Identifier::Play || c == Command::Identifier::SetDevice;
+        });
       }
     }
 
@@ -455,6 +529,24 @@ class Player : public AudioControl {
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
   int period_size_;  //!< Period size from Playback driver
+
+  //! Format of audio samples that would be sent to playback stream, if supported by output device
+  //! (only used by audio thread). It always asks for the widest sample format (as audio is
+  //! processed by decoder with more precision than its source), and for the sample rate from the
+  //! last song played (to not convert it)
+  model::AudioFormat desired_format_{.sample_format = model::SampleFormat::S32};
+
+  //! Format of audio samples expected by playback stream, which is the one supported by output
+  //! device that is the closest to the desired format (only used by audio thread)
+  model::AudioFormat format_;
+
+  //! Output device chosen by user (empty to let Playback driver choose it, only used by audio
+  //! thread)
+  std::string device_;
+
+  //! Output device chosen by user that could not be used on initialization (interface is notified
+  //! about it as soon as it is registered)
+  std::string failed_device_;
 
   error::Code playback_error_ = error::kSuccess;  //!< Error while writing samples to playback
 

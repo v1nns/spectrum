@@ -7,8 +7,11 @@
 #define INCLUDE_AUDIO_BASE_PLAYBACK_H_
 
 #include <cstdint>
+#include <string>
 
 #include "model/application_error.h"
+#include "model/audio_device.h"
+#include "model/audio_format.h"
 #include "model/volume.h"
 
 namespace audio {
@@ -32,16 +35,39 @@ class Playback {
   //! Public API
 
   /**
-   * @brief Create a Playback Stream
+   * @brief Create a Playback Stream (current one, if any, is released even when it fails)
+   * @param device Name of output device (when empty, the most suitable one is chosen)
    * @return error::Code Playback error converted to application error code
    */
-  virtual error::Code CreatePlaybackStream() = 0;
+  virtual error::Code CreatePlaybackStream(const std::string& device) = 0;
 
   /**
-   * @brief Configure Playback Stream parameters (sample format, etc...)
+   * @brief List output devices available to create a Playback Stream
+   * @return model::AudioDevices Output devices
+   */
+  virtual model::AudioDevices ListDevices() const = 0;
+
+  /**
+   * @brief Get name of output device used by Playback Stream (which is not chosen by who creates
+   * it, when no device is given)
+   * @return std::string Name of output device
+   */
+  virtual std::string GetDevice() const = 0;
+
+  /**
+   * @brief Configure Playback Stream parameters (sample format, etc...). As output device may not
+   * support the desired format, use GetFormat() to know which one must be sent to it
+   * @param desired Format of audio samples that would be sent to playback stream, if supported
    * @return error::Code Playback error converted to application error code
    */
-  virtual error::Code ConfigureParameters() = 0;
+  virtual error::Code ConfigureParameters(const model::AudioFormat& desired) = 0;
+
+  /**
+   * @brief Get format of audio samples expected by playback stream (the closest one to the desired
+   * format that is supported by output device)
+   * @return model::AudioFormat Format of audio samples
+   */
+  virtual model::AudioFormat GetFormat() const = 0;
 
   /**
    * @brief Make playback stream ready to play

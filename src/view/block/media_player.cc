@@ -3,22 +3,117 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <iomanip>
+#include <memory>
 #include <sstream>
+#include <string>
 #include <utility>
 #include <variant>
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/event.hpp"
+#include "ftxui/dom/node.hpp"
+#include "ftxui/screen/screen.hpp"
 #include "model/volume.h"
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
 #include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
 //! Volume level is shown (and saved) as percentage
 static constexpr float kMaxVolume = 100.F;
+
+namespace {
+
+/**
+ * @brief Horizontal line filled according to a progress, using as many columns as available (a
+ * heavy line for the part already filled and a light one for the remaining part)
+ */
+class ProgressLine : public ftxui::Node {
+ public:
+  /**
+   * @brief Construct a new line
+   * @param progress Value from 0 (empty) to 1 (full)
+   * @param colors Foreground for filled part and background for remaining part
+   * @param show_knob Draw a knob on the current position
+   */
+  ProgressLine(float progress, const Theme::State& colors, bool show_knob)
+      : progress_{std::clamp(progress, 0.F, 1.F)}, colors_{colors}, show_knob_{show_knob} {}
+
+  void ComputeRequirement() override {
+    requirement_.min_x = 1;
+    requirement_.min_y = 1;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    const int width = box_.x_max - box_.x_min + 1;
+    if (width <= 0) return;
+
+    // Knob goes from the first column (no progress) to the last one (full), and everything
+    // before it is filled. Without a knob, all columns are filled only with full progress
+    const int knob = static_cast<int>(std::round(progress_ * static_cast<float>(width - 1)));
+    const int filled =
+        show_knob_ ? knob : static_cast<int>(std::round(progress_ * static_cast<float>(width)));
+
+    for (int i = 0; i < width; i++) {
+      auto& pixel = screen.PixelAt(box_.x_min + i, box_.y_min);
+      const bool is_filled = i < filled;
+
+      pixel.character = show_knob_ && i == knob ? "●" : is_filled ? "━" : "─";
+      pixel.foreground_color =
+          is_filled || (show_knob_ && i == knob) ? colors_.foreground : colors_.background;
+    }
+  }
+
+ private:
+  float progress_;       //!< Value from 0 to 1
+  Theme::State colors_;  //!< Colors for filled and remaining parts
+  bool show_knob_;       //!< Draw a knob on current position
+};
+
+/**
+ * @brief Text in a single line, ending with an ellipsis when there is not enough space for it
+ */
+class EllipsizedText : public ftxui::Node {
+ public:
+  explicit EllipsizedText(std::string text) : text_{std::move(text)} {}
+
+  void ComputeRequirement() override {
+    requirement_.min_x = ftxui::string_width(text_);
+    requirement_.min_y = 1;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    if (box_.y_min > box_.y_max) return;
+
+    const int width = box_.x_max - box_.x_min + 1;
+    int x = box_.x_min;
+
+    // A glyph using more than one column is followed by empty cells, one for each extra column
+    for (const auto& cell : ftxui::Utf8ToGlyphs(ellipsize(text_, width))) {
+      if (x > box_.x_max) return;
+      screen.PixelAt(x++, box_.y_min).character = cell;
+    }
+  }
+
+ private:
+  std::string text_;  //!< Whole text
+};
+
+//! Create a text that is cut (ending with an ellipsis) when it gets less space than it needs
+ftxui::Element ellipsized_text(const std::string& text) {
+  return std::make_shared<EllipsizedText>(text);
+}
+
+//! Create a line filled according to the given progress
+ftxui::Element progress_line(float progress, const Theme::State& colors, bool show_knob = false) {
+  return std::make_shared<ProgressLine>(progress, colors, show_knob);
+}
+
+}  // namespace
 
 /* ********************************************************************************************** */
 
@@ -35,12 +130,28 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
                kWarningDuration},
       file_handler_{file_handler != nullptr ? file_handler
                                             : std::make_shared<util::FileHandler>()} {
-  // Restore volume from last run, and let audio player know about it
-  if (model::Settings settings; file_handler_->ParseSettings(settings) && settings.volume) {
-    volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
-    INFO("Restored volume=", volume_);
+  // Restore volume, repeat mode and shuffle from last run, and let audio player know about them
+  if (model::Settings settings; file_handler_->ParseSettings(settings)) {
+    if (settings.volume) {
+      volume_ = model::Volume{static_cast<float>(*settings.volume) / 100.F};
+      INFO("Restored volume=", volume_);
 
-    if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
+      if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetAudioVolume(volume_));
+    }
+
+    if (settings.repeat) {
+      repeat_ = *settings.repeat;
+      INFO("Restored repeat mode=", repeat_);
+
+      if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetRepeatMode(repeat_));
+    }
+
+    if (settings.shuffle) {
+      shuffle_ = *settings.shuffle;
+      INFO("Restored shuffle=", shuffle_ ? "on" : "off");
+
+      if (auto disp = GetDispatcher(); disp) disp->SendEvent(CustomEvent::SetShuffle(shuffle_));
+    }
   }
 
   btn_play_ = Button::make_button_play([this]() {
@@ -118,6 +229,12 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
 /* ********************************************************************************************** */
 
 ftxui::Element MediaPlayer::Render() {
+  using ftxui::EQUAL;
+  using ftxui::HEIGHT;
+  using ftxui::WIDTH;
+
+  const auto& theme = GetTheme().player;
+
   // Duration
   std::string curr_time = "--:--";
   std::string total_time = "--:--";
@@ -125,51 +242,79 @@ ftxui::Element MediaPlayer::Render() {
 
   // Only fill these fields when exists a current song playing
   if (IsPlaying() || song_.duration > 0) {
-    position = (float)song_.curr_info.position / (float)song_.duration;
-    curr_time = model::time_to_string(song_.curr_info.position);
+    // Knob follows mouse while song position is being picked with it
+    // (and it stays there until player informs the new position)
+    const uint32_t current =
+        seek_drag_.value_or(seek_pending_.value_or(song_.curr_info.position));
+
+    position = (float)current / (float)song_.duration;
+    curr_time = model::time_to_string(current);
     total_time = model::time_to_string(song_.duration);
   }
 
-  // Bar to display song duration
-  const auto& theme = GetTheme().player;
-  const auto& bar_colors = is_duration_focused_ ? theme.duration_focused : theme.duration;
+  // Line to display song duration
+  ftxui::Element line_duration =
+      progress_line(position, is_duration_focused_ ? theme.duration_focused : theme.duration,
+                    /*show_knob=*/IsPlaying()) |
+      ftxui::xflex_grow | ftxui::reflect(duration_box_);
 
-  ftxui::Decorator bar_style =
-      ftxui::bgcolor(bar_colors.background) | ftxui::color(bar_colors.foreground);
+  // Song title and artist (cut when they do not fit in the space left by everything else)
+  ftxui::Element title =
+      ellipsized_text(GetSongTitle()) | ftxui::bold | ftxui::color(theme.text) | ftxui::xflex;
 
-  ftxui::Element bar_duration =
-      ftxui::gauge(position) | ftxui::xflex_grow | ftxui::reflect(duration_box_) | bar_style;
+  ftxui::Element artist = ellipsized_text(song_.artist) | ftxui::dim | ftxui::xflex;
 
-  // Format volume information string
-  std::ostringstream ss;
-  ss << "Volume: " << std::setfill(' ') << std::setw(3) << ((int)volume_) << "%";
-  std::string vol_info = std::move(ss).str();
+  // Repeat and shuffle modes (dimmed when disabled, with space around text to not change its
+  // size when enabled)
+  auto mode = [&theme](const std::string& text, bool enabled, bool hovered) {
+    const auto& colors = theme.mode_enabled;
+    ftxui::Element content = ftxui::text(" " + text + " ");
 
-  // Current volume element
-  ftxui::Element volume = ftxui::text(vol_info);
-  if (!volume_.IsMuted())
-    volume |= ftxui::color(theme.text);
-  else
-    volume |= ftxui::dim | ftxui::color(theme.volume_muted);
+    // With mouse over it, mode uses the same colors from anything else hovered in this block
+    if (enabled) {
+      return content | ftxui::color(colors.foreground) |
+             ftxui::bgcolor(hovered ? theme.duration_focused.foreground : colors.background);
+    }
 
-  // Fixed margin for content
-  ftxui::Element margin = ftxui::text(std::string(5, ' '));
-
-  // Repeat and shuffle modes (dimmed when disabled), on the left side to keep media buttons
-  // centered on screen (same width as volume information)
-  auto mode = [&theme](const std::string& text, bool enabled) {
-    return ftxui::text(text) | (enabled ? ftxui::color(theme.text) : ftxui::dim);
+    return content | ftxui::dim | (hovered ? ftxui::bgcolor(theme.button_hovered) : ftxui::nothing);
   };
 
-  ftxui::Element modes = ftxui::vbox({
-                             ftxui::filler(),
-                             mode(std::string{"Shuffle: "} + (shuffle_ ? "on" : "off"), shuffle_),
-                             mode("Repeat: " + std::string{model::GetRepeatModeName(repeat_)},
-                                  repeat_ != model::RepeatMode::Off),
-                         }) |
-                         ftxui::size(ftxui::WIDTH, ftxui::EQUAL, static_cast<int>(vol_info.size()));
+  ftxui::Element modes = ftxui::hbox({
+      mode(std::string{"shuffle "} + (shuffle_ ? "on" : "off"), shuffle_, is_shuffle_hovered_) |
+          ftxui::reflect(shuffle_box_),
+      mode("repeat " + std::string{model::GetRepeatModeName(repeat_)},
+           repeat_ != model::RepeatMode::Off, is_repeat_hovered_) |
+          ftxui::reflect(repeat_box_),
+  });
 
-  // Warning (if any) uses the empty line between media buttons and song duration
+  // Current volume, as a line and as a percentage
+  std::ostringstream ss;
+  ss << std::setfill(' ') << std::setw(4) << ((int)volume_) << "% ";
+
+  ftxui::Element volume = ftxui::hbox({
+      ftxui::text("vol") |
+          (is_volume_hovered_ ? ftxui::color(theme.duration_focused.foreground) | ftxui::bold
+                              : ftxui::dim) |
+          ftxui::reflect(volume_label_box_),
+      ftxui::text(std::string(kVolumeZeroColumns, ' ')),
+      progress_line(static_cast<float>(volume_),
+                    is_volume_hovered_ ? theme.duration_focused : theme.duration) |
+          ftxui::size(WIDTH, EQUAL, kVolumeColumns) | ftxui::reflect(volume_line_box_),
+      ftxui::text(std::move(ss).str()) | ftxui::color(theme.text),
+  });
+
+  // With mouse over it, volume is not dimmed (otherwise, it would look the same while muted)
+  if (volume_.IsMuted()) {
+    volume = volume | (is_volume_hovered_ ? ftxui::nothing : ftxui::dim) |
+             ftxui::color(theme.volume_muted);
+  }
+
+  volume = volume | ftxui::reflect(volume_box_);
+
+  // Fixed margin for content
+  ftxui::Element margin = ftxui::text(std::string(kMarginColumns, ' '));
+
+  // Warning (if any) uses the empty line between song and media buttons
   ftxui::Element warning = ftxui::text("");
   if (auto message = warning_.GetText(); message.has_value()) {
     warning = ftxui::text(*message) | ftxui::bold | ftxui::color(theme.warning) | ftxui::center;
@@ -178,17 +323,15 @@ ftxui::Element MediaPlayer::Render() {
   ftxui::Element content = ftxui::vbox({
       ftxui::hbox({
           margin,
+          title,
           modes,
-          ftxui::filler(),
-          btn_previous_->Render(),
-          btn_play_->Render(),
-          btn_stop_->Render(),
-          btn_next_->Render(),
-          ftxui::filler(),
-          ftxui::vbox({
-              ftxui::filler(),
-              volume,
-          }),
+          margin,
+      }),
+      ftxui::hbox({
+          margin,
+          artist,
+          ftxui::text(" "),
+          volume,
           margin,
       }),
       ftxui::hbox({
@@ -198,25 +341,32 @@ ftxui::Element MediaPlayer::Render() {
       }),
       ftxui::hbox({
           margin,
-          bar_duration,
-          margin,
-      }),
-      ftxui::hbox({
+          btn_previous_->Render(),
+          btn_play_->Render(),
+          btn_stop_->Render(),
+          btn_next_->Render(),
           margin,
           ftxui::text(curr_time) | ftxui::bold | ftxui::color(theme.text),
-          ftxui::filler(),
+          ftxui::text(" "),
+          line_duration,
+          ftxui::text(" "),
           ftxui::text(total_time) | ftxui::bold | ftxui::color(theme.text),
           margin,
       }),
   });
 
-  using ftxui::EQUAL;
-  using ftxui::HEIGHT;
+  return RenderWindow(RenderTitle(" player "), content | ftxui::size(HEIGHT, EQUAL, kMaxRows));
+}
 
-  return ftxui::window(
-             ftxui::hbox(ftxui::text(" player ") | GetTitleDecorator()),
-             content | ftxui::vcenter | ftxui::flex | ftxui::size(HEIGHT, EQUAL, kMaxRows)) |
-         GetBorderDecorator();
+/* ********************************************************************************************** */
+
+std::string MediaPlayer::GetSongTitle() const {
+  if (!song_.title.empty()) return song_.title;
+
+  // Song is played from a file or streamed from URL
+  if (!song_.filepath.empty()) return song_.filepath.filename().string();
+
+  return song_.stream_info.has_value() ? song_.stream_info->base_url : std::string{};
 }
 
 /* ********************************************************************************************** */
@@ -266,6 +416,8 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::ClearSongInfo) {
     LOG("Clear current song information");
     song_ = model::Song{.curr_info = {.state = model::Song::MediaState::Empty}};
+    seek_drag_.reset();
+    seek_pending_.reset();
     btn_play_->ResetState();
   }
 
@@ -273,11 +425,24 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
     LOG("Received new song information from player");
     song_ = event.GetContent<model::Song>();
+    seek_pending_.reset();
   }
 
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::UpdateSongState) {
     song_.curr_info = event.GetContent<model::Song::CurrentInformation>();
+
+    // Stop showing the position asked with mouse, as player is already on it (or it gave up)
+    if (seek_pending_.has_value()) {
+      const int difference = std::abs(static_cast<int>(song_.curr_info.position) -
+                                      static_cast<int>(*seek_pending_));
+
+      if (difference <= kSeekTolerance || ++seek_pending_updates_ >= kMaxSeekPendingUpdates ||
+          !IsPlaying()) {
+        seek_pending_.reset();
+      }
+    }
+
     if (song_.curr_info.state == model::Song::MediaState::Play) btn_play_->SetState(true);
   }
 
@@ -287,51 +452,175 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 /* ********************************************************************************************** */
 
 bool MediaPlayer::OnMouseEvent(ftxui::Event event) {
+  // While song position is being picked, nothing else handles mouse (e.g. button released over
+  // a media button must not click on it)
+  if (seek_drag_.has_value() && HandleSeekMouseEvent(event)) return true;
+
+  if (OnTitleMouseEvent(event)) return true;
+
+  // Mouse focus on shuffle mode, repeat mode and volume
+  is_shuffle_hovered_ = shuffle_box_.Contain(event.mouse().x, event.mouse().y);
+  is_repeat_hovered_ = repeat_box_.Contain(event.mouse().x, event.mouse().y);
+  is_volume_hovered_ = volume_box_.Contain(event.mouse().x, event.mouse().y);
+
   // Media buttons
   if (btn_previous_->OnMouseEvent(event)) return true;
   if (btn_play_->OnMouseEvent(event)) return true;
   if (btn_stop_->OnMouseEvent(event)) return true;
   if (btn_next_->OnMouseEvent(event)) return true;
 
+  if (HandleModeMouseEvent(event)) return true;
+
+  if (HandleVolumeMouseEvent(event)) return true;
+
+  return HandleSeekMouseEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+uint32_t MediaPlayer::GetSongPositionAt(int column) const {
+  // The first column from line is the beginning of song and the last one is its end (exactly like
+  // knob is drawn)
+  const int real_x = std::clamp(column, duration_box_.x_min, duration_box_.x_max) -
+                     duration_box_.x_min;
+  const int last_x = std::max(1, duration_box_.x_max - duration_box_.x_min);
+
+  return static_cast<uint32_t>(
+      std::lround(static_cast<double>(song_.duration) * real_x / static_cast<double>(last_x)));
+}
+
+/* ********************************************************************************************** */
+
+bool MediaPlayer::HandleSeekMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+  const bool dragging = seek_drag_.has_value();
+
+  seek_drag_.reset();
+
   if (!IsPlaying()) return false;
 
+  const bool on_line = duration_box_.Contain(mouse.x, mouse.y);
+
   // Mouse focus on song duration box
-  is_duration_focused_ = duration_box_.Contain(event.mouse().x, event.mouse().y) ? true : false;
+  is_duration_focused_ = on_line;
 
-  // Mouse click on song duration box
-  if (event.mouse().button == ftxui::Mouse::Left &&
-      duration_box_.Contain(event.mouse().x, event.mouse().y)) {
-    // Acquire pointer to dispatcher
-    auto dispatcher = GetDispatcher();
+  if (mouse.button != ftxui::Mouse::Left) return false;
 
-    // Calculate new song position based on screen coordinates
-    int real_x = event.mouse().x - duration_box_.x_min;
-    auto new_position =
-        (int)floor(floor(song_.duration * real_x) / (duration_box_.x_max - duration_box_.x_min));
+  // While button is held, knob follows mouse along the line (even past both ends of it), and it
+  // goes back to song position if mouse leaves this line
+  if (mouse.motion != ftxui::Mouse::Released) {
+    if (!on_line && !(dragging && mouse.y == duration_box_.y_min)) return false;
 
-    int offset = std::abs(int(new_position - song_.curr_info.position));
-
-    // Do nothing if result is equal the current position
-    if (new_position == song_.curr_info.position) return true;
-
-    LOG("Handle left click mouse event on song progress bar");
-
-    // Send event to player
-    interface::CustomEvent event_seek = new_position > song_.curr_info.position
-                                            ? interface::CustomEvent::SeekForwardPosition(offset)
-                                            : interface::CustomEvent::SeekBackwardPosition(offset);
-
-    LOG("Sending event to ", event_seek.GetId(), " with offset=", offset);
-    dispatcher->SendEvent(event_seek);
-
-    // Set this block as active (focused)
-    auto event_focus = interface::CustomEvent::SetFocused(GetId());
-    dispatcher->SendEvent(event_focus);
-
+    seek_drag_ = GetSongPositionAt(mouse.x);
+    is_duration_focused_ = true;
     return true;
   }
 
-  return false;
+  if (!on_line && !dragging) return false;
+
+  // Position is changed only when button is released, otherwise song would be moved more than
+  // once by an offset based on a position not updated yet
+  const auto new_position = static_cast<int>(GetSongPositionAt(mouse.x));
+  const auto position = static_cast<int>(song_.curr_info.position);
+
+  // Do nothing if result is equal the current position
+  if (new_position == position) return true;
+
+  LOG("Handle left click mouse event on song progress bar");
+  auto dispatcher = GetDispatcher();
+
+  // Send event to player
+  const int offset = std::abs(new_position - position);
+
+  interface::CustomEvent event_seek = new_position > position
+                                          ? interface::CustomEvent::SeekForwardPosition(offset)
+                                          : interface::CustomEvent::SeekBackwardPosition(offset);
+
+  LOG("Sending event to ", event_seek.GetId(), " with offset=", offset);
+  dispatcher->SendEvent(event_seek);
+
+  // Keep knob on this position until player informs it (unless it is the end of song, which is
+  // ignored by player)
+  if (static_cast<uint32_t>(new_position) < song_.duration) {
+    seek_pending_ = static_cast<uint32_t>(new_position);
+    seek_pending_updates_ = 0;
+  }
+
+  // Set this block as active (focused)
+  auto event_focus = interface::CustomEvent::SetFocused(GetId());
+  dispatcher->SendEvent(event_focus);
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool MediaPlayer::HandleModeMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+
+  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released) return false;
+
+  const keybinding::Key* key = nullptr;
+
+  if (shuffle_box_.Contain(mouse.x, mouse.y)) key = &keybinding::MediaPlayer::ToggleShuffle;
+  if (repeat_box_.Contain(mouse.x, mouse.y)) key = &keybinding::MediaPlayer::ToggleRepeat;
+
+  if (!key) return false;
+
+  LOG("Handle left click mouse event on shuffle/repeat mode");
+  AskForFocus();
+
+  // Reuse handler from keyboard, to keep the same behavior for both of them
+  return HandleMediaEvent(*key);
+}
+
+/* ********************************************************************************************** */
+
+bool MediaPlayer::HandleVolumeMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+
+  if (!volume_box_.Contain(mouse.x, mouse.y)) return false;
+
+  // Mouse wheel changes volume by the same step used by its keys
+  if (mouse.button == ftxui::Mouse::WheelUp || mouse.button == ftxui::Mouse::WheelDown) {
+    LOG("Handle mouse wheel event on volume");
+    AskForFocus();
+
+    HandleVolumeEvent(mouse.button == ftxui::Mouse::WheelUp ? keybinding::MediaPlayer::VolumeUp
+                                                            : keybinding::MediaPlayer::VolumeDown);
+    return true;
+  }
+
+  if (mouse.button != ftxui::Mouse::Left || mouse.motion != ftxui::Mouse::Released) return false;
+
+  // A click on label mutes volume (or restores it)
+  if (volume_label_box_.Contain(mouse.x, mouse.y)) {
+    LOG("Handle left click mouse event on volume label");
+    AskForFocus();
+
+    HandleVolumeEvent(keybinding::MediaPlayer::Mute);
+    return true;
+  }
+
+  // Line also takes the empty space right before it, which is the one for no volume at all
+  ftxui::Box line = volume_line_box_;
+  line.x_min -= kVolumeZeroColumns;
+
+  if (!line.Contain(mouse.x, mouse.y)) return false;
+
+  LOG("Handle left click mouse event on volume line");
+  AskForFocus();
+
+  // Line is filled up to the column clicked (which is the last one for maximum volume)
+  const int columns = volume_line_box_.x_max - volume_line_box_.x_min + 1;
+  const int clicked = mouse.x - volume_line_box_.x_min + 1;
+  const int level = static_cast<int>(std::lround(kMaxVolume * static_cast<float>(clicked) /
+                                                 static_cast<float>(columns)));
+
+  // Reuse handler from remote command, as it also sets volume to a given level
+  HandleRemoteValue(model::RemoteRequest{model::RemoteCommand::SetVolume,
+                                         model::RemoteNumber{.value = level, .relative = false}});
+  return true;
 }
 
 /* ********************************************************************************************** */
@@ -375,6 +664,8 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
 
     auto dispatcher = GetDispatcher();
     dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+
+    SaveModes();
     return true;
   }
 
@@ -384,6 +675,8 @@ bool MediaPlayer::HandleMediaEvent(const ftxui::Event& event) {
 
     auto dispatcher = GetDispatcher();
     dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
+
+    SaveModes();
     return true;
   }
 
@@ -475,8 +768,7 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
     LOG("Handle key to seek forward in current song");
     auto dispatcher = GetDispatcher();
 
-    // Since latest FFmpeg update, must increment by 2, instead of 1...
-    auto event_seek = interface::CustomEvent::SeekForwardPosition(2);
+    auto event_seek = interface::CustomEvent::SeekForwardPosition(kSeekSeconds);
     dispatcher->SendEvent(event_seek);
 
     return true;
@@ -487,7 +779,7 @@ bool MediaPlayer::HandleSeekEvent(const ftxui::Event& event) const {
     LOG("Handle key to seek backward in current song");
     auto dispatcher = GetDispatcher();
 
-    auto event_seek = interface::CustomEvent::SeekBackwardPosition(1);
+    auto event_seek = interface::CustomEvent::SeekBackwardPosition(kSeekSeconds);
     dispatcher->SendEvent(event_seek);
 
     return true;
@@ -629,6 +921,8 @@ bool MediaPlayer::HandleRemoteValue(const model::RemoteRequest& request) {
 
     repeat_ = *mode;
     dispatcher->SendEvent(interface::CustomEvent::SetRepeatMode(repeat_));
+
+    SaveModes();
     return true;
   }
 
@@ -638,6 +932,8 @@ bool MediaPlayer::HandleRemoteValue(const model::RemoteRequest& request) {
 
     shuffle_ = *enabled;
     dispatcher->SendEvent(interface::CustomEvent::SetShuffle(shuffle_));
+
+    SaveModes();
     return true;
   }
 
@@ -650,6 +946,14 @@ void MediaPlayer::SaveVolume() const {
   // Mute state is not saved, only the volume level
   const int level = static_cast<int>(std::round(volume_.GetLevel() * kMaxVolume));
   if (!file_handler_->SaveSettings(model::Settings{.volume = level})) ERROR("Cannot save volume");
+}
+
+/* ********************************************************************************************** */
+
+void MediaPlayer::SaveModes() const {
+  if (!file_handler_->SaveSettings(model::Settings{.repeat = repeat_, .shuffle = shuffle_})) {
+    ERROR("Cannot save repeat mode and shuffle");
+  }
 }
 
 }  // namespace interface

@@ -119,6 +119,8 @@ class PlaylistViewer : public TabItem {
   GenericButton btn_modify_;  //!< Button to modify a playlist
   GenericButton btn_delete_;  //!< Button to delete a playlist
 
+  static constexpr std::string_view kSeparator = " · ";  //!< Text between buttons
+
   //!< Style for any button displayed in this element
   static Button::Style kButtonStyle;
 

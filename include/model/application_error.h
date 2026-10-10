@@ -39,6 +39,7 @@ static constexpr Code kCorruptedData = 35;
 //! ALSA driver errors
 static constexpr Code kSetupAudioParamsFailed = 50;
 static constexpr Code kPlaybackFailed = 51;
+static constexpr Code kOpenDeviceFailed = 52;
 
 //! FFMPEG driver errors
 static constexpr Code kDecodeFileFailed = 70;
@@ -51,6 +52,11 @@ static constexpr Code kTooManyFailedSongs = 80;
 //! Streaming errors
 static constexpr Code kStreamFetchFailed = 90;
 static constexpr Code kStreamFetcherNotFound = 91;
+static constexpr Code kStreamBlocked = 92;
+static constexpr Code kStreamUnavailable = 93;
+static constexpr Code kStreamTimedOut = 94;
+static constexpr Code kStreamBlockedWithCookies = 96;
+static constexpr Code kStreamCookiesFailed = 97;
 
 //! Web errors
 static constexpr Code kUrlNotFound = 95;
@@ -76,7 +82,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 19> kErrorMap{{
+  static constexpr std::array<Message, 25> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -90,12 +96,22 @@ class ApplicationError {
       {kSetupAudioParamsFailed, Level::Critical, "Cannot set audio parameters"},
       {kPlaybackFailed, Level::Critical,
        "Cannot play audio on output device (was it disconnected?)"},
+      {kOpenDeviceFailed, Level::Warning, "Cannot use audio output device"},
       {kDecodeFileFailed, Level::Warning, "Cannot decode song"},
       {kSeekFrameFailed, Level::Warning, "Cannot seek frame in song"},
       {kEqualizerFailed, Level::Warning, "Cannot apply equalizer settings"},
       {kTooManyFailedSongs, Level::Critical, "Several songs failed in a row, playlist was stopped"},
       {kStreamFetchFailed, Level::Warning, "Cannot fetch song from URL"},
       {kStreamFetcherNotFound, Level::Warning, "Cannot play song from URL, yt-dlp was not found"},
+      {kStreamBlocked, Level::Critical,
+       "YouTube is refusing requests from this network, try again later or set "
+       "cookies_from_browser (README)"},
+      {kStreamBlockedWithCookies, Level::Critical,
+       "YouTube is refusing requests even with cookies from browser, try again later"},
+      {kStreamCookiesFailed, Level::Critical,
+       "Cannot read cookies from browser, check cookies_from_browser in settings"},
+      {kStreamUnavailable, Level::Warning, "Song from URL is not available anymore"},
+      {kStreamTimedOut, Level::Warning, "Took too long to fetch song from URL"},
       {kUrlNotFound, Level::Warning, "Content not found in URL"},
       {kUnknownError, Level::Critical,
        "Unknown error used for almost everything during development =)"},

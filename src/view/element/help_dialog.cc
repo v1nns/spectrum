@@ -35,19 +35,15 @@ HelpDialog::HelpDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
                   .min_line = kMinLines,
                   .max_line = kMaxLines},
              Style{.background = &Theme::Dialog::background,
-                   .foreground = &Theme::Dialog::foreground}) {}
+                   .foreground = &Theme::Dialog::foreground,
+                   .close_button = true}) {}
 
 /* ********************************************************************************************** */
 
-void HelpDialog::Show(Section section) {
+void HelpDialog::Show() {
   ResetSearch();
 
-  // Find title from the given section and use it as first line
-  auto title = std::find_if(lines_.begin(), lines_.end(), [section](const Line& line) {
-    return line.type == Line::Type::Title && line.section == section;
-  });
-
-  first_line_ = title != lines_.end() ? static_cast<int>(title - lines_.begin()) : 0;
+  first_line_ = 0;
   Open();
 }
 
@@ -82,14 +78,21 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
        {
            {ToString(General::ShowHelper), "Show this help"},
            {ToString(General::ExitApplication), "Quit (or close dialog)"},
-           {ToString(General::ChangeTheme),
-            "Choose theme (↑/↓ preview, Return keep, Escape cancel)"},
+           {ToString(General::ChangeTheme), "Choose theme"},
+           {ToString(General::ChangeAudioDevice), "Choose audio output device"},
            {"Shift+1", "Focus files/playlists"},
            {"Shift+2", "Focus information"},
            {"Shift+3", "Focus tab viewer"},
            {"Shift+4", "Focus player"},
            {ToString(Navigation::Tab), "Focus next block"},
            {ToString(Navigation::TabReverse), "Focus previous block"},
+       }},
+      {Section::Pickers,
+       "theme and animation pickers",
+       {
+           {up_down + " " + jk, "Preview entry"},
+           {ToString(Navigation::Return), "Keep entry"},
+           {ToString(Navigation::Escape), "Cancel (keeping the previous one)"},
        }},
       {Section::Lists,
        "lists (files and playlists)",
@@ -136,8 +139,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
        "visualizer",
        {
            {ToString(keybinding::MainContent::FocusVisualizer), "Show visualizer"},
-           {ToString(keybinding::Visualizer::ChangeAnimation),
-            "Choose animation (↑/↓ preview, Return keep, Escape cancel)"},
+           {ToString(keybinding::Visualizer::ChangeAnimation), "Choose animation"},
            {ToString(keybinding::Visualizer::ToggleFullscreen), "Toggle fullscreen"},
            {Join(keybinding::Visualizer::DecreaseBarWidth,
                  keybinding::Visualizer::IncreaseBarWidth),
@@ -152,7 +154,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {jk, "Cycle presets (picker closed)"},
            {ToString(keybinding::Equalizer::ApplyFilters), "Apply equalizer settings"},
            {ToString(keybinding::Equalizer::ResetFilters), "Reset equalizer settings"},
-           {ToString(Navigation::Escape), "Remove focus from element"},
+           {ToString(Navigation::Escape), "Close preset picker or remove focus"},
        }},
       {Section::Lyrics,
        "lyrics",
@@ -212,7 +214,7 @@ ftxui::Element HelpDialog::RenderLine(const Line& line) {
 
   switch (line.type) {
     case Line::Type::Title:
-      return ftxui::text(line.text) | ftxui::color(GetTheme().dialog.text) | ftxui::bold;
+      return ftxui::text(line.text) | ftxui::color(GetTheme().dialog.section) | ftxui::bold;
 
     case Line::Type::Entry:
       return ftxui::hbox({
@@ -229,25 +231,92 @@ ftxui::Element HelpDialog::RenderLine(const Line& line) {
 
 /* ********************************************************************************************** */
 
+ftxui::Dimensions HelpDialog::CalculateSize(const ftxui::Dimensions& curr_size) const {
+  ftxui::Dimensions size = Dialog::CalculateSize(curr_size);
+
+  // Use only the width needed by columns (single column keeps the default width)
+  if (const int columns = GetColumnCount(curr_size); columns > 1) {
+    size.dimx = GetContentWidth(columns) + kBorderSize;
+  }
+
+  return size;
+}
+
+/* ********************************************************************************************** */
+
+int HelpDialog::GetColumnWidth() const {
+  int description = 0;
+
+  for (const auto& line : lines_) {
+    if (line.type == Line::Type::Entry) {
+      description = std::max(description, ftxui::string_width(line.text));
+    }
+  }
+
+  return kKeysColumnWidth + description;
+}
+
+/* ********************************************************************************************** */
+
+int HelpDialog::GetContentWidth(int columns) const {
+  return (columns * GetColumnWidth()) + ((columns - 1) * kColumnGap) + (2 * kMargin);
+}
+
+/* ********************************************************************************************** */
+
+int HelpDialog::GetColumnCount(const ftxui::Dimensions& curr_size) const {
+  int columns = kMaxColumnCount;
+
+  // Dialog must fit in terminal with its border and the empty margin around it
+  while (columns > 1 && GetContentWidth(columns) + kBorderSize + kOuterColumns > curr_size.dimx) {
+    columns--;
+  }
+
+  return columns;
+}
+
+/* ********************************************************************************************** */
+
 ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
-  // Calculate how many lines fit inside dialog (besides its border, title and scroll hint)
+  using ftxui::EQUAL;
+  using ftxui::WIDTH;
+
+  // Calculate how many lines fit inside dialog (besides its border, title and scroll hint), which
+  // are shown in as many columns as possible (content continues from one column to the next)
   const int height = CalculateSize(curr_size).dimy;
-  visible_lines_ = std::max(1, height - kBorderSize - kHeaderLines - kFooterLines);
+  const int column_count = GetColumnCount(curr_size);
+  const int column_lines = std::max(1, height - kBorderSize - kHeaderLines - kFooterLines);
+
+  visible_lines_ = column_lines * column_count;
 
   const auto& lines = GetLines();
   const int first = std::clamp(first_line_, 0, GetMaxFirstLine());
   const int last = std::min(first + visible_lines_, static_cast<int>(lines.size()));
 
-  ftxui::Elements content;
-  content.reserve(visible_lines_);
+  ftxui::Elements columns;
 
-  for (int i = first; i < last; i++) {
-    content.push_back(RenderLine(lines.at(i)));
+  for (int begin = first; begin < last; begin += column_lines) {
+    ftxui::Elements content;
+    content.reserve(column_lines);
+
+    for (int i = begin; i < std::min(begin + column_lines, last); i++) {
+      // Empty line between two sections is not needed when section starts at the top of a column
+      if (i == begin && begin != first && lines.at(i).type == Line::Type::Blank) continue;
+
+      content.push_back(RenderLine(lines.at(i)));
+    }
+
+    if (!columns.empty()) columns.push_back(ftxui::text(std::string(kColumnGap, ' ')));
+
+    // With a single column, it uses all the width from dialog
+    ftxui::Element column = ftxui::vbox(content);
+    columns.push_back(column_count > 1 ? column | ftxui::size(WIDTH, EQUAL, GetColumnWidth())
+                                       : column | ftxui::flex);
   }
 
   // Let user know that search did not match anything
   if (lines.empty())
-    content.push_back(ftxui::text("No matches") | ftxui::color(GetTheme().dialog.text));
+    columns.push_back(ftxui::text("No matches") | ftxui::color(GetTheme().dialog.text));
 
   // Let user know where they are and how to scroll (or search)
   const std::string position = lines.empty()
@@ -278,14 +347,12 @@ ftxui::Element HelpDialog::RenderImpl(const ftxui::Dimensions& curr_size) const 
     });
   }
 
-  constexpr int kMargin = 3;  //!< Lateral margin for content
-
   return ftxui::vbox({
       ftxui::text("Help") | ftxui::color(GetTheme().dialog.text) | ftxui::bold | ftxui::center,
       ftxui::text(""),
       ftxui::hbox({
           ftxui::text(std::string(kMargin, ' ')),
-          ftxui::vbox(content) | ftxui::flex,
+          ftxui::hbox(columns) | ftxui::flex,
       }) | ftxui::flex,
       ftxui::text(""),
       ftxui::hbox({
@@ -346,6 +413,12 @@ bool HelpDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool HelpDialog::OnMouseEventImpl(ftxui::Event event) {
+  // A click on text to search places cursor on it (going back to typing, when it was finished)
+  if (searching_ && search_input_.OnMouseEvent(event)) {
+    typing_ = true;
+    return true;
+  }
+
   if (event.mouse().button == ftxui::Mouse::WheelUp) {
     Scroll(-1);
     return true;

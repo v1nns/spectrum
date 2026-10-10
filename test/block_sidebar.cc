@@ -201,7 +201,7 @@ TEST_F(SidebarTest, InitialRender) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -234,7 +234,7 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -390,7 +390,7 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
 │  CMakeLists.txt                    │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
 │Search:e                            │
 ╰────────────────────────────────────╯)";
@@ -507,7 +507,7 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -546,7 +546,7 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -626,6 +626,65 @@ TEST_F(SidebarTest, HighlightSameSongListedTwiceInPlaylist) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, ShowIconOnEntryPlaying) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Load playlists, then show files tab again
+  block->OnEvent(ftxui::Event::F2);
+  block->OnEvent(ftxui::Event::F1);
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = file, .playlist = "Chill mix"}));
+
+  // File playing is the selected one, so it is shown with the icon for selected entry
+  EXPECT_THAT(render(), HasSubstr("▶ audio_player.cc"));
+
+  // After selecting any other file, the one playing is shown with its own icon
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_THAT(render(), HasSubstr("♪ audio_player.cc"));
+
+  // Same thing for playlist
+  block->OnEvent(ftxui::Event::F2);
+  EXPECT_THAT(render(), HasSubstr("▶ Chill mix [1]"));
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_THAT(render(), HasSubstr("♪ Chill mix [1]"));
+
+  // With songs from playlist shown, icon goes to the song that is playing
+  block->OnEvent(ftxui::Event::ArrowUp);
+  block->OnEvent(ftxui::Event::Character(' '));
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+
+  const std::string rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("  Chill mix [1]"));
+  EXPECT_THAT(rendered, HasSubstr("♪   audio_player.cc"));
+
+  // Without any song playing, icon is not shown anymore
+  sidebar->OnCustomEvent(interface::CustomEvent::ClearSongInfo());
+  EXPECT_THAT(render(), Not(HasSubstr("♪")));
+
+  block->OnEvent(ftxui::Event::F1);
+  EXPECT_THAT(render(), Not(HasSubstr("♪")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
   // Setup expectation for event disabling global mode
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
@@ -676,7 +735,7 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -710,7 +769,7 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
   EXPECT_THAT(rendered, HasSubstr(expected));
 
   // And that the directory we came from is selected
-  EXPECT_THAT(rendered, HasSubstr("│▶ test "));
+  EXPECT_THAT(rendered, HasSubstr("│▶ test/ "));
 }
 
 /* ********************************************************************************************** */
@@ -733,7 +792,7 @@ TEST_F(SidebarTest, SelectPreviousDirectoryAfterGoingUp) {
   ftxui::Render(*screen, block->Render());
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("│▶ general "));
+  EXPECT_THAT(rendered, HasSubstr("│▶ general/ "));
 }
 
 /* ********************************************************************************************** */
@@ -852,7 +911,7 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -914,9 +973,9 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
-│  mock                              │
+│  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
 │▶ this_is_a_really_long_pathname_to_│
@@ -943,15 +1002,49 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  dialog_playlist.cc                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
-│  mock                              │
+│  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
 │▶ is_a_really_long_pathname_to_test.│
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, KeepSuffixFromDirectoryWithLongName) {
+  auto dir = std::filesystem::temp_directory_path() / "spectrum_test_directory_suffix";
+  std::filesystem::remove_all(dir);
+  std::filesystem::create_directories(dir / "a_really_long_directory_name_to_cut_here");
+
+  // Hacky method to add new entries (a file with the same name is not a directory)
+  EmplaceFile(dir / "a_really_long_directory_name_to_cut_here");
+  EmplaceFile(std::filesystem::path{"a_really_long_directory_name_to_cut_here.mp3"});
+  EmplaceFile(std::filesystem::path{"last.mp3"});
+
+  // Parent directory is the only one without it
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("│▶ ..  "));
+  EXPECT_THAT(rendered, HasSubstr("│  general/  "));
+
+  // Go to the last entry, to show the new ones
+  block->OnEvent(ftxui::Event::End);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // Name is cut to fit, but not what tells that it is a directory
+  EXPECT_THAT(rendered, HasSubstr("│  a_really_long_directory_name_to_…/│"));
+  EXPECT_THAT(rendered, HasSubstr("│  a_really_long_directory_name_to_c…│"));
+  EXPECT_THAT(rendered, HasSubstr("│▶ last.mp3  "));
+
+  std::filesystem::remove_all(dir);
 }
 
 /* ********************************************************************************************** */
@@ -1057,9 +1150,9 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
 │test                                │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
-│  general                           │
+│  general/                          │
 │  middleware_media_controller.cc    │
-│  mock                              │
+│  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
 │  some_music_0.mp3                  │
@@ -1157,6 +1250,111 @@ TEST_F(SidebarTest, MouseWheelOnMenus) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, MouseWheelOnEmptySpaceFromMenu) {
+  //! Row without any entry, as there are only two playlists
+  static constexpr int kEmptyRow = 5;
+
+  const std::filesystem::path file{"/tmp/song.mp3"};
+
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+  ftxui::Render(*screen, block->Render());
+
+  ftxui::Box box = GetPlaylistsMenuBox();
+
+  auto wheel = [&box](ftxui::Mouse::Button button, int row) {
+    return ftxui::Event::Mouse("", ftxui::Mouse{.button = button,
+                                                .motion = ftxui::Mouse::Pressed,
+                                                .x = box.x_min + 1,
+                                                .y = box.y_min + row});
+  };
+
+  // Mouse wheel works anywhere on menu, and not only on rows with an entry
+  ASSERT_EQ(GetSelectedPlaylistEntry(), 0);
+
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, kEmptyRow)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  EXPECT_TRUE(block->OnEvent(wheel(ftxui::Mouse::WheelUp, kEmptyRow)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+
+  // But not on buttons below it
+  EXPECT_FALSE(block->OnEvent(wheel(ftxui::Mouse::WheelDown, box.y_max - box.y_min + 1)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, MouseOnMenusAsksForFocus) {
+  using interface::CustomEvent;
+
+  auto sidebar = std::static_pointer_cast<interface::Block>(block);
+
+  auto focus_on_sidebar = [] {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::SetFocused),
+                 Field(&CustomEvent::content,
+                       VariantWith<model::BlockIdentifier>(model::BlockIdentifier::Sidebar)));
+  };
+
+  //! Create mouse event on the second entry from menu
+  auto mouse_at = [](const ftxui::Box& box, ftxui::Mouse::Button button,
+                     ftxui::Mouse::Motion motion) {
+    return ftxui::Event::Mouse(
+        "",
+        ftxui::Mouse{.button = button, .motion = motion, .x = box.x_min + 1, .y = box.y_min + 1});
+  };
+
+  // Simulate another block taking focus
+  sidebar->SetFocused(false);
+  ftxui::Render(*screen, block->Render());
+
+  // Clicking on a file must play it and also ask for focus, so keys go to this list afterwards
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::NotifyPlaylistSelection)));
+  EXPECT_CALL(*dispatcher, SendEvent(focus_on_sidebar()));
+
+  EXPECT_TRUE(block->OnEvent(
+      mouse_at(GetFilesMenuBox(), ftxui::Mouse::Left, ftxui::Mouse::Released)));
+  EXPECT_THAT(GetActiveFilename(), Eq("audio_lyric_finder.cc"));
+
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Show playlists (as block is focused while doing it, there is nothing to ask for)
+  const std::filesystem::path file{"/tmp/song.mp3"};
+
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  sidebar->SetFocused(true);
+  block->OnEvent(ftxui::Event::F2);
+
+  // And again, another block takes focus
+  sidebar->SetFocused(false);
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  // Same for mouse wheel on playlists
+  EXPECT_CALL(*dispatcher, SendEvent(focus_on_sidebar()));
+
+  EXPECT_TRUE(block->OnEvent(
+      mouse_at(GetPlaylistsMenuBox(), ftxui::Mouse::WheelDown, ftxui::Mouse::Pressed)));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, EmptyPlaylist) {
   model::Playlists data{};
 
@@ -1183,7 +1381,7 @@ TEST_F(SidebarTest, EmptyPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1225,7 +1423,7 @@ TEST_F(SidebarTest, SinglePlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1280,7 +1478,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1310,7 +1508,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1342,7 +1540,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1409,7 +1607,7 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
 │                                    │
 │Search:lofi 2                       │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1523,7 +1721,7 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1579,7 +1777,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │▶ Chill mix really long and the coo │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1588,7 +1786,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1608,7 +1806,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │▶  mix really long and the coolest  │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1617,7 +1815,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1634,10 +1832,10 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
-│  Chill mix really long and the coo │
+│  Chill mix really long and th… [3] │
 │▶   chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │  Lofi [3]                          │
 │                                    │
 │                                    │
@@ -1646,7 +1844,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1711,7 +1909,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1740,7 +1938,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1760,7 +1958,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │  Chill mix [3]                     │
 │    chilling 1.mp3                  │
 │    chilling 3.mp3                  │
-│    chilling with a really long nam │
+│    chilling with a really long na… │
 │▶ Lofi [3]                          │
 │    lofi 1.mp3                      │
 │    lofi 2.mp3                      │
@@ -1769,7 +1967,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1840,7 +2038,7 @@ TEST_F(SidebarTest, ForceClickOnEmptyPlaylistWhileOnSearchMode) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1976,7 +2174,7 @@ TEST_F(SidebarTest, SaveNewPlaylistIntoFile) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2050,7 +2248,7 @@ TEST_F(SidebarTest, SaveExistentPlaylistIntoFile) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2129,7 +2327,7 @@ TEST_F(SidebarTest, DeleteExistentPlaylist) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
         EXPECT_THAT(rendered, StrEq(expected));
@@ -2167,7 +2365,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2213,7 +2411,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2266,7 +2464,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2314,7 +2512,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2342,7 +2540,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2370,7 +2568,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2399,7 +2597,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
-│    create     modify     delete    │
+│   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2474,13 +2672,22 @@ TEST_F(SidebarTest, ChangeThemeAfterCreation) {
   const auto file = utils::MarkerColor(3);
   const auto button = utils::MarkerColor(4);
   const auto playlist = utils::MarkerColor(5);
-  const auto all = {tab, directory, file, button, playlist};
+  const auto cursor = utils::MarkerColor(6);
+  const auto all = {tab, directory, file, button, playlist, cursor};
 
-  model::Playlists data{{model::Playlist{
-      .index = 0,
-      .name = "Chill mix",
-      .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
-  }}};
+  // Selected entry uses colors from cursor, so a second playlist is needed to check its own color
+  model::Playlists data{{
+      model::Playlist{
+          .index = 0,
+          .name = "Chill mix",
+          .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
+      },
+      model::Playlist{
+          .index = 1,
+          .name = "Lofi",
+          .songs = {model::Song{.filepath = LISTDIR_PATH + std::string("/audio_player.cc")}},
+      },
+  }};
 
   EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
       .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
@@ -2496,12 +2703,14 @@ TEST_F(SidebarTest, ChangeThemeAfterCreation) {
   theme.menu.file = file;
   theme.sidebar.button = utils::AllButtonStates(button);
   theme.menu.playlist = playlist;
+  theme.menu.cursor = interface::Theme::State{.foreground = cursor, .background = cursor};
   interface::SetTheme(theme);
 
   ftxui::Render(*screen, block->Render());
   EXPECT_TRUE(utils::HasColor(*screen, tab));
   EXPECT_TRUE(utils::HasColor(*screen, directory));
   EXPECT_TRUE(utils::HasColor(*screen, file));
+  EXPECT_TRUE(utils::HasColor(*screen, cursor));
 
   // Same thing for playlist viewer
   block->OnEvent(ftxui::Event::F2);

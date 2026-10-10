@@ -23,7 +23,9 @@
 #include "model/question_data.h"
 #include "model/settings.h"
 #include "util/file_handler.h"
+#include "view/base/custom_event.h"
 #include "view/base/keybinding.h"
+#include "view/element/device_picker.h"
 #include "view/element/error_dialog.h"
 #include "view/element/help_dialog.h"
 #include "view/element/playlist_dialog.h"
@@ -98,7 +100,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -115,9 +117,9 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -156,7 +158,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -173,9 +175,9 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -226,7 +228,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -243,9 +245,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -276,7 +278,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -293,9 +295,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -338,7 +340,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -355,9 +357,9 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -438,7 +440,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -455,9 +457,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -501,7 +503,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -518,9 +520,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -565,7 +567,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -582,9 +584,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -637,7 +639,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -654,9 +656,9 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -702,7 +704,7 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -719,9 +721,9 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -782,7 +784,7 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -799,9 +801,9 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -911,7 +913,7 @@ TEST_F(PlaylistDialogTest, AddYoutubeUrlAndSave) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -987,7 +989,7 @@ TEST_F(PlaylistDialogTest, CannotAddUrlWithoutYtDlp) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1126,6 +1128,60 @@ TEST_F(PlaylistDialogTest, CancelPlaylistImportWhenClosingDialog) {
   // Closing dialog cancels import (and waits for it)
   dialog->Close();
   EXPECT_TRUE(canceled);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ShowReasonWhenPlaylistCannotBeImported) {
+  const std::string playlist_url{"https://www.youtube.com/playlist?list=PLabcdefghijklmnop"};
+
+  // Each reason informed by extraction and what is shown for it
+  const std::vector<std::pair<error::Code, std::string>> reasons{
+      {error::kStreamBlocked, "✗ Refused by YouTube"},
+      {error::kStreamBlockedWithCookies, "✗ Refused by YouTube"},
+      {error::kStreamCookiesFailed, "✗ Cannot read cookies"},
+      {error::kStreamUnavailable, "✗ Playlist is not available"},
+      {error::kStreamTimedOut, "✗ Took too long to import"},
+      {error::kStreamFetchFailed, "✗ Cannot import playlist"},
+  };
+
+  for (const auto& [code, message] : reasons) {
+    auto fetch = [code = code](const std::string&, std::vector<model::Song>&,
+                               const std::atomic<bool>*) { return code; };
+
+    dialog = std::make_unique<interface::PlaylistDialog>(
+        dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch);
+
+    // Import finishes in another thread, which asks for a refresh to show its result
+    std::promise<void> refreshed;
+    std::atomic<bool> notified = false;
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                             interface::CustomEvent::Identifier::Refresh)))
+        .WillRepeatedly(Invoke([&](const interface::CustomEvent&) {
+          if (!notified.exchange(true)) refreshed.set_value();
+        }));
+
+    model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+    GetPlaylistDialog()->Open(operation);
+
+    dialog->OnEvent(ftxui::Event::F2);
+    utils::QueueCharacterEvents(*dialog, playlist_url);
+    dialog->OnEvent(ftxui::Event::Return);
+
+    ASSERT_EQ(refreshed.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready)
+        << message;
+
+    // Refresh is received by dialog as an event (from terminal)
+    dialog->OnEvent(ftxui::Event::Custom);
+
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    EXPECT_THAT(GetRenderedScreen(), HasSubstr(message));
+
+    // Wait for thread from import before releasing what is used by it
+    dialog->Close();
+    ::testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  }
 }
 
 /* ********************************************************************************************** */
@@ -1273,9 +1329,9 @@ TEST_F(PlaylistDialogTest, SwitchBetweenFilesAndUrlInput) {
 TEST_F(PlaylistDialogTest, RenameStartsAtEndAndEscapeCancels) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
-      .playlist = model::Playlist{.index = 0,
-                                  .name = "Lofi",
-                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .playlist =
+          model::Playlist{
+              .index = 0, .name = "Lofi", .songs = {model::Song{.filepath = "Love song.mp3"}}},
   };
 
   GetPlaylistDialog()->Open(operation);
@@ -1315,9 +1371,9 @@ TEST_F(PlaylistDialogTest, RenameStartsAtEndAndEscapeCancels) {
 TEST_F(PlaylistDialogTest, RenameWithAccentedCharacters) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
-      .playlist = model::Playlist{.index = 0,
-                                  .name = "",
-                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .playlist =
+          model::Playlist{
+              .index = 0, .name = "", .songs = {model::Song{.filepath = "Love song.mp3"}}},
   };
 
   GetPlaylistDialog()->Open(operation);
@@ -1394,9 +1450,9 @@ TEST_F(PlaylistDialogTest, RenameDeletingWords) {
 TEST_F(PlaylistDialogTest, RejectEmptyAndDuplicatedName) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
-      .playlist = model::Playlist{.index = 0,
-                                  .name = "Lofi",
-                                  .songs = {model::Song{.filepath = "Love song.mp3"}}},
+      .playlist =
+          model::Playlist{
+              .index = 0, .name = "Lofi", .songs = {model::Song{.filepath = "Love song.mp3"}}},
       .other_names = {"Chill"},
   };
 
@@ -1516,7 +1572,7 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -1533,9 +1589,9 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1586,7 +1642,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1603,9 +1659,9 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1645,7 +1701,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
   rendered = GetRenderedScreen();
 
   expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1662,9 +1718,9 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1718,7 +1774,7 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1735,9 +1791,9 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1775,7 +1831,7 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Create Playlist                               ║
 ║                                                                            ║
@@ -1792,9 +1848,9 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1826,7 +1882,7 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -1843,9 +1899,9 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1915,7 +1971,7 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
   std::string rendered = GetRenderedScreen();
 
   std::string expected = R"(
-╔════════════════════════════════════════════════════════════════════════════╗
+╔═════════════════════════════════════════════════════════════════════════ X ╗
 ║                                                                            ║
 ║                              Modify Playlist                               ║
 ║                                                                            ║
@@ -1932,9 +1988,9 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║      │  dialog_playlist.cc          ││                              │      ║
 ║      │  driver_fftw.cc              ││                              │      ║
 ║      │  driver_ytdlp.cc             ││                              │      ║
-║      │  general                     ││                              │      ║
-║      │  middleware_media_controller.││                              │      ║
-║      │  mock                        ││                              │      ║
+║      │  general/                    ││                              │      ║
+║      │  middleware_media_controller…││                              │      ║
+║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
 ║      │                              ││                              │      ║
@@ -2311,25 +2367,28 @@ class HelpDialogTest : public ::DialogTest {
 
 /* ********************************************************************************************** */
 
-TEST_F(HelpDialogTest, ShowSectionRelatedToFocus) {
-  help_dialog->Show(interface::HelpDialog::Section::Equalizer);
+TEST_F(HelpDialogTest, ShowFromFirstLine) {
+  help_dialog->Show();
   EXPECT_TRUE(dialog->IsVisible());
 
-  // Content starts from the given section
-  EXPECT_THAT(GetFirstContentLine(), HasSubstr("equalizer"));
-  EXPECT_THAT(Render(), HasSubstr("Cycle presets (picker closed)"));
+  // Content starts from the first section
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
+  EXPECT_THAT(Render(), HasSubstr("Show this help"));
 
-  // Opening it again from another context starts from the related section
+  // Opening it again, after scrolling, starts from the first section again
+  dialog->OnEvent(ftxui::Event::PageDown);
+  EXPECT_THAT(GetFirstContentLine(), Not(HasSubstr("general")));
+
   dialog->OnEvent(ftxui::Event::Escape);
-  help_dialog->Show(interface::HelpDialog::Section::Player);
+  help_dialog->Show();
 
-  EXPECT_THAT(GetFirstContentLine(), HasSubstr("player"));
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
 }
 
 /* ********************************************************************************************** */
 
 TEST_F(HelpDialogTest, ScrollContent) {
-  help_dialog->Show(interface::HelpDialog::Section::General);
+  help_dialog->Show();
   EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
   EXPECT_THAT(Render(), HasSubstr("1-"));
 
@@ -2354,7 +2413,7 @@ TEST_F(HelpDialogTest, ScrollContent) {
 /* ********************************************************************************************** */
 
 TEST_F(HelpDialogTest, ContainsAllKeybindings) {
-  help_dialog->Show(interface::HelpDialog::Section::General);
+  help_dialog->Show();
 
   // Collect all content by scrolling page by page
   constexpr int kMaxPages = 10;  //!< More than enough pages to reach the end of help content
@@ -2371,12 +2430,71 @@ TEST_F(HelpDialogTest, ContainsAllKeybindings) {
   EXPECT_THAT(content, HasSubstr("Remove song from playlist"));
   EXPECT_THAT(content, HasSubstr("Save playlist"));
   EXPECT_THAT(content, HasSubstr("Go to previous/next page"));
+
+  // Keybindings from pickers have a section of their own
+  EXPECT_THAT(content, HasSubstr("theme and animation pickers"));
+  EXPECT_THAT(content, HasSubstr("Preview entry"));
+  EXPECT_THAT(content, HasSubstr("Keep entry"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, ShowKeybindingsInTwoColumnsWhenTheyFit) {
+  // Find line (from content rendered) containing the given text
+  auto find_line = [](const std::string& rendered, const std::string& text) {
+    std::istringstream lines{rendered};
+    for (std::string line; std::getline(lines, line);) {
+      if (line.find(text) != std::string::npos) return line;
+    }
+
+    return std::string{};
+  };
+
+  // With the default size from tests, there is space for a single column: the section about
+  // playlists is not even visible
+  help_dialog->Show();
+
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("1-10 of"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Show playlists")));
+
+  // In a wider (and taller) terminal, content continues in a second column
+  size = ftxui::Dimensions{.dimx = 140, .dimy = 42};
+  screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("1-54 of"));
+
+  // So the first entry from both columns are in the same line
+  const std::string line = find_line(rendered, "Show this help");
+  EXPECT_THAT(line, HasSubstr("playlists"));
+
+  // And content is scrolled by everything that is visible
+  dialog->OnEvent(ftxui::Event::PageDown);
+  rendered = Render();
+
+  EXPECT_THAT(rendered, HasSubstr("Toggle shuffle"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Show this help")));
+
+  // Dialog still fits in terminal with two columns (its border is rendered in both sides)
+  dialog->OnEvent(ftxui::Event::Home);
+  const std::string top = find_line(Render(), "╔");
+  EXPECT_THAT(top, HasSubstr("╗"));
+  EXPECT_LT(ftxui::string_width(top), size.dimx);
+
+  // A terminal that is not wide enough for both columns keeps a single one
+  size = ftxui::Dimensions{.dimx = 120, .dimy = 42};
+  screen = std::make_unique<ftxui::Screen>(size.dimx, size.dimy);
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("1-27 of"));
+  EXPECT_THAT(find_line(rendered, "Show this help"), Not(HasSubstr("playlists")));
 }
 
 /* ********************************************************************************************** */
 
 TEST_F(HelpDialogTest, SearchKeybindings) {
-  help_dialog->Show(interface::HelpDialog::Section::General);
+  help_dialog->Show();
 
   // Typed text is used to search (even keys that would scroll or close dialog)
   dialog->OnEvent(ftxui::Event::Character('/'));
@@ -2408,7 +2526,7 @@ TEST_F(HelpDialogTest, SearchKeybindings) {
 /* ********************************************************************************************** */
 
 TEST_F(HelpDialogTest, ClearSearchBeforeClosing) {
-  help_dialog->Show(interface::HelpDialog::Section::General);
+  help_dialog->Show();
 
   dialog->OnEvent(ftxui::Event::Character('/'));
   utils::QueueCharacterEvents(*dialog, "volume");
@@ -2432,10 +2550,10 @@ TEST_F(HelpDialogTest, ClearSearchBeforeClosing) {
   // Opening it again does not keep any previous search
   dialog->OnEvent(ftxui::Event::Character('/'));
   utils::QueueCharacterEvents(*dialog, "volume");
-  help_dialog->Show(interface::HelpDialog::Section::Player);
+  help_dialog->Show();
 
   EXPECT_THAT(Render(), Not(HasSubstr("Search:")));
-  EXPECT_THAT(GetFirstContentLine(), HasSubstr("player"));
+  EXPECT_THAT(GetFirstContentLine(), HasSubstr("general"));
 }
 
 /* ********************************************************************************************** */
@@ -2455,9 +2573,10 @@ TEST_F(PlaylistDialogTest, ChangeThemeAfterCreation) {
       .playlist = model::Playlist{},
   });
 
-  // Add first file to playlist
+  // Add first two files to playlist (selected entry uses colors from cursor, so a second song is
+  // needed to check its own color)
   EXPECT_CALL(contains_audio_cb, Call).WillRepeatedly(Return(true));
-  utils::QueueCharacterEvents(*dialog, "j ");
+  utils::QueueCharacterEvents(*dialog, "j j ");
 
   // Dialog was created with default theme
   ftxui::Render(*screen, dialog->Render(size));
@@ -2532,20 +2651,275 @@ TEST_F(HelpDialogTest, ChangeThemeAfterCreation) {
   utils::ThemeGuard guard;
 
   const auto background = utils::MarkerColor(1);
+  const auto section = utils::MarkerColor(2);
 
-  help_dialog->Show(interface::HelpDialog::Section::Equalizer);
+  help_dialog->Show();
 
   // Dialog was created with default theme
   ftxui::Render(*screen, dialog->Render(size));
   EXPECT_FALSE(utils::HasColor(*screen, background));
+  EXPECT_FALSE(utils::HasColor(*screen, section));
 
   // Replace theme, the same dialog must use new colors on next render
   interface::Theme theme;
   theme.dialog.background = background;
+  theme.dialog.section = section;
   interface::SetTheme(theme);
 
   ftxui::Render(*screen, dialog->Render(size));
   EXPECT_TRUE(utils::HasColor(*screen, background));
+  EXPECT_TRUE(utils::HasColor(*screen, section));
+}
+
+/* ********************************************************************************************** */
+
+//! Create event for mouse button released at the position where the given text (ASCII only) is
+//! rendered on screen
+ftxui::Event MouseEventAt(ftxui::Screen& screen, const std::string& text,
+                          ftxui::Mouse::Button button) {
+  auto matches = [&](int x, int y) {
+    for (size_t i = 0; i < text.size(); i++) {
+      int column = x + static_cast<int>(i);
+      if (column >= screen.dimx() || screen.PixelAt(column, y).character != text.substr(i, 1)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  for (int y = 0; y < screen.dimy(); y++) {
+    for (int x = 0; x < screen.dimx(); x++) {
+      if (!matches(x, y)) continue;
+
+      return ftxui::Event::Mouse(
+          "", ftxui::Mouse{.button = button, .motion = ftxui::Mouse::Released, .x = x, .y = y});
+    }
+  }
+
+  ADD_FAILURE() << "Text not found on screen: " << text;
+  return ftxui::Event::Custom;
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, CloseWithMouse) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+  ftxui::Render(*screen, dialog->Render(size));
+
+  // Dialog is not closed by a click on anything else from it, or outside of it
+  dialog->OnEvent(MouseEventAt(*screen, "Create Playlist", ftxui::Mouse::Left));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released});
+
+  EXPECT_FALSE(dialog->OnEvent(outside));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Only by a click on the button from its border
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, " X ", ftxui::Mouse::Left)));
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, RenameWithMouse) {
+  utils::ThemeGuard guard;
+  const auto hovered = utils::MarkerColor(1);
+
+  interface::Theme theme;
+  theme.dialog.tab.focused = interface::Theme::State{.foreground = hovered, .background = hovered};
+  interface::SetTheme(theme);
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Lofi",
+                                         .songs = {model::Song{.filepath = "Love song.mp3"}},
+                                     }};
+
+  GetPlaylistDialog()->Open(operation);
+
+  auto render = [this] {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return GetRenderedScreen();
+  };
+
+  render();
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  // Playlist name is hovered like a tab from the other pane
+  auto hover = MouseEventAt(*screen, "Lofi", ftxui::Mouse::None);
+  hover.mouse().motion = ftxui::Mouse::Pressed;
+
+  EXPECT_FALSE(dialog->OnEvent(hover));
+  render();
+  EXPECT_TRUE(utils::HasColor(*screen, hovered));
+
+  // A click on it starts renaming playlist, exactly like its key (even with focus on files)
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "Lofi", ftxui::Mouse::Left)));
+
+  EXPECT_THAT(render(), HasSubstr("[Escape:cancel]"));
+  EXPECT_FALSE(utils::HasColor(*screen, hovered));
+
+  std::string typed{" beats"};
+  utils::QueueCharacterEvents(*dialog, typed);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  EXPECT_THAT(render(), HasSubstr("Lofi beats"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ClickOnHints) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Mix",
+                                         .songs = {model::Song{.filepath = "dance.mp3"},
+                                                   model::Song{.filepath = "trance.mp3"}},
+                                     }};
+
+  // Use a screen wide enough for both hints
+  ftxui::Dimensions wide{.dimx = 180, .dimy = size.dimy};
+  screen = std::make_unique<ftxui::Screen>(wide.dimx, wide.dimy);
+
+  auto render = [this, &wide] {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(wide));
+    return GetRenderedScreen();
+  };
+
+  GetPlaylistDialog()->Open(operation);
+  dialog->OnEvent(ftxui::Event::Tab);
+  ASSERT_THAT(render(), HasSubstr("[r:rename d:remove]"));
+
+  // Each hint acts like its key: remove selected song
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "d:remove", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("dance.mp3")));
+  EXPECT_THAT(rendered, HasSubstr("trance.mp3"));
+
+  // Rename playlist
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "r:rename", ftxui::Mouse::Left)));
+  ASSERT_THAT(render(), HasSubstr("[Escape:cancel]"));
+
+  // And cancel it, keeping the name from before
+  utils::QueueCharacterEvents(*dialog, "tape");
+  ASSERT_THAT(render(), HasSubstr("Mixtape"));
+
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "Escape:cancel", ftxui::Mouse::Left)));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("[r:rename d:remove]"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Mixtape")));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Brackets around hints are not part of them
+  EXPECT_FALSE(dialog->OnEvent(MouseEventAt(*screen, "[r:rename", ftxui::Mouse::Left)));
+  EXPECT_THAT(render(), HasSubstr("[r:rename d:remove]"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, PlaceCursorWithMouse) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Modify,
+                                     .playlist = model::Playlist{
+                                         .index = 0,
+                                         .name = "Lofi",
+                                         .songs = {model::Song{.filepath = "Love song.mp3"}},
+                                     }};
+
+  auto render = [this] {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return GetRenderedScreen();
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // A click on text typed as URL places cursor on the character clicked
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "youtube.com");
+  render();
+
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, ".com", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "!");
+  EXPECT_THAT(render(), HasSubstr("youtube!.com"));
+
+  // A second click right after the first one is still a click
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "be!", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "?");
+  EXPECT_THAT(render(), HasSubstr("youtu?be!.com"));
+
+  // Same for playlist name, while it is renamed
+  dialog->OnEvent(ftxui::Event::Tab);
+  dialog->OnEvent(interface::keybinding::Playlist::Rename);
+  render();
+
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "ofi", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "-");
+  EXPECT_THAT(render(), HasSubstr("L-ofi"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, PlaceCursorOnSearchWithMouse) {
+  help_dialog->Show();
+
+  // Search and stop typing, so keys are used to scroll content again
+  dialog->OnEvent(ftxui::Event::Character('/'));
+  utils::QueueCharacterEvents(*dialog, "shufle");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  std::string rendered = Render();
+  ASSERT_THAT(rendered, HasSubstr("No matches"));
+  ASSERT_THAT(rendered, HasSubstr("edit search"));
+
+  // A click on text places cursor on the character clicked, and it is edited again
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, "le", ftxui::Mouse::Left)));
+  utils::QueueCharacterEvents(*dialog, "f");
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("Search: shuffle"));
+  EXPECT_THAT(rendered, HasSubstr("Toggle shuffle"));
+  EXPECT_THAT(rendered, Not(HasSubstr("edit search")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(HelpDialogTest, CloseWithMouse) {
+  help_dialog->Show();
+  Render();
+
+  // Dialog is not closed by a click on anything else from it, or outside of it
+  dialog->OnEvent(MouseEventAt(*screen, "Help", ftxui::Mouse::Left));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released});
+
+  EXPECT_FALSE(dialog->OnEvent(outside));
+  EXPECT_TRUE(dialog->IsVisible());
+
+  // Only by a click on the button from its border
+  EXPECT_TRUE(dialog->OnEvent(MouseEventAt(*screen, " X ", ftxui::Mouse::Left)));
+  EXPECT_FALSE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ErrorDialogTest, DoNotShowButtonToClose) {
+  // A click anywhere on this dialog already closes it
+  GetErrorDialog()->SetErrorMessage("Cannot decode song", "");
+  EXPECT_THAT(Render(), Not(HasSubstr(" X ")));
 }
 
 /* ********************************************************************************************** */
@@ -2585,9 +2959,9 @@ class ThemePickerTest : public ::testing::Test {
     return false;
   }
 
-  //! Getter for rendered screen
+  //! Getter for rendered screen (with picker placed as terminal does)
   std::string GetRenderedScreen() {
-    ftxui::Render(*screen, picker->Render());
+    ftxui::Render(*screen, picker->Render() | ftxui::center);
     return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
   }
 
@@ -2721,6 +3095,274 @@ TEST_F(ThemePickerTest, SelectionStopsAtFirstAndLastTheme) {
   // Any other key is not passed along while picker is open
   EXPECT_TRUE(picker->OnEvent(ftxui::Event::Character('p')));
   EXPECT_TRUE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseWheelPreviewsTheme) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  // Selection moves by one theme, no matter which one is under mouse cursor
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(IsThemeInUse("gruvbox-dark"));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::WheelUp)));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ Catppuccin Mocha"));
+
+  // Mouse outside picker does not change anything (and it is not passed along either)
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::WheelDown, .motion = ftxui::Mouse::Pressed});
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_TRUE(IsThemeInUse("catppuccin-mocha"));
+  EXPECT_TRUE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseClickPreviewsTheme) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  // Theme is applied, but picker stays open and nothing is saved
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsThemeInUse("nord"));
+  EXPECT_TRUE(picker->IsVisible());
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ Nord"));
+
+  // Click on border does not select anything
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "theme", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsThemeInUse("nord"));
+  EXPECT_TRUE(picker->IsVisible());
+
+  // And theme from before opening picker is still restored when it is cancelled
+  EXPECT_TRUE(picker->OnEvent(interface::keybinding::Navigation::Escape));
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseClickOutsideCancels) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Nord", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsThemeInUse("nord"));
+
+  // Mouse button pressed outside of picker is not a click yet
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Pressed});
+
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_TRUE(picker->IsVisible());
+
+  // Picker is closed when it is released, exactly like the key to cancel it
+  outside.mouse().motion = ftxui::Mouse::Released;
+
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_FALSE(picker->IsVisible());
+  EXPECT_TRUE(IsThemeInUse("tokyo-night"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(ThemePickerTest, MouseDoubleClickKeepsTheme) {
+  CreatePicker();
+  picker->Open();
+  GetRenderedScreen();
+
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::theme, Optional(Eq("dracula")))))
+      .WillOnce(Return(true));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Dracula", ftxui::Mouse::Left)));
+  EXPECT_TRUE(picker->IsVisible());
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Dracula", ftxui::Mouse::Left)));
+  EXPECT_FALSE(picker->IsVisible());
+  EXPECT_TRUE(IsThemeInUse("dracula"));
+}
+
+/* ********************************************************************************************** */
+
+/**
+ * @brief Tests with DevicePicker class
+ */
+class DevicePickerTest : public ::testing::Test {
+ protected:
+  static void SetUpTestSuite() { util::Logger::GetInstance().Configure(); }
+
+  void SetUp() override {
+    screen = std::make_unique<ftxui::Screen>(72, 8);
+    dispatcher = std::make_shared<EventDispatcherMock>();
+    file_handler = std::make_shared<NiceMock<FileHandlerMock>>();
+  }
+
+  //! Create picker, as if the given device was saved on last run (empty means no device saved),
+  //! and open it with some devices
+  void CreatePicker(const std::string& saved = "") {
+    if (!saved.empty()) {
+      EXPECT_CALL(*file_handler, ParseSettings(_))
+          .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.device = saved}), Return(true)));
+    }
+
+    picker = std::make_unique<interface::DevicePicker>(dispatcher, file_handler);
+    picker->Open(model::AudioDevices{
+        {.name = "default", .description = "Default output"},
+        {.name = "pulse", .description = "Sound server"},
+        {.name = "front:CARD=DAC,DEV=0", .description = "USB Audio"},
+    });
+  }
+
+  //! Expect the given device to be sent to audio player and saved in settings
+  void ExpectDeviceChosen(const std::string& device) {
+    using interface::CustomEvent;
+
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::SetAudioDevice),
+                                Field(&CustomEvent::content, VariantWith<std::string>(device)))));
+    EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::device, Optional(Eq(device)))))
+        .WillOnce(Return(true));
+  }
+
+  //! Getter for rendered screen (with picker placed as terminal does)
+  std::string GetRenderedScreen() {
+    ftxui::Render(*screen, picker->Render() | ftxui::center);
+    return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
+  }
+
+  utils::ThemeGuard guard;  //!< Restore default theme when test finishes
+  std::unique_ptr<ftxui::Screen> screen;
+  std::shared_ptr<EventDispatcherMock> dispatcher;
+  std::shared_ptr<NiceMock<FileHandlerMock>> file_handler;
+  std::unique_ptr<interface::DevicePicker> picker;
+};
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, RenderDevices) {
+  // Nothing is sent to audio player when picker is created (it starts with device from settings)
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+
+  CreatePicker("pulse");
+  EXPECT_TRUE(picker->IsVisible());
+
+  // Entries wider than screen are cut, keeping their names visible
+  std::string expected = R"(
+╭ audio output ────────────────────────────────────────────────────────╮
+│  automatic             Default device from system (or the first one  │
+│  default               Default output                                │
+│▶ pulse                 Sound server                                  │
+│  front:CARD=DAC,DEV=0  USB Audio                                     │
+╰──────────────────────────────────────────────────────────────────────╯
+)";
+
+  EXPECT_THAT(GetRenderedScreen(), StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, MouseWheelMovesSelection) {
+  CreatePicker();
+  GetRenderedScreen();
+
+  // Device is changed only when it is chosen
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelDown)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ pulse"));
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelUp)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ default"));
+
+  // Selection does not go beyond first and last entries
+  for (int i = 0; i < 5; i++) {
+    EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelDown)));
+  }
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ front:CARD=DAC,DEV=0"));
+
+  for (int i = 0; i < 5; i++) {
+    EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "automatic", ftxui::Mouse::WheelUp)));
+  }
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ automatic"));
+
+  // Mouse outside picker does not change anything (and it is not passed along either)
+  auto outside = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::WheelDown, .motion = ftxui::Mouse::Pressed});
+  EXPECT_TRUE(picker->OnEvent(outside));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ automatic"));
+  EXPECT_TRUE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, MouseClickSelectsDevice) {
+  CreatePicker();
+  GetRenderedScreen();
+
+  // Device is selected, but picker stays open and device is not changed
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "Sound server", ftxui::Mouse::Left)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ pulse"));
+  EXPECT_TRUE(picker->IsVisible());
+
+  // Click on border does not select anything
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "audio output", ftxui::Mouse::Left)));
+  EXPECT_THAT(GetRenderedScreen(), HasSubstr("▶ pulse"));
+  EXPECT_TRUE(picker->IsVisible());
+
+  EXPECT_TRUE(picker->OnEvent(interface::keybinding::Navigation::Escape));
+  EXPECT_FALSE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, MouseDoubleClickChoosesDevice) {
+  CreatePicker();
+  GetRenderedScreen();
+
+  ExpectDeviceChosen("front:CARD=DAC,DEV=0");
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "USB Audio", ftxui::Mouse::Left)));
+  EXPECT_TRUE(picker->IsVisible());
+
+  EXPECT_TRUE(picker->OnEvent(MouseEventAt(*screen, "USB Audio", ftxui::Mouse::Left)));
+  EXPECT_FALSE(picker->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(DevicePickerTest, ChooseDeviceWithKeyboard) {
+  using Keybind = interface::keybinding::Navigation;
+
+  CreatePicker("pulse");
+
+  // First entry is the one to not choose any device
+  ExpectDeviceChosen("");
+
+  EXPECT_TRUE(picker->OnEvent(Keybind::ArrowUp));
+  EXPECT_TRUE(picker->OnEvent(Keybind::Up));
+  EXPECT_TRUE(picker->OnEvent(Keybind::Return));
+  EXPECT_FALSE(picker->IsVisible());
+
+  // Picker does not handle anything while closed
+  EXPECT_FALSE(picker->OnEvent(Keybind::ArrowDown));
 }
 
 }  // namespace

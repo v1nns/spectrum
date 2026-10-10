@@ -168,6 +168,7 @@ Theme MakeTheme(const Palette& p) {
   theme.block = Theme::Block{
       .title = State{.foreground = p.subtext, .background = p.surface},
       .title_focused = State{.foreground = p.base, .background = p.accent},
+      .border = p.overlay,
       .border_focused = p.accent,
       .tab =
           ButtonStates{
@@ -177,6 +178,7 @@ Theme MakeTheme(const Palette& p) {
           },
       .window_button =
           ButtonStates{
+              .normal = State{.foreground = p.muted},
               .focused = State{.foreground = p.subtext, .background = p.surface},
               .pressed = State{.foreground = p.text, .background = p.overlay},
           },
@@ -184,6 +186,8 @@ Theme MakeTheme(const Palette& p) {
 
   theme.menu = Theme::Menu{
       .prefix = p.accent,
+      .prefix_playing = p.green,
+      .cursor = State{.foreground = p.base, .background = p.accent},
       .title = p.text,
       .search = p.text,
       .directory = p.green,
@@ -198,18 +202,20 @@ Theme MakeTheme(const Palette& p) {
   theme.sidebar = Theme::Sidebar{
       .button =
           ButtonStates{
-              .normal = State{.foreground = p.base, .background = p.accent},
-              .focused = State{.foreground = p.base, .background = p.accent_alt},
-              .pressed = State{.foreground = p.accent_alt, .background = p.overlay},
-              .disabled = State{.foreground = p.muted, .background = p.surface},
-              .highlight = State{.foreground = p.highlight},
+              .normal = State{.foreground = p.muted},
+              .focused = State{.foreground = p.text},
+              .pressed = State{.foreground = p.accent},
+              .disabled = State{.foreground = p.overlay},
+              .highlight = State{.foreground = p.accent_alt},
           },
   };
 
   theme.file_info = Theme::FileInfo{
-      .field = p.accent,
+      .title = p.text,
+      .artist = p.subtext,
+      .field = p.muted,
       .value = p.text,
-      .value_empty = p.muted,
+      .value_empty = p.subtext,
   };
 
   theme.visualizer.text = p.text;
@@ -223,13 +229,14 @@ Theme MakeTheme(const Palette& p) {
 
   theme.equalizer = Theme::Equalizer{
       .text = p.text,
+      .label = p.muted,
       .bar = State{.foreground = p.accent, .background = p.overlay},
       .bar_hovered = State{.foreground = p.accent_alt, .background = p.muted},
       .bar_focused = State{.foreground = p.red, .background = p.muted},
       .button =
           ButtonStates{
               .normal = State{.foreground = p.text, .border = p.text},
-              .focused = State{.border = p.accent},
+              .focused = State{.foreground = p.accent, .border = p.accent},
               .pressed = State{.foreground = p.accent, .background = p.surface, .border = p.accent},
               .disabled = State{.foreground = p.muted, .border = p.muted},
               .highlight = State{.foreground = p.red},
@@ -245,8 +252,8 @@ Theme MakeTheme(const Palette& p) {
       .play = p.green,
       .stop = p.red,
       .skip = p.accent,
-      .button_border = p.overlay,
-      .button_border_focused = p.accent,
+      .button_hovered = p.overlay,
+      .mode_enabled = State{.foreground = p.base, .background = p.accent},
       .duration = State{.foreground = p.accent, .background = p.overlay},
       .duration_focused = State{.foreground = p.accent_alt, .background = p.muted},
   };
@@ -261,6 +268,7 @@ Theme MakeTheme(const Palette& p) {
       .label = p.text,
       .hint = p.subtext,
       .keybinding = p.accent_alt,
+      .section = p.accent,
       .success = p.green,
       .error = p.red,
       .pane_border = p.muted,

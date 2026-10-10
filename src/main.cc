@@ -12,12 +12,14 @@
 #include <system_error>
 
 #include "audio/player.h"
+#include "ftxui/component/loop.hpp"
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
 #include "middleware/remote_playlist.h"
 #include "model/player_status.h"
 #include "model/remote_command.h"
+#include "model/settings.h"
 #include "util/arg_parser.h"
 #include "util/file_handler.h"
 #include "util/logger.h"
@@ -288,8 +290,13 @@ int main(int argc, char** argv) {
        " settings=", std::quoted(file_handler.GetSettingsPath()));
   INFO("Terminal size=", terminal_size.dimx, "x", terminal_size.dimy);
 
+  // Settings from last run that are used by player since the beginning (audio output device chosen
+  // by user and browser whose cookies may be sent when streaming songs)
+  model::Settings settings;
+  file_handler.ParseSettings(settings);
+
   // Create and initialize a new player
-  auto player = audio::Player::Create(options.verbose_logging);
+  auto player = audio::Player::Create(options.verbose_logging, settings);
 
   // Create and initialize a new terminal window
   auto terminal = interface::Terminal::Create(options.initial_dir);
@@ -357,8 +364,14 @@ int main(int argc, char** argv) {
         [&remote](const model::PlayerStatus& status) { remote->Publish(model::to_json(status)); });
   }
 
+  // Events posted to screen are discarded while its loop does not exist, so create it and ask
+  // terminal to handle any custom event sent in the meantime (e.g. a warning about something that
+  // has failed on initialization, otherwise it would be shown only after the first key pressed)
+  ftxui::Loop loop(&screen, terminal);
+  screen.PostEvent(ftxui::Event::Custom);
+
   // Start GUI loop and clear screen after exit
-  screen.Loop(terminal);
+  loop.Run();
 
   if (remote) {
     middleware->SetStatusListener(nullptr);

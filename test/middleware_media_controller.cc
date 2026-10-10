@@ -3,6 +3,7 @@
 #include <gtest/gtest-message.h>
 #include <gtest/gtest-test-part.h>
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -339,6 +340,14 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromAudioNotifier) {
   };
   EXPECT_CALL(*audio_ctl, Play(TypedEq<const model::Playlist&>(playlist)));
   notifier->NotifyPlaylistSelection(playlist);
+
+  std::string device{"front:CARD=DAC,DEV=0"};
+  EXPECT_CALL(*audio_ctl, SetAudioDevice(device));
+  notifier->SetAudioDevice(device);
+
+  model::AudioDevices devices{{.name = device, .description = "USB Audio"}};
+  EXPECT_CALL(*audio_ctl, GetAudioDevices()).WillOnce(Return(devices));
+  EXPECT_THAT(notifier->GetAudioDevices(), Eq(devices));
 }
 
 /* ********************************************************************************************** */
@@ -387,6 +396,24 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
   error::Code error = error::kUnknownError;
   EXPECT_CALL(*dispatcher, SetApplicationError(Eq(error), StrEq("song.mp3")));
   notifier->NotifyError(error, "song.mp3");
+
+  // Audio output is sent to UI and kept in player status, until song is cleared
+  model::AudioOutput output{
+      .device = "front:CARD=DAC,DEV=0",
+      .format = model::AudioFormat{.sample_rate = 96000, .sample_format = model::SampleFormat::S32},
+  };
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::UpdateAudioOutput),
+          Field(&interface::CustomEvent::content, VariantWith<model::AudioOutput>(output)))));
+  notifier->NotifyAudioOutput(output);
+  EXPECT_EQ(controller->GetStatus().output, output);
+
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::ClearSongInfo)));
+  notifier->ClearSongInformation(playing);
+  EXPECT_FALSE(controller->GetStatus().output.has_value());
 }
 
 /* ********************************************************************************************** */
@@ -684,6 +711,92 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
   testing::RunAsyncTest({analysis, client});
 }
+
+TEST_F(MediaControllerTest, CancelClearAnimationWhenNumberOfBarsChanges) {
+  constexpr int kSampleSize = 16;
+  constexpr int kNewNumberBars = kNumberBars / 2;
+
+  // Number of bars expected by UI, changed while animation is running (e.g. terminal is resized)
+  std::atomic<int> number_bars = kNumberBars;
+
+  model::Song::CurrentInformation info{
+      .state = model::Song::MediaState::Pause,
+      .position = 12,
+  };
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Invoke([&]() {
+      return number_bars.load();
+    }));
+
+    EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
+        .WillOnce(Invoke([&](double*, int, double* output) {
+          std::fill(output, output + kNumberBars, 1.0);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                             interface::CustomEvent::Identifier::UpdateSongState)));
+
+    // Bars sent to UI: result from analysis, first step from animation and, as number of bars is
+    // changed right after it, animation is canceled with the new number of bars
+    const std::vector<double> result(kNumberBars, 1.0);
+    const std::vector<double> first_step(kNumberBars, 0.75);
+    const std::vector<double> second_step(kNumberBars, 0.75 * 0.75);
+    const std::vector<double> last_update(kNewNumberBars, 0.001);
+
+    auto draw = [](const std::vector<double>& bars) {
+      return AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::DrawAudioSpectrum),
+          Field(&interface::CustomEvent::content,
+                VariantWith<std::vector<double>>(ElementsAreArray(bars))));
+    };
+
+    EXPECT_CALL(*dispatcher, SendEvent(draw(second_step))).Times(0);
+
+    {
+      InSequence seq;
+
+      EXPECT_CALL(*dispatcher, SendEvent(draw(result)))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(2); }));
+
+      EXPECT_CALL(*dispatcher, SendEvent(draw(first_step)))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { number_bars = kNewNumberBars; }));
+
+      EXPECT_CALL(*dispatcher, SendEvent(draw(last_update)))
+          .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(3); }));
+    }
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetInterfaceNotifier();
+
+    // In order to run ClearAnimation, must send some raw data first (to fill internal buffer)
+    syncer.WaitForStep(1);
+    std::vector<int16_t> buffer(kSampleSize, 1);
+    notifier->SendAudioRaw(buffer.data(), buffer.size());
+
+    // Send a Pause notification to run ClearAnimation
+    syncer.WaitForStep(2);
+    notifier->NotifySongState(info);
+
+    // Wait for Analysis to finish before exiting from controller
+    syncer.WaitForStep(3);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+}
+
+/* ********************************************************************************************** */
 
 TEST_F(MediaControllerTest, AnalysisAndRegainAnimation) {
   int sample_size = 16;
@@ -1006,6 +1119,8 @@ class AudioNotifierMock : public audio::Notifier {
   MOCK_METHOD(void, SkipToPreviousSong, (), (override));
   MOCK_METHOD(void, SetRepeatMode, (model::RepeatMode), (override));
   MOCK_METHOD(void, SetShuffle, (bool), (override));
+  MOCK_METHOD(void, SetAudioDevice, (const std::string&), (override));
+  MOCK_METHOD(model::AudioDevices, GetAudioDevices, (), (override));
 };
 
 /**
@@ -1084,6 +1199,7 @@ class TerminalTest : public ::testing::Test {
   bool IsQuestionVisible() const { return terminal->question_dialog_->IsVisible(); }
   bool IsPlaylistDialogVisible() const { return terminal->playlist_dialog_->IsVisible(); }
   bool IsThemePickerVisible() const { return terminal->theme_picker_->IsVisible(); }
+  bool IsDevicePickerVisible() const { return terminal->device_picker_->IsVisible(); }
 
   utils::ThemeGuard guard;  //!< Restore default theme when test finishes
 
@@ -1379,7 +1495,7 @@ TEST_F(TerminalTest, KeepEventsToAudioThreadUntilNotifierIsRegistered) {
   notifier.reset();
   terminal->ProcessEvent(CustomEvent::PauseSong());
 
-  EXPECT_THAT(Render(), ::testing::HasSubstr("Volume:  40%"));
+  EXPECT_THAT(Render(), ::testing::HasSubstr("  40% "));
 }
 
 /* ********************************************************************************************** */
@@ -1455,6 +1571,41 @@ TEST_F(TerminalTest, ShowErrorDialog) {
 
 /* ********************************************************************************************** */
 
+TEST_F(TerminalTest, CloseErrorDialogWithMouse) {
+  RegisterNotifier();
+
+  terminal->SetApplicationError(error::kTooManyFailedSongs, "");
+  ASSERT_TRUE(IsErrorVisible());
+
+  // Render dialog, to calculate its position on screen
+  Render();
+
+  auto click_at = [](int x, int y) {
+    return ftxui::Event::Mouse(
+        "", ftxui::Mouse{
+                .button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released, .x = x, .y = y});
+  };
+
+  // Dialog is not closed by a click outside of it (and nothing behind it is clicked either)
+  EXPECT_CALL(*notifier, NotifyErrorDialogClosed()).Times(0);
+
+  EXPECT_FALSE(Send(click_at(0, 0)));
+  HandlePendingEvents();
+
+  EXPECT_TRUE(IsErrorVisible());
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // Only by a click on it (dialog is rendered at the center of screen)
+  EXPECT_CALL(*notifier, NotifyErrorDialogClosed());
+
+  EXPECT_TRUE(Send(click_at(kColumns / 2, kLines / 2)));
+  HandlePendingEvents();
+
+  EXPECT_FALSE(IsErrorVisible());
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(TerminalTest, ShowHelpForFocusedBlock) {
   using interface::CustomEvent;
   using interface::keybinding::General;
@@ -1493,6 +1644,47 @@ TEST_F(TerminalTest, ShowHelpForFocusedBlock) {
 
 /* ********************************************************************************************** */
 
+TEST_F(TerminalTest, ClickOnAnotherBlockClosesAnimationPicker) {
+  RegisterNotifier();
+
+  // Open animation picker from spectrum visualizer
+  Send(interface::keybinding::General::FocusMainContent);
+  HandlePendingEvents();
+  ASSERT_EQ(GetFocusedIndex(), kMainContent);
+
+  EXPECT_TRUE(Send(interface::keybinding::Visualizer::ChangeAnimation));
+  ASSERT_THAT(Render(), ::testing::HasSubstr(" animation "));
+
+  //! Create mouse event on the first rows from sidebar (which is the list of files)
+  auto mouse_on_sidebar = [](ftxui::Mouse::Button button, ftxui::Mouse::Motion motion) {
+    static constexpr int kColumn = 5;
+    static constexpr int kRow = 4;
+
+    return ftxui::Event::Mouse(
+        "", ftxui::Mouse{.button = button, .motion = motion, .x = kColumn, .y = kRow});
+  };
+
+  // A click on another block only closes picker: it is not handled by this block (otherwise,
+  // sidebar would be focused)
+  EXPECT_TRUE(Send(mouse_on_sidebar(ftxui::Mouse::Left, ftxui::Mouse::Released)));
+  HandlePendingEvents();
+
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr(" animation ")));
+  EXPECT_EQ(GetFocusedIndex(), kMainContent);
+
+  // Anything else is still handled by other blocks while picker is open, like mouse wheel
+  EXPECT_TRUE(Send(interface::keybinding::Visualizer::ChangeAnimation));
+  ASSERT_THAT(Render(), ::testing::HasSubstr(" animation "));
+
+  EXPECT_TRUE(Send(mouse_on_sidebar(ftxui::Mouse::WheelDown, ftxui::Mouse::Pressed)));
+  HandlePendingEvents();
+
+  EXPECT_THAT(Render(), ::testing::HasSubstr(" animation "));
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(TerminalTest, ShowThemePicker) {
   EXPECT_TRUE(Send(interface::keybinding::General::ChangeTheme));
   EXPECT_TRUE(IsThemePickerVisible());
@@ -1504,6 +1696,141 @@ TEST_F(TerminalTest, ShowThemePicker) {
 
   EXPECT_TRUE(Send(interface::keybinding::Navigation::Escape));
   EXPECT_FALSE(IsThemePickerVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ChooseDeviceWithPicker) {
+  using interface::keybinding::General;
+  using interface::keybinding::Navigation;
+  using ::testing::_;
+
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  RegisterNotifier();
+
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{
+          {.name = "default", .description = "Default output"},
+          {.name = device, .description = "USB Audio"},
+      }));
+
+  EXPECT_TRUE(Send(General::ChangeAudioDevice));
+  EXPECT_TRUE(IsDevicePickerVisible());
+
+  // First entry is always the one to not choose any device
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, ::testing::HasSubstr("▶ automatic"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr("default               Default output"));
+  EXPECT_THAT(rendered, ::testing::HasSubstr(device + "  USB Audio"));
+
+  // Keys go to picker while it is opened
+  Send(Navigation::Tab);
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+
+  // Nothing is sent to audio thread while selection moves (it does not go beyond last entry)
+  EXPECT_CALL(*notifier, SetAudioDevice(_)).Times(0);
+
+  Send(Navigation::ArrowDown);
+  Send(Navigation::Down);
+  Send(Navigation::Down);
+  HandlePendingEvents();
+  EXPECT_THAT(Render(), ::testing::HasSubstr("▶ " + device));
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // Chosen device is saved and sent to audio thread
+  EXPECT_CALL(*notifier, SetAudioDevice(device));
+  EXPECT_CALL(*file_handler, SaveSettings(::testing::Field(&model::Settings::device, device)))
+      .WillOnce(::testing::Return(true));
+
+  EXPECT_TRUE(Send(Navigation::Return));
+  EXPECT_FALSE(IsDevicePickerVisible());
+  HandlePendingEvents();
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // When opened again, device in use is the selected one
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{
+          {.name = "default", .description = "Default output"},
+          {.name = device, .description = "USB Audio"},
+      }));
+
+  Send(General::ChangeAudioDevice);
+  EXPECT_THAT(Render(), ::testing::HasSubstr("▶ " + device));
+
+  // Choosing the first entry lets audio thread choose device again
+  EXPECT_CALL(*notifier, SetAudioDevice(""));
+  EXPECT_CALL(*file_handler, SaveSettings(::testing::Field(&model::Settings::device, "")))
+      .WillOnce(::testing::Return(true));
+
+  Send(Navigation::Up);
+  Send(Navigation::ArrowUp);
+  Send(Navigation::Up);
+  EXPECT_TRUE(Send(General::ChangeAudioDevice));
+  EXPECT_FALSE(IsDevicePickerVisible());
+  HandlePendingEvents();
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, CancelDevicePicker) {
+  using interface::keybinding::General;
+  using interface::keybinding::Navigation;
+  using ::testing::_;
+
+  RegisterNotifier();
+
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{{.name = "default"}}));
+
+  // Device in use is kept
+  EXPECT_CALL(*notifier, SetAudioDevice(_)).Times(0);
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  EXPECT_TRUE(Send(General::ChangeAudioDevice));
+  EXPECT_TRUE(IsDevicePickerVisible());
+
+  Send(Navigation::Down);
+  EXPECT_TRUE(Send(Navigation::Escape));
+  EXPECT_FALSE(IsDevicePickerVisible());
+  HandlePendingEvents();
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, DevicePickerIsNotShownWithoutAudioThread) {
+  // There is no one to ask for devices
+  EXPECT_TRUE(Send(interface::keybinding::General::ChangeAudioDevice));
+  EXPECT_FALSE(IsDevicePickerVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, RestoreDeviceFromSettings) {
+  using ::testing::_;
+
+  const std::string device{"front:CARD=DAC,DEV=0"};
+
+  // Device from last run is already in use by audio thread, so there is nothing to send to it
+  ON_CALL(*file_handler, ParseSettings(_))
+      .WillByDefault(::testing::DoAll(
+          ::testing::SetArgReferee<0>(model::Settings{.device = device}), ::testing::Return(true)));
+  CreateTerminal();
+
+  EXPECT_CALL(*notifier, SetAudioDevice(_)).Times(0);
+  RegisterNotifier();
+  HandlePendingEvents();
+
+  ::testing::Mock::VerifyAndClearExpectations(notifier.get());
+
+  // And it is the selected one in picker (even when it is not the first device)
+  EXPECT_CALL(*notifier, GetAudioDevices())
+      .WillOnce(::testing::Return(model::AudioDevices{{.name = "default"}, {.name = device}}));
+
+  Send(interface::keybinding::General::ChangeAudioDevice);
+  EXPECT_THAT(Render(), ::testing::HasSubstr("▶ " + device));
 }
 
 /* ********************************************************************************************** */
@@ -1580,6 +1907,74 @@ TEST_F(TerminalTest, ToggleFullscreen) {
 
   EXPECT_FALSE(IsFullscreen());
   EXPECT_THAT(Render(), ::testing::HasSubstr(" player "));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, MouseClickOnHiddenButtonsInFullscreen) {
+  using interface::CustomEvent;
+
+  // Render all blocks, to calculate position of each button on screen
+  ftxui::Screen screen(size.dimx, size.dimy);
+  ftxui::Render(screen, terminal->Render());
+
+  //! Create event for mouse click at the position where the given text is rendered
+  auto click_at = [&screen](const std::string& text) {
+    const std::vector<std::string> glyphs = ftxui::Utf8ToGlyphs(text);
+    const int length = static_cast<int>(glyphs.size());
+
+    for (int y = 0; y < screen.dimy(); y++) {
+      for (int x = 0; x + length <= screen.dimx(); x++) {
+        bool found = true;
+        for (int i = 0; i < length && found; i++) {
+          found = screen.PixelAt(x + i, y).character == glyphs[static_cast<size_t>(i)];
+        }
+
+        if (found) {
+          return ftxui::Event::Mouse("", ftxui::Mouse{.button = ftxui::Mouse::Left,
+                                                      .motion = ftxui::Mouse::Released,
+                                                      .x = x,
+                                                      .y = y});
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Text not found on screen: " << text;
+    return ftxui::Event::Custom;
+  };
+
+  const ftxui::Event click_equalizer = click_at("2:equalizer");
+  const ftxui::Event click_exit = click_at("X ");
+  const ftxui::Event click_play = click_at("▶   ■");
+
+  terminal->ProcessEvent(CustomEvent::ToggleFullscreen());
+  ASSERT_THAT(Render(), ::testing::Not(::testing::HasSubstr(" player ")));
+
+  // Buttons are not visible anymore, so clicking on where they were must not do anything
+  for (const auto& click : {click_equalizer, click_exit, click_play}) {
+    EXPECT_FALSE(Send(click));
+    HandlePendingEvents();
+  }
+
+  EXPECT_EQ(exit_count, 0);
+  EXPECT_EQ(GetFocusedIndex(), kSidebar);
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr("preset")));
+
+  // Back to normal, where they are visible again
+  terminal->ProcessEvent(CustomEvent::ToggleFullscreen());
+  ASSERT_THAT(Render(), ::testing::HasSubstr(" player "));
+
+  EXPECT_TRUE(Send(click_play));
+  HandlePendingEvents();
+  EXPECT_EQ(GetFocusedIndex(), kMediaPlayer);
+
+  EXPECT_TRUE(Send(click_equalizer));
+  HandlePendingEvents();
+  EXPECT_THAT(Render(), ::testing::HasSubstr("preset"));
+
+  EXPECT_TRUE(Send(click_exit));
+  HandlePendingEvents();
+  EXPECT_EQ(exit_count, 1);
 }
 
 }  // namespace

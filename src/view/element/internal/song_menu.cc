@@ -15,7 +15,6 @@ void SongMenu::UpdateStyleImpl() {
   const auto& theme = GetTheme();
 
   style_ = Style{
-      .prefix = ftxui::color(theme.menu.prefix),
       .tag = ftxui::color(theme.dialog.menu_tag) | ftxui::bold,
       .entry = Colored(theme.dialog.menu_song),
   };
@@ -47,24 +46,26 @@ ftxui::Element SongMenu::RenderImpl() {
 
     const auto& type = style_.entry;
 
-    auto prefix = ftxui::text(is_selected ? "▶ " : "  ");
+    auto prefix = RenderPrefix(is_selected);
 
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                          : (is_focused ? type.focused : type.normal);
 
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
-    // In case of entry text too long, animation thread will be running, so we gotta take the
-    // text content from there
-    auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                                : GetEntryText(entry));
-
     // Tag songs played from streaming
-    auto tag = entry.stream_info.has_value() ? ftxui::text(std::string(kStreamTag) + " ")
-                                             : ftxui::emptyElement();
+    const std::string tag_text =
+        entry.stream_info.has_value() ? std::string(kStreamTag) + " " : std::string();
+    auto tag = !tag_text.empty() ? ftxui::text(tag_text) : ftxui::emptyElement();
+
+    // In case of entry text too long, animation thread will be running, so we gotta take the
+    // text content from there (any other entry too long is cut, ending with an ellipsis)
+    auto text = ftxui::text(IsAnimationRunning() && is_selected
+                                ? GetTextFromAnimation()
+                                : FitText(GetEntryText(entry), ftxui::string_width(tag_text)));
 
     menu_entries.push_back(ftxui::hbox({
-                               prefix | style_.prefix,
+                               prefix,
                                tag | style_.tag,
                                text | style | ftxui::xflex,
                            }) |
@@ -77,7 +78,8 @@ ftxui::Element SongMenu::RenderImpl() {
   }
 
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
+      // Box is the whole space for entries (even when empty), so mouse wheel works anywhere on it
+      ftxui::vbox(menu_entries) | ftxui::yframe | ftxui::flex | ftxui::reflect(Box()),
   };
 
   // Append search box, if enabled

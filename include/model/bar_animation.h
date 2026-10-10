@@ -7,6 +7,7 @@
 #define INCLUDE_MODEL_BAR_ANIMATION_H_
 
 #include <iostream>
+#include <optional>
 #include <string_view>
 
 namespace model {
@@ -37,6 +38,20 @@ std::ostream& operator<<(std::ostream& out, const BarAnimation& animation);
  * @return Animation name
  */
 std::string_view GetAnimationName(const BarAnimation& animation);
+
+/**
+ * @brief Get identifier for animation (to be saved in settings, as it never changes)
+ * @param animation Bar animation
+ * @return Animation identifier (e.g. "line-filled")
+ */
+std::string_view GetAnimationId(const BarAnimation& animation);
+
+/**
+ * @brief Get animation from its identifier
+ * @param id Animation identifier
+ * @return Bar animation, or nothing when identifier is unknown
+ */
+std::optional<BarAnimation> GetAnimationFromId(std::string_view id);
 
 //! Utility method to check if animation has spacing or not
 inline bool IsAnimationSpaced(BarAnimation& animation) {

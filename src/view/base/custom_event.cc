@@ -18,6 +18,7 @@ struct ContentVisitor {
   void operator()(const std::string& s) const { out << std::quoted(s); }
   void operator()(const model::RepeatMode& m) const { out << m; }
   void operator()(const model::RemoteRequest& r) const { out << r; }
+  void operator()(const model::AudioOutput& o) const { out << o; }
   void operator()(const model::Song& s) const { out << s; }
   void operator()(const model::Volume& v) const { out << v; }
   void operator()(const model::Song::CurrentInformation& i) const { out << i; }
@@ -74,6 +75,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::DrawAudioSpectrum:
       out << "DrawAudioSpectrum";
+      break;
+
+    case CustomEvent::Identifier::UpdateAudioOutput:
+      out << "UpdateAudioOutput";
       break;
 
     case CustomEvent::Identifier::NotifyFileSelection:
@@ -134,6 +139,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::SetShuffle:
       out << "SetShuffle";
+      break;
+
+    case CustomEvent::Identifier::SetAudioDevice:
+      out << "SetAudioDevice";
       break;
 
     case CustomEvent::Identifier::Refresh:
@@ -268,6 +277,16 @@ CustomEvent CustomEvent::DrawAudioSpectrum(const std::vector<double>& data) {
       .type = Type::FromAudioThreadToInterface,
       .id = Identifier::DrawAudioSpectrum,
       .content = data,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::UpdateAudioOutput(const model::AudioOutput& output) {
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::UpdateAudioOutput,
+      .content = output,
   };
 }
 
@@ -413,6 +432,16 @@ CustomEvent CustomEvent::SetShuffle(bool enabled) {
       .type = Type::FromInterfaceToAudioThread,
       .id = Identifier::SetShuffle,
       .content = enabled,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::SetAudioDevice(const std::string& device) {
+  return CustomEvent{
+      .type = Type::FromInterfaceToAudioThread,
+      .id = Identifier::SetAudioDevice,
+      .content = device,
   };
 }
 

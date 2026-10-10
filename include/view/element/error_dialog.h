@@ -73,6 +73,8 @@ class ErrorDialog : public Dialog {
 
   std::string message_;  //!< Custom error message
   std::string detail_;   //!< What the error refers to (e.g. file name)
+
+  mutable ftxui::Box box_;  //!< Box to control if mouse cursor is over the dialog
 };
 
 }  // namespace interface

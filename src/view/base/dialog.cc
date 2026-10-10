@@ -3,6 +3,7 @@
 #include "ftxui/dom/elements.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "view/base/keybinding.h"
+#include "view/element/button.h"
 #include "view/element/style.h"
 
 namespace interface {
@@ -12,6 +13,26 @@ Dialog::Dialog(const std::shared_ptr<EventDispatcher>& dispatcher, const Size& s
     : dispatcher_{dispatcher}, size_{size}, style_{style} {
   if (size.min_line) size_.min_line += kBorderSize;
   if (size.min_column) size_.min_column += kBorderSize;
+
+  if (!style_.close_button) return;
+
+  // Same button used by main block to exit, but with colors from dialog
+  btn_close_ = Button::make_button_for_window(
+      std::string("X"),
+      [this]() {
+        Close();
+        return true;
+      },
+      Button::Style{
+          .colors =
+              [] {
+                const auto& theme = GetTheme().dialog;
+                const Theme::State colors{.foreground = theme.hint, .background = theme.background};
+
+                return Theme::ButtonStates{.normal = colors, .focused = colors};
+              },
+          .delimiters = Button::Delimiters{" ", " "},
+      });
 }
 
 /* ********************************************************************************************** */
@@ -50,15 +71,38 @@ ftxui::Element Dialog::Render(const ftxui::Dimensions& curr_size) const {
                    ftxui::bgcolor(theme.*style_.background) |
                    ftxui::color(theme.*style_.foreground);
 
+  ftxui::Element dialog = RenderImpl(curr_size) | border_decorator;
+
+  if (btn_close_) {
+    // Button is drawn over the top border, right before its corner
+    static constexpr int kCornerColumns = 1;
+
+    dialog = ftxui::dbox({
+        dialog,
+        ftxui::vbox({
+            ftxui::hbox({
+                ftxui::filler(),
+                btn_close_->Render(),
+                ftxui::text("") | ftxui::size(ftxui::WIDTH, EQUAL, kCornerColumns),
+            }),
+            ftxui::filler(),
+        }),
+    });
+  }
+
   // Keep an empty margin around dialog border, otherwise it would be merged with the borders
   // from blocks behind it (as both are drawn using box characters)
-  return RenderImpl(curr_size) | border_decorator | decorator | ftxui::borderEmpty |
-         ftxui::bgcolor(GetTheme().screen.background) | ftxui::clear_under | ftxui::center;
+  return dialog | decorator | ftxui::borderEmpty | ftxui::bgcolor(GetTheme().screen.background) |
+         ftxui::clear_under | ftxui::center;
 }
 
 /* ********************************************************************************************** */
 
 bool Dialog::OnEvent(const ftxui::Event& event) {
+  if (event.is_mouse() && btn_close_ && btn_close_->OnMouseEvent(event)) {
+    return true;
+  }
+
   if (event.is_mouse() && OnMouseEventImpl(event)) {
     return true;
   }

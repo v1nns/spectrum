@@ -7,7 +7,9 @@
 #define INCLUDE_AUDIO_BASE_NOTIFIER_H_
 
 #include <filesystem>
+#include <string>
 
+#include "model/audio_device.h"
 #include "model/audio_filter.h"
 #include "model/playlist.h"
 #include "model/repeat_mode.h"
@@ -117,6 +119,18 @@ class Notifier {
    * @param enabled Shuffle state
    */
   virtual void SetShuffle(bool enabled) = 0;
+
+  /**
+   * @brief Notify Audio Player about output device selected by user
+   * @param device Name of output device (empty to let Audio Player choose it)
+   */
+  virtual void SetAudioDevice(const std::string& device) = 0;
+
+  /**
+   * @brief Get output devices available on Audio Player
+   * @return Output devices
+   */
+  virtual model::AudioDevices GetAudioDevices() = 0;
 };
 
 }  // namespace audio

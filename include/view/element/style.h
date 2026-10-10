@@ -69,6 +69,7 @@ struct Theme {
     State title;
     State title_focused;
 
+    Color border;
     Color border_focused;
 
     //! Tab buttons on block border
@@ -84,9 +85,11 @@ struct Theme {
 
   //! Menus listing files, playlists and songs
   struct Menu {
-    Color prefix;  //!< Icon before entry
-    Color title;   //!< Menu title (e.g. current directory)
-    Color search;  //!< Label and text typed in search input
+    Color prefix;          //!< Icon before selected entry
+    Color prefix_playing;  //!< Icon before entry that is playing
+    State cursor;          //!< Selected (or hovered) entry, no matter its type
+    Color title;           //!< Menu title (e.g. current directory)
+    Color search;          //!< Label and text typed in search input
 
     Color directory;
     Color file;
@@ -114,9 +117,11 @@ struct Theme {
 
   //! Block with song information
   struct FileInfo {
-    Color field;
-    Color value;
-    Color value_empty;  //!< Value when there is no song
+    Color title;        //!< Song title, shown on the first line
+    Color artist;       //!< Song artist, shown right below title
+    Color field;        //!< Name of each detail from song (e.g. format)
+    Color value;        //!< Value of each detail from song
+    Color value_empty;  //!< Message shown when there is no song
   };
 
   FileInfo file_info;  //!< Colors for block with song information
@@ -138,7 +143,8 @@ struct Theme {
 
   //! Audio equalizer
   struct Equalizer {
-    Color text;  //!< Frequency, gain and preset picker
+    Color text;   //!< Frequency, gain and preset picker
+    Color label;  //!< Units, scale for gain and anything else that describes a value
 
     //! Frequency bar (border is not used)
     State bar;
@@ -170,10 +176,12 @@ struct Theme {
     Color stop;  //!< Icon from button to stop
     Color skip;  //!< Icon from buttons to skip song
 
-    Color button_border;
-    Color button_border_focused;
+    Color button_hovered;  //!< Background for button with mouse over it
 
-    //! Bar with song position (border is not used)
+    State mode_enabled;  //!< Repeat or shuffle mode, when enabled (border is not used)
+
+    //! Line with song position and volume level: foreground is used by the part already filled
+    //! and background by the remaining one (border is not used)
     State duration;
     State duration_focused;
   };
@@ -194,6 +202,7 @@ struct Theme {
     Color label;       //!< Label for input
     Color hint;        //!< Hint for the next possible action
     Color keybinding;  //!< Keys listed in help
+    Color section;     //!< Title of each section listed in help
     Color success;     //!< Feedback when action was accepted
     Color error;       //!< Feedback when action was rejected
 

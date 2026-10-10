@@ -118,9 +118,15 @@ void Terminal::Init(const std::string& initial_path,
                                                       stream_available_cb, fetch_playlist_cb);
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 
+  // Pickers save what is chosen in settings
+  auto settings_handler =
+      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>();
+
   // Create theme picker, which also restores theme chosen on last run
-  theme_picker_ = std::make_unique<ThemePicker>(
-      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
+  theme_picker_ = std::make_unique<ThemePicker>(settings_handler);
+
+  // Create device picker, to choose audio output device
+  device_picker_ = std::make_unique<DevicePicker>(dispatcher, settings_handler);
 }
 
 /* ********************************************************************************************** */
@@ -274,6 +280,17 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Or if theme picker is opened
   if (theme_picker_->IsVisible()) return theme_picker_->OnEvent(event);
 
+  // Or if device picker is opened
+  if (device_picker_->IsVisible()) return device_picker_->OnEvent(event);
+
+  // Animation picker is shown over spectrum visualizer without blocking anything else, but a
+  // click anywhere outside of it closes it (so it must handle mouse before any block)
+  if (event.is_mouse() &&
+      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))
+          ->OnPickerMouseEvent(event)) {
+    return true;
+  }
+
   // Global commands
   if (global_mode_ && OnGlobalModeEvent(event)) return true;
 
@@ -370,38 +387,6 @@ void Terminal::OnCustomEvent() {
 
 /* ********************************************************************************************** */
 
-HelpDialog::Section Terminal::GetHelpSection() const {
-  switch (focused_index_) {
-    case kBlockSidebar: {
-      auto sidebar = std::static_pointer_cast<Sidebar>(children_.at(kBlockSidebar));
-      return sidebar->GetActiveView() == Sidebar::View::Playlist ? HelpDialog::Section::Playlists
-                                                                 : HelpDialog::Section::Files;
-    }
-
-    case kBlockMainContent: {
-      auto main_content = std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent));
-      switch (main_content->GetActiveView()) {
-        case MainContent::View::Equalizer:
-          return HelpDialog::Section::Equalizer;
-        case MainContent::View::Lyric:
-          return HelpDialog::Section::Lyrics;
-        case MainContent::View::Visualizer:
-        default:
-          return HelpDialog::Section::Visualizer;
-      }
-    }
-
-    case kBlockMediaPlayer:
-      return HelpDialog::Section::Player;
-
-    case kBlockFileInfo:
-    default:
-      return HelpDialog::Section::General;
-  }
-}
-
-/* ********************************************************************************************** */
-
 bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   // Exit application
   if (event == keybinding::General::ExitApplication) {
@@ -411,10 +396,10 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Show helper (starting from the section related to what is focused)
+  // Show helper
   if (event == keybinding::General::ShowHelper) {
     LOG("Handle key to show helper");
-    help_dialog_->Show(GetHelpSection());
+    help_dialog_->Show();
 
     return true;
   }
@@ -423,6 +408,16 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
   if (event == keybinding::General::ChangeTheme) {
     LOG("Handle key to show theme picker");
     theme_picker_->Open();
+
+    return true;
+  }
+
+  // Show audio output device picker (nothing to choose from while audio thread cannot be reached)
+  if (event == keybinding::General::ChangeAudioDevice) {
+    LOG("Handle key to show audio output device picker");
+    if (auto media_ctl = notifier_.lock(); media_ctl) {
+      device_picker_->Open(media_ctl->GetAudioDevices());
+    }
 
     return true;
   }
@@ -436,6 +431,9 @@ bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
   // In this case, only spectrum visualizer and media player may handle this event
   std::vector<ftxui::Component>::const_iterator first = children_.begin() + kBlockMainContent;
   std::vector<ftxui::Component>::const_iterator last = children_.end();
+
+  // Media player is not rendered, so it must not handle mouse events (only its keybindings)
+  if (event.is_mouse()) last = first + 1;
 
   if (bool event_handled = std::any_of(
           first, last, [&event](const ftxui::Component& child) { return child->OnEvent(event); });
@@ -589,6 +587,10 @@ bool Terminal::HandleEventFromInterfaceToAudioThread(const CustomEvent& event) {
       media_ctl->SetShuffle(event.GetContent<bool>());
     } break;
 
+    case CustomEvent::Identifier::SetAudioDevice: {
+      media_ctl->SetAudioDevice(event.GetContent<std::string>());
+    } break;
+
     default:
       event_handled = false;
       break;
@@ -655,7 +657,7 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
     } break;
 
     case CustomEvent::Identifier::ShowHelper: {
-      help_dialog_->Show(GetHelpSection());
+      help_dialog_->Show();
     } break;
 
     case CustomEvent::Identifier::ToggleFullscreen: {
@@ -727,6 +729,10 @@ void Terminal::SetApplicationError(error::Code id, const std::string& detail) {
 
   ERROR(message, " detail=", std::quoted(detail));
   error_dialog_->SetErrorMessage(message, detail);
+
+  // Error may come from another thread while nothing else is asking UI to be rendered (e.g. no
+  // song is playing), so force a refresh to show dialog right away
+  SendEvent(CustomEvent::Refresh());
 }
 
 /* ********************************************************************************************** */
@@ -787,7 +793,9 @@ ftxui::Element Terminal::GetOverlay() const {
 
   if (question_dialog_->IsVisible()) return question_dialog_->Render(size_);
 
-  if (theme_picker_->IsVisible()) return theme_picker_->Render();
+  if (theme_picker_->IsVisible()) return theme_picker_->Render() | ftxui::center;
+
+  if (device_picker_->IsVisible()) return device_picker_->Render() | ftxui::center;
 
   return ftxui::emptyElement();
 }

@@ -18,16 +18,20 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
     : Block{dispatcher, model::BlockIdentifier::MainContent,
             interface::Size{.width = 0, .height = 0}},
       tab_elem_{} {
+  // Load/save settings from tabs
+  const auto handler = file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>();
+
   // Create all tabs (keeping a direct reference to visualizer, used to show fullscreen hint)
   auto visualizer = std::make_unique<SpectrumVisualizer>(
       GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusVisualizer,
-      file_handler != nullptr ? file_handler : std::make_shared<util::FileHandler>());
+      handler);
 
   visualizer_ = visualizer.get();
   tab_elem_[View::Visualizer] = std::move(visualizer);
 
   tab_elem_[View::Equalizer] = std::make_unique<AudioEqualizer>(
-      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusEqualizer);
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusEqualizer,
+      handler);
 
   tab_elem_[View::Lyric] = std::make_unique<SongLyric>(
       GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusLyric);
@@ -55,7 +59,7 @@ ftxui::Element MainContent::Render() {
 
   // Append tab buttons
   for (const auto& [id, item] : tab_elem_.items()) {
-    buttons.emplace_back(item->GetButton()->Render() |
+    buttons.emplace_back(item->GetButton()->Render() | GetContentDecorator() |
                          (block_focused && id == active_button ? ftxui::bold : ftxui::nothing));
   }
 
@@ -63,16 +67,16 @@ ftxui::Element MainContent::Render() {
   buttons.insert(buttons.end(),
                  {
                      ftxui::filler(),
-                     btn_help_->Render(),
+                     btn_help_->Render() | GetContentDecorator(),
                      ftxui::text(" ") | ftxui::border,  // dummy space between buttons
-                     btn_exit_->Render(),
+                     btn_exit_->Render() | GetContentDecorator(),
                  });
 
   ftxui::Element title_border = ftxui::hbox(buttons);
 
   ftxui::Element view = tab_elem_.active_item()->Render();
 
-  return ftxui::window(title_border, view | ftxui::yflex) | GetBorderDecorator();
+  return RenderWindow(title_border, view | ftxui::yflex);
 }
 
 /* ********************************************************************************************** */
@@ -173,7 +177,20 @@ int MainContent::GetBarWidth() {
 
 /* ********************************************************************************************** */
 
+bool MainContent::OnPickerMouseEvent(ftxui::Event event) {
+  // Picker is the only thing from visualizer that handles mouse
+  return tab_elem_.active() == View::Visualizer && visualizer_->OnMouseEvent(event);
+}
+
+/* ********************************************************************************************** */
+
 bool MainContent::OnMouseEvent(ftxui::Event event) {
+  // Animation picker comes first, so a click on any button from this block also closes it
+  if (OnPickerMouseEvent(event)) return true;
+
+  // Buttons are not rendered in fullscreen mode, so do not let user click on where they were
+  if (is_fullscreen_) return tab_elem_.active_item()->OnMouseEvent(event);
+
   if (btn_help_->OnMouseEvent(event)) return true;
 
   if (btn_exit_->OnMouseEvent(event)) return true;
@@ -193,7 +210,7 @@ bool MainContent::OnMouseEvent(ftxui::Event event) {
 void MainContent::CreateButtons() {
   const auto button_style = Button::Style{
       .colors = [] { return GetTheme().block.window_button; },
-      .delimiters = Button::Delimiters{"[", "]"},
+      .delimiters = Button::Delimiters{" ", " "},
   };
 
   btn_help_ = Button::make_button_for_window(

@@ -43,7 +43,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = &Theme::Dialog::background,
-                   .foreground = &Theme::Dialog::foreground}),
+                   .foreground = &Theme::Dialog::foreground,
+                   .close_button = true}),
       base_path_(),
       stream_available_cb_(stream_available_cb),
       fetch_playlist_cb_(fetch_playlist_cb),
@@ -377,6 +378,49 @@ bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnMouseEventImpl(ftxui::Event event) {
+  const bool clicked = event.mouse().button == ftxui::Mouse::Left &&
+                       event.mouse().motion == ftxui::Mouse::Released;
+
+  // Mouse on hints from playlist pane: a click on one of them acts like its key
+  Hint* hint_clicked = nullptr;
+
+  for (auto* hint : {&hint_rename_, &hint_remove_, &hint_cancel_}) {
+    hint->hovered = hint->visible && hint->box.Contain(event.mouse().x, event.mouse().y);
+    if (hint->hovered && clicked) hint_clicked = hint;
+  }
+
+  if (hint_clicked) {
+    LOG("Handle left click mouse event on hint=", hint_clicked->text);
+    hint_clicked->hovered = false;
+
+    if (hint_clicked == &hint_rename_) {
+      StartRename();
+    } else if (hint_clicked == &hint_remove_) {
+      menu_playlist_->OnClick();
+    } else {
+      FinishRename(false);
+    }
+
+    return true;
+  }
+
+  // A click on name being edited places cursor on it
+  if (rename_.editing && rename_.input.OnMouseEvent(event)) return true;
+
+  // Mouse on playlist name (which is replaced by a text input while it is edited)
+  name_hovered_ = !rename_.editing && name_box_.Contain(event.mouse().x, event.mouse().y);
+
+  if (name_hovered_ && event.mouse().button == ftxui::Mouse::Left &&
+      event.mouse().motion == ftxui::Mouse::Released) {
+    LOG("Handle left click mouse event on playlist name");
+    name_hovered_ = false;
+
+    // Name is edited on playlist pane, so move focus to it
+    focus_ctl_.SetFocus(kPlaylistPane);
+    StartRename();
+    return true;
+  }
+
   if (btn_files_->OnMouseEvent(event)) return true;
   if (btn_youtube_->OnMouseEvent(event)) return true;
 
@@ -400,6 +444,8 @@ void PlaylistDialog::OnClose() {
   modified_playlist_.reset();
   rename_.editing = false;
   rename_.error.reset();
+  name_hovered_ = false;
+  for (auto* hint : {&hint_rename_, &hint_remove_, &hint_cancel_}) hint->hovered = false;
   btn_save_->Disable();
   message_.Hide();
 
@@ -526,20 +572,21 @@ void PlaylistDialog::FinishRename(bool keep_name) {
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
+  hint_rename_.text = util::EventToString(keybinding::Playlist::Rename) + ":rename";
+  hint_remove_.text = util::EventToString(keybinding::Playlist::RemoveSong) + ":remove";
+  hint_cancel_.text = util::EventToString(keybinding::Navigation::Escape) + ":cancel";
+
   // Hints for the next possible actions on playlist (from the most to the least detailed one)
-  std::vector<std::string> hints;
+  std::vector<std::vector<Hint*>> hints;
 
   if (rename_.editing) {
-    hints.push_back("[" + util::EventToString(keybinding::Navigation::Escape) + ":cancel]");
+    hints.push_back({&hint_cancel_});
   } else if (menu_playlist_->IsFocused()) {
-    std::string rename = util::EventToString(keybinding::Playlist::Rename) + ":rename";
-
     if (modified_playlist_.has_value() && !modified_playlist_->IsEmpty()) {
-      hints.push_back("[" + rename + " " + util::EventToString(keybinding::Playlist::RemoveSong) +
-                      ":remove]");
+      hints.push_back({&hint_rename_, &hint_remove_});
     }
 
-    hints.push_back("[" + rename + "]");
+    hints.push_back({&hint_rename_});
   }
 
   std::string name = modified_playlist_.has_value() ? modified_playlist_->name : "";
@@ -554,29 +601,63 @@ ftxui::Element PlaylistDialog::RenderPlaylistTitle(int max_columns) const {
   int required =
       rename_.editing ? kMinTitleColumns : std::max(kMinTitleColumns, ftxui::string_width(name));
 
-  // Use the first hint that fits along with title
-  std::string hint;
+  // Use the first hint that fits along with title (as "[first second]")
+  static constexpr int kBracketColumns = 2;
+  ftxui::Elements hint;
+
+  for (auto* candidate : {&hint_rename_, &hint_remove_, &hint_cancel_}) candidate->visible = false;
 
   for (const auto& candidate : hints) {
-    int hint_columns = static_cast<int>(candidate.size()) + 1;
+    int hint_columns = kBracketColumns + static_cast<int>(candidate.size());
+    for (const auto* part : candidate) hint_columns += static_cast<int>(part->text.size());
+
     if (title_columns - hint_columns < required) continue;
 
     title_columns -= hint_columns;
-    hint = candidate;
+
+    // With mouse over it, hint uses the same colors from a tab hovered on the other pane
+    const auto& theme = GetTheme().dialog;
+
+    hint.push_back(ftxui::text("["));
+
+    for (auto* part : candidate) {
+      if (part != candidate.front()) hint.push_back(ftxui::text(" "));
+
+      part->visible = true;
+      hint.push_back(ftxui::text(part->text) |
+                     (part->hovered ? ftxui::bgcolor(theme.tab.focused.background) |
+                                          ftxui::color(theme.tab.focused.foreground) |
+                                          ftxui::inverted
+                                    : ftxui::nothing) |
+                     ftxui::reflect(part->box));
+    }
+
+    hint.push_back(ftxui::text("]"));
     break;
   }
 
-  ftxui::Element title =
-      rename_.editing ? rename_.input.Render(title_columns, true, std::string(kNamePlaceholder))
-                      : ftxui::text(name) | ftxui::color(GetTheme().dialog.pane_title) |
-                            ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, title_columns);
+  ftxui::Element title;
+
+  if (rename_.editing) {
+    title = rename_.input.Render(title_columns, true, std::string(kNamePlaceholder));
+  } else {
+    // With mouse over it, name uses the same colors from a tab hovered on the other pane
+    const auto& theme = GetTheme().dialog;
+    const auto style = name_hovered_ ? ftxui::bgcolor(theme.tab.focused.background) |
+                                           ftxui::color(theme.tab.focused.foreground) |
+                                           ftxui::inverted
+                                     : ftxui::color(theme.pane_title);
+
+    title = ftxui::text(name) | style | ftxui::size(ftxui::WIDTH, ftxui::LESS_THAN, title_columns) |
+            ftxui::reflect(name_box_);
+  }
 
   return ftxui::hbox({
       ftxui::text(" "),
       title,
       ftxui::text(" "),
       ftxui::filler(),
-      ftxui::text(hint) | ftxui::color(GetTheme().dialog.hint),
+      ftxui::hbox(std::move(hint)) | ftxui::color(GetTheme().dialog.hint),
   });
 }
 
@@ -740,9 +821,26 @@ void PlaylistDialog::FinishImport() {
   using Status = UrlInput::Result::Status;
 
   if (code != error::kSuccess || !modified_playlist_.has_value()) {
-    url_input_->SetResult({Status::Rejected, code == error::kStreamFetcherNotFound
-                                                 ? "yt-dlp not found"
-                                                 : "Cannot import playlist"});
+    // Let user know the reason (in a few words, as there is not much space for it)
+    auto reason = [](error::Code error) {
+      switch (error) {
+        case error::kStreamFetcherNotFound:
+          return "yt-dlp not found";
+        case error::kStreamBlocked:
+        case error::kStreamBlockedWithCookies:
+          return "Refused by YouTube";
+        case error::kStreamCookiesFailed:
+          return "Cannot read cookies";
+        case error::kStreamUnavailable:
+          return "Playlist is not available";
+        case error::kStreamTimedOut:
+          return "Took too long to import";
+        default:
+          return "Cannot import playlist";
+      }
+    };
+
+    url_input_->SetResult({Status::Rejected, reason(code)});
     return;
   }
 

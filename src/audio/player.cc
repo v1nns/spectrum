@@ -22,9 +22,9 @@
 
 namespace audio {
 
-std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
-                                       audio::Decoder* decoder, web::StreamFetcher* fetcher,
-                                       bool asynchronous) {
+std::shared_ptr<Player> Player::Create(bool verbose, const model::Settings& settings,
+                                       audio::Playback* playback, audio::Decoder* decoder,
+                                       web::StreamFetcher* fetcher, bool asynchronous) {
   LOG("Create new instance of player");
 
 #ifndef SPECTRUM_DEBUG
@@ -39,6 +39,9 @@ std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
   // Create fetcher object
   auto ft = fetcher != nullptr ? std::unique_ptr<web::StreamFetcher>(std::move(fetcher))
                                : std::make_unique<driver::YtDlpWrapper>();
+
+  // Cookies from browser are only read (by yt-dlp) when user asks for it
+  driver::YtDlpWrapper::SetCookiesFromBrowser(settings.cookies_from_browser.value_or(""));
 
 #else
   // Create playback object
@@ -64,7 +67,7 @@ std::shared_ptr<Player> Player::Create(bool verbose, audio::Playback* playback,
   auto player = std::make_shared<MakeSharedEnabler>(std::move(pb), std::move(dc), std::move(ft));
 
   // Initialize internal components
-  player->Init(asynchronous);
+  player->Init(asynchronous, settings.device.value_or(""));
 
   return player;
 }
@@ -92,26 +95,24 @@ Player::~Player() {
 
 /* ********************************************************************************************** */
 
-void Player::Init(bool asynchronous) {
-  LOG("Initialize player with async=", asynchronous);
+void Player::Init(bool asynchronous, const std::string& device) {
+  LOG("Initialize player with async=", asynchronous, " device=", std::quoted(device));
   finished_ = false;
+  device_ = device;
 
-  // Open playback stream using default device
-  error::Code result = playback_->CreatePlaybackStream();
+  // Open playback stream and configure desired parameters for playback
+  error::Code result = CreatePlaybackStream(device_);
+
+  // Device chosen by user may not be available anymore (e.g. it was disconnected)
+  if (result != error::kSuccess && !device_.empty()) {
+    WARN("Cannot use output device chosen by user, device=", std::quoted(device_));
+    failed_device_ = std::exchange(device_, "");
+    result = CreatePlaybackStream(device_);
+  }
 
   if (result != error::kSuccess) {
     throw std::runtime_error("Cannot initialize playback stream in player");
   }
-
-  // Configure desired parameters for playback
-  result = playback_->ConfigureParameters();
-
-  if (result != error::kSuccess) {
-    throw std::runtime_error("Cannot set parameters in player");
-  }
-
-  // This value is used to decide buffer size for song decoding
-  period_size_ = playback_->GetPeriodSize();
 
   if (asynchronous) {
     // Spawn thread for Audio player
@@ -146,6 +147,15 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
     // Song information was already sent to UI (error happened while decoding), so clear it,
     // otherwise UI would keep showing information about a song that is not playing anymore
     if (!error_parsing) media_notifier->ClearSongInformation(true);
+
+    // Site is refusing requests, so every other song from URL would also fail (and asking for
+    // them could make it refuse requests for even longer)
+    if (result == error::kStreamBlocked || result == error::kStreamBlockedWithCookies ||
+        result == error::kStreamCookiesFailed) {
+      WARN("Stop playlist, as requests for songs from URL are being refused");
+      curr_playlist_.reset();
+      failed_songs_ = 0;
+    }
 
     // In case of error, notify about it
     media_notifier->NotifyError(result, filename);
@@ -184,10 +194,32 @@ void Player::ResetMediaControl(error::Code result, bool error_parsing) {
 
 /* ********************************************************************************************** */
 
-bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_position,
-                           int& last_position) {
+bool Player::ChangePosition(const Command& command, int64_t& position) const {
+  const int offset = command.GetContent<int>();
+
+  if (command == Command::Identifier::SeekForward) {
+    if ((position + offset) >= curr_song_->duration) return false;
+
+    position += offset;
+    return true;
+  }
+
+  if (position <= 0 || (position - offset) < 0) return false;
+
+  position -= offset;
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_size,
+                           int64_t& new_position, int& last_position) {
   auto command = media_control_.Pop();
   auto media_notifier = notifier_.lock();
+
+  // Format of samples in buffer (it is not the one expected by playback anymore when command
+  // changes output device to one that does not support it)
+  const model::AudioFormat buffer_format = format_;
 
   if (media_control_.state == State::Stop || media_control_.state == State::Exit) {
     return false;
@@ -226,14 +258,42 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       bool keep_executing = false;
       Command command_after_wait = Command::None();
 
+      bool keep_waiting = false;
+      bool position_changed = false;
+
       do {
-        keep_executing = media_control_.WaitFor(Cmd::Play, Cmd::PauseOrResume, Cmd::Stop,
-                                                Cmd::SkipToNext, Cmd::SkipToPrevious);
+        keep_executing = media_control_.WaitFor(
+            Cmd::Play, Cmd::PauseOrResume, Cmd::Stop, Cmd::SkipToNext, Cmd::SkipToPrevious,
+            Cmd::SetDevice, Cmd::SeekForward, Cmd::SeekBackward);
         command_after_wait = media_control_.Pop();
-      } while (
-          keep_executing &&
-          (command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious) &&
-          !CanSkip(command_after_wait));
+
+        bool change_device = keep_executing && command_after_wait == Cmd::SetDevice;
+        bool skip =
+            command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious;
+        bool seek = keep_executing && (command_after_wait == Cmd::SeekForward ||
+                                       command_after_wait == Cmd::SeekBackward);
+
+        // Output device may be changed while song is paused
+        if (change_device) ChangeDevice(command_after_wait.GetContent<std::string>());
+
+        // Song position may also be changed while song is paused (decoder only seeks to it when
+        // song is resumed), so let interface know about it right away
+        if (seek && ChangePosition(command_after_wait, new_position)) {
+          LOG("Audio handler changed position while song is paused, position=", new_position);
+          position_changed = true;
+          last_position = static_cast<int>(new_position);
+
+          if (media_notifier) {
+            media_notifier->NotifySongState(model::Song::CurrentInformation{
+                .state = model::Song::MediaState::Pause,
+                .position = (uint32_t)last_position,
+            });
+          }
+        }
+
+        keep_waiting =
+            keep_executing && (change_device || seek || (skip && !CanSkip(command_after_wait)));
+      } while (keep_waiting);
 
       // Received command different from PauseOrResume
       if (!keep_executing || command_after_wait != Cmd::PauseOrResume) {
@@ -264,6 +324,10 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       INFO("Audio handler received command to resume song");
       media_control_.state = State::Play;
       playback_->Prepare();
+
+      // Samples in buffer are from the position where song was paused, so do not play them when
+      // position was changed in the meantime (decoder seeks to it before the next samples)
+      if (position_changed) return true;
     } break;
 
     case Command::Identifier::SkipToNext:
@@ -294,30 +358,22 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       return false;
     } break;
 
-    case Command::Identifier::SeekForward: {
-      int offset = command.GetContent<int>();
-      LOG("Audio handler received command to seek forward with value=", offset);
-
-      if ((new_position + offset) < curr_song_->duration) {
-        new_position += offset;
-        return true;
-      }
-    } break;
-
+    case Command::Identifier::SeekForward:
     case Command::Identifier::SeekBackward: {
-      int offset = command.GetContent<int>();
-      LOG("Audio handler received command to seek backward with value=", offset);
+      LOG("Audio handler received command to ", command, " with value=", command.GetContent<int>());
 
-      if (new_position > 0 && (new_position - offset) >= 0) {
-        new_position -= offset;
-        return true;
-      }
+      if (ChangePosition(command, new_position)) return true;
     } break;
 
     case Command::Identifier::SetVolume: {
       model::Volume value = command.GetContent<model::Volume>();
       LOG("Audio handler received command to set volume with value=", value);
       decoder_->SetVolume(value);
+    } break;
+
+    case Command::Identifier::SetDevice: {
+      LOG("Audio handler received command to change output device");
+      ChangeDevice(command.GetContent<std::string>());
     } break;
 
     case Command::Identifier::UpdateAudioFilters: {
@@ -337,13 +393,31 @@ bool Player::HandleCommand(void* buffer, void* analysis, int size, int64_t& new_
       break;
   }
 
+  // Samples in buffer cannot be played by the new output device, so discard them and ask decoder
+  // for samples in the format that it expects
+  if (format_ != buffer_format) {
+    LOG("Format expected by playback has changed from ", buffer_format, " to ", format_);
+
+    if (auto result = decoder_->SetOutputFormat(format_); result != error::kSuccess) {
+      ERROR("Cannot change output format on decoder, stop playing song, error=", result);
+      playback_error_ = result;
+      return false;
+    }
+
+    return true;
+  }
+
   // Send raw information to media controller to run audio analysis
   if (media_notifier) {
-    // Decoded audio contains 16-bit samples with interleaved channels, and size is the number of
-    // samples per channel. Analysis must use samples not affected by volume (if available), so
-    // spectrum visualizer keeps working even when audio is muted
-    const void* samples = analysis != nullptr ? analysis : buffer;
-    media_notifier->SendAudioRaw(static_cast<const int16_t*>(samples), size * kNumberChannels);
+    // Analysis must use samples not affected by volume (if available), so spectrum visualizer
+    // keeps working even when audio is muted. Otherwise, samples sent to playback may be used, but
+    // only when they are in the format expected by analysis
+    if (analysis != nullptr) {
+      media_notifier->SendAudioRaw(static_cast<const int16_t*>(analysis),
+                                   analysis_size * kNumberChannels);
+    } else if (format_ == kAnalysisFormat) {
+      media_notifier->SendAudioRaw(static_cast<const int16_t*>(buffer), size * kNumberChannels);
+    }
   }
 
   // Write samples to playback (stop playing song if it fails, e.g. output device disconnected)
@@ -378,9 +452,18 @@ void Player::AudioHandler() {
   using Cmd = Command::Identifier;
 
   // Block this thread until UI informs us a song to play
-  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext)) {
-    // Get command from queue and select song to play (if any)
-    auto song = SelectSong(media_control_.Pop());
+  while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext,
+                                Cmd::SetDevice)) {
+    auto command = media_control_.Pop();
+
+    // Output device may be changed while there is no song playing
+    if (command == Cmd::SetDevice) {
+      ChangeDevice(command.GetContent<std::string>());
+      continue;
+    }
+
+    // Select song to play (if any)
+    auto song = SelectSong(command);
     if (!song.has_value()) continue;
 
     // Update internal media state and initialize current song
@@ -398,6 +481,21 @@ void Player::AudioHandler() {
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
     if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
 
+    // Streaming information may be the one kept from the last time that this song was played, and
+    // its URL may not be accepted anymore, so fetch it again (only once)
+    if (result != error::kSuccess && curr_song_->stream_info.has_value() &&
+        fetcher_->Forget(*curr_song_)) {
+      LOG("Fetch streaming information again, as the one kept for song could not be used");
+      decoder_->ClearCache();
+
+      result = fetcher_->ExtractInfo(*curr_song_);
+      if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
+    }
+
+    // Playback is asked to use the format from song, and decoder must create samples in the format
+    // expected by playback (which depends on what is supported by output device)
+    if (result == error::kSuccess) result = ConfigureOutput(*curr_song_);
+
     // In case of error, reset media controls and notify terminal UI with error
     if (result != error::kSuccess) {
       ResetMediaControl(result, /* error_parsing= */ true);
@@ -414,6 +512,7 @@ void Player::AudioHandler() {
       if (auto media_notifier = notifier_.lock(); media_notifier) {
         // Notify interface about new song
         media_notifier->NotifySongInformation(*curr_song_);
+        NotifyAudioOutput();
       }
     }
 
@@ -423,10 +522,11 @@ void Player::AudioHandler() {
     int position = -1;  // in seconds
 
     // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(period_size_ / 2, [this, &position](void* buffer, void* analysis,
-                                                                  int size, int64_t& new_position) {
-      return HandleCommand(buffer, analysis, size, new_position, position);
-    });
+    result = decoder_->Decode(
+        period_size_ / 2, [this, &position](void* buffer, int size, void* analysis,
+                                            int analysis_size, int64_t& new_position) {
+          return HandleCommand(buffer, size, analysis, analysis_size, new_position, position);
+        });
 
     // Decoding stops without error when playback fails, so report it from here
     if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
@@ -556,9 +656,103 @@ bool Player::CanSkip(const Command& command) {
 
 /* ********************************************************************************************** */
 
+void Player::ChangeDevice(const std::string& device) {
+  INFO("Change output device to ", std::quoted(device));
+
+  if (error::Code result = CreatePlaybackStream(device); result != error::kSuccess) {
+    ERROR("Cannot change output device, error=", result);
+
+    // Previous playback stream was already released, so create it again
+    if (CreatePlaybackStream(device_) != error::kSuccess) {
+      ERROR("Cannot use previous output device");
+    }
+
+    if (auto media_notifier = notifier_.lock(); media_notifier) {
+      media_notifier->NotifyError(error::kOpenDeviceFailed, device);
+    }
+
+    return;
+  }
+
+  device_ = device;
+
+  // Current song (if any) is played by another device, which may not expect the same format
+  if (curr_song_) NotifyAudioOutput();
+}
+
+/* ********************************************************************************************** */
+
+error::Code Player::CreatePlaybackStream(const std::string& device) {
+  error::Code result = playback_->CreatePlaybackStream(device);
+  return result == error::kSuccess ? ConfigurePlayback() : result;
+}
+
+/* ********************************************************************************************** */
+
+void Player::NotifyAudioOutput() {
+  auto media_notifier = notifier_.lock();
+  if (!media_notifier) return;
+
+  media_notifier->NotifyAudioOutput(
+      model::AudioOutput{.device = playback_->GetDevice(), .format = format_});
+}
+
+/* ********************************************************************************************** */
+
+error::Code Player::ConfigurePlayback() {
+  error::Code result = playback_->ConfigureParameters(desired_format_);
+  if (result != error::kSuccess) return result;
+
+  // Device may not support it, so decoder must create samples in the format that it expects
+  format_ = playback_->GetFormat();
+
+  // This value is used to decide buffer size for song decoding
+  period_size_ = static_cast<int>(playback_->GetPeriodSize());
+
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code Player::ConfigureOutput(const model::Song& song) {
+  model::AudioFormat desired = desired_format_;
+
+  // Sample rate may not be known (in this case, keep using the one from the last song)
+  if (song.sample_rate > 0) desired.sample_rate = song.sample_rate;
+
+  // Playback stream is configured again only when needed, as songs played in a row usually have
+  // the same format (e.g. the ones from an album)
+  if (desired != desired_format_) {
+    INFO("Change desired format from ", desired_format_, " to ", desired);
+    const model::AudioFormat previous = std::exchange(desired_format_, desired);
+
+    if (error::Code result = ConfigurePlayback(); result != error::kSuccess) {
+      ERROR("Cannot configure playback with desired format, error=", result);
+
+      // Playback stream cannot be used anymore, so create it again with the previous format
+      desired_format_ = previous;
+
+      if (CreatePlaybackStream(device_) != error::kSuccess) {
+        ERROR("Cannot create playback stream again");
+      }
+
+      return result;
+    }
+  }
+
+  return decoder_->SetOutputFormat(format_);
+}
+
+/* ********************************************************************************************** */
+
 void Player::RegisterInterfaceNotifier(const std::shared_ptr<interface::Notifier>& notifier) {
   LOG("Register new interface notifier");
   notifier_ = notifier;
+
+  // Now it is possible to let user know about device that could not be used on initialization
+  if (notifier && !failed_device_.empty()) {
+    notifier->NotifyError(error::kOpenDeviceFailed, std::exchange(failed_device_, ""));
+  }
 }
 
 /* ********************************************************************************************** */
@@ -716,6 +910,20 @@ void Player::SetRepeatMode(model::RepeatMode mode) {
 void Player::SetShuffle(bool enabled) {
   INFO("Set shuffle=", enabled);
   shuffle_ = enabled;
+}
+
+/* ********************************************************************************************** */
+
+void Player::SetAudioDevice(const std::string& device) {
+  LOG("Add command to queue: \"SetDevice\" (device=", std::quoted(device), ")");
+  media_control_.Push(Command::SetDevice(device));
+}
+
+/* ********************************************************************************************** */
+
+model::AudioDevices Player::GetAudioDevices() const {
+  LOG("Get audio devices");
+  return playback_->ListDevices();
 }
 
 /* ********************************************************************************************** */

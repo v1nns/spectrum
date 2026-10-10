@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_ELEMENT_INTERNAL_FILE_MENU_H_
 
 #include <string>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
@@ -27,7 +28,6 @@ class FileMenu : public BaseMenu<FileMenu> {
 
   //! Put together all possible styles for an entry in this component
   struct Style {
-    ftxui::Decorator prefix;
     MenuEntryOption directory;
     MenuEntryOption file;
     MenuEntryOption unsupported;
@@ -90,6 +90,17 @@ class FileMenu : public BaseMenu<FileMenu> {
 
   //! Update style for menu entries with colors from current theme (called before rendering)
   void UpdateStyleImpl();
+
+  //! Text appended to the name of a directory, so it is told apart from a file even without colors
+  static constexpr std::string_view kDirectorySuffix = "/";
+
+  /**
+   * @brief Get text shown for entry (its name, ending with a suffix when it is a directory)
+   * @param entry Entry from menu
+   * @param fit Cut name too long to fit in the columns available (otherwise, get the whole text)
+   * @return Text for entry
+   */
+  [[nodiscard]] std::string GetEntryText(const util::File& entry, bool fit) const;
 
   //! Get style for entry based on its state and type (playing, directory, media or other file)
   [[nodiscard]] const MenuEntryOption& GetEntryStyle(const util::File& entry,

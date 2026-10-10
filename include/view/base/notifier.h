@@ -9,6 +9,7 @@
 #include <cstdint>
 
 #include "model/application_error.h"
+#include "model/audio_output.h"
 #include "model/song.h"
 
 namespace interface {
@@ -62,6 +63,13 @@ class Notifier {
    * @param detail What the error refers to, like the song file name (optional, may be empty)
    */
   virtual void NotifyError(error::Code code, const std::string& detail) = 0;
+
+  /**
+   * @brief Notify UI with audio output used to play current song (when it starts playing, and also
+   * when output device is changed in the meantime)
+   * @param output Output device in use and format of audio samples sent to it
+   */
+  virtual void NotifyAudioOutput(const model::AudioOutput& output) = 0;
 };
 
 }  // namespace interface

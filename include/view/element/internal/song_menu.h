@@ -30,7 +30,6 @@ class SongMenu : public BaseMenu<SongMenu> {
 
   //! Put together all possible styles for an entry in this component
   struct Style {
-    ftxui::Decorator prefix;
     ftxui::Decorator tag;
     MenuEntryOption entry;
   };

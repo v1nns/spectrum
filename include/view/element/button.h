@@ -187,6 +187,19 @@ class Button {
                                              bool active = true);
 
   /**
+   * @brief Create button shown as a hint for its keybinding (e.g. "c create"), without any
+   * background or border, where only the key stands out
+   * @param key Key that does the same as clicking on button
+   * @param content Text content to show after key
+   * @param on_click Callback function for click event
+   * @param style Custom style to apply on button
+   * @return std::shared_ptr<Button> New instance to button
+   */
+  static std::shared_ptr<Button> make_button_hint(const std::string& key,
+                                                  const std::string& content,
+                                                  const Callback& on_click, const Style& style);
+
+  /**
    * @brief Create generic button with solid color
    * @param content Text content to show
    * @param on_click Callback function for click event

@@ -103,6 +103,14 @@ void UrlInput::Clear() {
 
 /* ********************************************************************************************** */
 
+void UrlInput::HandleClick(ftxui::Event& event) { input_.OnMouseEvent(event); }
+
+/* ********************************************************************************************** */
+
+void UrlInput::HandleDoubleClick(ftxui::Event& event) { HandleClick(event); }
+
+/* ********************************************************************************************** */
+
 void UrlInput::Submit() {
   if (input_.IsEmpty()) return;
 

@@ -12,6 +12,7 @@
 #include <string_view>
 #include <system_error>
 
+#include "model/audio_filter.h"
 #include "nlohmann/json.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
@@ -375,7 +376,10 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
       visualizer != parsed.end() && visualizer->is_object()) {
     // Animation is saved by its identifier, so check it is a known one
     if (auto animation = visualizer->find("animation");
-        animation != visualizer->end() && animation->is_number_integer()) {
+        animation != visualizer->end() && animation->is_string()) {
+      settings.animation = model::GetAnimationFromId(animation->get<std::string>());
+    } else if (animation != visualizer->end() && animation->is_number_integer()) {
+      // It was saved as a number by older versions
       if (int value = animation->get<int>();
           value >= model::BarAnimation::HorizontalMirror && value < model::BarAnimation::LAST) {
         settings.animation = static_cast<model::BarAnimation>(value);
@@ -393,12 +397,56 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
         volume != player->end() && volume->is_number_integer()) {
       if (int value = volume->get<int>(); value >= 0 && value <= 100) settings.volume = value;
     }
+
+    if (auto device = player->find("device"); device != player->end() && device->is_string()) {
+      settings.device = device->get<std::string>();
+    }
+
+    // Repeat mode is saved by its name, so check it is a known one
+    if (auto repeat = player->find("repeat"); repeat != player->end() && repeat->is_string()) {
+      const auto name = repeat->get<std::string>();
+
+      for (auto mode : {model::RepeatMode::Off, model::RepeatMode::All, model::RepeatMode::One}) {
+        if (name == model::GetRepeatModeName(mode)) settings.repeat = mode;
+      }
+    }
+
+    if (auto shuffle = player->find("shuffle");
+        shuffle != player->end() && shuffle->is_boolean()) {
+      settings.shuffle = shuffle->get<bool>();
+    }
+  }
+
+  if (auto equalizer = parsed.find("equalizer");
+      equalizer != parsed.end() && equalizer->is_object()) {
+    if (auto preset = equalizer->find("preset");
+        preset != equalizer->end() && preset->is_string()) {
+      settings.equalizer_preset = preset->get<std::string>();
+    }
+
+    // There must be a gain for each frequency, all of them inside the limits
+    if (auto custom = equalizer->find("custom");
+        custom != equalizer->end() && custom->is_array() &&
+        custom->size() == model::equalizer::kFiltersPerPreset &&
+        std::all_of(custom->begin(), custom->end(), [](const nlohmann::json& gain) {
+          return gain.is_number() && gain.get<double>() >= model::AudioFilter::kMinGain &&
+                 gain.get<double>() <= model::AudioFilter::kMaxGain;
+        })) {
+      settings.equalizer_custom = custom->get<std::vector<double>>();
+    }
   }
 
   if (auto interface = parsed.find("interface");
       interface != parsed.end() && interface->is_object()) {
     if (auto theme = interface->find("theme"); theme != interface->end() && theme->is_string()) {
       settings.theme = theme->get<std::string>();
+    }
+  }
+
+  if (auto stream = parsed.find("stream"); stream != parsed.end() && stream->is_object()) {
+    if (auto browser = stream->find("cookies_from_browser");
+        browser != stream->end() && browser->is_string()) {
+      settings.cookies_from_browser = browser->get<std::string>();
     }
   }
 
@@ -430,10 +478,17 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
   };
 
   if (settings.animation)
-    section("visualizer")["animation"] = static_cast<int>(*settings.animation);
+    section("visualizer")["animation"] = model::GetAnimationId(*settings.animation);
   if (settings.bar_width) section("visualizer")["bar_width"] = *settings.bar_width;
   if (settings.volume) section("player")["volume"] = *settings.volume;
+  if (settings.device) section("player")["device"] = *settings.device;
+  if (settings.repeat) section("player")["repeat"] = model::GetRepeatModeName(*settings.repeat);
+  if (settings.shuffle) section("player")["shuffle"] = *settings.shuffle;
+  if (settings.equalizer_preset) section("equalizer")["preset"] = *settings.equalizer_preset;
+  if (settings.equalizer_custom) section("equalizer")["custom"] = *settings.equalizer_custom;
   if (settings.theme) section("interface")["theme"] = *settings.theme;
+  if (settings.cookies_from_browser)
+    section("stream")["cookies_from_browser"] = *settings.cookies_from_browser;
 
   std::error_code error;
 

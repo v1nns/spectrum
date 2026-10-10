@@ -64,6 +64,7 @@ struct General {
   static Key ExitApplication;
   static Key ShowHelper;
   static Key ChangeTheme;
+  static Key ChangeAudioDevice;
 
   static Key FocusSidebar;
   static Key FocusInfo;

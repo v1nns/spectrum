@@ -104,6 +104,36 @@ class MainContentTest : public ::BlockTest {
     return static_cast<LyricFinderMock*>(song_lyric->finder_.get());
   }
 
+  //! Create mouse event at the position where the given text (ASCII only) is rendered on screen
+  ftxui::Event MouseEventAt(const std::string& text, ftxui::Mouse::Button button,
+                            ftxui::Mouse::Motion motion = ftxui::Mouse::Released) {
+    for (int y = 0; y < screen->dimy(); y++) {
+      for (int x = 0; x + static_cast<int>(text.size()) <= screen->dimx(); x++) {
+        bool found = true;
+        for (size_t i = 0; i < text.size() && found; i++) {
+          found = screen->PixelAt(x + static_cast<int>(i), y).character == text.substr(i, 1);
+        }
+
+        if (found) {
+          return ftxui::Event::Mouse(
+              "", ftxui::Mouse{.button = button, .motion = motion, .x = x, .y = y});
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Text not found on screen: " << text;
+    return ftxui::Event::Custom;
+  }
+
+  //! Getter for index of paragraph focused from song lyric
+  int GetLyricFocused() {
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
+    auto song_lyric = static_cast<interface::SongLyric*>(
+        main_tab->tab_elem_[interface::MainContent::View::Lyric].get());
+
+    return song_lyric->focused_;
+  }
+
   //! Select animation using picker: open it, move selection until animation and keep it
   void SelectAnimation(model::BarAnimation animation) {
     block->OnEvent(ftxui::Event::Character('a'));
@@ -170,7 +200,7 @@ TEST_F(MainContentTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -205,7 +235,7 @@ TEST_F(MainContentTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                            ▇▇ ▇▇                                            │
 │                                         ▆▆ ██ ██ ▆▆                                         │
 │                                      ▅▅ ██ ██ ██ ██ ▅▅                                      │
@@ -278,7 +308,7 @@ TEST_F(MainContentTest, AnimationSpectrumLine) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -319,7 +349,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineMirror) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                   ⣀⣀                                                                        │
 │               ⣀⡤⠖⠋⠁⠈⠙⠲⢤⣀                                                                    │
 │            ⢀⡤⠞⠁        ⠈⠳⢤⡀                                 ⢀⣀⣀⣀⣀                           │
@@ -360,7 +390,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -392,7 +422,7 @@ TEST_F(MainContentTest, PickAnimationWithPreview) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │╭ animation ─────────────────────╮                                                           │
 ││▶ Horizontal mirror             │                                                           │
 ││  Vertical mirror               │                                                           │
@@ -440,6 +470,182 @@ TEST_F(MainContentTest, PickAnimationWithPreview) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, PickAnimationWithMouse) {
+  using interface::CustomEvent;
+
+  //! Create event for mouse button released at the position where the given text is rendered
+  auto mouse_at = [this](const std::string& text, ftxui::Mouse::Button button) {
+    for (int y = 0; y < screen->dimy(); y++) {
+      for (int x = 0; x + static_cast<int>(text.size()) <= screen->dimx(); x++) {
+        bool found = true;
+        for (size_t i = 0; i < text.size() && found; i++) {
+          found = screen->PixelAt(x + static_cast<int>(i), y).character == text.substr(i, 1);
+        }
+
+        if (found) {
+          return ftxui::Event::Mouse(
+              "", ftxui::Mouse{.button = button, .motion = ftxui::Mouse::Released, .x = x, .y = y});
+        }
+      }
+    }
+
+    ADD_FAILURE() << "Text not found on screen: " << text;
+    return ftxui::Event::Custom;
+  };
+
+  auto animation_changed_to = [](model::BarAnimation animation) {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ChangeBarAnimation),
+                 Field(&CustomEvent::content, VariantWith<model::BarAnimation>(animation)));
+  };
+
+  block->OnEvent(ftxui::Event::Character('a'));
+  ftxui::Render(*screen, block->Render());
+
+  // Wheel moves selection by one animation, changing it right away
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::VerticalMirror)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Line (mirror)", ftxui::Mouse::WheelDown)));
+
+  // Click selects the animation under mouse cursor
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::SpectrumLine)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Line  ", ftxui::Mouse::Left)));
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Line  "));
+
+  // Double-click keeps it, closing picker and saving it
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::Mono)));
+  EXPECT_CALL(*file_handler,
+              SaveSettings(Field(&model::Settings::animation, Optional(model::BarAnimation::Mono))))
+      .WillOnce(Return(true));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Mono  ", ftxui::Mouse::Left)));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("▶")));
+
+  // Without picker, mouse is not handled by visualizer
+  auto outside = ftxui::Event::Mouse("", ftxui::Mouse{.button = ftxui::Mouse::WheelDown,
+                                                      .motion = ftxui::Mouse::Pressed,
+                                                      .x = screen->dimx() / 2,
+                                                      .y = screen->dimy() / 2});
+  EXPECT_FALSE(block->OnEvent(outside));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeBarWidthWithAnimationPickerOpen) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Select another animation, without choosing it
+  block->OnEvent(ftxui::Event::Character('a'));
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  // Bar width is saved, but not the animation (as it is only a preview, which may be cancelled)
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::animation, Eq(std::nullopt)),
+                                 Field(&model::Settings::bar_width, Optional(3)))))
+      .WillOnce(Return(true));
+  block->OnEvent(ftxui::Event::Character('.'));
+
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  // Nothing else is saved when picker is cancelled
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+  block->OnEvent(ftxui::Event::Escape);
+
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  // With picker closed, animation is saved along with bar width
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::animation,
+                                       Optional(model::BarAnimation::HorizontalMirror)),
+                                 Field(&model::Settings::bar_width, Optional(4)))))
+      .WillOnce(Return(true));
+  block->OnEvent(ftxui::Event::Character('.'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ClickOnButtonClosesAnimationPicker) {
+  using interface::CustomEvent;
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  block->OnEvent(ftxui::Event::Character('a'));
+  ASSERT_THAT(render(), HasSubstr("animation"));
+
+  // A click on any button from this block only closes picker (as it is a click outside of it)
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::Exit)))
+      .Times(0);
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::ShowHelper)))
+      .Times(0);
+
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("2:equalizer", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("animation")));
+  EXPECT_THAT(rendered, Not(HasSubstr("preset")));
+
+  for (const std::string button : {"F12:help", " X "}) {
+    block->OnEvent(ftxui::Event::Character('a'));
+    ASSERT_THAT(render(), HasSubstr("animation"));
+
+    EXPECT_TRUE(block->OnEvent(MouseEventAt(button, ftxui::Mouse::Left)));
+    EXPECT_THAT(render(), Not(HasSubstr("animation")));
+  }
+
+  // With picker closed, they are clicked as usual
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("2:equalizer", ftxui::Mouse::Left)));
+  EXPECT_THAT(render(), HasSubstr("preset"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeTabClosesAnimationPicker) {
+  using interface::CustomEvent;
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  auto animation_changed_to = [](model::BarAnimation animation) {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ChangeBarAnimation),
+                 Field(&CustomEvent::content, VariantWith<model::BarAnimation>(animation)));
+  };
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
+
+  // Open picker and preview another animation
+  block->OnEvent(ftxui::Event::Character('a'));
+  block->OnEvent(ftxui::Event::Character('j'));
+  ASSERT_THAT(render(), HasSubstr("animation"));
+
+  // Showing another tab closes picker, restoring animation from before opening it
+  EXPECT_CALL(*dispatcher,
+              SendEvent(animation_changed_to(model::BarAnimation::HorizontalMirror)));
+
+  block->OnEvent(ftxui::Event::Character('2'));
+  ASSERT_THAT(render(), HasSubstr("preset"));
+
+  // So it is not there anymore when visualizer is shown again
+  block->OnEvent(ftxui::Event::Character('1'));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("preset")));
+  EXPECT_THAT(rendered, Not(HasSubstr("animation")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
   EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
@@ -464,12 +670,11 @@ TEST_F(MainContentTest, CancelAnimationPicker) {
 /* ********************************************************************************************** */
 
 TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
-  // Saved settings are restored when block is created (invalid bar width is ignored)
+  // Saved settings are restored when block is created (they are read by each tab that has any)
   EXPECT_CALL(*file_handler, ParseSettings(_))
-      .WillOnce(DoAll(
+      .WillRepeatedly(DoAll(
           SetArgReferee<0>(model::Settings{.animation = model::BarAnimation::Mono, .bar_width = 3}),
-          Return(true)))
-      .WillOnce(DoAll(SetArgReferee<0>(model::Settings{.bar_width = 99}), Return(true)));
+          Return(true)));
 
   auto restored = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
   auto main_content = std::static_pointer_cast<interface::MainContent>(restored);
@@ -480,6 +685,11 @@ TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
   ftxui::Render(*screen, restored->Render());
   EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Mono"));
 
+  // Invalid bar width is ignored
+  testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(model::Settings{.bar_width = 99}), Return(true)));
+
   auto invalid = std::static_pointer_cast<interface::MainContent>(
       ftxui::Make<interface::MainContent>(dispatcher, file_handler));
   EXPECT_EQ(invalid->GetBarWidth(), 2);
@@ -489,6 +699,89 @@ TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
   EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::bar_width, Optional(3))))
       .WillOnce(Return(true));
   block->OnEvent(ftxui::Event::Character('.'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RestoreAndSaveEqualizerSettings) {
+  using interface::CustomEvent;
+  using model::AudioFilter;
+
+  auto render = [this](const ftxui::Component& component) {
+    screen->Clear();
+    ftxui::Render(*screen, component->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  auto filters_applied = [](const model::EqualizerPreset& preset) {
+    return AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ApplyAudioFilters),
+                 Field(&CustomEvent::content, VariantWith<model::EqualizerPreset>(preset)));
+  };
+
+  // Preset applied on last run is restored and sent to audio player, along with gains from the
+  // preset that may be modified
+  const std::vector<double> gains{3, 0, 0, -2, 0, 0, 0, 0, 0, 5};
+
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(DoAll(
+          SetArgReferee<0>(model::Settings{.equalizer_preset = "Rock", .equalizer_custom = gains}),
+          Return(true)));
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*dispatcher, SendEvent(filters_applied(AudioFilter::CreatePresets()["Rock"])));
+
+  auto restored = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(restored)->SetFocused(true);
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  restored->OnEvent(ftxui::Event::Character('2'));
+  EXPECT_THAT(render(restored), HasSubstr("→ Rock"));
+
+  // Choose preset "Custom" (the first one in list) and apply it, which saves these settings
+  model::EqualizerPreset custom = AudioFilter::CreatePresets()["Custom"];
+  for (size_t i = 0; i < custom.size(); i++) custom[i].gain = gains[i];
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*dispatcher, SendEvent(filters_applied(custom)));
+
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(Field(&model::Settings::equalizer_preset, Optional(StrEq("Custom"))),
+                                 Field(&model::Settings::equalizer_custom, Optional(gains)))))
+      .WillOnce(Return(true));
+
+  restored->OnEvent(ftxui::Event::Character('l'));
+  restored->OnEvent(ftxui::Event::Character('h'));
+  restored->OnEvent(ftxui::Event::Character(' '));
+
+  for (size_t i = 0; i < AudioFilter::CreatePresets().size(); i++) {
+    restored->OnEvent(ftxui::Event::Character('k'));
+  }
+
+  restored->OnEvent(ftxui::Event::Character('j'));
+  restored->OnEvent(ftxui::Event::Character(' '));
+  restored->OnEvent(ftxui::Event::Character('a'));
+
+  std::string rendered = render(restored);
+  EXPECT_THAT(rendered, HasSubstr("→ Custom"));
+  EXPECT_THAT(rendered, HasSubstr("+3"));
+  EXPECT_THAT(rendered, HasSubstr("+5"));
+
+  // Unknown preset is ignored, and nothing is sent when settings are the ones player starts with
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+  testing::Mock::VerifyAndClearExpectations(file_handler.get());
+
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(
+          DoAll(SetArgReferee<0>(model::Settings{.equalizer_preset = "Unknown"}), Return(true)));
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::ApplyAudioFilters)))
+      .Times(0);
+
+  auto unknown = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  unknown->OnEvent(ftxui::Event::Character('2'));
+  EXPECT_THAT(render(unknown), HasSubstr("→ Custom"));
 }
 
 /* ********************************************************************************************** */
@@ -513,7 +806,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilledMirror) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                   ▄▖                                                                        │
 │               ▄▄█████▙▄▖                                                                    │
 │            ▗▄███████████▙▄                                  ▗▄▄▄▖                           │
@@ -562,7 +855,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
 
   // Maybe filtering ansi commands is messing up with this animation =(
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁                    │
 │                                                  ▂▂ ▄▄ ▇▇ ██ ██ ██ ██ ██ ▇▇ ▄▄ ▂▂           │
 │                                         ▃▃ ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▅▅ ▃▃  │
@@ -617,7 +910,7 @@ TEST_F(MainContentTest, AnimationMono) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                 ▆▆                          │
 │                                                              ▄▄ ██ ▄▄                       │
@@ -652,7 +945,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -695,7 +988,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -735,7 +1028,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -864,20 +1157,20 @@ TEST_F(MainContentTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
-│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│   ╭─────────────╮                                                                           │
-│   │→ Custom     │                                                                           │
-│   ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                      0      0      0      0      0      0      0      0      0       0      │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │       │       │       │       │       │       │       │         │
+│    0     ███     ███     ███     ███     ███     ███     ███     ███     ███     ███        │
+│           │       │       │       │       │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0       0       0       0       0       0       0       0       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -886,7 +1179,7 @@ TEST_F(MainContentTest, RenderEqualizer) {
 /* ********************************************************************************************** */
 
 TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
-  // With enough width, labels contain their units
+  // With more width, frequency bars are just more distant from each other
   screen = std::make_unique<ftxui::Screen>(140, 15);
 
   block->OnEvent(ftxui::Event::Character('2'));
@@ -894,9 +1187,104 @@ TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
   ftxui::Render(*screen, block->Render());
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("32 Hz"));
-  EXPECT_THAT(rendered, HasSubstr("16 kHz"));
-  EXPECT_THAT(rendered, HasSubstr("0 dB"));
+  // Units are shown only once, before the first frequency bar
+  EXPECT_THAT(rendered, HasSubstr("│  Hz           32          64          125"));
+  EXPECT_THAT(rendered, HasSubstr("│  dB            0           0           0"));
+  EXPECT_THAT(rendered, HasSubstr("[Apply] [Reset]  │"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RenderEqualizerWithGainAtLimits) {
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Increase gain from first frequency bar beyond its maximum, and decrease the second one beyond
+  // its minimum
+  constexpr int kSteps = 15;
+
+  block->OnEvent(ftxui::Event::ArrowRight);
+  for (int i = 0; i < kSteps; i++) block->OnEvent(ftxui::Event::ArrowUp);
+
+  block->OnEvent(ftxui::Event::ArrowRight);
+  for (int i = 0; i < kSteps; i++) block->OnEvent(ftxui::Event::ArrowDown);
+
+  ftxui::Render(*screen, block->Render());
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  // Each knob stops at the line with its limit, and not beyond it
+  EXPECT_THAT(rendered, HasSubstr(R"(
+│                                                                                             │
+│  +12     ███      │       │       │       │       │       │       │       │       │         │
+│           ┃       │       │       │       │       │       │       │       │       │         │
+│    0     ─┼─     ─┼─     ███     ███     ███     ███     ███     ███     ███     ███        │
+│           │       ┃       │       │       │       │       │       │       │       │         │
+│  -12      │      ███      │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      +12     -12      0       0       0       0       0       0       0       0         │
+)"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(EqualizerPresetTest, PresetsForAnyMusicComeFirst) {
+  const auto presets = model::AudioFilter::CreatePresets();
+
+  std::vector<std::string> names;
+  for (const auto& [name, preset] : presets) names.push_back(name);
+
+  // Preset modified by user and the one without any gain, then all the others ordered by name
+  const std::vector<std::string> expected{
+      "Custom",  "Flat", "Acoustic", "Bass Boost", "Classical", "Dance",        "Electronic",
+      "Hip-Hop", "Jazz", "Loudness", "Pop",        "Rock",      "Treble Boost", "Vocal",
+  };
+
+  EXPECT_EQ(names, expected);
+
+  // Only the preset for user may be modified, and it starts without any gain (like Flat)
+  for (const auto& [name, preset] : presets) {
+    for (const auto& filter : preset) {
+      EXPECT_EQ(filter.modifiable, name == "Custom") << name;
+      if (name == "Custom" || name == "Flat") {
+        EXPECT_EQ(filter.gain, 0) << name;
+      }
+    }
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST(EqualizerPresetTest, CalculatePeakGain) {
+  constexpr double kSampleRate = 44100;
+  constexpr double kTolerance = 0.1;
+
+  auto presets = model::AudioFilter::CreatePresets();
+
+  auto peak = [&](const std::string& name, double sample_rate) {
+    const auto& preset = presets[name];
+    return model::AudioFilter::CalculatePeakGain({preset.begin(), preset.end()}, sample_rate);
+  };
+
+  // Nothing is amplified without any gain
+  EXPECT_DOUBLE_EQ(peak("Flat", kSampleRate), 0);
+
+  // Filters for nearby frequencies add up, so peak is higher than the highest gain (+4 dB)
+  EXPECT_NEAR(peak("Bass Boost", kSampleRate), 4.7, kTolerance);
+  EXPECT_NEAR(peak("Treble Boost", kSampleRate), 4.2, kTolerance);
+
+  // Frequencies attenuated do not matter, only the ones amplified
+  EXPECT_NEAR(peak("Pop", kSampleRate), 2.6, kTolerance);
+
+  // A single filter amplifies its own frequency by its gain
+  model::AudioFilter single{.frequency = 1000, .gain = 6};
+  EXPECT_NEAR(model::AudioFilter::CalculatePeakGain({single}, kSampleRate), 6.0, kTolerance);
+
+  // And a filter that only attenuates never needs any compensation
+  single.gain = -6;
+  EXPECT_DOUBLE_EQ(model::AudioFilter::CalculatePeakGain({single}, kSampleRate), 0);
+
+  // Filters above half of sample rate are ignored, and an invalid sample rate is not an error
+  EXPECT_NEAR(peak("Treble Boost", 16000), 1.6, 1.0);
+  EXPECT_DOUBLE_EQ(peak("Bass Boost", 0), 0);
 }
 
 /* ********************************************************************************************** */
@@ -930,6 +1318,32 @@ TEST_F(MainContentTest, ClickOnEqualizerFocusesBlockAndBand) {
 
   // And clicked band is the one focused (instead of any band focused before)
   EXPECT_TRUE(IsFrequencyBarFocused(kBand));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ClickTwiceOnEqualizerBand) {
+  constexpr int kBand = 1;
+
+  // Show equalizer, and render block to calculate position of each element on screen
+  block->OnEvent(ftxui::Event::Character('2'));
+  ftxui::Render(*screen, block->Render());
+
+  const ftxui::Box box = GetFrequencyBarBox(kBand);
+
+  auto click_at = [this, &box](int y) {
+    ftxui::Mouse mouse{
+        .button = ftxui::Mouse::Left, .motion = ftxui::Mouse::Released, .x = box.x_min, .y = y};
+
+    return block->OnEvent(ftxui::Event::Mouse("", mouse));
+  };
+
+  EXPECT_TRUE(click_at(box.y_min));
+  EXPECT_DOUBLE_EQ(GetFrequencyBarGain(kBand), model::AudioFilter::kMaxGain);
+
+  // A click right after another one is still a click (and not a double click, to ignore)
+  EXPECT_TRUE(click_at(box.y_max));
+  EXPECT_DOUBLE_EQ(GetFrequencyBarGain(kBand), model::AudioFilter::kMinGain);
 }
 
 /* ********************************************************************************************** */
@@ -1009,20 +1423,20 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
-│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│   ╭─────────────╮                                                     ▂▂                    │
-│   │→ Custom     │           ▇▇                                        ██                    │
-│   ╰─────────────╯    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██      ██     │
-│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                      0      5      0      -2     0      -3     0      7      0       0      │
+│  +12      │       │       │       │       │       │       │      ▁▁▁      │       │         │
+│           │      ▇▇▇      │       │       │       │       │      ▁▁▁      │       │         │
+│    0     ███     ▇▇▇     ███     ▅▅▅     ███     ▄▄▄     ███     ─┼─     ███     ███        │
+│           │       │       │      ▅▅▅      │      ▄▄▄      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0      +5       0      -2       0      -3       0      +7       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1043,20 +1457,20 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
-│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│   ╭─────────────╮                                                                           │
-│   │→ Custom     │                         ▇▇                                                │
-│   ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                      0      0      0      5      0      0      0      0      0       0      │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │      ▇▇▇      │       │       │       │       │       │         │
+│    0     ███     ███     ███     ▇▇▇     ███     ███     ███     ███     ███     ███        │
+│           │       │       │       │       │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0       0       0      +5       0       0       0       0       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1075,25 +1489,26 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   // And try to apply EQ
   block->OnEvent(ftxui::Event::Character('a'));
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
-│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│   ╭─────────────╮                                                                           │
-│   │→ Custom     │                                                                           │
-│   ╰─────────────╯    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                      0      0      0      0      0      0      0      0      0       0      │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │       │       │       │       │       │       │       │         │
+│    0     ███     ███     ███     ███     ███     ███     ███     ███     ███     ███        │
+│           │       │       │       │       │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0       0       0       0       0       0       0       0       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1106,7 +1521,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   block->OnEvent(ftxui::Event::Character('2'));
 
   // Using keybindings for navigation, open preset picker
-  std::string typed{"lh jj"};
+  std::string typed{"lh jjjjjj"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1114,20 +1529,20 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Custom     │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │◉ Custom     │                                                                           │
-│   │○ Electronic │                                                                           │
-│   │○ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    0      0      0      0      0      0      0      0      0       0      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset ↓ Custom                                                           [Apply] [Reset]  │
+│  ╭───────────────╮                                                                          │
+│  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
+│  │○ Bass Boost  ┃│                                                                          │
+│  │○ Classical   ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Dance       ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Electronic  ┃│██     ███     ███     ███     ███     ███     ███     ███     ███        │
+│  │○ Hip-Hop     ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Loudness     │                                                                          │
+│  │○ Pop          │0       0       0       0       0       0       0       0       0         │
+│  ╰───────────────╯                                                                          │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1147,25 +1562,26 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   typed = " a";
   utils::QueueCharacterEvents(*block, typed);
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Electronic │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │○ Custom     │                                                                           │
-│   │◉ Electronic │    ▃▃     ▄▄     ▃▃                   ▂▂     ▄▄     ▂▂     ▃▃      ▃▃     │
-│   │○ Pop        │    ██     ██     ██     ▆▆     ██     ██     ██     ██     ██      ██     │
-│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    2      3      2      -2     0      1      3      1      2       2      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Electronic                                                       [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│          ▃▃▃     ▄▄▄     ▃▃▃      │       │      ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
+│    0     ▃▃▃     ▄▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
+│           │       │       │      ▅▅▅      │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      +2      +3      +2      -2       0      +1      +1      +1      +2      +2         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1187,16 +1603,16 @@ TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
   ftxui::Render(*screen, block->Render());
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("→ Electronic"));
+  EXPECT_THAT(rendered, HasSubstr("→ Flat"));
 
   // Go back twice, which must wrap around to the last preset
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Character('k'));
 
-  // Setup expectation to check that will send audio filters matching Rock EQ
+  // Setup expectation to check that will send audio filters matching Vocal EQ
   using model::AudioFilter;
   using model::EqualizerPreset;
-  EqualizerPreset audio_filters{AudioFilter::CreatePresets()["Rock"]};
+  EqualizerPreset audio_filters{AudioFilter::CreatePresets()["Vocal"]};
 
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(Field(&interface::CustomEvent::id,
@@ -1210,7 +1626,176 @@ TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
   ftxui::Render(*screen, block->Render());
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  EXPECT_THAT(rendered, HasSubstr("→ Rock"));
+  EXPECT_THAT(rendered, HasSubstr("→ Vocal"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, MouseOnPresetPicker) {
+  static constexpr int kLastBand = 9;
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Set focus on tab item 2
+  block->OnEvent(ftxui::Event::Character('2'));
+  ASSERT_THAT(render(), HasSubstr("→ Custom"));
+
+  // While list is closed, mouse wheel cycles through presets exactly like its keys
+  EXPECT_TRUE(block->OnEvent(
+      MouseEventAt("Custom", ftxui::Mouse::WheelDown, ftxui::Mouse::Pressed)));
+  EXPECT_THAT(render(), HasSubstr("→ Flat"));
+
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Flat", ftxui::Mouse::WheelUp, ftxui::Mouse::Pressed)));
+  EXPECT_THAT(render(), HasSubstr("→ Custom"));
+
+  // Open list with a click on current preset
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Custom", ftxui::Mouse::Left)));
+  EXPECT_THAT(render(), HasSubstr("↓ Custom"));
+
+  // A click on anything else closes it, and it is not handled by what was clicked (otherwise,
+  // gain from this frequency bar would be changed)
+  ASSERT_DOUBLE_EQ(GetFrequencyBarGain(kLastBand), 0);
+
+  const ftxui::Box bar = GetFrequencyBarBox(kLastBand);
+  const auto click_on_bar = ftxui::Event::Mouse(
+      "", ftxui::Mouse{.button = ftxui::Mouse::Left,
+                       .motion = ftxui::Mouse::Released,
+                       .x = bar.x_min,
+                       .y = bar.y_min});
+
+  EXPECT_TRUE(block->OnEvent(click_on_bar));
+  EXPECT_THAT(render(), HasSubstr("→ Custom"));
+  EXPECT_DOUBLE_EQ(GetFrequencyBarGain(kLastBand), 0);
+
+  // As it is with list already closed
+  EXPECT_TRUE(block->OnEvent(click_on_bar));
+  EXPECT_NE(GetFrequencyBarGain(kLastBand), 0);
+
+  // Open list again, and choose a preset with a click on it (which also closes list)
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Custom", ftxui::Mouse::Left)));
+  ASSERT_THAT(render(), HasSubstr("↓ Custom"));
+
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Flat", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("→ Flat"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Custom")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, MouseWheelOnPresetList) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  auto wheel = [this](ftxui::Mouse::Button button) {
+    return block->OnEvent(MouseEventAt("Acoustic", button, ftxui::Mouse::Pressed));
+  };
+
+  // Set focus on tab item 2 and open list of presets, which does not fit on screen
+  block->OnEvent(ftxui::Event::Character('2'));
+  render();
+
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Custom", ftxui::Mouse::Left)));
+
+  std::string rendered = render();
+  ASSERT_THAT(rendered, HasSubstr("◉ Custom"));
+  ASSERT_THAT(rendered, HasSubstr("○ Flat"));
+  ASSERT_THAT(rendered, Not(HasSubstr("Vocal")));
+
+  // Mouse wheel scrolls list by a single row, without changing preset
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("↓ Custom"));
+  EXPECT_THAT(rendered, Not(HasSubstr("◉ Custom")));
+  EXPECT_THAT(rendered, HasSubstr("○ Flat"));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown));
+
+  rendered = render();
+  EXPECT_THAT(rendered, Not(HasSubstr("○ Flat")));
+  EXPECT_THAT(rendered, HasSubstr("○ Acoustic"));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp));
+  EXPECT_THAT(render(), HasSubstr("○ Flat"));
+
+  // It stops at the last preset
+  for (int i = 0; i < 20; i++) wheel(ftxui::Mouse::WheelDown);
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("○ Vocal"));
+  EXPECT_THAT(rendered, HasSubstr("↓ Custom"));
+
+  // And list follows entry focused again, when it is changed by a key
+  block->OnEvent(ftxui::Event::Character('j'));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("◉ Custom"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Vocal")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, OpenPresetPickerOnCurrentPresetAndCloseIt) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Set focus on tab item 2, focus the preset picker and go to the second preset after "Custom"
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  std::string typed{"lhjj"};
+  utils::QueueCharacterEvents(*block, typed);
+
+  EXPECT_THAT(render(), HasSubstr("→ Acoustic"));
+
+  // Open list, which starts from current preset: the next entry is the one right after it
+  typed = " j";
+  utils::QueueCharacterEvents(*block, typed);
+
+  std::string rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("↓ Acoustic"));
+  EXPECT_THAT(rendered, HasSubstr("◉ Acoustic"));
+
+  // Choosing a preset also closes list, without removing focus from picker (so the next key
+  // still changes preset)
+  block->OnEvent(ftxui::Event::Character(' '));
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("→ Bass Boost"));
+  EXPECT_THAT(rendered, Not(HasSubstr("◉")));
+
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("→ Classical"));
+
+  // List is also closed without choosing anything, and focus is still on picker
+  block->OnEvent(ftxui::Event::Return);
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("↓ Classical"));
+
+  block->OnEvent(ftxui::Event::Escape);
+
+  rendered = render();
+  EXPECT_THAT(rendered, HasSubstr("→ Classical"));
+  EXPECT_THAT(rendered, Not(HasSubstr("◉")));
+
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("→ Dance"));
+
+  // With list closed, the same key removes focus from picker
+  block->OnEvent(ftxui::Event::Escape);
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("→ Dance"));
 }
 
 /* ********************************************************************************************** */
@@ -1231,7 +1816,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Pop"
-  std::string typed{"lh jjj a"};
+  std::string typed{"lh jjjjjjjjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1239,20 +1824,20 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Pop        │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │○ Custom     │                                                                           │
-│   │○ Electronic │    ▂▂     ▃▃     ▂▂                   ▃▃     ▂▂     ▂▂     ▃▃      ▄▄     │
-│   │◉ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    1      2      1      0      0      2      1      1      2       3      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Pop                                                              [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │      ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁      │       │       │         │
+│    0     ▇▇▇     ▇▇▇     ███     ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁     ███     ▇▇▇     ▇▇▇        │
+│          ▇▇▇     ▇▇▇      │       │       │       │       │       │      ▇▇▇     ▇▇▇        │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      -1      -1       0      +1      +2      +2      +1       0      -1      -1         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1269,25 +1854,26 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   typed = "llkkljllkka";
   utils::QueueCharacterEvents(*block, typed);
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Pop        │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │○ Custom     │                                                                           │
-│   │○ Electronic │    ▂▂     ▃▃     ▂▂                   ▃▃     ▂▂     ▂▂     ▃▃      ▄▄     │
-│   │◉ Pop        │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    1      2      1      0      0      2      1      1      2       3      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Pop                                                              [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│           │       │       │      ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁      │       │       │         │
+│    0     ▇▇▇     ▇▇▇     ███     ▁▁▁     ▃▃▃     ▃▃▃     ▁▁▁     ███     ▇▇▇     ▇▇▇        │
+│          ▇▇▇     ▇▇▇      │       │       │       │       │       │      ▇▇▇     ▇▇▇        │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      -1      -1       0      +1      +2      +2      +1       0      -1      -1         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1311,7 +1897,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
                                     VariantWith<model::EqualizerPreset>(audio_filters)))));
 
   // Using keybindings for navigation, open preset picker, select and apply "Rock"
-  std::string typed{"lh jjjj a"};
+  std::string typed{"lh jjjjjjjjjjj a"};
   utils::QueueCharacterEvents(*block, typed);
 
   ftxui::Render(*screen, block->Render());
@@ -1319,20 +1905,20 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Rock       │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │○ Custom     │                                                                           │
-│   │○ Electronic │    ▂▂     ▃▃     ▂▂                                 ▂▂     ▃▃      ▄▄     │
-│   │○ Pop        │    ██     ██     ██     ▇▇     ▄▄     ▇▇     ██     ██     ██      ██     │
-│   │◉ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    1      2      1      -1     -3     -1     0      1      2       3      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Rock                                                             [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│          ▁▁▁     ▃▃▃     ▁▁▁      │       │       │       │      ▁▁▁     ▃▃▃     ▄▄▄        │
+│    0     ▁▁▁     ▃▃▃     ▁▁▁     ▇▇▇     ▄▄▄     ▇▇▇     ███     ▁▁▁     ▃▃▃     ▄▄▄        │
+│           │       │       │      ▇▇▇     ▄▄▄     ▇▇▇      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      +1      +2      +1      -1      -3      -1       0      +1      +2      +3         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1348,25 +1934,26 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   // Attempt to reset EQ
   block->OnEvent(ftxui::Event::Character('r'));
 
+  screen->Clear();
   ftxui::Render(*screen, block->Render());
 
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Rock       │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │○ Custom     │                                                                           │
-│   │○ Electronic │    ▂▂     ▃▃     ▂▂                                 ▂▂     ▃▃      ▄▄     │
-│   │○ Pop        │    ██     ██     ██     ▇▇     ▄▄     ▇▇     ██     ██     ██      ██     │
-│   │◉ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    1      2      1      -1     -3     -1     0      1      2       3      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Rock                                                             [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│          ▁▁▁     ▃▃▃     ▁▁▁      │       │       │       │      ▁▁▁     ▃▃▃     ▄▄▄        │
+│    0     ▁▁▁     ▃▃▃     ▁▁▁     ▇▇▇     ▄▄▄     ▇▇▇     ███     ▁▁▁     ▃▃▃     ▄▄▄        │
+│           │       │       │      ▇▇▇     ▄▄▄     ▇▇▇      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      +1      +2      +1      -1      -3      -1       0      +1      +2      +3         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1410,20 +1997,20 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
-│                      32     64    125    250    500     1k     2k     4k     8k     16k     │
+│  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
-│   ╭─────────────╮                                                     ▂▂                    │
-│   │→ Custom     │           ▇▇                                        ██                    │
-│   ╰─────────────╯    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██      ██     │
-│                      ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
-│                      0      5      0      -2     0      -3     0      7      0       0      │
+│  +12      │       │       │       │       │       │       │      ▁▁▁      │       │         │
+│           │      ▇▇▇      │       │       │       │       │      ▁▁▁      │       │         │
+│    0     ███     ▇▇▇     ███     ▅▅▅     ███     ▄▄▄     ███     ─┼─     ███     ███        │
+│           │       │       │      ▅▅▅      │      ▄▄▄      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
 │                                                                                             │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+│  dB       0      +5       0      -2       0      -3       0      +7       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1440,7 +2027,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
                               Field(&interface::CustomEvent::content,
                                     VariantWith<model::EqualizerPreset>(electronic_preset)))));
 
-  typed = "lh jj a";
+  typed = "lh jjjjjj a";
   utils::QueueCharacterEvents(*block, typed);
 
   // It is necessary to clear screen, otherwise it will be dirty
@@ -1450,20 +2037,20 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Electronic │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │○ Custom     │                                                                           │
-│   │◉ Electronic │    ▃▃     ▄▄     ▃▃                   ▂▂     ▄▄     ▂▂     ▃▃      ▃▃     │
-│   │○ Pop        │    ██     ██     ██     ▆▆     ██     ██     ██     ██     ██      ██     │
-│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    2      3      2      -2     0      1      3      1      2       2      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Electronic                                                       [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │       │       │       │         │
+│          ▃▃▃     ▄▄▄     ▃▃▃      │       │      ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
+│    0     ▃▃▃     ▄▄▄     ▃▃▃     ▅▅▅     ███     ▁▁▁     ▁▁▁     ▁▁▁     ▃▃▃     ▃▃▃        │
+│           │       │       │      ▅▅▅      │       │       │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB      +2      +3      +2      -2       0      +1      +1      +1      +2      +2         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1476,7 +2063,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
           Field(&interface::CustomEvent::content, VariantWith<EqualizerPreset>(audio_filters)))));
 
   // Switchback to "Custom" preset
-  typed = "k a";
+  typed = " kkkkkk a";
   utils::QueueCharacterEvents(*block, typed);
 
   // It is necessary to clear screen, otherwise it will be dirty
@@ -1486,20 +2073,20 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
-│   ╭─────────────╮                                                                           │
-│   │↓ Custom     │    32     64    125    250    500     1k     2k     4k     8k     16k     │
-│   ├─────────────┤                                                                           │
-│   │◉ Custom     │                                                     ▂▂                    │
-│   │○ Electronic │           ▇▇                                        ██                    │
-│   │○ Pop        │    ██     ██     ██     ▆▆     ██     ▄▄     ██     ██     ██      ██     │
-│   │○ Rock       │    ██     ██     ██     ██     ██     ██     ██     ██     ██      ██     │
-│   │             │                                                                           │
-│   │             │    0      5      0      -2     0      -3     0      7      0       0      │
-│   ╰─────────────╯                                                                           │
-│                               ┌─────────────┐┌─────────────┐                                │
-│                               │    Apply    ││    Reset    │                                │
-│                               └─────────────┘└─────────────┘                                │
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+│                                                                                             │
+│  preset → Custom                                                           [Apply] [Reset]  │
+│                                                                                             │
+│  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
+│                                                                                             │
+│  +12      │       │       │       │       │       │       │      ▁▁▁      │       │         │
+│           │      ▇▇▇      │       │       │       │       │      ▁▁▁      │       │         │
+│    0     ███     ▇▇▇     ███     ▅▅▅     ███     ▄▄▄     ███     ─┼─     ███     ███        │
+│           │       │       │      ▅▅▅      │      ▄▄▄      │       │       │       │         │
+│  -12      │       │       │       │       │       │       │       │       │       │         │
+│                                                                                             │
+│  dB       0      +5       0      -2       0      -3       0      +7       0       0         │
+│                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -1516,7 +2103,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1574,7 +2161,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1602,7 +2189,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1661,7 +2248,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1689,7 +2276,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1751,7 +2338,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1779,7 +2366,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1978,7 +2565,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2008,7 +2595,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2163,7 +2750,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -2195,7 +2782,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                 Feels like I'm dreaming                                     │
 │                                 Like I'm walking                                            │
 │                                 Walking by your side                                        │
@@ -2223,7 +2810,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                 If you want me                                              │
 │                                 If you need me                                              │
@@ -2251,7 +2838,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -2268,6 +2855,71 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, MouseWheelOnSongLyrics) {
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  auto finder = GetFinder();
+
+  // More lines than the ones that fit on screen
+  EXPECT_CALL(*finder, Search(_, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&) {
+        return MakeSearchResult(model::SongLyric{
+            "First 1\nFirst 2\nFirst 3\nFirst 4\nFirst 5\n",
+            "Second 1\nSecond 2\nSecond 3\nSecond 4\nSecond 5\n",
+            "Third 1\nThird 2\nThird 3\nThird 4\nThird 5\n",
+            "Fourth 1\nFourth 2\nFourth 3\nFourth 4\nFourth 5\n",
+        });
+      }));
+
+  model::Song audio{.filepath = "Rüfüs Du Sol-Innerbloom.mp3"};
+  Process(interface::CustomEvent::UpdateSongInfo(audio));
+
+  std::string rendered = RenderUntilFetched();
+  ASSERT_THAT(rendered, HasSubstr("First 1"));
+  ASSERT_THAT(rendered, Not(HasSubstr("Fourth 5")));
+
+  auto wheel = [this](ftxui::Mouse::Button button, int x, int y) {
+    return block->OnEvent(ftxui::Event::Mouse(
+        "", ftxui::Mouse{.button = button, .motion = ftxui::Mouse::Pressed, .x = x, .y = y}));
+  };
+
+  const int center_x = screen->dimx() / 2;
+  const int center_y = screen->dimy() / 2;
+
+  // Mouse wheel scrolls song lyrics exactly like its keys (one paragraph at a time)
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, center_x, center_y));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, center_x, center_y));
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelDown, center_x, center_y));
+  EXPECT_EQ(GetLyricFocused(), 3);
+
+  rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Fourth 5"));
+  EXPECT_THAT(rendered, Not(HasSubstr("First 1")));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp, center_x, center_y));
+  EXPECT_EQ(GetLyricFocused(), 2);
+
+  // Nothing happens when mouse is not over song lyrics (e.g. on block border)
+  EXPECT_FALSE(wheel(ftxui::Mouse::WheelDown, 0, 0));
+  EXPECT_EQ(GetLyricFocused(), 2);
+
+  // And it asks for focus, when another block is the one focused
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(false);
+
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(
+          AllOf(Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::SetFocused),
+                Field(&interface::CustomEvent::content,
+                      VariantWith<model::BlockIdentifier>(model::BlockIdentifier::MainContent)))));
+
+  EXPECT_TRUE(wheel(ftxui::Mouse::WheelUp, center_x, center_y));
+  EXPECT_EQ(GetLyricFocused(), 1);
 }
 
 /* ********************************************************************************************** */
@@ -2316,7 +2968,7 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2402,7 +3054,7 @@ TEST_F(MockMainContentTest, CheckFocus) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ─────────────────────────────────────────[F12:help]───[X]╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │

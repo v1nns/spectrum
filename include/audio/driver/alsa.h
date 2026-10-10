@@ -33,16 +33,38 @@ class Alsa final : public audio::Playback {
   /* ******************************************************************************************** */
   //! Public API
   /**
-   * @brief Create a Playback Stream using ALSA API
+   * @brief Create a Playback Stream using ALSA API (current one, if any, is released even when it
+   * fails)
+   * @param device Name of output device (when empty, the most suitable one is chosen)
    * @return error::Code Playback error converted to application error code
    */
-  error::Code CreatePlaybackStream() override;
+  error::Code CreatePlaybackStream(const std::string& device) override;
 
   /**
-   * @brief Configure Playback Stream parameters (sample format, etc...) using ALSA API
+   * @brief List output devices from ALSA API that are meant to be chosen by user
+   * @return model::AudioDevices Output devices
+   */
+  model::AudioDevices ListDevices() const override;
+
+  /**
+   * @brief Get name of output device used by playback stream
+   * @return std::string Name of output device
+   */
+  std::string GetDevice() const override { return device_in_use_; }
+
+  /**
+   * @brief Configure Playback Stream parameters (sample format, etc...) using ALSA API. Sample rate
+   * is not converted by ALSA, so the closest one supported by output device is used
+   * @param desired Format of audio samples that would be sent to playback stream, if supported
    * @return error::Code Playback error converted to application error code
    */
-  error::Code ConfigureParameters() override;
+  error::Code ConfigureParameters(const model::AudioFormat& desired) override;
+
+  /**
+   * @brief Get format of audio samples expected by playback stream
+   * @return model::AudioFormat Format of audio samples
+   */
+  model::AudioFormat GetFormat() const override { return format_; }
 
   /**
    * @brief Ask ALSA API to make playback stream ready to play
@@ -100,12 +122,19 @@ class Alsa final : public audio::Playback {
    */
   snd_mixer_elem_t* GetMasterPlayback();
 
+  /**
+   * @brief Set hardware and software parameters on playback stream, using the closest format to the
+   * desired one that is supported by output device
+   * @param desired Format of audio samples that would be sent to playback stream, if supported
+   * @return error::Code Playback error converted to application error code
+   */
+  error::Code SetParameters(const model::AudioFormat& desired);
+
   /* ******************************************************************************************** */
   //! Default Constants for Audio Parameters
   static constexpr const char kSelemName[] = "Master";
-  static constexpr int kChannels = 2;
-  static constexpr int kSampleRate = 44100;
-  static constexpr snd_pcm_format_t kSampleFormat = SND_PCM_FORMAT_S16_LE;
+  static constexpr unsigned int kLatency = 92900;       //!< Overall latency (in microseconds)
+  static constexpr unsigned int kPeriodsPerBuffer = 4;  //!< Buffer is split into these periods
 
   /* ******************************************************************************************** */
   //! Custom declarations with deleters
@@ -130,6 +159,11 @@ class Alsa final : public audio::Playback {
   PcmPlayback playback_handle_;  //! Playback stream handled by ALSA API
   MixerControl mixer_;           //! High level control interface from ALSA API (to manage volume)
   snd_pcm_uframes_t period_size_ = 0;  //! Period size (necessary in order to discover buffer size)
+  bool stream_ready_ = false;          //! Current playback stream is ready to play
+
+  std::string device_;         //! Name of output device asked to create playback stream
+  std::string device_in_use_;  //! Name of output device used by playback stream
+  model::AudioFormat format_;  //! Format of audio samples expected by playback stream
 };
 
 }  // namespace driver

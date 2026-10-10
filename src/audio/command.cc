@@ -41,6 +41,9 @@ std::ostream& operator<<(std::ostream& out, const Command::Identifier& i) {
     case Command::Identifier::PlayNext:
       out << "PlayNext";
       break;
+    case Command::Identifier::SetDevice:
+      out << "SetDevice";
+      break;
   }
 
   return out;
@@ -208,6 +211,15 @@ Command Command::SkipToPrevious() {
 Command Command::PlayNext() {
   return Command{
       .id = Identifier::PlayNext,
+  };
+}
+
+/* ********************************************************************************************** */
+
+Command Command::SetDevice(const std::string& device) {
+  return Command{
+      .id = Identifier::SetDevice,
+      .content = device,
   };
 }
 

@@ -49,7 +49,7 @@ class DummyDecoder : public audio::Decoder {
    * @brief Function invoked after resample is available.
    * (for better understanding: take a look at Audio Loop from Player, and also Playback class)
    */
-  using AudioCallback = std::function<bool(void*, void*, int, int64_t&)>;
+  using AudioCallback = std::function<bool(void*, int, void*, int, int64_t&)>;
 
   /**
    * @brief Open song as input stream and check for codec compatibility for decoding
@@ -70,13 +70,20 @@ class DummyDecoder : public audio::Decoder {
   }
 
   /**
+   * @brief Set format of audio samples sent to playback
+   * @param format Format of audio samples expected by playback
+   * @return error::Code Application error code
+   */
+  error::Code SetOutputFormat(const model::AudioFormat& format) override { return error::kSuccess; }
+
+  /**
    * @brief Decode and resample input stream to desired sample format/rate
    * @param samples Maximum value of samples
    * @param callback Pass resamples to this callback
    * @return error::Code Application error code
    */
   error::Code Decode(int samples, AudioCallback callback) override {
-    callback((void*)nullptr, (void*)nullptr, 0, position_);
+    callback((void*)nullptr, 0, (void*)nullptr, 0, position_);
     return error::kSuccess;
   }
 

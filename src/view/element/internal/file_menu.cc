@@ -74,7 +74,6 @@ void FileMenu::UpdateStyleImpl() {
   switch (menu_style_) {
     case menu::Style::Default:
       style_ = Style{
-          .prefix = ftxui::color(theme.menu.prefix),
           .directory = Colored(theme.menu.directory),
           .file = Colored(theme.menu.file),
           .playing = Colored(theme.menu.file_playing),
@@ -83,7 +82,6 @@ void FileMenu::UpdateStyleImpl() {
 
     case menu::Style::Alternative:
       style_ = Style{
-          .prefix = ftxui::color(theme.menu.prefix),
           .directory = Colored(theme.dialog.menu_directory),
           .file = Colored(theme.dialog.menu_file),
           .playing = Colored(theme.dialog.menu_file_playing),
@@ -127,7 +125,7 @@ ftxui::Element FileMenu::RenderImpl() {
 
     const auto& type = GetEntryStyle(entry, is_highlighted);
 
-    auto prefix = ftxui::text(is_selected ? "▶ " : "  ");
+    auto prefix = RenderPrefix(is_selected, is_highlighted);
 
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                          : (is_focused ? type.focused : type.normal);
@@ -135,12 +133,12 @@ ftxui::Element FileMenu::RenderImpl() {
     auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
     // In case of entry text too long, animation thread will be running, so we gotta take the
-    // text content from there
+    // text content from there (any other entry too long is cut, ending with an ellipsis)
     auto text = ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
-                                                                : entry.filename().string());
+                                                                : GetEntryText(entry, true));
 
     menu_entries.push_back(ftxui::hbox({
-                               prefix | style_.prefix,
+                               prefix,
                                text | style | ftxui::xflex,
                            }) |
                            max_size | focus_management | ftxui::reflect(boxes[i]));
@@ -152,7 +150,8 @@ ftxui::Element FileMenu::RenderImpl() {
   }
 
   ftxui::Elements content{
-      ftxui::vbox(menu_entries) | ftxui::reflect(Box()) | ftxui::yframe | ftxui::flex,
+      // Box is the whole space for entries (even when empty), so mouse wheel works anywhere on it
+      ftxui::vbox(menu_entries) | ftxui::yframe | ftxui::flex | ftxui::reflect(Box()),
   };
 
   // Append search box, if enabled
@@ -205,9 +204,22 @@ int FileMenu::GetSizeImpl() const {
 
 /* ********************************************************************************************** */
 
+std::string FileMenu::GetEntryText(const util::File& entry, bool fit) const {
+  const std::string name = entry.filename().string();
+
+  // Parent directory is already known by its name
+  if (name == ".." || !std::filesystem::is_directory(entry)) return fit ? FitText(name) : name;
+
+  // Suffix is never cut from a name too long, as it is what tells that entry is a directory
+  const auto suffix_columns = static_cast<int>(kDirectorySuffix.size());
+  return (fit ? FitText(name, suffix_columns) : name) + std::string{kDirectorySuffix};
+}
+
+/* ********************************************************************************************** */
+
 std::string FileMenu::GetActiveEntryAsTextImpl() const {
   auto active = GetActiveEntryImpl();
-  return active.has_value() ? active->filename().string() : "";
+  return active.has_value() ? GetEntryText(*active, false) : "";
 }
 
 /* ********************************************************************************************** */

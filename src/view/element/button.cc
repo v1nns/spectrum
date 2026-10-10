@@ -120,230 +120,61 @@ bool Button::HandleLeftClick(ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 /**
- * @class GraphicButton
- * @brief Base class interface for all media buttons that use Canvas for custom drawing
+ * @class IconButton
+ * @brief Media button shown as an icon in a single line, with another icon for when it is clicked
  */
-class GraphicButton : public Button {
+class IconButton : public Button {
  public:
-  explicit GraphicButton(const Style& style, const Callback& on_click)
-      : Button(style, on_click, /*active*/ true) {}
+  //! Get color for icon from theme
+  using IconColor = std::function<ftxui::Color()>;
+
+  explicit IconButton(const Callback& on_click, const std::string& icon,
+                      const std::string& icon_clicked, const IconColor& color)
+      : Button(Style{}, on_click, /*active*/ true),
+        icon_{icon},
+        icon_clicked_{icon_clicked},
+        color_{color} {}
 
   //! Override base class method to implement custom rendering
   ftxui::Element RenderImpl() override {
-    ftxui::Canvas content = Draw();
-    FillBackground(content);
+    // Space around icon is also part of button, to make it easier to click
+    const std::string content = " " + (clicked_ ? icon_clicked_ : icon_) + " ";
 
-    auto button = ftxui::canvas(content) | ftxui::hcenter | ftxui::border | ftxui::reflect(box_);
+    // Icon keeps its color, mouse over button changes only what is behind it
+    ftxui::Decorator style = ftxui::color(color_());
+    if (focused_) style = style | ftxui::bgcolor(GetTheme().player.button_hovered);
 
-    const Style::Colors colors = GetColors();
-    const auto& border_color = !focused_ ? colors.normal.border : colors.focused.border;
-
-    return button | ftxui::color(border_color);
+    return ftxui::text(content) | style | ftxui::reflect(box_);
   }
 
-  /**
-   * @brief Custom drawing (implemented by derived class)
-   */
-  virtual ftxui::Canvas Draw() const = 0;
-
- protected:
-  //! To make life easier
-  using Point = std::pair<int, int>;
-
-  static constexpr int kWidth = 12;   //!< Width size for Canvas
-  static constexpr int kHeight = 12;  //!< Height size for Canvas
+ private:
+  std::string icon_;          //!< Icon shown by default
+  std::string icon_clicked_;  //!< Icon shown after button is clicked (e.g. pause instead of play)
+  IconColor color_;           //!< Color for icon
 };
 
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_play(const Callback& on_click) {
-  class Play : public GraphicButton {
-   public:
-    using GraphicButton::GraphicButton;
-
-    //! Override base class method to implement custom drawing
-    ftxui::Canvas Draw() const override { return !clicked_ ? DrawPlay() : DrawPause(); }
-
-    //! Draw Play button
-    ftxui::Canvas DrawPlay() const {
-      ftxui::Canvas play(kWidth, kHeight);
-
-      auto [a_x, a_y] = Point{3, 0};
-      auto [b_x, b_y] = Point{9, 6};
-      auto [c_x, c_y] = Point{3, 11};
-
-      const auto color = GetColors().normal.foreground;
-
-      for (int i = 1; i < 6; ++i) {
-        play.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, color);
-        play.DrawPointLine(b_x - i, b_y - i, c_x + i, c_y - i, color);
-        play.DrawPointLine(c_x + i, c_y - i, a_x + i, a_y + i, color);
-      }
-
-      return play;
-    }
-
-    // Draw Pause button
-    ftxui::Canvas DrawPause() const {
-      // pause
-      ftxui::Canvas pause(kWidth, kHeight);
-
-      auto [g_x, g_y] = Point{2, 1};
-      auto [h_x, h_y] = Point{2, 10};
-      int space = 6;
-
-      const auto color = GetColors().normal.foreground;
-
-      for (int i = 0; i < 2; ++i) {
-        pause.DrawPointLine(g_x + i, g_y, h_x + i, h_y, color);
-        pause.DrawPointLine(g_x + i + space, g_y, h_x + i + space, h_y, color);
-      }
-
-      return pause;
-    }
-  };
-
-  auto style = Style{
-      .colors =
-          [] {
-            const auto& theme = GetTheme().player;
-
-            return Style::Colors{
-                .normal = Style::State{.foreground = theme.play, .border = theme.button_border},
-                .focused = Style::State{.border = theme.button_border_focused},
-            };
-          },
-  };
-
-  return std::make_shared<Play>(style, on_click);
+  return std::make_shared<IconButton>(on_click, "▶ ", "∥ ", [] { return GetTheme().player.play; });
 }
 
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_stop(const Callback& on_click) {
-  class Stop : public GraphicButton {
-    using GraphicButton::GraphicButton;
-
-    //! Override base class method to implement custom drawing
-    ftxui::Canvas Draw() const override {
-      // stop
-      ftxui::Canvas stop(kWidth, kHeight);
-      const auto color = GetColors().normal.foreground;
-
-      for (int i = 1; i < 11; ++i) stop.DrawPointLine(2, i, 9, i, color);
-
-      return stop;
-    }
-  };
-
-  auto style = Style{
-      .colors =
-          [] {
-            const auto& theme = GetTheme().player;
-
-            return Style::Colors{
-                .normal = Style::State{.foreground = theme.stop, .border = theme.button_border},
-                .focused = Style::State{.border = theme.button_border_focused},
-            };
-          },
-  };
-
-  return std::make_shared<Stop>(style, on_click);
+  return std::make_shared<IconButton>(on_click, "■ ", "■ ", [] { return GetTheme().player.stop; });
 }
 
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_skip_previous(const Callback& on_click) {
-  class SkipPrevious : public GraphicButton {
-   public:
-    using GraphicButton::GraphicButton;
-
-    //! Override base class method to implement custom drawing
-    ftxui::Canvas Draw() const override {
-      ftxui::Canvas skip_next(kWidth, kHeight);
-
-      auto [a_x, a_y] = Point{8, 1};
-      auto [b_x, b_y] = Point{3, 5};
-      auto [c_x, c_y] = Point{8, 10};
-
-      const auto color = GetColors().normal.foreground;
-
-      for (int i = 0; i < 6; ++i) {
-        skip_next.DrawPointLine(a_x - i, a_y + i, b_x + i, b_y, color);
-        skip_next.DrawPointLine(b_x + i, b_y, c_x, c_y, color);
-        skip_next.DrawPointLine(c_x, c_y, a_x - i, a_y + i, color);
-      }
-
-      auto [d_x, d_y] = Point{3, 1};
-      auto [e_x, e_y] = Point{3, 10};
-
-      skip_next.DrawPointLine(d_x, d_y, e_x, e_y, color);
-      skip_next.DrawPointLine(d_x - 1, d_y, e_x - 1, e_y, color);
-
-      return skip_next;
-    }
-  };
-
-  auto style = Style{
-      .colors =
-          [] {
-            const auto& theme = GetTheme().player;
-
-            return Style::Colors{
-                .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
-                .focused = Style::State{.border = theme.button_border_focused},
-            };
-          },
-  };
-
-  return std::make_shared<SkipPrevious>(style, on_click);
+  return std::make_shared<IconButton>(on_click, "◀◀", "◀◀", [] { return GetTheme().player.skip; });
 }
+
 /* ********************************************************************************************** */
 
 std::shared_ptr<Button> Button::make_button_skip_next(const Callback& on_click) {
-  class SkipNext : public GraphicButton {
-   public:
-    using GraphicButton::GraphicButton;
-
-    //! Override base class method to implement custom drawing
-    ftxui::Canvas Draw() const override {
-      ftxui::Canvas skip_next(kWidth, kHeight);
-
-      auto [a_x, a_y] = Point{2, 0};
-      auto [b_x, b_y] = Point{8, 6};
-      auto [c_x, c_y] = Point{2, 11};
-
-      const auto color = GetColors().normal.foreground;
-
-      for (int i = 1; i < 6; ++i) {
-        skip_next.DrawPointLine(a_x + i, a_y + i, b_x - i, b_y - i, color);
-        skip_next.DrawPointLine(b_x - i, b_y - i, c_x + i, c_y - i, color);
-        skip_next.DrawPointLine(c_x + i, c_y - i, a_x + i, a_y + i, color);
-      }
-
-      auto [d_x, d_y] = Point{8, 1};
-      auto [e_x, e_y] = Point{8, 10};
-
-      skip_next.DrawPointLine(d_x, d_y, e_x, e_y, color);
-      skip_next.DrawPointLine(d_x + 1, d_y, e_x + 1, e_y, color);
-
-      return skip_next;
-    }
-  };
-
-  auto style = Style{
-      .colors =
-          [] {
-            const auto& theme = GetTheme().player;
-
-            return Style::Colors{
-                .normal = Style::State{.foreground = theme.skip, .border = theme.button_border},
-                .focused = Style::State{.border = theme.button_border_focused},
-            };
-          },
-  };
-
-  return std::make_shared<SkipNext>(style, on_click);
+  return std::make_shared<IconButton>(on_click, "▶▶", "▶▶", [] { return GetTheme().player.skip; });
 }
 
 /* ********************************************************************************************** */
@@ -454,6 +285,38 @@ std::shared_ptr<Button> Button::make_button(const std::string& content, const Ca
   };
 
   return std::make_shared<GenericButton>(style, content, letter, on_click, active);
+}
+
+/* ********************************************************************************************** */
+
+std::shared_ptr<Button> Button::make_button_hint(const std::string& key, const std::string& content,
+                                                 const Callback& on_click, const Style& style) {
+  class HintButton : public Button {
+   public:
+    explicit HintButton(const Style& style, const std::string& key, const std::string& content,
+                        const Callback& on_click)
+        : Button(style, on_click, true), key_{key}, content_{" " + content} {}
+
+    //! Override base class method to implement custom rendering
+    ftxui::Element RenderImpl() override {
+      const Style::State& colors = GetStateColors();
+
+      // Key only stands out while it does something
+      ftxui::Decorator key = enabled_ ? Foreground(GetColors().highlight.foreground) | ftxui::bold
+                                      : Foreground(colors.foreground);
+
+      return ftxui::hbox({
+                 ftxui::text(key_) | key,
+                 ftxui::text(content_) | Foreground(colors.foreground),
+             }) |
+             ftxui::reflect(box_);
+    }
+
+    std::string key_;
+    std::string content_;
+  };
+
+  return std::make_shared<HintButton>(style, key, content, on_click);
 }
 
 /* ********************************************************************************************** */

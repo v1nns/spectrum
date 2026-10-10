@@ -54,7 +54,6 @@ void PlaylistMenu::UpdateStyleImpl() {
   const auto& theme = GetTheme().menu;
 
   styles_ = EntryStyles{
-      .prefix = ftxui::color(theme.prefix),
       .playlist =
           EntryStyles::State{
               .normal = Colored(theme.playlist, /*bold=*/true),
@@ -81,8 +80,10 @@ ftxui::Element PlaylistMenu::RenderImpl() {
   for (const auto& entry : *tmp) {
     bool is_highlighted = highlighted_ ? highlighted_->playlist == entry.playlist.name : false;
 
-    // Add playlist
+    // Add playlist (with icon for playing only when its songs are not shown, otherwise icon is
+    // shown on the song that is playing)
     menu_entries.push_back(CreateEntry(index++, entry.playlist.name, is_highlighted, true,
+                                       is_highlighted && !entry.collapsed,
                                        " [" + std::to_string(entry.playlist.songs.size()) + "]"));
 
     if (!entry.collapsed) continue;
@@ -92,7 +93,8 @@ ftxui::Element PlaylistMenu::RenderImpl() {
       is_highlighted = highlighted_ ? highlighted_->playlist == entry.playlist.name &&
                                           IsSameEntry(*highlighted_, song)
                                     : false;
-      menu_entries.push_back(CreateEntry(index++, song.GetTitle(), is_highlighted, false));
+      menu_entries.push_back(
+          CreateEntry(index++, song.GetTitle(), is_highlighted, false, is_highlighted));
     }
   }
 
@@ -107,8 +109,9 @@ ftxui::Element PlaylistMenu::RenderImpl() {
         "No playlists, press " + util::EventToString(keybinding::Playlist::Create) + " to create"));
   }
 
-  ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::reflect(Box()) |
-                          ftxui::vscroll_indicator | ftxui::yframe | ftxui::yflex_grow};
+  // Box is the whole space for entries (even when empty), so mouse wheel works anywhere on it
+  ftxui::Elements content{ftxui::vbox(menu_entries) | ftxui::vscroll_indicator | ftxui::yframe |
+                          ftxui::yflex_grow | ftxui::reflect(Box())};
 
   // Append search box, if enabled
   if (IsSearchEnabled()) {
@@ -543,7 +546,8 @@ std::optional<model::Playlist> PlaylistMenu::GetActivePlaylistFromSearch() const
 /* ********************************************************************************************** */
 
 ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, bool is_highlighted,
-                                         bool is_playlist, const std::string& suffix) {
+                                         bool is_playlist, bool show_playing_icon,
+                                         const std::string& suffix) {
   using ftxui::EQUAL;
   using ftxui::WIDTH;
 
@@ -558,8 +562,10 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
                          ? (is_highlighted ? styles_.playlist.playing : styles_.playlist.normal)
                          : (is_highlighted ? styles_.song.playing : styles_.song.normal);
 
-  std::string prefix{is_selected ? "▶ " : "  "};
-  auto prefix_text = ftxui::text(prefix);
+  auto prefix = RenderPrefix(is_selected, show_playing_icon);
+
+  // Songs are indented, to show they belong to the playlist above them
+  const std::string indent{!is_playlist ? "  " : ""};
 
   ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                        : (is_focused ? type.focused : type.normal);
@@ -567,13 +573,20 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
   auto focus_management = is_focused ? ftxui::select : ftxui::nothing;
 
   // In case of entry text too long, animation thread will be running, so we gotta take the
-  // text content from there
+  // text content from there (any other entry too long is cut, ending with an ellipsis, but
+  // keeping its suffix)
+  static constexpr int kScrollColumns = 1;  // Used by scroll indicator, at the right of menu
+
+  const int extra_columns =
+      ftxui::string_width(indent) + ftxui::string_width(suffix) + kScrollColumns;
+
   auto entry_text =
-      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation() : text + suffix);
+      ftxui::text(IsAnimationRunning() && is_selected ? GetTextFromAnimation()
+                                                      : FitText(text, extra_columns) + suffix);
 
   return ftxui::hbox({
-             prefix_text | styles_.prefix,
-             ftxui::text(!is_playlist ? "  " : "") | style,
+             prefix,
+             ftxui::text(indent) | style,
              entry_text | style | ftxui::xflex_grow,
          }) |
          max_size | focus_management | ftxui::reflect(boxes[index]);

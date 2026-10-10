@@ -13,6 +13,8 @@
 
 namespace interface {
 
+class Button;
+
 class Dialog {
  protected:
   static constexpr int kBorderSize = 2;  //!< Extra padding based on border size
@@ -32,6 +34,8 @@ class Dialog {
   struct Style {
     ftxui::Color Theme::Dialog::* background;
     ftxui::Color Theme::Dialog::* foreground;
+
+    bool close_button = false;  //!< Show a button on dialog border to close it with mouse
   };
 
   /**
@@ -131,7 +135,7 @@ class Dialog {
   std::shared_ptr<EventDispatcher> GetDispatcher() const;
 
   //! Calculate dialog size (including border) for the given terminal size
-  [[nodiscard]] ftxui::Dimensions CalculateSize(const ftxui::Dimensions& curr_size) const;
+  [[nodiscard]] virtual ftxui::Dimensions CalculateSize(const ftxui::Dimensions& curr_size) const;
 
   //! Change minimum number of lines for dialog content (border is added automatically)
   void SetMinimumLines(int lines) { size_.min_line = lines + kBorderSize; }
@@ -141,6 +145,7 @@ class Dialog {
  private:
   std::weak_ptr<EventDispatcher> dispatcher_;  //!< Dispatch events for other blocks
   bool opened_ = false;                        //!< Flag to indicate dialog visilibity
+  std::shared_ptr<Button> btn_close_;          //!< Button to close dialog (optional)
   Size size_;                                  //!< Dialog size settings
   Style style_;                                //!< Color style
 };

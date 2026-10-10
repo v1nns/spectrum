@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "model/settings.h"
 #include "util/logger.h"
@@ -12,9 +13,14 @@
 namespace interface {
 
 ThemePicker::ThemePicker(const std::shared_ptr<util::FileHandler>& file_handler)
-    : file_handler_{file_handler} {
+    : Picker("theme", keybinding::General::ChangeTheme), file_handler_{file_handler} {
   const auto& themes = GetThemes();
   size_t index = 0;
+
+  std::vector<Entry> entries;
+  for (const auto& theme : themes) entries.push_back(Entry{.name = std::string{theme.name}});
+
+  SetEntries(std::move(entries));
 
   // Restore theme from last run (an unknown one falls back to default)
   if (model::Settings settings;
@@ -31,91 +37,47 @@ ThemePicker::ThemePicker(const std::shared_ptr<util::FileHandler>& file_handler)
     }
   }
 
+  SetSelected(index);
   Apply(index);
 }
 
 /* ********************************************************************************************** */
 
-ftxui::Element ThemePicker::Render() const {
-  const auto& colors = GetTheme().picker;
-  const auto& themes = GetThemes();
-
-  ftxui::Elements entries;
-
-  for (size_t i = 0; i < themes.size(); i++) {
-    const bool selected = i == selected_;
-    const std::string name{themes[i].name};
-
-    auto entry = ftxui::text((selected ? "▶ " : "  ") + name + " ");
-    entries.push_back(selected
-                          ? entry | ftxui::bold | ftxui::color(colors.entry_selected) | ftxui::focus
-                          : entry | ftxui::color(colors.entry));
-  }
-
-  // Frame keeps selected entry visible when there is not enough space for all of them (otherwise,
-  // picker takes only the height needed for its entries and border)
-  const int max_height = static_cast<int>(entries.size()) + 2;
-
-  return ftxui::window(ftxui::text(" theme ") | ftxui::color(colors.entry_selected),
-                       ftxui::vbox(std::move(entries)) | ftxui::vscroll_indicator | ftxui::frame) |
-         ftxui::color(colors.border) | ftxui::bgcolor(GetTheme().screen.background) |
-         ftxui::clear_under | ftxui::size(ftxui::HEIGHT, ftxui::LESS_THAN, max_height) |
-         ftxui::center;
+void ThemePicker::Open() {
+  previous_ = GetSelected();
+  Show();
 }
 
 /* ********************************************************************************************** */
 
-bool ThemePicker::OnEvent(const ftxui::Event& event) {
-  using Keybind = keybinding::Navigation;
-
-  if (!IsVisible()) return false;
-
-  // Move selection, changing theme right away (so user can see it while choosing)
-  if (bool next = event == Keybind::ArrowDown || event == Keybind::Down;
-      next || event == Keybind::ArrowUp || event == Keybind::Up) {
-    if (next && selected_ + 1 < GetThemes().size()) Apply(selected_ + 1);
-    if (!next && selected_ > 0) Apply(selected_ - 1);
-  }
-
-  // Keep selected theme
-  if (event == Keybind::Return || event == keybinding::General::ChangeTheme) {
-    INFO("Selected theme=", GetThemes()[selected_].id);
-    previous_.reset();
-    SaveSettings();
-  }
-
-  // Go back to the theme from before opening picker
-  if (event == Keybind::Escape || event == Keybind::Close) {
-    LOG("Cancel theme picker");
-    Apply(*previous_);
-    previous_.reset();
-  }
-
-  // Picker is shown over all blocks, so do not let them handle anything while it is open
-  return true;
-}
-
-/* ********************************************************************************************** */
-
-void ThemePicker::Open() { previous_ = selected_; }
-
-/* ********************************************************************************************** */
-
-void ThemePicker::Apply(size_t index) {
+void ThemePicker::Apply(size_t index) const {
   const auto& theme = GetThemes().at(index);
   LOG("Change theme to ", theme.id);
 
-  selected_ = index;
   SetTheme(theme.colors);
 }
 
 /* ********************************************************************************************** */
 
-void ThemePicker::SaveSettings() const {
+void ThemePicker::OnSelect(size_t index) { Apply(index); }
+
+/* ********************************************************************************************** */
+
+void ThemePicker::OnChoose(size_t index) {
+  const auto& theme = GetThemes().at(index);
+  INFO("Selected theme=", theme.id);
+
   if (!file_handler_) return;
 
-  model::Settings settings{.theme = std::string{GetThemes()[selected_].id}};
+  model::Settings settings{.theme = std::string{theme.id}};
   if (!file_handler_->SaveSettings(settings)) ERROR("Cannot save theme");
+}
+
+/* ********************************************************************************************** */
+
+void ThemePicker::OnCancel() {
+  SetSelected(previous_);
+  Apply(previous_);
 }
 
 }  // namespace interface
