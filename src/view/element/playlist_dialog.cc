@@ -192,8 +192,17 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
 ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
   static constexpr int kPrefixOffset = 2;
 
+  //! Lines used by everything else in dialog: title (with an empty line before and after it) and
+  //! button to save (with its border)
+  static constexpr int kTitleLines = 3;
+  static constexpr int kButtonLines = 3;
+
   int max_columns_per_menu = ((curr_size.dimx * 0.5f) / 2);
-  int max_lines_menu = (curr_size.dimy * 0.6f);
+
+  // Menus must not use lines needed by the rest of dialog (as its size is rounded on its own,
+  // button to save was shown without its text for some terminal sizes)
+  int available_lines = CalculateSize(curr_size).dimy - kBorderSize - kTitleLines - kButtonLines;
+  int max_lines_menu = std::min(static_cast<int>(curr_size.dimy * 0.6f), available_lines);
 
   // Value is smaller here because of menu prefix
   menu_files_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);

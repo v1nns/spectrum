@@ -2303,6 +2303,49 @@ TEST_F(QuestionDialogTest, SelectionIsResetForNewQuestion) {
 
 /* ********************************************************************************************** */
 
+TEST_F(QuestionDialogTest, ShowButtonsWithLongQuestion) {
+  auto render = [this](const std::string& name) {
+    question_dialog->SetMessage(model::QuestionData{
+        .question = "Do you want to delete \"" + name + "\"?",
+        .cb_yes = cb_yes.AsStdFunction(),
+        .cb_no = cb_no.AsStdFunction(),
+    });
+
+    dialog->Open();
+
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return utils::FilterEmptySpaces(utils::FilterAnsiCommands(screen->ToString()));
+  };
+
+  // Question in a single line
+  std::string expected = R"(
+╔═════════════════════════════════════════════╗
+║                                             ║
+║     Do you want to delete "Chill mix"?      ║
+║                                             ║
+║                  Yes    No                  ║
+║                                             ║
+╚═════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(render("Chill mix"), StrEq(expected));
+
+  // Dialog gets taller when question needs more lines, so its last words and both buttons are
+  // still shown
+  const std::string long_name = "A playlist with a really really long name that will need at "
+                                "least three lines to be shown inside of the dialog";
+
+  std::string rendered = render(long_name);
+  EXPECT_THAT(rendered, HasSubstr("║ dialog\"?"));
+  EXPECT_THAT(rendered, HasSubstr("Yes    No"));
+
+  // And it goes back to its usual size for a short question
+  EXPECT_THAT(render("Chill mix"), StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(QuestionDialogTest, AnswerWithKeybinding) {
   EXPECT_CALL(cb_yes, Call);
   EXPECT_CALL(cb_no, Call).Times(0);
@@ -2698,6 +2741,27 @@ ftxui::Event MouseEventAt(ftxui::Screen& screen, const std::string& text,
 
   ADD_FAILURE() << "Text not found on screen: " << text;
   return ftxui::Event::Custom;
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ShowSaveButtonOnAnyTerminalSize) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Size from dialog and from its menus are rounded from terminal size, and there was not enough
+  // lines for button with some of them (it was shown only with its border, without any text)
+  for (int lines = 24; lines <= 60; lines++) {
+    ftxui::Dimensions terminal{.dimx = size.dimx, .dimy = lines};
+    screen = std::make_unique<ftxui::Screen>(terminal.dimx, terminal.dimy);
+
+    ftxui::Render(*screen, dialog->Render(terminal));
+    EXPECT_THAT(GetRenderedScreen(), HasSubstr("│     Save     │")) << "lines=" << lines;
+  }
 }
 
 /* ********************************************************************************************** */

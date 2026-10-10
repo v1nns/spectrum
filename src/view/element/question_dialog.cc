@@ -1,11 +1,46 @@
 #include "view/element/question_dialog.h"
 
+#include <algorithm>
+#include <sstream>
+#include <string>
+
 #include "ftxui/dom/elements.hpp"
+#include "ftxui/screen/string.hpp"
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 #include "view/element/style.h"
 
 namespace interface {
+
+namespace {
+
+//! Lines used by everything else in dialog: an empty line before and after question, and buttons
+constexpr int kOtherLines = 3;
+
+//! Get number of lines used by text when it is wrapped (at spaces) to fit in the given columns
+int CountWrappedLines(const std::string& text, int columns) {
+  std::istringstream words{text};
+
+  int lines = 1;
+  int used = 0;
+
+  for (std::string word; words >> word;) {
+    const int width = ftxui::string_width(word);
+
+    if (used > 0 && used + 1 + width > columns) {
+      lines++;
+      used = 0;
+    }
+
+    used += (used > 0 ? 1 : 0) + width;
+  }
+
+  return lines;
+}
+
+}  // namespace
+
+/* ********************************************************************************************** */
 
 QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatcher)
     : Dialog(dispatcher, Size{.min_column = kMaxColumns, .min_line = kMaxLines},
@@ -44,6 +79,10 @@ QuestionDialog::QuestionDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
 void QuestionDialog::SetMessage(const model::QuestionData& data) {
   content_ = data;
+
+  // Question is wrapped when it does not fit in a single line (e.g. playlist with a long name),
+  // so make room for all of its lines, otherwise buttons would not be shown
+  SetMinimumLines(std::max(kMaxLines, CountWrappedLines(data.question, kMaxColumns) + kOtherLines));
 
   // Always start with the safest option
   SelectButton(false);
