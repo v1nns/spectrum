@@ -1227,6 +1227,9 @@ TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
           return error::kSuccess;
         }));
 
+    // Each accepted seek is notified, as decoder may take a while to reach the new position
+    EXPECT_CALL(*notifier, NotifySongSeek()).Times(3);
+
     // These methods should be called only one time because of seek backward/forward command
     EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
     EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);

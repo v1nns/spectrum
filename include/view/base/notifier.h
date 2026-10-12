@@ -51,6 +51,12 @@ class Notifier {
   virtual void NotifySongState(const model::Song::CurrentInformation& curr_info) = 0;
 
   /**
+   * @brief Notify UI that position of current song was changed while playing, so no audio samples
+   * are sent until decoder reaches the new position (which may take a while, e.g. on streams)
+   */
+  virtual void NotifySongSeek() = 0;
+
+  /**
    * @brief Send raw audio samples to UI
    * @param buffer Audio samples (16-bit, interleaved channels)
    * @param size Sample count (considering all channels)

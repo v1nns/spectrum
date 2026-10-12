@@ -266,6 +266,9 @@ class MediaControllerTest : public ::testing::Test {
     testing::RunAsyncTest({analysis, client});
   }
 
+  //! Check if bars will be faded in by the next analysis
+  bool IsFadeInPending() const { return controller->fade_in_pending_; }
+
   //! Run analysis loop (same one executed as a thread in the real-life)
   void RunAnalysisLoop() { controller->AnalysisHandler(); }
 
@@ -711,6 +714,170 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
 
   testing::RunAsyncTest({analysis, client});
 }
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, ClearBarsWhenSeekTakesTooLong) {
+  constexpr int kSampleSize = 16;
+
+  // Updates sent by clear animation (80 steps + last one with zeroed values)
+  constexpr int kClearUpdates = 81;
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
+
+    EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
+        .Times(2)
+        .WillRepeatedly(Invoke([&](double*, int, double* out) {
+          std::fill(out, out + kNumberBars, 1.0);
+          return error::kSuccess;
+        }));
+
+    // Bars from song playing before seek
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                      interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                Field(&interface::CustomEvent::content,
+                                      VariantWith<std::vector<double>>(Each(DoubleEq(1.0)))))))
+        .WillOnce(Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(2); }));
+
+    // No audio data after seek, so bars are cleared. And when song gets back to play, they are at
+    // the beginning of fade-in animation
+    int updates = 0;
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                      interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                Field(&interface::CustomEvent::content,
+                                      VariantWith<std::vector<double>>(Each(Lt(1.0)))))))
+        .Times(kClearUpdates + 1)
+        .WillRepeatedly(Invoke([&](const interface::CustomEvent& event) {
+          updates++;
+          if (updates == kClearUpdates) syncer.NotifyStep(3);
+
+          if (updates > kClearUpdates) {
+            EXPECT_THAT(event.GetContent<std::vector<double>>(), Each(Lt(0.1)));
+            syncer.NotifyStep(4);
+          }
+        }));
+
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetInterfaceNotifier();
+    std::vector<int16_t> buffer(kSampleSize, 1);
+
+    syncer.WaitForStep(1);
+    notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+    // Song position is changed, but decoder does not send any audio data for a while
+    syncer.WaitForStep(2);
+    notifier->NotifySongSeek();
+
+    syncer.WaitForStep(3);
+    notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+    syncer.WaitForStep(4);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, SkipRegainAnimationWhenSeekWhilePaused) {
+  using model::Song;
+  using ::testing::AnyNumber;
+
+  auto player_notifier = GetPlayerNotifier();
+  auto interface_notifier = GetInterfaceNotifier();
+
+  EXPECT_CALL(*GetEventDispatcher(), SendEvent(_)).Times(AnyNumber());
+
+  // Song is paused and position does not change, so player is only resumed after regain animation
+  // (executed by analysis thread, not running here)
+  interface_notifier->NotifySongState({.state = Song::MediaState::Pause, .position = 10});
+
+  EXPECT_CALL(*GetAudioControl(), PauseOrResume()).Times(0);
+  player_notifier->Resume(/*run_animation=*/true);
+  ::testing::Mock::VerifyAndClearExpectations(GetAudioControl());
+  EXPECT_FALSE(IsFadeInPending());
+
+  // Position is changed while paused, so player is resumed right away and bars are faded in
+  interface_notifier->NotifySongState({.state = Song::MediaState::Pause, .position = 15});
+
+  EXPECT_CALL(*GetAudioControl(), PauseOrResume());
+  player_notifier->Resume(/*run_animation=*/true);
+  ::testing::Mock::VerifyAndClearExpectations(GetAudioControl());
+  EXPECT_TRUE(IsFadeInPending());
+
+  // And it applies only once, next pause runs regain animation again
+  interface_notifier->NotifySongState({.state = Song::MediaState::Play, .position = 16});
+  interface_notifier->NotifySongState({.state = Song::MediaState::Pause, .position = 16});
+
+  EXPECT_CALL(*GetAudioControl(), PauseOrResume()).Times(0);
+  player_notifier->Resume(/*run_animation=*/true);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, KeepBarsWhenSeekIsFast) {
+  constexpr int kSampleSize = 16;
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
+
+    EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
+        .Times(2)
+        .WillRepeatedly(Invoke([&](double*, int, double* out) {
+          std::fill(out, out + kNumberBars, 1.0);
+          return error::kSuccess;
+        }));
+
+    // Audio data is received right after seek, so bars are neither cleared nor faded in
+    int updates = 0;
+    EXPECT_CALL(*dispatcher,
+                SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                      interface::CustomEvent::Identifier::DrawAudioSpectrum),
+                                Field(&interface::CustomEvent::content,
+                                      VariantWith<std::vector<double>>(Each(DoubleEq(1.0)))))))
+        .Times(2)
+        .WillRepeatedly(
+            Invoke([&](const interface::CustomEvent&) { syncer.NotifyStep(++updates + 1); }));
+
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetInterfaceNotifier();
+    std::vector<int16_t> buffer(kSampleSize, 1);
+
+    syncer.WaitForStep(1);
+    notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+    syncer.WaitForStep(2);
+    notifier->NotifySongSeek();
+    notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+    syncer.WaitForStep(3);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+}
+
+/* ********************************************************************************************** */
 
 TEST_F(MediaControllerTest, CancelClearAnimationWhenNumberOfBarsChanges) {
   constexpr int kSampleSize = 16;

@@ -362,7 +362,11 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
     case Command::Identifier::SeekBackward: {
       LOG("Audio handler received command to ", command, " with value=", command.GetContent<int>());
 
-      if (ChangePosition(command, new_position)) return true;
+      if (ChangePosition(command, new_position)) {
+        // Decoder may take a while to seek to the new position (e.g. on streams)
+        if (media_notifier) media_notifier->NotifySongSeek();
+        return true;
+      }
     } break;
 
     case Command::Identifier::SetVolume: {
