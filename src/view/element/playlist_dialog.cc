@@ -192,16 +192,23 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
 ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) const {
   static constexpr int kPrefixOffset = 2;
 
-  //! Lines used by everything else in dialog: title (with an empty line before and after it) and
-  //! button to save (with its border)
+  //! Lines used by everything else in dialog: title (with an empty line before and after it),
+  //! message about saving playlist and button to save (with its border)
   static constexpr int kTitleLines = 3;
+  static constexpr int kMessageLines = 1;
   static constexpr int kButtonLines = 3;
+
+  //! Lines kept empty around dialog (one above and another below its border)
+  static constexpr int kMarginLines = 2;
 
   int max_columns_per_menu = ((curr_size.dimx * 0.5f) / 2);
 
   // Menus must not use lines needed by the rest of dialog (as its size is rounded on its own,
   // button to save was shown without its text for some terminal sizes)
-  int available_lines = CalculateSize(curr_size).dimy - kBorderSize - kTitleLines - kButtonLines;
+  // Dialog is also limited by terminal (when it is smaller than the minimum size from dialog)
+  int dialog_lines = std::min(CalculateSize(curr_size).dimy, curr_size.dimy - kMarginLines);
+  int available_lines =
+      dialog_lines - kBorderSize - kTitleLines - kMessageLines - kButtonLines;
   int max_lines_menu = std::min(static_cast<int>(curr_size.dimy * 0.6f), available_lines);
 
   // Value is smaller here because of menu prefix
@@ -234,11 +241,8 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   btn_files_->UpdateParentFocus(source_focused);
   btn_youtube_->UpdateParentFocus(source_focused);
 
-  // Message is drawn next to save button, and the same width is reserved on the other side to
-  // keep button centered
+  // Message is drawn in its own line (between panes and save button), centered as dialog title
   auto [message, message_style] = GetSaveMessage();
-  if (!message.empty()) message = " " + message;
-  int message_width = ftxui::string_width(message);
 
   constexpr auto focus_decorator = [](bool is_focused) {
     return is_focused ? ftxui::color(GetTheme().dialog.pane_border_focused)
@@ -280,11 +284,10 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
                  ftxui::flex_grow,
 
              ftxui::filler(),
+             ftxui::text(message) | message_style | ftxui::center,
              ftxui::hbox({
                  ftxui::filler(),
-                 ftxui::text(std::string(message_width, ' ')),
                  btn_save_->Render(),
-                 ftxui::text(message) | message_style | ftxui::vcenter,
                  ftxui::filler(),
              }),
              ftxui::filler(),
@@ -791,6 +794,22 @@ UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& url) {
 void PlaylistDialog::StartImport(const std::string& url) {
   LOG("Start importing songs from playlist URL=", std::quoted(url));
   import_.cancel = false;
+  import_.running = true;
+
+  // Spinner is animated while songs are extracted, so UI must be refreshed in the meantime
+  import_.refresher = std::thread([this] {
+    util::Logger::SetThreadName("import");
+    std::unique_lock lock{import_.mutex};
+
+    while (!import_.notifier.wait_for(lock, kImportRefreshInterval,
+                                      [this] { return !import_.running; })) {
+      lock.unlock();
+      if (auto dispatcher = GetDispatcher(); dispatcher) {
+        dispatcher->SendEvent(interface::CustomEvent::Refresh());
+      }
+      lock.lock();
+    }
+  });
 
   import_.thread = std::thread([this, url] {
     util::Logger::SetThreadName("import");
@@ -825,6 +844,7 @@ void PlaylistDialog::FinishImport() {
 
   // Thread has already finished its job
   if (import_.thread.joinable()) import_.thread.join();
+  StopImportRefresh();
 
   auto& [code, songs] = *result;
   using Status = UrlInput::Result::Status;
@@ -890,9 +910,24 @@ void PlaylistDialog::StopImport() {
   LOG("Stop importing songs from playlist");
   import_.cancel = true;
   import_.thread.join();
+  StopImportRefresh();
 
   std::scoped_lock lock{import_.mutex};
   import_.result.reset();
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::StopImportRefresh() {
+  if (!import_.refresher.joinable()) return;
+
+  {
+    std::scoped_lock lock{import_.mutex};
+    import_.running = false;
+  }
+
+  import_.notifier.notify_one();
+  import_.refresher.join();
 }
 
 }  // namespace interface

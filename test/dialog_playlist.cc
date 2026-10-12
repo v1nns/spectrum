@@ -126,10 +126,10 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                             Add a song to save                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Add a song to save           ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -184,8 +184,8 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                                                            ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
@@ -254,10 +254,10 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                            Name it to save (r)                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Name it to save (r)          ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -304,10 +304,10 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                            Name it to save (r)                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Name it to save (r)          ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -366,10 +366,10 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                  Saved ✓                                   ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Saved ✓                      ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -466,10 +466,10 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                            Name it to save (r)                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Name it to save (r)          ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -529,10 +529,10 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                  Saved ✓                                   ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Saved ✓                      ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -593,8 +593,8 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                                                            ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
@@ -665,10 +665,10 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                  Saved ✓                                   ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Saved ✓                      ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -730,8 +730,8 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                                                            ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
@@ -810,8 +810,8 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                                                            ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
@@ -939,10 +939,10 @@ TEST_F(PlaylistDialogTest, AddYoutubeUrlAndSave) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                            Name it to save (r)                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Name it to save (r)          ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1015,10 +1015,10 @@ TEST_F(PlaylistDialogTest, CannotAddUrlWithoutYtDlp) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                             Add a song to save                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Add a song to save           ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1054,14 +1054,36 @@ TEST_F(PlaylistDialogTest, ImportSongsFromYoutubePlaylist) {
   dialog = std::make_unique<interface::PlaylistDialog>(
       dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch);
 
-  // Import finishes in another thread, which asks for a refresh to add songs to playlist
-  std::promise<void> refreshed;
-  std::atomic<bool> notified = false;
+  // UI is refreshed while playlist is being imported (to animate its spinner), and also when
+  // import finishes in another thread (to add songs to playlist)
+  std::atomic<int> refreshes = 0;
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
                                            interface::CustomEvent::Identifier::Refresh)))
-      .WillRepeatedly(Invoke([&](const interface::CustomEvent&) {
-        if (!notified.exchange(true)) refreshed.set_value();
-      }));
+      .WillRepeatedly(Invoke([&](const interface::CustomEvent&) { refreshes++; }));
+
+  //! Wait until UI is asked to refresh again
+  auto wait_for_refresh = [&] {
+    const int last = refreshes;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+
+    while (refreshes == last && std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    return refreshes != last;
+  };
+
+  //! Get frame from spinner rendered before feedback while importing
+  auto get_spinner = [&] {
+    ftxui::Render(*screen, dialog->Render(size));
+    const std::string rendered = GetRenderedScreen();
+
+    for (const std::string frame : {"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}) {
+      if (rendered.find(frame + " Importing playlist") != std::string::npos) return frame;
+    }
+
+    return std::string{};
+  };
 
   model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
   GetPlaylistDialog()->Open(operation);
@@ -1076,7 +1098,16 @@ TEST_F(PlaylistDialogTest, ImportSongsFromYoutubePlaylist) {
   dialog->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, dialog->Render(size));
-  EXPECT_THAT(GetRenderedScreen(), HasSubstr("… Importing playlist"));
+  // Spinner is animated before feedback, changing when UI is refreshed
+  const std::string spinner = get_spinner();
+  EXPECT_FALSE(spinner.empty());
+
+  bool animated = false;
+  for (int i = 0; i < 10 && !animated; i++) {
+    ASSERT_TRUE(wait_for_refresh());
+    animated = get_spinner() != spinner;
+  }
+  EXPECT_TRUE(animated);
 
   // Another URL cannot be submitted while importing
   utils::QueueCharacterEvents(*dialog, "x");
@@ -1086,14 +1117,25 @@ TEST_F(PlaylistDialogTest, ImportSongsFromYoutubePlaylist) {
   EXPECT_THAT(GetRenderedScreen(), HasSubstr("✗ Already importing"));
 
   release.set_value();
-  ASSERT_EQ(refreshed.get_future().wait_for(std::chrono::seconds(5)), std::future_status::ready);
 
-  // Refresh is received by dialog as an event (from terminal)
-  dialog->OnEvent(ftxui::Event::Custom);
+  // Refresh is received by dialog as an event (from terminal), until the one sent after import
+  std::string rendered;
+  do {
+    ASSERT_TRUE(wait_for_refresh());
+    dialog->OnEvent(ftxui::Event::Custom);
 
-  ftxui::Render(*screen, dialog->Render(size));
-  std::string rendered = GetRenderedScreen();
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    rendered = GetRenderedScreen();
+  } while (rendered.find("Importing playlist") != std::string::npos);
+
   EXPECT_THAT(rendered, HasSubstr("✓ Added 2 songs, 1 skipped"));
+  EXPECT_TRUE(get_spinner().empty());
+
+  // And UI is not refreshed anymore
+  const int last = refreshes;
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  EXPECT_EQ(refreshes, last);
   EXPECT_THAT(rendered, HasSubstr("First song"));
   EXPECT_THAT(rendered, HasSubstr("Second song"));
 }
@@ -1598,8 +1640,8 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                                                            ║
 ║                              ┌──────────────┐                              ║
 ║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
@@ -1668,10 +1710,10 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                             Add a song to save                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Add a song to save           ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1727,10 +1769,10 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                            Name it to save (r)                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Name it to save (r)          ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1800,10 +1842,10 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                                  Saved ✓                                   ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Saved ✓                      ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1857,10 +1899,10 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                             Add a song to save                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Add a song to save           ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1908,10 +1950,10 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                             Add a song to save                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Add a song to save           ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
@@ -1997,10 +2039,10 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
-║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                             Add a song to save                             ║
 ║                              ┌──────────────┐                              ║
-║                              │     Save     │ Add a song to save           ║
+║                              │     Save     │                              ║
 ║                              └──────────────┘                              ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 )";
