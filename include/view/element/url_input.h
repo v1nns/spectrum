@@ -6,10 +6,13 @@
 #ifndef INCLUDE_VIEW_ELEMENT_URL_INPUT_H_
 #define INCLUDE_VIEW_ELEMENT_URL_INPUT_H_
 
+#include <array>
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
@@ -23,6 +26,13 @@ namespace interface {
  */
 class UrlInput : public Element {
   static constexpr int kPadding = 1;  //!< Columns left empty on each side of content
+
+  //! Frames from spinner shown while URL is pending
+  static constexpr std::array<std::string_view, 10> kSpinnerFrames{"⠋", "⠙", "⠹", "⠸", "⠼",
+                                                                   "⠴", "⠦", "⠧", "⠇", "⠏"};
+
+  //! Time that each frame from spinner stays visible
+  static constexpr std::chrono::milliseconds kSpinnerInterval{80};
 
  public:
   //! Result from submitted URL
@@ -103,6 +113,13 @@ class UrlInput : public Element {
   //! Submit typed text to owner
   void Submit();
 
+  /**
+   * @brief Get frame from spinner shown while URL is pending (owner must refresh UI to animate it)
+   * @param elapsed Time since URL is pending
+   * @return Frame to render
+   */
+  static std::string_view GetSpinnerFrame(std::chrono::steady_clock::duration elapsed);
+
   //! Place cursor on the character clicked
   void HandleClick(ftxui::Event& event) override;
 
@@ -119,6 +136,8 @@ class UrlInput : public Element {
   TextInput input_;                 //!< Text input to type URL
   int max_columns_ = 0;             //!< Maximum columns available to render text input
   std::optional<Result> feedback_;  //!< Feedback from last submitted URL
+
+  std::chrono::steady_clock::time_point pending_since_;  //!< When URL started to be handled
 };
 
 }  // namespace interface

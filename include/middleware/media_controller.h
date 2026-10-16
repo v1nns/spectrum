@@ -53,6 +53,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   //! Duration of fade-in animation applied to spectrum bars when a new song starts playing
   static constexpr std::chrono::milliseconds kFadeInDuration{1000};
 
+  //! Time to wait for audio samples after a seek, before clearing spectrum bars (so they are kept
+  //! as they are when seek is fast enough, like on local files)
+  static constexpr std::chrono::milliseconds kSeekGracePeriod{100};
+
   /**
    * @brief Construct a new MediaController object
    * @param dispatcher Event dispatcher for Interface
@@ -239,6 +243,11 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void NotifySongState(const model::Song::CurrentInformation& curr_info) override;
 
   /**
+   * @brief Clear spectrum bars if Audio player takes too long to seek position in current song
+   */
+  void NotifySongSeek() override;
+
+  /**
    * @brief Send raw audio samples to UI
    * @param buffer Audio samples
    * @param size Sample count
@@ -269,6 +278,7 @@ class MediaController : public audio::Notifier, public interface::Notifier {
     RunClearAnimation = 10002,
     RunRegainAnimation = 10003,
     Exit = 10004,
+    WaitForSeek = 10005,
   };
 
   /**
@@ -434,6 +444,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
   //! Flag set when a new song starts playing, so analysis thread starts fade-in animation
   std::atomic<bool> fade_in_pending_ = false;
+
+  //! Flag set when song position is changed while paused, as bars kept from before the pause do
+  //! not match the position where song is resumed
+  std::atomic<bool> seek_while_paused_ = false;
 
   mutable std::mutex status_mutex_;  //!< Control access to player status
   model::PlayerStatus status_;       //!< Last known player status (updated by UI and audio threads)

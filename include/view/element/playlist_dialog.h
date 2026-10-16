@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <ftxui/component/component_base.hpp>
 #include <functional>
 #include <mutex>
@@ -41,6 +42,9 @@ class PlaylistDialog : public Dialog {
   static constexpr int kMinLines = 25;    //!< Minimum lines for Element
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
+
+  //! Interval to refresh UI while playlist is being imported (to animate its spinner)
+  static constexpr std::chrono::milliseconds kImportRefreshInterval{80};
 
   static constexpr std::string_view kUrlLabel = "Paste a YouTube URL:";  //!< Label for URL input
   static constexpr std::string_view kNoUrlLabel =
@@ -207,6 +211,9 @@ class PlaylistDialog : public Dialog {
    */
   void StopImport();
 
+  //! Stop refreshing UI for playlist import (and wait for its thread)
+  void StopImportRefresh();
+
   /* ******************************************************************************************** */
   //! Variables
 
@@ -221,6 +228,10 @@ class PlaylistDialog : public Dialog {
     std::atomic<bool> cancel = false;  //!< Flag to cancel extraction
     std::mutex mutex;                  //!< Control access to result
     std::optional<std::pair<error::Code, std::vector<model::Song>>> result;  //!< Extracted songs
+
+    std::thread refresher;             //!< Thread refreshing UI while extraction is running
+    std::condition_variable notifier;  //!< Wake up refresher when extraction is over
+    bool running = false;              //!< Flag to keep refresher running (protected by mutex)
   };
 
   Import import_;  //!< Playlist import state

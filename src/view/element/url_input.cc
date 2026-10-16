@@ -29,7 +29,7 @@ ftxui::Element UrlInput::Render() {
                   ftxui::text(util::EventToString(Keybind::Return) + ": add"),
                   ftxui::text(util::EventToString(Keybind::Escape) + ": clear"),
               }) |
-              ftxui::color(GetTheme().dialog.hint);
+              ftxui::color(GetTheme().dialog.hint) | ftxui::dim;
 
   ftxui::Element feedback = ftxui::text("");
 
@@ -43,9 +43,11 @@ ftxui::Element UrlInput::Render() {
         feedback = ftxui::text("✗ " + feedback_->message) | ftxui::color(GetTheme().dialog.error) |
                    ftxui::bold;
         break;
-      case Result::Status::Pending:
-        feedback = ftxui::text("… " + feedback_->message) | ftxui::color(GetTheme().dialog.hint);
-        break;
+      case Result::Status::Pending: {
+        const auto spinner = GetSpinnerFrame(std::chrono::steady_clock::now() - pending_since_);
+        feedback = ftxui::text(std::string{spinner} + " " + feedback_->message) |
+                   ftxui::color(GetTheme().dialog.hint);
+      } break;
     }
   }
 
@@ -120,8 +122,19 @@ void UrlInput::Submit() {
 
 /* ********************************************************************************************** */
 
+std::string_view UrlInput::GetSpinnerFrame(std::chrono::steady_clock::duration elapsed) {
+  const auto frame = static_cast<size_t>(elapsed / kSpinnerInterval) % kSpinnerFrames.size();
+  return kSpinnerFrames.at(frame);
+}
+
+/* ********************************************************************************************** */
+
 void UrlInput::SetResult(const Result& result) {
   feedback_ = result;
+
+  if (result.status == Result::Status::Pending) {
+    pending_since_ = std::chrono::steady_clock::now();
+  }
 
   // Rejected or pending URL keeps text (so user can fix it, or see what is being handled)
   if (result.status != Result::Status::Accepted) return;

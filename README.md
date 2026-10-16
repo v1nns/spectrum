@@ -6,7 +6,7 @@
 
 <h4 align="center">A simple and intuitive console-based music player written in C++</h4>
 
-https://github.com/v1nns/spectrum/assets/22479290/5ab537cf-34d6-4627-8d66-4f7128cd6915
+https://github.com/user-attachments/assets/670b5281-53d2-461f-9da3-6ff47038e214
 
 Introducing yet another music player for tech enthusiasts that will simplify the way you experience your favorite tunes! Immerse yourself in the sound with a powerful equalizer, allowing you to fine-tune every aspect of the music to your exact specifications, perfectly matching your mood.
 

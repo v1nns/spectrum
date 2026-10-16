@@ -202,6 +202,20 @@ void MediaController::AnalysisHandler() {
         ProcessRegainAnimation(previous);
       } break;
 
+      case Command::WaitForSeek: {
+        LOG("Analysis handler received command to wait for song to seek position");
+
+        // No audio data is received while decoder is seeking position, so instead of leaving bars
+        // stuck with the last analyzed data, clear them (unless seek is fast enough)
+        auto timeout = std::chrono::system_clock::now() + kSeekGracePeriod;
+        if (bool seek_finished = sync_data_.WaitForCommandOrUntil(timeout); seek_finished) break;
+
+        ProcessClearAnimation(previous);
+
+        // Bars must rise smoothly when song gets back to play
+        fade_in_pending_ = true;
+      } break;
+
       default:
         break;
     }
@@ -232,6 +246,14 @@ void MediaController::Pause() {
 /* ********************************************************************************************** */
 
 void MediaController::Resume(bool run_animation) {
+  // Bars kept by regain animation are from the position where song was paused, so when position
+  // was changed in the meantime, skip animation and let bars rise smoothly from the new position
+  // (decoder may also take a while to seek to it, e.g. on streams)
+  if (seek_while_paused_.exchange(false)) {
+    fade_in_pending_ = true;
+    run_animation = false;
+  }
+
   if (run_animation) {
     // Do not toggle player right away, let thread run its animation first
     sync_data_.Push(Command::RunRegainAnimation);
@@ -438,6 +460,8 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& cur
     status.position = curr_info.position;
   });
 
+  seek_while_paused_ = curr_info.state == model::Song::MediaState::Pause && already_paused;
+
   if ((curr_info.state == model::Song::MediaState::Pause && !already_paused) ||
       curr_info.state == model::Song::MediaState::Finished) {
     // Enqueue animation to thread
@@ -451,6 +475,13 @@ void MediaController::NotifySongState(const model::Song::CurrentInformation& cur
 
   // Notify Audio Player block with new state information about the current song
   dispatcher->SendEvent(event);
+}
+
+/* ********************************************************************************************** */
+
+void MediaController::NotifySongSeek() {
+  // Enqueue command to thread, which decides if bars must be cleared
+  sync_data_.Push(Command::WaitForSeek);
 }
 
 /* ********************************************************************************************** */
