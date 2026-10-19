@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <regex>
 #include <sstream>
@@ -195,6 +196,20 @@ model::SyncedLyric LRCLIB::ExtractSyncedLyrics(const std::string& content) const
   if (lyrics == info.end() || !lyrics->is_string()) return model::SyncedLyric{};
 
   return ParseLrc(lyrics->get<std::string>());
+}
+
+/* ********************************************************************************************** */
+
+uint32_t LRCLIB::ExtractDuration(const std::string& content) const {
+  static constexpr const char* kDurationKey = "duration";  //!< Duration in seconds (with fraction)
+
+  nlohmann::json info = nlohmann::json::parse(content, nullptr, /*allow_exceptions=*/false);
+  if (!info.is_object()) return 0;
+
+  auto duration = info.find(kDurationKey);
+  if (duration == info.end() || !duration->is_number() || duration->get<double>() <= 0) return 0;
+
+  return static_cast<uint32_t>(std::lround(duration->get<double>()));
 }
 
 /* ********************************************************************************************** */

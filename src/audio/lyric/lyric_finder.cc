@@ -77,11 +77,12 @@ std::string LyricFinder::CleanTitle(const std::string& artist, const std::string
       R"(\b(official|lyrics?|video|audio|visuali[sz]er|hd|4k|remaster(ed)?)\b)", std::regex::icase);
 
   // Parentheses with featured artists, video-related words or another version of the song, e.g.
-  // "(feat. X)", "(Official Video)" or "(X Remix)" (innermost ones, as they may be nested)
+  // "(feat. X)", "(Official Video)", "(X Remix)" or "(Ao Vivo)" (innermost ones, as they may be
+  // nested)
   static const std::regex kParentheses(
       R"(\s*\([^\(\)]*\b(feat|ft|featuring|with|official|lyrics?|video|audio|visuali[sz]er|hd|)"
       R"(4k|remaster(ed)?|mix(ed)?|remix|edit|extended|slowed|sped|reverb|nightcore|instrumental|)"
-      R"(unreleased|version|prod)\b[^\(\)]*\))",
+      R"(unreleased|version|prod|live|ao vivo|en vivo)\b[^\(\)]*\))",
       std::regex::icase);
 
   // Square brackets are not used in song names, e.g. "[Official Video]" or "[Deep House | Chill]"
@@ -162,8 +163,20 @@ SearchResult LyricFinder::Search(const std::string& artist, const std::string& r
       LOG("Retry search using only the first artist=", first, " and duration=", duration);
       if (SearchResult retry = SearchEngines(first, title, duration);
           retry.status == SearchResult::Status::Found) {
-        return retry;
+        result = std::move(retry);
       }
+    }
+  }
+
+  // Synced lyrics from another recording of the song would not follow it, so show only plain lyrics
+  // (unless there are none)
+  if (!result.synced.empty() && !result.lyrics.empty() && duration > 0 && result.duration > 0) {
+    const uint32_t difference =
+        duration > result.duration ? duration - result.duration : result.duration - duration;
+
+    if (difference > kMaxSyncedDurationDifference) {
+      LOG("Discard synced lyrics, as they belong to a song with duration=", result.duration);
+      result.synced.clear();
     }
   }
 
@@ -218,7 +231,8 @@ SearchResult LyricFinder::SearchEngines(const std::string& artist, const std::st
       INFO("Found lyrics using search engine=", *engine, " synced=", !synced.empty());
       return SearchResult{.status = SearchResult::Status::Found,
                           .lyrics = std::move(formatted),
-                          .synced = std::move(synced)};
+                          .synced = std::move(synced),
+                          .duration = engine->ExtractDuration(buffer)};
     }
   }
 

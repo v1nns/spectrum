@@ -93,6 +93,14 @@ class SearchConfig {
   virtual model::SyncedLyric ExtractSyncedLyrics(const std::string &content) const { return {}; }
 
   /**
+   * @brief Extract duration of the song which lyrics belong to, from content fetched from search
+   * URL (by default, search engine does not inform it)
+   * @param content Content fetched from search URL
+   * @return Duration in seconds (0 if unknown)
+   */
+  virtual uint32_t ExtractDuration(const std::string &content) const { return 0; }
+
+  /**
    * @brief Create a configuration containing all available search engines to use it
    * @return An array of search engines
    */
@@ -150,6 +158,13 @@ class LRCLIB : public SearchConfig {
    * @return Synced song lyrics sorted by timestamp (empty if not found)
    */
   model::SyncedLyric ExtractSyncedLyrics(const std::string &content) const override;
+
+  /**
+   * @brief Extract duration of the song which lyrics belong to, from JSON content
+   * @param content Content fetched from search URL
+   * @return Duration in seconds (0 if unknown)
+   */
+  uint32_t ExtractDuration(const std::string &content) const override;
 
  private:
   const std::string url_ = "https://lrclib.net/api/get";

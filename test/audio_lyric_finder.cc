@@ -287,6 +287,53 @@ TEST_F(LyricFinderTest, SearchWithOnlySyncedLyricsUsingLRCLIB) {
 
 /* ********************************************************************************************** */
 
+TEST_F(LyricFinderTest, SearchWithSyncedLyricsFromAnotherRecordingUsingLRCLIB) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  // Lyrics belong to a song with 194 seconds (e.g. studio version, while a live one is playing)
+  const std::string content{R"({"id":1,"trackName":"Song","artistName":"Artist","duration":194.4,)"
+                            R"("plainLyrics":"Line","syncedLyrics":"[00:01.00] Line"})"};
+  const std::string only_synced{
+      R"({"id":1,"trackName":"Song","artistName":"Artist","duration":194.4,)"
+      R"("plainLyrics":null,"syncedLyrics":"[00:01.00] Line"})"};
+
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .WillRepeatedly(DoAll(SetArgReferee<1>(content), Return(error::kSuccess)));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  const model::SyncedLyric synced{{1000, "Line"}};
+
+  // Synced lyrics are kept when duration is unknown or close enough to the one from song playing
+  for (uint32_t duration : {0, 184, 204}) {
+    auto result = finder->Search("Artist", "Song", duration);
+    EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+    EXPECT_EQ(result.duration, 194);
+    EXPECT_THAT(result.lyrics, ElementsAreArray(model::SongLyric{"Line\n"}));
+    EXPECT_THAT(result.synced, ElementsAreArray(synced)) << "duration=" << duration;
+  }
+
+  // Otherwise, only plain lyrics are shown
+  for (uint32_t duration : {183, 205, 216}) {
+    auto result = finder->Search("Artist", "Song", duration);
+    EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+    EXPECT_THAT(result.lyrics, ElementsAreArray(model::SongLyric{"Line\n"}));
+    EXPECT_TRUE(result.synced.empty()) << "duration=" << duration;
+  }
+
+  // Unless there are no plain lyrics
+  testing::Mock::VerifyAndClearExpectations(fetcher);
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .WillOnce(DoAll(SetArgReferee<1>(only_synced), Return(error::kSuccess)));
+
+  auto result = finder->Search("Artist", "Song", 216);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_TRUE(result.lyrics.empty());
+  EXPECT_THAT(result.synced, ElementsAreArray(synced));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(LyricFinderTest, SearchWithSyncedLyricsOffsetUsingLRCLIB) {
   auto fetcher = GetFetcher();
   auto parser = GetParser();
@@ -672,6 +719,16 @@ TEST_F(LyricFinderTest, CleanTitleFromRealVideos) {
               StrEq("No Matter What"));
   EXPECT_THAT(CleanTitle("Marsh", "Pretty Eyes (Jody Wisternoff Dub Edit (Mixed))"),
               StrEq("Pretty Eyes"));
+
+  // Live recordings, also in Portuguese and Spanish
+  EXPECT_THAT(CleanTitle("Fresno", "Eu Sei (Ao Vivo em Porto Alegre)"), StrEq("Eu Sei"));
+  EXPECT_THAT(CleanTitle("Fresno",
+                         "Cada Poça Dessa Rua Tem Um Pouco de Minhas Lágrimas (Ao Vivo em Porto "
+                         "Alegre)"),
+              StrEq("Cada Poça Dessa Rua Tem Um Pouco de Minhas Lágrimas"));
+  EXPECT_THAT(CleanTitle("Soda Stereo", "De Música Ligera (En Vivo)"), StrEq("De Música Ligera"));
+  EXPECT_THAT(CleanTitle("Oasis", "Live Forever (Live at Knebworth, 10 August '96)"),
+              StrEq("Live Forever"));
 
   // Square brackets, even with a separator inside them
   EXPECT_THAT(CleanTitle("A.M.R", "Bittersweet [Deep House | Silk]"), StrEq("Bittersweet"));

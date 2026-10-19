@@ -37,6 +37,7 @@ struct SearchResult {
   Status status = Status::NotFound;  //!< Search outcome
   model::SongLyric lyrics;           //!< Song lyrics (filled only when found)
   model::SyncedLyric synced;         //!< Synced song lyrics (filled only when found, if available)
+  uint32_t duration = 0;  //!< Duration in seconds of the song which lyrics belong to (0 if unknown)
 };
 
 /**
@@ -132,6 +133,10 @@ class LyricFinder {
   /* ******************************************************************************************** */
   //! Variables
  private:
+  //! Maximum difference in seconds between durations of the song playing and the one which synced
+  //! lyrics belong to (e.g. a live recording has its lines sung at other times than studio version)
+  static constexpr uint32_t kMaxSyncedDurationDifference = 10;
+
   Config engines_ = SearchConfig::Create();   //!< Search engine settings
   std::unique_ptr<web::UrlFetcher> fetcher_;  //!< URL fetcher
   std::unique_ptr<web::HtmlParser> parser_;   //!< HTML parser
