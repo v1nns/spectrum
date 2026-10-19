@@ -109,6 +109,7 @@ Key Lyric::Retry = Key::Character('r');
 Key Lyric::Follow = Key::Character('c');
 Key Lyric::OffsetEarlier = Key::Character('[');
 Key Lyric::OffsetLater = Key::Character(']');
+Key Lyric::OffsetReset = Key::Character('0');
 
 /* ------------------------------------------- Files -------------------------------------------- */
 

@@ -98,17 +98,18 @@ ftxui::Element SongLyric::Render() {
 
   content = synced_.empty() ? DrawSongLyrics(lyrics_) : DrawSyncedLyrics();
 
-  // Draw message (if any) on the upper-right corner, over song lyrics
-  if (auto message = message_.GetText(); message.has_value()) {
-    content = ftxui::dbox({
-        content,
-        ftxui::vbox({
-            ftxui::hbox({
-                ftxui::filler(),
-                ftxui::text(*message) | ftxui::bold | ftxui::color(GetTheme().lyric.text),
-            }),
-            ftxui::filler(),
-        }),
+  // Offset applied on synced song lyrics stays visible on the upper-right corner, in a row above
+  // them (bold right after it changes, which also shows it going back to zero)
+  std::optional<std::string> message = message_.GetText();
+
+  if (message.has_value() || (!synced_.empty() && offset_ms_ != 0)) {
+    ftxui::Element offset =
+        ftxui::text(message.value_or(FormatOffset())) | ftxui::color(GetTheme().lyric.text);
+    if (message.has_value()) offset |= ftxui::bold;
+
+    content = ftxui::vbox({
+        ftxui::hbox({ftxui::filler(), offset, ftxui::text(" ")}),
+        content | ftxui::flex,
     });
   }
 
@@ -139,6 +140,12 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
       !synced_.empty()) {
     LOG("Handle key to change offset from synced song lyrics");
     ChangeOffset(event == keybinding::Lyric::OffsetEarlier ? kOffsetStep : -kOffsetStep);
+    return true;
+  }
+
+  if (event == keybinding::Lyric::OffsetReset && !synced_.empty() && offset_ms_ != 0) {
+    LOG("Handle key to reset offset from synced song lyrics");
+    ChangeOffset(-offset_ms_);
     return true;
   }
 
@@ -263,6 +270,7 @@ void SongLyric::StartFetching() {
   offset_ms_ = 0;
   current_ = -1;
   follow_ = true;
+  message_.Hide();
 
   if (!HasSearchTerms()) {
     INFO("Missing artist or title, song lyrics will not be fetched");
@@ -327,12 +335,18 @@ void SongLyric::ChangeOffset(int32_t step) {
   offset_ms_ = std::clamp(offset_ms_ + step, -kMaxOffset, kMaxOffset);
   UpdateCurrentLine();
 
+  message_.Show(FormatOffset());
+}
+
+/* ********************************************************************************************** */
+
+std::string SongLyric::FormatOffset() const {
   // Show offset in seconds, e.g. "+0.3s" (positive means lyrics are shown earlier)
   std::ostringstream text;
   text << "lyrics offset: " << std::showpos << std::fixed << std::setprecision(1)
        << offset_ms_ / 1000.0 << "s";
 
-  message_.Show(text.str());
+  return text.str();
 }
 
 /* ********************************************************************************************** */

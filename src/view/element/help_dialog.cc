@@ -166,6 +166,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {ToString(keybinding::Lyric::Follow), "Follow current line (synced lyrics)"},
            {Join(keybinding::Lyric::OffsetEarlier, keybinding::Lyric::OffsetLater),
             "Show synced lyrics earlier/later"},
+           {ToString(keybinding::Lyric::OffsetReset), "Reset synced lyrics offset"},
        }},
       {Section::Player,
        "player",

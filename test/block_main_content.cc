@@ -38,6 +38,7 @@ using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
+using ::testing::IsEmpty;
 using ::testing::NiceMock;
 using ::testing::Not;
 using ::testing::Optional;
@@ -197,6 +198,18 @@ class MainContentTest : public ::BlockTest {
 
   //! Getter for offset (in milliseconds) applied on synced song lyrics
   int32_t GetLyricOffset() { return GetSongLyric()->offset_ms_; }
+
+  //! Hide message from song lyric tab, as if it expired
+  void HideLyricMessage() { GetSongLyric()->message_.Hide(); }
+
+  //! Get the rendered row containing the given text (empty if there is none)
+  static std::string RenderedRowWith(const std::string& rendered, const std::string& text) {
+    std::istringstream rows(rendered);
+    for (std::string row; std::getline(rows, row);) {
+      if (row.find(text) != std::string::npos) return row;
+    }
+    return std::string{};
+  }
 
   //! Render block and return the line highlighted from synced song lyrics (empty if none visible)
   std::string RenderHighlightedLine() {
@@ -3147,10 +3160,44 @@ TEST_F(MainContentTest, ChangeSyncedSongLyricsOffset) {
   ftxui::Render(*screen, block->Render());
   EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: -0.3s"));
 
+  // Offset stays visible after message expires, in its own row (not over song lyrics)
+  HideLyricMessage();
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  const std::string offset_row = RenderedRowWith(rendered, "lyrics offset: -0.3s");
+  EXPECT_THAT(offset_row, Not(IsEmpty()));
+  EXPECT_THAT(offset_row, Not(HasSubstr("Line")));
+
+  // Back to zero, it is shown only until message expires
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('0')));
+  EXPECT_EQ(GetLyricOffset(), 0);
+  EXPECT_EQ(GetCurrentLyricLine(), 0);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: +0.0s"));
+
+  HideLyricMessage();
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("lyrics offset")));
+
+  // Nothing to reset anymore, so key is not handled
+  EXPECT_FALSE(block->OnEvent(ftxui::Event::Character('0')));
+
   // Offset is reset on song change
+  block->OnEvent(ftxui::Event::Character(']'));
   FetchSyncedSongLyrics();
   RenderUntilFetched();
   EXPECT_EQ(GetLyricOffset(), 0);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("lyrics offset")));
 }
 
 /* ********************************************************************************************** */

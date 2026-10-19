@@ -139,6 +139,7 @@ struct Lyric {
   static Key Follow;         //!< Follow current line (synced lyrics)
   static Key OffsetEarlier;  //!< Show synced lyrics earlier
   static Key OffsetLater;    //!< Show synced lyrics later
+  static Key OffsetReset;    //!< Show synced lyrics without offset
 };
 
 /* ********************************************************************************************** */

@@ -161,6 +161,12 @@ class SongLyric : public TabItem {
   void ChangeOffset(int32_t step);
 
   /**
+   * @brief Format offset applied on synced song lyrics to show it to user
+   * @return Text with offset in seconds, e.g. "lyrics offset: +0.3s"
+   */
+  [[nodiscard]] std::string FormatOffset() const;
+
+  /**
    * @brief Check if song lyrics contain anything to render
    * @return true if there are plain or synced song lyrics, otherwise false
    */
@@ -178,7 +184,7 @@ class SongLyric : public TabItem {
   int current_ = -1;          //!< Index for line being sung from synced song lyrics (-1 if none)
   bool follow_ = true;        //!< Keep focus on line being sung (until user scrolls song lyrics)
 
-  FlashMessage message_;  //!< Brief feedback shown over song lyrics (e.g. offset changed)
+  FlashMessage message_;  //!< Brief feedback shown right after offset changes (highlighted)
 
   std::string artist_;  //!< Artist used to search for song lyrics
   std::string title_;   //!< Title used to search for song lyrics
