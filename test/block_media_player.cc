@@ -1436,10 +1436,11 @@ TEST_F(MediaPlayerMouseTest, KeepKnobOnPickedPositionUntilInformedByPlayer) {
   static constexpr int kOffset = kColumns * kSecondsPerColumn;
 
   //! Simulate player informing its position, and render block
-  auto update_position = [this](int position) {
+  auto update_position = [this](int position, int position_ms = 0) {
     Process(interface::CustomEvent::UpdateSongState(model::Song::CurrentInformation{
         .state = model::Song::MediaState::Play,
         .position = static_cast<uint32_t>(position),
+        .position_ms = static_cast<uint32_t>((position * 1000) + position_ms),
     }));
 
     screen->Clear();
@@ -1461,9 +1462,11 @@ TEST_F(MediaPlayerMouseTest, KeepKnobOnPickedPositionUntilInformedByPlayer) {
   EXPECT_EQ(GetKnobColumn(), kColumn);
 
   // And it does not go back to the old one, which may still be informed by player before it
-  // changes song position
-  update_position(kSongPosition + 1);
-  EXPECT_EQ(GetKnobColumn(), kColumn);
+  // changes song position (many times within the same second)
+  for (int position_ms : {0, 50, 100, 150}) {
+    update_position(kSongPosition + 1, position_ms);
+    EXPECT_EQ(GetKnobColumn(), kColumn) << "position_ms=" << position_ms;
+  }
 
   // After that, it follows player again
   update_position(kSongPosition + kOffset);
@@ -1476,15 +1479,18 @@ TEST_F(MediaPlayerMouseTest, KeepKnobOnPickedPositionUntilInformedByPlayer) {
   click_on(kDurationMiddleColumn);
   EXPECT_EQ(GetKnobColumn(), kDurationMiddleColumn);
 
-  update_position(kSongPosition + kOffset + kSecondsPerColumn);
+  update_position(kSongPosition + kOffset + kSecondsPerColumn, 50);
   EXPECT_EQ(GetKnobColumn(), kDurationMiddleColumn);
 
   update_position(kSongPosition + kOffset + 2 * kSecondsPerColumn);
-  EXPECT_EQ(GetKnobColumn(), kColumn + 2);
+  EXPECT_EQ(GetKnobColumn(), kDurationMiddleColumn);
+
+  update_position(kSongPosition + kOffset + 3 * kSecondsPerColumn);
+  EXPECT_EQ(GetKnobColumn(), kColumn + 3);
 
   // And not at all for the end of song, as player ignores it
   click_on(kDurationLastColumn);
-  EXPECT_EQ(GetKnobColumn(), kColumn + 2);
+  EXPECT_EQ(GetKnobColumn(), kColumn + 3);
 }
 
 /* ********************************************************************************************** */

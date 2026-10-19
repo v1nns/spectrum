@@ -1206,12 +1206,12 @@ TEST(CustomEventTest, PrintEventWithEachContent) {
           R"({type:"Player->UI", id:"UpdateVolume", content:{volume:"50%", muted:false}})"));
 
   // Song state
-  const model::Song::CurrentInformation info{.state = model::Song::MediaState::Pause,
-                                             .position = 12};
+  const model::Song::CurrentInformation info{
+      .state = model::Song::MediaState::Pause, .position = 12, .position_ms = 12345};
   EXPECT_THAT(
       Print(CustomEvent::UpdateSongState(info)),
       ::testing::StrEq(
-          R"({type:"Player->UI", id:"UpdateSongState", content:{state:"Pause", position:12}})"));
+          R"({type:"Player->UI", id:"UpdateSongState", content:{state:"Pause", position:12, position_ms:12345}})"));
 
   // Path
   EXPECT_THAT(

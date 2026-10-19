@@ -20,6 +20,20 @@ namespace model {
 //! SongLyric declaration
 using SongLyric = std::vector<std::string>;
 
+//! Single line from synced song lyrics
+struct LyricLine {
+  uint32_t timestamp;  //!< Time (in milliseconds) when line starts to be sung
+  std::string text;    //!< Line content (empty for instrumental gaps)
+
+  //! Overloaded operator
+  friend bool operator==(const LyricLine& lhs, const LyricLine& rhs) {
+    return lhs.timestamp == rhs.timestamp && lhs.text == rhs.text;
+  }
+};
+
+//! SyncedLyric declaration (lines sorted by timestamp)
+using SyncedLyric = std::vector<LyricLine>;
+
 /**
  * @brief Detailed audio metadata information from song
  */
@@ -51,6 +65,7 @@ struct Song {
   struct CurrentInformation {
     MediaState state;   //!< Current song state
     uint32_t position;  //!< Current position (in seconds) of the audio
+    uint32_t position_ms = 0;  //!< Current position (in milliseconds) of the audio being heard
 
     //! Overloaded operators
     friend bool operator==(const CurrentInformation& lhs, const CurrentInformation& rhs);

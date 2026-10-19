@@ -207,11 +207,18 @@ SearchResult LyricFinder::SearchEngines(const std::string& artist, const std::st
     fetched_any = true;
 
     // Extract content to search for lyric
+    model::SongLyric formatted;
     if (model::SongLyric raw = engine->ExtractLyrics(buffer, *parser_); !raw.empty()) {
-      if (model::SongLyric formatted = engine->FormatLyrics(raw); !formatted.empty()) {
-        INFO("Found lyrics using search engine=", *engine);
-        return SearchResult{.status = SearchResult::Status::Found, .lyrics = std::move(formatted)};
-      }
+      formatted = engine->FormatLyrics(raw);
+    }
+
+    model::SyncedLyric synced = engine->ExtractSyncedLyrics(buffer);
+
+    if (!formatted.empty() || !synced.empty()) {
+      INFO("Found lyrics using search engine=", *engine, " synced=", !synced.empty());
+      return SearchResult{.status = SearchResult::Status::Found,
+                          .lyrics = std::move(formatted),
+                          .synced = std::move(synced)};
     }
   }
 

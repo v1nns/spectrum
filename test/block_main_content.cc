@@ -22,6 +22,7 @@
 #include "mock/lyric_finder_mock.h"
 #include "model/bar_animation.h"
 #include "model/song.h"
+#include "util/formatter.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/audio_equalizer.h"
 #include "view/block/main_content/song_lyric.h"
@@ -179,6 +180,64 @@ class MainContentTest : public ::BlockTest {
     }
 
     return rendered;
+  }
+
+  //! Getter for SongLyric tab item
+  auto GetSongLyric() -> interface::SongLyric* {
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
+    return static_cast<interface::SongLyric*>(
+        main_tab->tab_elem_[interface::MainContent::View::Lyric].get());
+  }
+
+  //! Check if song lyric is following line being sung from synced song lyrics
+  bool IsFollowingLyric() { return GetSongLyric()->follow_; }
+
+  //! Getter for index of line being sung from synced song lyrics
+  int GetCurrentLyricLine() { return GetSongLyric()->current_; }
+
+  //! Getter for offset (in milliseconds) applied on synced song lyrics
+  int32_t GetLyricOffset() { return GetSongLyric()->offset_ms_; }
+
+  //! Render block and return the line highlighted from synced song lyrics (empty if none visible)
+  std::string RenderHighlightedLine() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+
+    // Skip borders, as tab title from active tab is also bold
+    for (int y = 1; y < screen->dimy() - 1; y++) {
+      std::string line;
+
+      for (int x = 1; x < screen->dimx() - 1; x++) {
+        if (const auto& pixel = screen->PixelAt(x, y); pixel.bold) line += pixel.character;
+      }
+
+      if (!util::trim(line).empty()) return util::trim(line);
+    }
+
+    return std::string{};
+  }
+
+  //! Send event with current song position (in milliseconds)
+  void UpdateSongPosition(uint32_t position_ms) {
+    Process(interface::CustomEvent::UpdateSongState(
+        model::Song::CurrentInformation{.state = model::Song::MediaState::Play,
+                                        .position = position_ms / 1000,
+                                        .position_ms = position_ms}));
+  }
+
+  //! Setup lyric finder to return synced song lyrics with lines "Line 1" to "Line 20", where
+  //! "Line N" starts at N * 2 seconds, and start fetching them
+  void FetchSyncedSongLyrics() {
+    model::SyncedLyric synced;
+    for (uint32_t i = 1; i <= 20; i++) synced.push_back({i * 2000, "Line " + std::to_string(i)});
+
+    EXPECT_CALL(*GetFinder(), Search(_, _, _))
+        .WillOnce(Return(lyric::SearchResult{.status = lyric::SearchResult::Status::Found,
+                                             .lyrics = {"Plain lyrics\n"},
+                                             .synced = synced}));
+
+    Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+        .filepath = "/path/to/song.mp3", .artist = "Artist", .title = "Song", .duration = 60}));
   }
 
   static constexpr int kNumberBars = 30;  //!< Number of bars for visualizer tab view
@@ -2987,6 +3046,125 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, SyncedSongLyrics) {
+  FetchSyncedSongLyrics();
+
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  // Synced lyrics are shown instead of plain lyrics, without highlight before first line starts
+  std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Line 1"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Plain lyrics")));
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  // Line starts exactly at its timestamp
+  UpdateSongPosition(1999);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  UpdateSongPosition(2000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 1"));
+
+  UpdateSongPosition(3999);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 1"));
+
+  UpdateSongPosition(4000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 2"));
+
+  // Line being sung is out of initial view, so song lyrics are scrolled to it
+  UpdateSongPosition(30000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 15"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ScrollSyncedSongLyrics) {
+  FetchSyncedSongLyrics();
+  block->OnEvent(ftxui::Event::Character('3'));
+  RenderUntilFetched();
+
+  UpdateSongPosition(10000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 5"));
+
+  // Manual scroll starts from line being sung (by line, not by paragraph) and stops following it
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('k')));
+  EXPECT_FALSE(IsFollowingLyric());
+  EXPECT_EQ(GetLyricFocused(), 3);
+
+  block->OnEvent(ftxui::Event::End);
+  EXPECT_EQ(GetLyricFocused(), 19);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  // Song keeps playing, but song lyrics stay where user left them
+  UpdateSongPosition(11000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  // Follow line being sung again
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('c')));
+  EXPECT_TRUE(IsFollowingLyric());
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 5"));
+
+  // Mouse wheel also stops following
+  block->OnEvent(MouseEventAt("Line 5", ftxui::Mouse::WheelDown));
+  EXPECT_FALSE(IsFollowingLyric());
+
+  // Seek follows line being sung again
+  block->OnEvent(ftxui::Event::Home);
+  UpdateSongPosition(30000);
+  EXPECT_TRUE(IsFollowingLyric());
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 15"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeSyncedSongLyricsOffset) {
+  FetchSyncedSongLyrics();
+  block->OnEvent(ftxui::Event::Character('3'));
+  RenderUntilFetched();
+
+  UpdateSongPosition(3800);
+  EXPECT_EQ(GetCurrentLyricLine(), 0);
+
+  // Show lyrics earlier, so next line starts sooner
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('[')));
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('[')));
+  EXPECT_EQ(GetCurrentLyricLine(), 1);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: +0.2s"));
+
+  // Show lyrics later
+  for (int i = 0; i < 5; i++) block->OnEvent(ftxui::Event::Character(']'));
+  EXPECT_EQ(GetCurrentLyricLine(), 0);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: -0.3s"));
+
+  // Offset is reset on song change
+  FetchSyncedSongLyrics();
+  RenderUntilFetched();
+  EXPECT_EQ(GetLyricOffset(), 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, SyncedSongLyricsOnBackground) {
+  FetchSyncedSongLyrics();
+
+  // Song position is received while another tab is active
+  UpdateSongPosition(6000);
+
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+  RenderUntilFetched();
+
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 3"));
 }
 
 /* ********************************************************************************************** */

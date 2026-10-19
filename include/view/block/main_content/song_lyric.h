@@ -7,6 +7,7 @@
 #define INCLUDE_VIEW_BLOCK_MAIN_CONTENT_SONG_LYRIC_H_
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
@@ -17,6 +18,7 @@
 
 #include "audio/lyric/lyric_finder.h"
 #include "model/song.h"
+#include "view/element/flash_message.h"
 #include "view/element/tab.h"
 
 #ifdef ENABLE_TESTS
@@ -32,6 +34,11 @@ namespace interface {
  */
 class SongLyric : public TabItem {
   static constexpr std::string_view kTabName = "lyric";  //!< Tab title
+
+  static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
+  static constexpr int32_t kOffsetStep = 100;       //!< Offset change by key (in milliseconds)
+  static constexpr int32_t kMaxOffset = 10000;      //!< Maximum offset either way (in milliseconds)
+  static constexpr uint32_t kSeekThreshold = 1000;  //!< Position jump taken as a seek (in ms)
 
  public:
   /**
@@ -137,17 +144,47 @@ class SongLyric : public TabItem {
    */
   ftxui::Element DrawSongLyrics(const model::SongLyric& lyrics) const;
 
+  /**
+   * @brief Renders the synced song lyrics element, highlighting the line being sung
+   */
+  ftxui::Element DrawSyncedLyrics() const;
+
+  /**
+   * @brief Find line being sung from synced song lyrics, based on current song position
+   */
+  void UpdateCurrentLine();
+
+  /**
+   * @brief Change offset applied on synced song lyrics and show it to user
+   * @param step Offset change (in milliseconds), positive to show lyrics earlier
+   */
+  void ChangeOffset(int32_t step);
+
+  /**
+   * @brief Check if song lyrics contain anything to render
+   * @return true if there are plain or synced song lyrics, otherwise false
+   */
+  [[nodiscard]] bool HasLyrics() const { return !lyrics_.empty() || !synced_.empty(); }
+
   /* ******************************************************************************************** */
   //! Variables
 
   model::Song audio_info_;   //!< Audio information from current song
   model::SongLyric lyrics_;  //!< Song lyrics from current song
+  model::SyncedLyric synced_;  //!< Synced song lyrics from current song (empty if not available)
+
+  uint32_t position_ms_ = 0;  //!< Current song position (in milliseconds)
+  int32_t offset_ms_ = 0;     //!< Offset from user (in milliseconds), positive shows lyrics earlier
+  int current_ = -1;          //!< Index for line being sung from synced song lyrics (-1 if none)
+  bool follow_ = true;        //!< Keep focus on line being sung (until user scrolls song lyrics)
+
+  FlashMessage message_;  //!< Brief feedback shown over song lyrics (e.g. offset changed)
 
   std::string artist_;  //!< Artist used to search for song lyrics
   std::string title_;   //!< Title used to search for song lyrics
 
   std::optional<lyric::SearchResult::Status> status_;  //!< Outcome from last search
-  int focused_ = 0;  //!< Index for paragraph focused from song lyric
+  int focused_ = 0;  //!< Index for paragraph (or line, if synced) focused from song lyric
   ftxui::Box box_;   //!< Box to control if mouse cursor is over song lyric
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder

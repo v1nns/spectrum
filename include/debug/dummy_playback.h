@@ -107,6 +107,12 @@ class DummyPlayback : public audio::Playback {
    */
   uint32_t GetPeriodSize() const override { return kPeriodSize; }
 
+  /**
+   * @brief Get number of frames written to playback stream that were not played yet
+   * @return uint32_t Number of frames
+   */
+  uint32_t GetDelay() const override { return 0; }
+
   /* ******************************************************************************************** */
   //! Constants
  private:

@@ -136,6 +136,9 @@ struct Equalizer {
 //! Lyric keybindings
 struct Lyric {
   static Key Retry;
+  static Key Follow;         //!< Follow current line (synced lyrics)
+  static Key OffsetEarlier;  //!< Show synced lyrics earlier
+  static Key OffsetLater;    //!< Show synced lyrics later
 };
 
 /* ********************************************************************************************** */

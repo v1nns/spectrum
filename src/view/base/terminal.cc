@@ -346,10 +346,10 @@ int Terminal::CalculateNumberBars() {
 /* ********************************************************************************************** */
 
 void Terminal::OnCustomEvent() {
-  // Events ignored for logging
-  static std::set<CustomEvent::Identifier> ignored{CustomEvent::Identifier::DrawAudioSpectrum,
-                                                   CustomEvent::Identifier::Refresh,
-                                                   CustomEvent::Identifier::SetFocused};
+  // Events ignored for logging (song state is received many times per second while playing)
+  static std::set<CustomEvent::Identifier> ignored{
+      CustomEvent::Identifier::DrawAudioSpectrum, CustomEvent::Identifier::Refresh,
+      CustomEvent::Identifier::SetFocused, CustomEvent::Identifier::UpdateSongState};
 
   while (receiver_->HasPending()) {
     CustomEvent event;

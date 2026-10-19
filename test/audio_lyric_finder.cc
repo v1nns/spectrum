@@ -195,6 +195,9 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
   auto result = finder->Search(artist, title, 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
+
+  // AZLyrics does not have synced lyrics
+  EXPECT_TRUE(result.synced.empty());
 }
 
 /* ********************************************************************************************** */
@@ -226,6 +229,87 @@ TEST_F(LyricFinderTest, SearchWithResultUsingLRCLIB) {
   auto result = finder->Search("INZO", "Overthinker", 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
+  EXPECT_TRUE(result.synced.empty());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SearchWithSyncedLyricsUsingLRCLIB) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  // Synced lyrics contain metadata tags, a line sung twice, an instrumental gap (empty text) and
+  // timestamps with different precisions (offset tag shows every line 100ms earlier)
+  const std::string content{
+      R"({"id":1,"trackName":"Song","artistName":"Artist","instrumental":false,)"
+      R"("plainLyrics":"First line\nChorus\nLast line",)"
+      R"("syncedLyrics":"[ar:Artist]\n[ti:Song]\n[offset:+100]\n[00:01.50] First line\r\n)"
+      R"([00:04.20][00:12.345] Chorus\n[00:08.00] \n[01:02.3] Last line\n[00:10] No fraction"})"};
+
+  // Setup expectations
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(1)
+      .WillOnce(DoAll(SetArgReferee<1>(content), Return(error::kSuccess)));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  const model::SyncedLyric expected{
+      {1400, "First line"},  {4100, "Chorus"},  {7900, ""},
+      {9900, "No fraction"}, {12245, "Chorus"}, {62200, "Last line"},
+  };
+
+  auto result = finder->Search("Artist", "Song", 0);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(model::SongLyric{"First line\nChorus\nLast line\n"}));
+  EXPECT_THAT(result.synced, ElementsAreArray(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SearchWithOnlySyncedLyricsUsingLRCLIB) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  const std::string content{
+      R"({"id":1,"trackName":"Song","artistName":"Artist","instrumental":false,)"
+      R"("plainLyrics":null,"syncedLyrics":"[00:01.00] Line"})"};
+
+  // Setup expectations, as lyrics were found, other search engines are not used
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(1)
+      .WillOnce(DoAll(SetArgReferee<1>(content), Return(error::kSuccess)));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  auto result = finder->Search("Artist", "Song", 0);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_TRUE(result.lyrics.empty());
+  EXPECT_THAT(result.synced, ElementsAreArray(model::SyncedLyric{{1000, "Line"}}));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, SearchWithSyncedLyricsOffsetUsingLRCLIB) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+
+  // Offset tag may come after lines and is not case-sensitive
+  const std::string later{
+      R"({"syncedLyrics":"[00:01.00] First\n[00:02.00] Second\n[OFFSET:-500]"})"};
+  const std::string earlier{
+      R"({"syncedLyrics":"[offset: +1500]\n[00:01.00] First\n[00:02.00] Second"})"};
+
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .WillOnce(DoAll(SetArgReferee<1>(later), Return(error::kSuccess)))
+      .WillOnce(DoAll(SetArgReferee<1>(earlier), Return(error::kSuccess)));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  // Negative offset shows lyrics later
+  auto result = finder->Search("Artist", "Song", 0);
+  EXPECT_THAT(result.synced,
+              ElementsAreArray(model::SyncedLyric{{1500, "First"}, {2500, "Second"}}));
+
+  // Positive offset shows lyrics earlier, but never before song starts
+  result = finder->Search("Artist", "Song", 0);
+  EXPECT_THAT(result.synced, ElementsAreArray(model::SyncedLyric{{0, "First"}, {500, "Second"}}));
 }
 
 /* ********************************************************************************************** */

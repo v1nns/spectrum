@@ -106,6 +106,9 @@ Key Equalizer::ResetFilters = Key::Character('r');
 /* ------------------------------------------- Lyrics ------------------------------------------- */
 
 Key Lyric::Retry = Key::Character('r');
+Key Lyric::Follow = Key::Character('c');
+Key Lyric::OffsetEarlier = Key::Character('[');
+Key Lyric::OffsetLater = Key::Character(']');
 
 /* ------------------------------------------- Files -------------------------------------------- */
 

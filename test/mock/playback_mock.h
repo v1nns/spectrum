@@ -26,6 +26,7 @@ class PlaybackMock final : public audio::Playback {
   MOCK_METHOD(error::Code, SetVolume, (model::Volume), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (override));
   MOCK_METHOD(uint32_t, GetPeriodSize, (), (const override));
+  MOCK_METHOD(uint32_t, GetDelay, (), (const override));
 };
 
 }  // namespace

@@ -32,6 +32,7 @@ using ::testing::_;
 using ::testing::AllOf;
 using ::testing::AnyNumber;
 using ::testing::AtMost;
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
@@ -72,6 +73,9 @@ class PlayerTest : public ::testing::Test {
     // Format is exchanged between playback and decoder (by default, playback expects the same
     // format that is asked by player)
     EXPECT_CALL(*pb_mock, GetFormat()).Times(AnyNumber());
+
+    // Frames still queued by playback, used to get song position being heard (none by default)
+    EXPECT_CALL(*pb_mock, GetDelay()).Times(AnyNumber());
     EXPECT_CALL(*dc_mock, SetOutputFormat(_)).Times(AnyNumber());
 
     // Setup init expectations
@@ -504,6 +508,102 @@ TEST_F(PlayerTest, StartPlayingAndUpdateSongState) {
   };
 
   testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StartPlayingAndUpdatePositionInMilliseconds) {
+  const std::string song{"Daft Punk - Get Lucky"};
+
+  // Each buffer holds 10ms of audio (at 44.1 kHz, the sample rate from default format), and
+  // playback keeps 100ms queued
+  constexpr int kFrames = 441;
+  constexpr uint32_t kDelayFrames = 4410;
+
+  std::vector<uint32_t> notified;
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    EXPECT_CALL(*decoder, Open(Field(&model::Song::filepath, song)))
+        .WillOnce(Invoke([&](model::Song& audio_info) {
+          // To enable seek position feature, must fill duration info to song struct
+          audio_info.duration = 15;
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*playback, GetDelay()).WillRepeatedly(Return(kDelayFrames));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          std::vector<int16_t> samples(kFrames * 2, 0);
+          int64_t position = 0;
+
+          // Position counts every sample written to playback, except the ones still queued (so
+          // nothing is heard during the first 100ms)
+          for (int i = 0; i < 20; i++) callback(samples.data(), kFrames, nullptr, 0, position);
+
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Seek is handled, so samples are discarded and position restarts from the one asked
+          EXPECT_TRUE(callback(samples.data(), kFrames, nullptr, 0, position));
+          EXPECT_EQ(position, 5);
+
+          // Samples queued from before seek are not taken as heard after it
+          callback(samples.data(), kFrames, nullptr, 0, position);
+
+          // Decoder jumped to another position by itself, so position restarts from it
+          position = 9;
+          callback(samples.data(), kFrames, nullptr, 0, position);
+
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*notifier, NotifySongSeek());
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(22);
+    EXPECT_CALL(*playback, AudioCallback(_, kFrames)).Times(22);
+
+    // Position is notified when its second changes, or when it moved by at least 50ms
+    EXPECT_CALL(*notifier, NotifySongState(Field(&model::Song::CurrentInformation::state,
+                                                 model::Song::MediaState::Play)))
+        .WillRepeatedly(Invoke([&](const model::Song::CurrentInformation& info) {
+          notified.push_back(info.position_ms);
+        }));
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(4);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+    player_ctl->Play(song);
+
+    syncer.WaitForStep(2);
+    player_ctl->SeekForwardPosition(5);
+    syncer.NotifyStep(3);
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+
+  EXPECT_THAT(notified, ElementsAre(0, 50, 100, 5000, 9000));
 }
 
 /* ********************************************************************************************** */
@@ -1336,8 +1436,10 @@ TEST_F(PlayerTest, SeekWhilePaused) {
         .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
 
     for (uint32_t position : {2, 3, 4}) {
-      EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
-                                 .state = State::Pause, .position = position}));
+      EXPECT_CALL(
+          *notifier,
+          NotifySongState(model::Song::CurrentInformation{
+              .state = State::Pause, .position = position, .position_ms = position * 1000}));
     }
 
     // These are called by Player::ResetMediaControl()

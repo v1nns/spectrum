@@ -81,6 +81,13 @@ class Player : public AudioControl {
   static constexpr model::AudioFormat kAnalysisFormat{};
   static constexpr int kMaxFailedSongs = 3;  //!< Songs from playlist that may fail in a row
 
+  static constexpr double kMillisecondsPerSecond = 1000.;  //!< Convert seconds to milliseconds
+  static constexpr int64_t kPositionInterval = 50;  //!< Notify song position at least every (ms)
+
+  //! Difference allowed between position from decoder (truncated to seconds) and position from
+  //! samples written to playback, before trusting decoder (e.g. it skipped part of the song)
+  static constexpr double kPositionTolerance = 500.;
+
  private:
   /**
    * @brief Construct a new Player object
@@ -161,6 +168,27 @@ class Player : public AudioControl {
    * @return True if position was changed, False if not
    */
   bool ChangePosition(const Command& command, int64_t& position) const;
+
+  /**
+   * @brief Restart counting song position (in milliseconds) from the given position, as samples
+   * are played from it (e.g. song started or position was changed by seek)
+   * @param position Position in the song (in seconds)
+   */
+  void AnchorPosition(int64_t position);
+
+  /**
+   * @brief Restart counting song position from decoder position, when samples written to playback
+   * do not match it anymore (only within a second, as decoder position is truncated to seconds)
+   * @param position Position in the song from decoder (in seconds)
+   */
+  void SyncPosition(int64_t position);
+
+  /**
+   * @brief Get position from samples being heard right now, which is behind the samples written to
+   * playback (as playback still has some of them queued)
+   * @return Position in the song (in milliseconds)
+   */
+  uint32_t GetHeardPosition() const;
 
   /**
    * @brief Main-loop function to decode input stream and write to playback stream
@@ -549,6 +577,10 @@ class Player : public AudioControl {
   std::string failed_device_;
 
   error::Code playback_error_ = error::kSuccess;  //!< Error while writing samples to playback
+
+  double written_ms_ = 0;     //!< Song position after samples written to playback (in ms)
+  double anchor_ms_ = 0;      //!< Song position where playback (re)started (in ms)
+  uint32_t notified_ms_ = 0;  //!< Last song position notified to interface (in ms)
 
   bool finished_;  //!< Flag to control when player should not process any new requisitions
 

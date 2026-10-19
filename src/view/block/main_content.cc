@@ -130,9 +130,11 @@ bool MainContent::OnEvent(ftxui::Event event) {
 
 bool MainContent::OnCustomEvent(const CustomEvent& event) {
   // Even if TabItem::SongLyrics is not active, force it to process these events
-  // By doing this, it makes possible to fetch lyrics on background
+  // By doing this, it makes possible to fetch lyrics on background (and to keep song position, so
+  // synced lyrics highlight the right line as soon as it becomes active)
   if ((event == CustomEvent::Identifier::ClearSongInfo ||
-       event == CustomEvent::Identifier::UpdateSongInfo) &&
+       event == CustomEvent::Identifier::UpdateSongInfo ||
+       event == CustomEvent::Identifier::UpdateSongState) &&
       tab_elem_.active() != View::Lyric) {
     tab_elem_[View::Lyric]->OnCustomEvent(event);
   }

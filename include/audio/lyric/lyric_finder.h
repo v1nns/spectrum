@@ -36,6 +36,7 @@ struct SearchResult {
 
   Status status = Status::NotFound;  //!< Search outcome
   model::SongLyric lyrics;           //!< Song lyrics (filled only when found)
+  model::SyncedLyric synced;         //!< Synced song lyrics (filled only when found, if available)
 };
 
 /**
