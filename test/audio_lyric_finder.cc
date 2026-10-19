@@ -473,6 +473,48 @@ TEST_F(LyricFinderTest, CleanTitleFromVideo) {
 
 /* ********************************************************************************************** */
 
+TEST_F(LyricFinderTest, CleanTitleFromRealVideos) {
+  // Based on titles from real videos
+  EXPECT_THAT(CleanTitle("Cartoon, J\u00e9ja",
+                         "On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free"),
+              StrEq("On & On"));
+  EXPECT_THAT(CleanTitle("Lavaros", "Sunshine Drive (Music Video) | Synthwave, Retrowave"),
+              StrEq("Sunshine Drive"));
+  EXPECT_THAT(CleanTitle("Abel York", "LOVE ME AGAIN | (Quiéreme Otra Vez) | Official Video"),
+              StrEq("LOVE ME AGAIN"));
+
+  // Brackets about another version of the song (or with featured artists anywhere inside them)
+  EXPECT_THAT(CleanTitle("Rufus du Sol", "Innerbloom (Weir Cover ft. Tanner Fruit)"),
+              StrEq("Innerbloom"));
+  EXPECT_THAT(CleanTitle("Imogen Heap", "Hide and Seek (Miraj Remix/Nightdrive) [Music Video]"),
+              StrEq("Hide and Seek"));
+  EXPECT_THAT(CleanTitle("Bob Sinclar, Kiesza", "I Can't Wait (Extended Mix)"),
+              StrEq("I Can't Wait"));
+  EXPECT_THAT(CleanTitle("SPYRAL", "fragments (Slowed Down)"), StrEq("fragments"));
+  EXPECT_THAT(CleanTitle("Adi T", "GANJA WEED (sped up)"), StrEq("GANJA WEED"));
+  EXPECT_THAT(CleanTitle("TELYKAST", "No Matter What (with Oaks) [Official Audio]"),
+              StrEq("No Matter What"));
+  EXPECT_THAT(CleanTitle("Marsh", "Pretty Eyes (Jody Wisternoff Dub Edit (Mixed))"),
+              StrEq("Pretty Eyes"));
+
+  // Square brackets, even with a separator inside them
+  EXPECT_THAT(CleanTitle("A.M.R", "Bittersweet [Deep House | Silk]"), StrEq("Bittersweet"));
+
+  // Featured artists and hashtags after video-related words
+  EXPECT_THAT(CleanTitle("Drove", "Feeling Of You (Lyrics) feat. Lilly Ahlberg"),
+              StrEq("Feeling Of You"));
+  EXPECT_THAT(CleanTitle("Nativalien", "On & On #Lyrics"), StrEq("On & On"));
+
+  // Artist still in title (e.g. when artist came from uploader)
+  EXPECT_THAT(CleanTitle("JuNera Vision", "JuNera Vision \u2013 Deep Inside The Night"),
+              StrEq("Deep Inside The Night"));
+  EXPECT_THAT(CleanTitle("Hegregora", "Hegregora & Carol Capel \u2013 Revelação Cósmica"),
+              StrEq("Revelação Cósmica"));
+  EXPECT_THAT(CleanTitle("Artist", "Song - Remastered 2011"), StrEq("Song"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(LyricFinderTest, CleanTitleKeepsSongName) {
   // Nothing to clean
   EXPECT_THAT(CleanTitle("Powfu", "abandoned house"), StrEq("abandoned house"));
@@ -480,6 +522,11 @@ TEST_F(LyricFinderTest, CleanTitleKeepsSongName) {
 
   // Brackets not related to video are kept
   EXPECT_THAT(CleanTitle("Artist", "Song (Reprise)"), StrEq("Song (Reprise)"));
+  EXPECT_THAT(CleanTitle("Artist", "(I Can't Get No) Satisfaction"),
+              StrEq("(I Can't Get No) Satisfaction"));
+
+  // Hyphens without spaces are part of song name
+  EXPECT_THAT(CleanTitle("Artist", "Self-Esteem"), StrEq("Self-Esteem"));
 
   // Song name containing video-related words or artist name is kept when it is the only section
   EXPECT_THAT(CleanTitle("Lana Del Rey", "Video Games"), StrEq("Video Games"));

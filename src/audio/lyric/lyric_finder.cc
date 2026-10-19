@@ -76,12 +76,23 @@ std::string LyricFinder::CleanTitle(const std::string& artist, const std::string
   static const std::regex kVideoWords(
       R"(\b(official|lyrics?|video|audio|visuali[sz]er|hd|4k|remaster(ed)?)\b)", std::regex::icase);
 
-  // Brackets with featured artists or video-related words, e.g. "(feat. X)" or "[Official Video]"
-  static const std::regex kBrackets(
-      R"(\s*[\(\[]\s*((feat|ft)\b\.?|)"
-      R"((featuring|official|lyrics?|video|audio|visuali[sz]er|hd|4k|remaster(ed)?)\b))"
-      R"([^\)\]]*[\)\]])",
+  // Parentheses with featured artists, video-related words or another version of the song, e.g.
+  // "(feat. X)", "(Official Video)" or "(X Remix)" (innermost ones, as they may be nested)
+  static const std::regex kParentheses(
+      R"(\s*\([^\(\)]*\b(feat|ft|featuring|with|official|lyrics?|video|audio|visuali[sz]er|hd|)"
+      R"(4k|remaster(ed)?|mix(ed)?|remix|edit|extended|slowed|sped|reverb|nightcore|instrumental|)"
+      R"(unreleased|version|prod)\b[^\(\)]*\))",
       std::regex::icase);
+
+  // Square brackets are not used in song names, e.g. "[Official Video]" or "[Deep House | Chill]"
+  static const std::regex kSquareBrackets(R"(\s*\[[^\[\]]*\])");
+
+  // Hashtags, e.g. "Song #Lyrics"
+  static const std::regex kHashtags(R"(\s*#\S+)");
+
+  // Separators between sections, e.g. "Song | Genre" or "Artist - Song" (hyphen, en dash, em dash
+  // and bullet, surrounded by spaces so hyphens from names like "Jay-Z" are not taken as one)
+  static const std::regex kSeparators(R"(\s*\|\s*|\s+(-|–|—|•)\s+)");
 
   // Featured artists without brackets, e.g. "Song feat. X"
   static const std::regex kFeaturing(R"(\s+(feat\.?|ft\.|featuring)\s.*$)", std::regex::icase);
@@ -95,15 +106,18 @@ std::string LyricFinder::CleanTitle(const std::string& artist, const std::string
   std::string first_section;
   std::string cleaned;
 
-  // Split into sections by "|" and keep the first one that is about the song itself
-  std::string::size_type start = 0;
-  while (start <= title.size()) {
-    std::string::size_type end = title.find('|', start);
-    if (end == std::string::npos) end = title.size();
+  // Remove brackets before splitting into sections, as they may contain a separator
+  std::string text = std::regex_replace(title, kSquareBrackets, "");
+  for (std::string previous; previous != text;) {
+    previous = text;
+    text = std::regex_replace(text, kParentheses, "");
+  }
+  text = std::regex_replace(text, kHashtags, "");
 
-    std::string section = std::regex_replace(title.substr(start, end - start), kBrackets, "");
-    section = util::trim(std::regex_replace(section, kFeaturing, ""));
-    start = end + 1;
+  // Split into sections and keep the first one that is about the song itself
+  for (std::sregex_token_iterator it(text.begin(), text.end(), kSeparators, -1), end; it != end;
+       ++it) {
+    std::string section = util::trim(std::regex_replace(it->str(), kFeaturing, ""));
 
     if (section.empty()) continue;
     if (first_section.empty()) first_section = section;
