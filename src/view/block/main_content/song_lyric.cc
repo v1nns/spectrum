@@ -470,7 +470,7 @@ ftxui::Element SongLyric::DrawFailure() const {
 
     case lyric::SearchResult::Status::FetchFailed:
       lines = {
-          line("Could not reach lyrics websites (network error)") | ftxui::bold,
+          line("Could not reach lyrics websites (network error or server busy)") | ftxui::bold,
           ftxui::text(""),
           line(retry_hint) | ftxui::dim,
       };

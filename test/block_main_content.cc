@@ -2462,7 +2462,8 @@ TEST_F(MainContentTest, RetryFetchSongLyricsAfterNetworkError) {
   Process(interface::CustomEvent::UpdateSongInfo(audio));
 
   std::string rendered = RenderUntilFetched();
-  EXPECT_THAT(rendered, HasSubstr("Could not reach lyrics websites (network error)"));
+  EXPECT_THAT(rendered,
+              HasSubstr("Could not reach lyrics websites (network error or server busy)"));
   EXPECT_THAT(rendered, HasSubstr("r: retry search"));
 
   // Retry search

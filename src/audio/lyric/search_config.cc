@@ -214,6 +214,38 @@ uint32_t LRCLIB::ExtractDuration(const std::string& content) const {
 
 /* ********************************************************************************************** */
 
+std::string LRCLIB::FormatVersionsUrl(const std::string& artist, const std::string& title) const {
+  return versions_url_ + "?artist_name=" + EncodeQuery(artist) +
+         "&track_name=" + EncodeQuery(title);
+}
+
+/* ********************************************************************************************** */
+
+std::string LRCLIB::ExtractClosestVersion(const std::string& content, uint32_t duration) const {
+  nlohmann::json versions = nlohmann::json::parse(content, nullptr, /*allow_exceptions=*/false);
+  if (!versions.is_array()) return std::string{};
+
+  const nlohmann::json* closest = nullptr;
+  double closest_difference = 0;
+
+  for (const auto& version : versions) {
+    if (!version.is_object() || ExtractSyncedLyrics(version.dump()).empty()) continue;
+
+    auto found = version.find("duration");
+    if (found == version.end() || !found->is_number()) continue;
+
+    double difference = std::abs(found->get<double>() - duration);
+    if (closest == nullptr || difference < closest_difference) {
+      closest = &version;
+      closest_difference = difference;
+    }
+  }
+
+  return closest != nullptr ? closest->dump() : std::string{};
+}
+
+/* ********************************************************************************************** */
+
 model::SongLyric LRCLIB::FormatLyrics(const model::SongLyric& raw) const {
   model::SongLyric lyric;
   std::string paragraph;

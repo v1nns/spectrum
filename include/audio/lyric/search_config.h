@@ -101,6 +101,28 @@ class SearchConfig {
   virtual uint32_t ExtractDuration(const std::string &content) const { return 0; }
 
   /**
+   * @brief Format URL to search for every version of the song (e.g. live recordings), used to find
+   * synced lyrics matching song duration (by default, search engine does not support it)
+   * @param artist Artist name
+   * @param title Song title
+   * @return Search URL (empty if not supported)
+   */
+  virtual std::string FormatVersionsUrl(const std::string &artist, const std::string &title) const {
+    return {};
+  }
+
+  /**
+   * @brief Pick from content fetched from versions URL the version with synced lyrics and duration
+   * closest to song duration
+   * @param content Content fetched from versions URL
+   * @param duration Song duration in seconds
+   * @return Content from version picked, to extract lyrics from it (empty if there is none)
+   */
+  virtual std::string ExtractClosestVersion(const std::string &content, uint32_t duration) const {
+    return {};
+  }
+
+  /**
    * @brief Create a configuration containing all available search engines to use it
    * @return An array of search engines
    */
@@ -166,8 +188,26 @@ class LRCLIB : public SearchConfig {
    */
   uint32_t ExtractDuration(const std::string &content) const override;
 
+  /**
+   * @brief Format URL to search for every version of the song
+   * @param artist Artist name
+   * @param title Song title
+   * @return Search URL
+   */
+  std::string FormatVersionsUrl(const std::string &artist, const std::string &title) const override;
+
+  /**
+   * @brief Pick from JSON content the version with synced lyrics and duration closest to song
+   * duration
+   * @param content Content fetched from versions URL
+   * @param duration Song duration in seconds
+   * @return JSON content from version picked (empty if there is none)
+   */
+  std::string ExtractClosestVersion(const std::string &content, uint32_t duration) const override;
+
  private:
   const std::string url_ = "https://lrclib.net/api/get";
+  const std::string versions_url_ = "https://lrclib.net/api/search";
 };
 
 /* ********************************************************************************************** */
