@@ -137,12 +137,49 @@ std::string LyricFinder::CleanTitle(const std::string& artist, const std::string
 
 /* ********************************************************************************************** */
 
-SearchResult LyricFinder::Search(const std::string& artist, const std::string& raw_title) {
+std::string LyricFinder::FirstArtist(const std::string& artist) {
+  // Everything from the first separator between artists, e.g. "A, B", "A & B", "A + B", "A x B" or
+  // "A feat. B"
+  static const std::regex kOtherArtists(
+      R"(\s*(,|&|\+|\s(x|feat\.?|ft\.|featuring|with|vs\.?)\s).*$)", std::regex::icase);
+
+  return util::trim(std::regex_replace(artist, kOtherArtists, ""));
+}
+
+/* ********************************************************************************************** */
+
+SearchResult LyricFinder::Search(const std::string& artist, const std::string& raw_title,
+                                 uint32_t duration) {
   const std::string title = CleanTitle(artist, raw_title);
   LOG("Started fetching song by artist=", artist, " title=", title, " (from ", raw_title, ")");
+
+  SearchResult result = SearchEngines(artist, title);
+
+  // Song credited to more than one artist is usually known by search engines only by the first one.
+  // But a shorter name may match another song, so duration must match too
+  if (result.status == SearchResult::Status::NotFound && duration > 0) {
+    if (std::string first = FirstArtist(artist); !first.empty() && first != artist) {
+      LOG("Retry search using only the first artist=", first, " and duration=", duration);
+      if (SearchResult retry = SearchEngines(first, title, duration);
+          retry.status == SearchResult::Status::Found) {
+        return retry;
+      }
+    }
+  }
+
+  return result;
+}
+
+/* ********************************************************************************************** */
+
+SearchResult LyricFinder::SearchEngines(const std::string& artist, const std::string& title,
+                                        uint32_t duration) {
   bool fetched_any = false;
 
   for (const auto& engine : engines_) {
+    // Search engine would not check duration, so it could find lyrics from another song
+    if (duration > 0 && !engine->ChecksDuration()) continue;
+
     // Result is discarded by owner when search is canceled, so just stop it
     if (cancel_check_ && cancel_check_()) {
       LOG("Canceled search for song lyrics");
@@ -153,7 +190,7 @@ SearchResult LyricFinder::Search(const std::string& artist, const std::string& r
     std::string buffer;
 
     // Fetch content from search engine
-    auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title), buffer);
+    auto result = fetcher_->Fetch(engine->FormatSearchUrl(artist, title, duration), buffer);
 
     // Search engine was reached, it just does not have this song
     if (result == error::kUrlNotFound) {

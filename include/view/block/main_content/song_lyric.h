@@ -157,6 +157,7 @@ class SongLyric : public TabItem {
     uint64_t id;         //!< Request identifier (results from older requests are discarded)
     std::string artist;  //!< Artist to search
     std::string title;   //!< Title to search
+    uint32_t duration;   //!< Song duration in seconds (0 if unknown)
   };
 
   bool fetching_ = false;  //!< Flag to indicate that search result was not received yet

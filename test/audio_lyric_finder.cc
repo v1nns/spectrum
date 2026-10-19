@@ -72,6 +72,11 @@ class LyricFinderTest : public ::testing::Test {
     return lyric::LyricFinder::CleanTitle(artist, title);
   }
 
+  //! Get first artist from song credits
+  static std::string FirstArtist(const std::string& artist) {
+    return lyric::LyricFinder::FirstArtist(artist);
+  }
+
  protected:
   LyricFinder finder;  //!< Song lyrics finder
 };
@@ -89,7 +94,7 @@ TEST_F(LyricFinderTest, SearchWithEmptyResult) {
   std::string artist{"Powfu"};
   std::string title{"abandoned house"};
 
-  auto result = finder->Search(artist, title);
+  auto result = finder->Search(artist, title, 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
   EXPECT_THAT(result.lyrics, Eq(model::SongLyric{}));
 }
@@ -187,7 +192,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingAZLyrics) {
       "You ain't special, everybody got problems, uh\n",
   };
 
-  auto result = finder->Search(artist, title);
+  auto result = finder->Search(artist, title, 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
@@ -218,7 +223,7 @@ TEST_F(LyricFinderTest, SearchWithResultUsingLRCLIB) {
       "And lives in a world of illusions\n",
   };
 
-  auto result = finder->Search("INZO", "Overthinker");
+  auto result = finder->Search("INZO", "Overthinker", 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
@@ -241,7 +246,7 @@ TEST_F(LyricFinderTest, SearchWithoutLyricsUsingLRCLIB) {
       .WillRepeatedly(Return(error::kSuccess));
   EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
 
-  auto result = finder->Search("Artist", "Song");
+  auto result = finder->Search("Artist", "Song", 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
   EXPECT_TRUE(result.lyrics.empty());
 }
@@ -258,7 +263,7 @@ TEST_F(LyricFinderTest, SongNotFoundOnAnyEngine) {
       .WillRepeatedly(Return(error::kUrlNotFound));
   EXPECT_CALL(*parser, Parse(_, _)).Times(0);
 
-  auto result = finder->Search("Artist", "Song");
+  auto result = finder->Search("Artist", "Song", 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
   EXPECT_TRUE(result.lyrics.empty());
 }
@@ -282,7 +287,7 @@ TEST_F(LyricFinderTest, ContentIsNotSharedBetweenEngines) {
   // Each search engine must parse only its own content
   EXPECT_CALL(*parser, Parse(StrEq(content), _)).Times(GetNumberOfHtmlEngines());
 
-  finder->Search("Artist", "Song");
+  finder->Search("Artist", "Song", 0);
 }
 
 /* ********************************************************************************************** */
@@ -302,7 +307,7 @@ TEST_F(LyricFinderTest, ErrorOnFetch) {
 
   const model::SongLyric expected{};
 
-  auto result = finder->Search(artist, title);
+  auto result = finder->Search(artist, title, 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::FetchFailed);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
@@ -326,7 +331,7 @@ TEST_F(LyricFinderTest, ErrorOnParse) {
 
   const model::SongLyric expected{};
 
-  auto result = finder->Search(artist, title);
+  auto result = finder->Search(artist, title, 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
@@ -365,7 +370,7 @@ TEST_F(LyricFinderTest, ErrorOnFormattingLyrics) {
 
   const model::SongLyric expected{};
 
-  auto result = finder->Search(artist, title);
+  auto result = finder->Search(artist, title, 0);
   EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
   EXPECT_THAT(result.lyrics, ElementsAreArray(expected));
 }
@@ -380,7 +385,7 @@ TEST_F(LyricFinderTest, CancelSearchBeforeFetching) {
 
   EXPECT_CALL(*fetcher, Fetch(_, _)).Times(0);
 
-  auto result = finder->Search("Artist", "Title");
+  auto result = finder->Search("Artist", "Title", 0);
 
   EXPECT_TRUE(result.lyrics.empty());
 }
@@ -404,7 +409,7 @@ TEST_F(LyricFinderTest, SearchWithEncodedUrls) {
               Fetch(StrEq("https://www.azlyrics.com/lyrics/elevationworship/sobeit.html"), _));
   EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
 
-  finder->Search(artist, title);
+  finder->Search(artist, title, 0);
 
   // Characters reserved in URL query must be encoded
   EXPECT_CALL(*fetcher,
@@ -415,7 +420,94 @@ TEST_F(LyricFinderTest, SearchWithEncodedUrls) {
               Fetch(StrEq("https://www.azlyrics.com/lyrics/simongarfunkel/cecilia.html"), _));
   EXPECT_CALL(*parser, Parse(_, _)).Times(GetNumberOfHtmlEngines());
 
-  finder->Search("Simon & Garfunkel", "Cecilia?");
+  finder->Search("Simon & Garfunkel", "Cecilia?", 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, RetrySearchWithFirstArtist) {
+  auto fetcher = GetFetcher();
+  auto parser = GetParser();
+  const std::string url{"https://lrclib.net/api/get?artist_name="};
+  const std::string content{R"({"plainLyrics":"Line"})"};
+
+  // Song is known by search engine only by the first artist, which must also match song duration
+  // (AZLyrics is not used to retry, as it cannot check it)
+  ::testing::InSequence sequence;
+  EXPECT_CALL(*fetcher, Fetch(StrEq(url + "Cartoon%2C+J%C3%A9ja&track_name=On+%26+On"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(::testing::EndsWith("/cartoonjeja/onon.html"), _))
+      .WillOnce(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(StrEq(url + "Cartoon&track_name=On+%26+On&duration=206"), _))
+      .WillOnce(DoAll(SetArgReferee<1>(content), Return(error::kSuccess)));
+  EXPECT_CALL(*parser, Parse(_, _)).Times(0);
+
+  auto result = finder->Search("Cartoon, J\u00e9ja", "On & On", 206);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::Found);
+  EXPECT_THAT(result.lyrics, ElementsAreArray(model::SongLyric{"Line\n"}));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, RetryWithFirstArtistDoesNotMatchDuration) {
+  auto fetcher = GetFetcher();
+  const std::string retry_url{
+      "https://lrclib.net/api/get?artist_name=Artist&track_name=Song&duration=175"};
+
+  // Lyrics with first artist are from another song (with another duration), so search engine
+  // does not find them
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly(Return(error::kUrlNotFound));
+  EXPECT_CALL(*fetcher, Fetch(StrEq(retry_url), _)).WillOnce(Return(error::kUrlNotFound));
+
+  auto result = finder->Search("Artist & Other", "Song", 175);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, NoRetryWithoutDuration) {
+  auto fetcher = GetFetcher();
+
+  // First artist could match another song, which cannot be noticed without duration
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly(Return(error::kUrlNotFound));
+
+  auto result = finder->Search("Artist, Other", "Song", 0);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::NotFound);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, NoRetryWhenSearchEnginesAreNotReached) {
+  auto fetcher = GetFetcher();
+
+  // Retrying with first artist would not reach them either
+  EXPECT_CALL(*fetcher, Fetch(_, _))
+      .Times(GetNumberOfEngines())
+      .WillRepeatedly(Return(error::kUnknownError));
+
+  auto result = finder->Search("Artist, Other", "Song", 180);
+  EXPECT_EQ(result.status, lyric::SearchResult::Status::FetchFailed);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(LyricFinderTest, FirstArtistFromCredits) {
+  // Based on artists from real videos
+  EXPECT_THAT(FirstArtist("Bob Sinclar, Kiesza"), StrEq("Bob Sinclar"));
+  EXPECT_THAT(FirstArtist("Infraction,teefnbl,Alexi Action"), StrEq("Infraction"));
+  EXPECT_THAT(FirstArtist("Michael FK & Andy Leech"), StrEq("Michael FK"));
+  EXPECT_THAT(FirstArtist("Sultan + Shepard"), StrEq("Sultan"));
+  EXPECT_THAT(FirstArtist("CYREX x QUERKY"), StrEq("CYREX"));
+  EXPECT_THAT(FirstArtist("Artist feat. Other"), StrEq("Artist"));
+
+  // Single artist is kept as it is
+  EXPECT_THAT(FirstArtist("Willix"), StrEq("Willix"));
+  EXPECT_THAT(FirstArtist("Malcolm X"), StrEq("Malcolm X"));
+  EXPECT_THAT(FirstArtist("Lynx"), StrEq("Lynx"));
 }
 
 /* ********************************************************************************************** */
@@ -435,9 +527,9 @@ TEST_F(LyricFinderTest, SearchWithArtistNameUsingAZLyrics) {
   EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "the/thisisthenight.html"), _))
       .WillOnce(Return(error::kUrlNotFound));
 
-  finder->Search("The Beatles", "Yesterday");
-  finder->Search("Theory of a Deadman", "Bad Girlfriend");
-  finder->Search("The The", "This Is the Night");
+  finder->Search("The Beatles", "Yesterday", 0);
+  finder->Search("Theory of a Deadman", "Bad Girlfriend", 0);
+  finder->Search("The The", "This Is the Night", 0);
 
   // Accented letters are replaced by plain ones, any other symbol is discarded
   EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "motorhead/aceofspades.html"), _))
@@ -447,9 +539,9 @@ TEST_F(LyricFinderTest, SearchWithArtistNameUsingAZLyrics) {
   EXPECT_CALL(*fetcher, Fetch(StrEq(base_url + "titas/epitafio.html"), _))
       .WillOnce(Return(error::kUrlNotFound));
 
-  finder->Search("Motörhead", "Ace of Spades");
-  finder->Search("Sigur Rós", "Hoppípolla");
-  finder->Search("TITÃS", "Epitáfio €");
+  finder->Search("Motörhead", "Ace of Spades", 0);
+  finder->Search("Sigur Rós", "Hoppípolla", 0);
+  finder->Search("TITÃS", "Epitáfio €", 0);
 }
 
 /* ********************************************************************************************** */

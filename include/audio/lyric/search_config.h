@@ -7,6 +7,7 @@
 #define INCLUDE_AUDIO_LYRIC_SEARCH_CONFIG_H_
 
 #include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -51,9 +52,16 @@ class SearchConfig {
    * @brief Format search URL with artist name and song title
    * @param artist Artist name
    * @param title Song title
+   * @param duration Song duration in seconds that lyrics must match (0 to not check it)
    */
-  virtual std::string FormatSearchUrl(const std::string &artist,
-                                      const std::string &title) const = 0;
+  virtual std::string FormatSearchUrl(const std::string &artist, const std::string &title,
+                                      uint32_t duration) const = 0;
+
+  /**
+   * @brief Check if search engine finds only lyrics matching song duration (when it is given)
+   * @return true if duration is checked, otherwise false
+   */
+  virtual bool ChecksDuration() const { return false; }
 
   /**
    * @brief Filter webscraping content to an expected song lyrics format
@@ -106,7 +114,11 @@ class LRCLIB : public SearchConfig {
    * @param artist Artist name
    * @param title Song title
    */
-  std::string FormatSearchUrl(const std::string &artist, const std::string &name) const override;
+  std::string FormatSearchUrl(const std::string &artist, const std::string &name,
+                              uint32_t duration) const override;
+
+  //! Lyrics are found only when duration matches the one from song (within a few seconds)
+  bool ChecksDuration() const override { return true; }
 
   /**
    * @brief Split raw song lyrics into paragraphs
@@ -152,7 +164,8 @@ class AZLyrics : public SearchConfig {
    * @param artist Artist name
    * @param title Song title
    */
-  std::string FormatSearchUrl(const std::string &artist, const std::string &name) const override;
+  std::string FormatSearchUrl(const std::string &artist, const std::string &name,
+                              uint32_t duration) const override;
 
   /**
    * @brief Filter webscraping content to an expected song lyrics format

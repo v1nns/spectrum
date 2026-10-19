@@ -90,8 +90,13 @@ Config SearchConfig::Create() {
 /*                                             LRCLIB                                             */
 /* ---------------------------------------------------------------------------------------------- */
 
-std::string LRCLIB::FormatSearchUrl(const std::string& artist, const std::string& name) const {
-  return url_ + "?artist_name=" + EncodeQuery(artist) + "&track_name=" + EncodeQuery(name);
+std::string LRCLIB::FormatSearchUrl(const std::string& artist, const std::string& name,
+                                    uint32_t duration) const {
+  std::string url =
+      url_ + "?artist_name=" + EncodeQuery(artist) + "&track_name=" + EncodeQuery(name);
+  if (duration > 0) url += "&duration=" + std::to_string(duration);
+
+  return url;
 }
 
 /* ********************************************************************************************** */
@@ -147,7 +152,8 @@ model::SongLyric LRCLIB::FormatLyrics(const model::SongLyric& raw) const {
 /*                                            AZLyrics                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-std::string AZLyrics::FormatSearchUrl(const std::string& artist, const std::string& name) const {
+std::string AZLyrics::FormatSearchUrl(const std::string& artist, const std::string& name,
+                                      uint32_t) const {
   // AZLyrics URL uses only lowercase letters and digits from artist and song name
   auto format = [](std::string_view input) {
     std::string output;

@@ -84,9 +84,11 @@ class LyricFinder {
    * @brief Search for lyrics by fetching the search engine and web scraping it
    * @param artist Artist name
    * @param title Song name
+   * @param duration Song duration in seconds (0 if unknown)
    * @return Search result, containing song lyrics (if found)
    */
-  virtual SearchResult Search(const std::string& artist, const std::string& title);
+  virtual SearchResult Search(const std::string& artist, const std::string& title,
+                              uint32_t duration);
 
   /**
    * @brief Set function to check if search in progress must be canceled (checked before each
@@ -107,6 +109,24 @@ class LyricFinder {
    * @return Song title to use in search
    */
   static std::string CleanTitle(const std::string& artist, const std::string& title);
+
+  /**
+   * @brief Get first artist from song credits, e.g. "Artist" from "Artist, Other" or "Artist & B"
+   * @param artist Artist name (may contain more than one artist)
+   * @return First artist name (same as given when it contains a single artist)
+   */
+  static std::string FirstArtist(const std::string& artist);
+
+  /**
+   * @brief Search for song lyrics on each search engine, until one of them has it
+   * @param artist Artist name
+   * @param title Song title (already cleaned)
+   * @param duration Song duration in seconds that lyrics must match, using only search engines
+   * that check it (0 to not check it, using every search engine)
+   * @return Search result
+   */
+  SearchResult SearchEngines(const std::string& artist, const std::string& title,
+                             uint32_t duration = 0);
 
   /* ******************************************************************************************** */
   //! Variables

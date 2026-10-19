@@ -165,7 +165,8 @@ void SongLyric::StartFetching() {
 
   {
     std::scoped_lock lock(mutex_);
-    pending_ = Request{.id = ++request_id_, .artist = artist_, .title = title_};
+    pending_ = Request{
+        .id = ++request_id_, .artist = artist_, .title = title_, .duration = audio_info_.duration};
     fetching_ = true;
   }
 
@@ -213,7 +214,7 @@ void SongLyric::FetchLoop() {
     lock.unlock();
 
     finder_->SetCancelCheck([this, id = request.id] { return exit_ || id != request_id_; });
-    lyric::SearchResult result = finder_->Search(request.artist, request.title);
+    lyric::SearchResult result = finder_->Search(request.artist, request.title, request.duration);
 
     lock.lock();
 

@@ -2127,8 +2127,8 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   std::string expected_title{"Midnight Tokyo"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2220,8 +2220,8 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   std::string expected_title{"Miss You"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2307,8 +2307,8 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   std::string expected_title{"Lucid Memories"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2394,7 +2394,7 @@ TEST_F(MainContentTest, RetryFetchSongLyricsAfterNetworkError) {
   auto* finder = GetFinder();
 
   // First attempt fails to reach search engines, second one finds song lyrics
-  EXPECT_CALL(*finder, Search(std::string{"southstar"}, std::string{"Miss You"}))
+  EXPECT_CALL(*finder, Search(std::string{"southstar"}, std::string{"Miss You"}, _))
       .WillOnce(Return(lyric::SearchResult{.status = lyric::SearchResult::Status::FetchFailed}))
       .WillOnce(Return(MakeSearchResult(model::SongLyric{"Miss you, miss you\n"})));
 
@@ -2422,7 +2422,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutArtistAndTitle) {
   auto* finder = GetFinder();
 
   // Without metadata and without "artist - title" pattern in filename, search is not possible
-  EXPECT_CALL(*finder, Search(_, _)).Times(0);
+  EXPECT_CALL(*finder, Search(_, _, _)).Times(0);
 
   const model::Song audio{.filepath = "/path/to/song.mp3"};
   Process(interface::CustomEvent::UpdateSongInfo(audio));
@@ -2443,13 +2443,15 @@ TEST_F(MainContentTest, FetchSongLyricsFromStream) {
 
   auto* finder = GetFinder();
 
-  // Streamed song has no filepath, artist and title come from parsing its title
-  EXPECT_CALL(*finder, Search(std::string{"Sonic Youth"}, std::string{"Kool Thing"}))
+  // Streamed song has no filepath, artist and title come from parsing its title (and duration is
+  // used to match song lyrics)
+  EXPECT_CALL(*finder, Search(std::string{"Sonic Youth"}, std::string{"Kool Thing"}, 246))
       .WillOnce(Return(MakeSearchResult(model::SongLyric{"I don't wanna, I don't think so\n"})));
 
   const model::Song audio{
       .artist = "Sonic Youth",
       .title = "Kool Thing",
+      .duration = 246,
       .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=dummy"},
   };
   Process(interface::CustomEvent::UpdateSongInfo(audio));
@@ -2467,7 +2469,7 @@ TEST_F(MainContentTest, FetchSongLyricsFromStreamWithoutArtist) {
   auto* finder = GetFinder();
 
   // Stream title was not in "artist - title" format, so only title is known
-  EXPECT_CALL(*finder, Search(_, _)).Times(0);
+  EXPECT_CALL(*finder, Search(_, _, _)).Times(0);
 
   const model::Song audio{
       .title = "so be it",
@@ -2493,10 +2495,10 @@ TEST_F(MainContentTest, FetchSongLyricsWithDifferentFilenames) {
                                         const std::string& expected_title, int times = 1) {
     if (times == 0)
       // Setup expectations before start fetching song lyrics
-      EXPECT_CALL(*finder, Search(expected_artist, expected_title)).Times(0);
+      EXPECT_CALL(*finder, Search(expected_artist, expected_title, _)).Times(0);
     else
       // Setup expectations before start fetching song lyrics
-      EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
           .WillRepeatedly(Return(lyric::SearchResult{}));
 
     // Send event to notify that song has started playing
@@ -2540,8 +2542,8 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   std::string expected_title{"Show Me"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2627,14 +2629,14 @@ TEST_F(MainContentTest, ChangeSongWhileFetchingLyrics) {
   std::shared_future<void> released = release.get_future().share();
   std::atomic<bool> first_started = false;
 
-  EXPECT_CALL(*finder, Search("Artist A", "Song A"))
-      .WillOnce(Invoke([&](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search("Artist A", "Song A", _))
+      .WillOnce(Invoke([&](const std::string&, const std::string&, uint32_t) {
         first_started = true;
         released.wait();
         return MakeSearchResult(model::SongLyric{"Lyrics from first song\n"});
       }));
 
-  EXPECT_CALL(*finder, Search("Artist B", "Song B"))
+  EXPECT_CALL(*finder, Search("Artist B", "Song B", _))
       .WillOnce(Return(MakeSearchResult(model::SongLyric{"Lyrics from second song\n"})));
 
   Process(interface::CustomEvent::UpdateSongInfo(
@@ -2680,8 +2682,8 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   std::string expected_title{"Innerbloom"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2866,8 +2868,8 @@ TEST_F(MainContentTest, MouseWheelOnSongLyrics) {
   auto finder = GetFinder();
 
   // More lines than the ones that fit on screen
-  EXPECT_CALL(*finder, Search(_, _))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(_, _, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         return MakeSearchResult(model::SongLyric{
             "First 1\nFirst 2\nFirst 3\nFirst 4\nFirst 5\n",
             "Second 1\nSecond 2\nSecond 3\nSecond 4\nSecond 5\n",
@@ -2931,8 +2933,8 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
   std::string expected_title{"Rich Girls"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
