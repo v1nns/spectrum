@@ -2843,8 +2843,17 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 
-  // Scroll lyrics
+  // First key already scrolls lyrics (instead of moving focus only on lines already visible)
   block->OnEvent(ftxui::Event::ArrowDown);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+  EXPECT_THAT(rendered, Not(HasSubstr("Feels like I'm waiting")));
+  EXPECT_THAT(rendered, HasSubstr("Feels like I'm dreaming"));
+
+  // Scroll lyrics
   block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Character('j'));
@@ -2858,19 +2867,19 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
-│                                 Feels like I'm dreaming                                     │
-│                                 Like I'm walking                                            │
-│                                 Walking by your side                                        │
-│                                 Keeps on repeating                                         ┃│
-│                                 Repeating                                                  ┃│
-│                                                                                            ┃│
-│                                 So free my mind                                            ┃│
+│                                 So free my mind                                             │
 │                                 All the talking                                             │
 │                                 Wasting all your time                                       │
 │                                 I'm giving all                                              │
-│                                 That I've got                                               │
+│                                 That I've got                                              ╻│
+│                                                                                            ┃│
+│                                 If you want me                                             ┃│
+│                                 If you need me                                             ┃│
+│                                 I'm yours                                                  ╹│
 │                                                                                             │
 │                                 If you want me                                              │
+│                                 If you need me                                              │
+│                                 I'm yours                                                   │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));

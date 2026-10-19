@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <mutex>
 #include <iomanip>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -96,7 +96,8 @@ ftxui::Element SongLyric::Render() {
     return DrawFailure();
   }
 
-  content = synced_.empty() ? DrawSongLyrics(lyrics_) : DrawSyncedLyrics();
+  content =
+      (synced_.empty() ? DrawSongLyrics(lyrics_) : DrawSyncedLyrics()) | ftxui::reflect(lyric_box_);
 
   // Offset applied on synced song lyrics stays visible on the upper-right corner, in a row above
   // them (bold right after it changes, which also shows it going back to zero)
@@ -171,13 +172,20 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
 
   int old_focus = focused_;
 
-  // Calculate new index based on upper bound
-  if (event == Keybind::ArrowUp || event == Keybind::Up) {
-    focused_ = focused_ - (focused_ > 0 ? 1 : 0);
+  // Song lyrics keep focused row centered, except near the edges, where focus moves without
+  // scrolling them. So move from row on the center of view, to scroll them on every key
+  const int height = lyric_box_.y_max - lyric_box_.y_min;
+  const int max_scroll = std::max(0, GetRow(last + 1) - height - 1);
+  const int center = std::clamp(GetRow(focused_) - height / 2, 0, max_scroll) + height / 2;
+
+  if ((event == Keybind::ArrowUp || event == Keybind::Up) && focused_ > 0) {
+    focused_--;
+    while (focused_ > 0 && GetRow(focused_) >= center) focused_--;
   }
 
-  if (event == Keybind::ArrowDown || event == Keybind::Down) {
-    focused_ = focused_ + (focused_ < last ? 1 : 0);
+  if ((event == Keybind::ArrowDown || event == Keybind::Down) && focused_ < last) {
+    focused_++;
+    while (focused_ < last && GetRow(focused_) <= center) focused_++;
   }
 
   if (event == Keybind::Home) {
@@ -189,6 +197,23 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
   }
 
   return focused_ != old_focus || stop_following;
+}
+
+/* ********************************************************************************************** */
+
+int SongLyric::GetRow(int index) const {
+  if (!synced_.empty()) return index;
+
+  // Each paragraph takes its lines (last one may not end with a line break), plus a line separator
+  int row = 0;
+  for (int i = 0; i < index && i < static_cast<int>(lyrics_.size()); i++) {
+    const std::string& paragraph = lyrics_[i];
+    const bool unterminated = !paragraph.empty() && paragraph.back() != '\n';
+    row +=
+        static_cast<int>(std::count(paragraph.begin(), paragraph.end(), '\n')) + unterminated + 1;
+  }
+
+  return row;
 }
 
 /* ********************************************************************************************** */

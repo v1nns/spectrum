@@ -167,6 +167,13 @@ class SongLyric : public TabItem {
   [[nodiscard]] std::string FormatOffset() const;
 
   /**
+   * @brief Get row where paragraph (or line, if synced) from song lyrics is rendered
+   * @param index Index for paragraph (or line, if synced), size from song lyrics gives total rows
+   * @return Row number, starting from zero
+   */
+  [[nodiscard]] int GetRow(int index) const;
+
+  /**
    * @brief Check if song lyrics contain anything to render
    * @return true if there are plain or synced song lyrics, otherwise false
    */
@@ -190,8 +197,9 @@ class SongLyric : public TabItem {
   std::string title_;   //!< Title used to search for song lyrics
 
   std::optional<lyric::SearchResult::Status> status_;  //!< Outcome from last search
-  int focused_ = 0;  //!< Index for paragraph (or line, if synced) focused from song lyric
-  ftxui::Box box_;   //!< Box to control if mouse cursor is over song lyric
+  int focused_ = 0;       //!< Index for paragraph (or line, if synced) focused from song lyric
+  ftxui::Box box_;        //!< Box to control if mouse cursor is over song lyric
+  ftxui::Box lyric_box_;  //!< Box with song lyrics (without offset), to know how many rows fit
 
   std::unique_ptr<lyric::LyricFinder> finder_ = lyric::LyricFinder::Create();  //!< Lyric finder
 
