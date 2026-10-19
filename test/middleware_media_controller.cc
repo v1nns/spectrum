@@ -1454,13 +1454,22 @@ TEST_F(TerminalTest, ResizeRecalculatesNumberOfBars) {
 
 TEST_F(TerminalTest, NumberOfBarsDependsOnAnimation) {
   using interface::CustomEvent;
+  using ::testing::_;
 
-  terminal->ProcessEvent(CustomEvent::ChangeBarAnimation(model::BarAnimation::HorizontalMirror));
+  // Create terminal restoring animation from last run (which is kept by spectrum visualizer)
+  auto restore = [this](model::BarAnimation animation) {
+    ON_CALL(*file_handler, ParseSettings(_))
+        .WillByDefault(::testing::DoAll(
+            ::testing::SetArgReferee<0>(model::Settings{.animation = animation}),
+            ::testing::Return(true)));
+    CreateTerminal();
+  };
+
+  restore(model::BarAnimation::HorizontalMirror);
   const int spaced = terminal->CalculateNumberBars();
 
   // Without space between bars, more of them fit in the same width
-  terminal->ProcessEvent(
-      CustomEvent::ChangeBarAnimation(model::BarAnimation::HorizontalMirrorNoSpace));
+  restore(model::BarAnimation::HorizontalMirrorNoSpace);
   const int not_spaced = terminal->CalculateNumberBars();
 
   EXPECT_GT(not_spaced, spaced);
@@ -1469,8 +1478,10 @@ TEST_F(TerminalTest, NumberOfBarsDependsOnAnimation) {
   terminal->ProcessEvent(CustomEvent::UpdateBarWidth());
   EXPECT_EQ(terminal->CalculateNumberBars(), not_spaced);
 
-  // Given by parameter, it replaces the last one
-  EXPECT_EQ(terminal->CalculateNumberBars(model::BarAnimation::HorizontalMirror), spaced);
+  // Animation drawing each channel across the whole width needs twice as many bars right from the
+  // start (without any resize or animation change)
+  restore(model::BarAnimation::VerticalMirror);
+  EXPECT_EQ(terminal->CalculateNumberBars(), spaced * 2);
 }
 
 /* ********************************************************************************************** */

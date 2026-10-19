@@ -177,6 +177,13 @@ int MainContent::GetBarWidth() {
 
 /* ********************************************************************************************** */
 
+model::BarAnimation MainContent::GetAnimation() {
+  auto visualizer = static_cast<SpectrumVisualizer*>(tab_elem_[View::Visualizer].get());
+  return visualizer->GetAnimation();
+}
+
+/* ********************************************************************************************** */
+
 bool MainContent::OnPickerMouseEvent(ftxui::Event event) {
   // Picker is the only thing from visualizer that handles mouse
   return tab_elem_.active() == View::Visualizer && visualizer_->OnMouseEvent(event);

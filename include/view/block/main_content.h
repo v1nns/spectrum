@@ -93,6 +93,12 @@ class MainContent : public Block {
   int GetBarWidth();
 
   /**
+   * @brief Get current bar animation from spectrum visualizer (used for Terminal calculation)
+   * @return Bar animation identifier
+   */
+  model::BarAnimation GetAnimation();
+
+  /**
    * @brief Handle mouse event on animation picker (while it is open), which must be done before
    * any other block, as a click anywhere outside of picker closes it
    * @param event Received event from screen
