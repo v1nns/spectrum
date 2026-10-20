@@ -697,6 +697,20 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 void Terminal::SendEvent(const CustomEvent& event) {
   sender_->Send(event);
 
+  // While playing, song position is sent many times per second (e.g. for synced lyrics), but
+  // spectrum visualizer also refreshes screen that often, so position is shown on its next frame.
+  // Refreshing screen for it too would take the time that terminal needs to render those frames
+  if (event == CustomEvent::Identifier::UpdateSongState) {
+    const auto state = event.GetContent<model::Song::CurrentInformation>();
+    const bool same_second = refreshed_song_state_ &&
+                             refreshed_song_state_->state == model::Song::MediaState::Play &&
+                             state.state == model::Song::MediaState::Play &&
+                             refreshed_song_state_->position == state.position;
+
+    if (same_second) return;
+    refreshed_song_state_ = state;
+  }
+
   // Callback is registered only after UI is created, so any event sent before it (e.g. warning
   // while listing initial directory) is handled when callback gets registered
   if (cb_send_event_) cb_send_event_(ftxui::Event::Custom);  // force a refresh

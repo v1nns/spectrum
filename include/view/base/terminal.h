@@ -8,6 +8,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@
 #include "middleware/media_controller.h"
 #include "model/application_error.h"
 #include "model/block_identifier.h"
+#include "model/song.h"
 #include "util/file_handler.h"
 #include "view/base/block.h"
 #include "view/base/custom_event.h"
@@ -282,6 +284,9 @@ class Terminal : public EventDispatcher, public ftxui::ComponentBase {
   ftxui::Sender<CustomEvent> sender_ = receiver_->MakeSender();  //! Custom event sender
 
   EventCallback cb_send_event_;  //!< Function to send custom events to terminal interface
+
+  //! Last song state that refreshed screen (used only by audio thread, the one sending it)
+  std::optional<model::Song::CurrentInformation> refreshed_song_state_;
   Callback cb_exit_;             //!< Function to exit from graphical interface
 
   //! Function to get terminal maximum size
