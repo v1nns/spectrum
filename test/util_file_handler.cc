@@ -503,6 +503,33 @@ TEST(ProcessTest, RunProcessAndCaptureOutput) {
 
 /* ********************************************************************************************** */
 
+TEST(ProcessTest, StartProcessWithoutWaiting) {
+  constexpr std::chrono::seconds kTimeout{5};
+  constexpr std::chrono::milliseconds kCheckInterval{20};
+
+  const auto file = std::filesystem::temp_directory_path() / "spectrum_start_process_test";
+  std::filesystem::remove(file);
+
+  // Returns right away, while program is still running (it writes to file only after a while)
+  const auto start = std::chrono::steady_clock::now();
+  ASSERT_TRUE(util::StartProcess({"sh", "-c", "sleep 0.2; echo started > \"$0\"", file.string()}));
+  EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(150));
+  EXPECT_FALSE(std::filesystem::exists(file));
+
+  while (!std::filesystem::exists(file) && std::chrono::steady_clock::now() - start < kTimeout) {
+    std::this_thread::sleep_for(kCheckInterval);
+  }
+
+  EXPECT_TRUE(std::filesystem::exists(file));
+  std::filesystem::remove(file);
+
+  // Program that cannot be started
+  EXPECT_FALSE(util::StartProcess({"spectrum-program-that-does-not-exist"}));
+  EXPECT_FALSE(util::StartProcess({}));
+}
+
+/* ********************************************************************************************** */
+
 TEST(ProcessTest, KillProcessAfterTimeout) {
   auto result = util::RunProcess({"sh", "-c", "sleep 5"}, std::chrono::milliseconds{100});
 

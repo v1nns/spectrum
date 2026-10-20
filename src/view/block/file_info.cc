@@ -1,13 +1,16 @@
 #include "view/block/file_info.h"
 
+#include <iomanip>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
 #include "util/formatter.h"
 #include "util/logger.h"
+#include "util/process.h"
 #include "view/base/event_dispatcher.h"
 #include "view/base/keybinding.h"
 #include "view/element/style.h"
@@ -19,6 +22,9 @@ namespace {
 
 //! Separator between values shown on the same line
 constexpr std::string_view kSeparator = " · ";
+
+//! Program used to open URL from streamed song (with the default browser)
+constexpr char kUrlOpener[] = "xdg-open";
 
 //! Get user-friendly text for number of channels
 std::string ChannelsToString(uint16_t channels) {
@@ -39,9 +45,14 @@ std::string ChannelsToString(uint16_t channels) {
 
 /* ********************************************************************************************** */
 
-FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher)
+FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher, UrlOpener opener)
     : Block{dispatcher, model::BlockIdentifier::FileInfo,
-            interface::Size{.width = 0, .height = kMaxRows}} {
+            interface::Size{.width = 0, .height = kMaxRows}},
+      url_opener_{std::move(opener)} {
+  if (!url_opener_) {
+    url_opener_ = [](const std::string& url) { return util::StartProcess({kUrlOpener, url}); };
+  }
+
   // Fill with default content
   ParseAudioInfo(model::Song{});
   ParseAudioOutput(std::nullopt);
@@ -82,9 +93,17 @@ ftxui::Element FileInfo::Render() {
     const int width = kMaxColumns - kFieldColumns;
 
     for (const auto& [field, value] : entries) {
+      ftxui::Element content = ftxui::text(ellipsize(value, width)) | ftxui::color(theme.value);
+
+      // URL is opened when clicked, so it looks like a link
+      if (field == kFieldUrl && !url_.empty()) {
+        content = content | ftxui::underlined | ftxui::reflect(url_box_);
+        if (is_url_hovered_) content = content | ftxui::bold;
+      }
+
       lines.push_back(ftxui::hbox({
           ftxui::text(field) | ftxui::size(WIDTH, EQUAL, kFieldColumns) | ftxui::color(theme.field),
-          ftxui::text(ellipsize(value, width)) | ftxui::color(theme.value),
+          content,
       }));
     }
   }
@@ -97,7 +116,12 @@ ftxui::Element FileInfo::Render() {
 
 /* ********************************************************************************************** */
 
-bool FileInfo::OnEvent(ftxui::Event event) { return event.is_mouse() && OnTitleMouseEvent(event); }
+bool FileInfo::OnEvent(ftxui::Event event) {
+  if (!event.is_mouse()) return false;
+  if (OnUrlMouseEvent(event)) return true;
+
+  return OnTitleMouseEvent(event);
+}
 
 /* ********************************************************************************************** */
 
@@ -132,6 +156,8 @@ void FileInfo::ParseAudioInfo(const model::Song& audio) {
   title_.clear();
   artist_.clear();
   audio_info_.clear();
+  url_.clear();
+  is_url_hovered_ = false;
 
   has_song_info_ = !audio.IsEmpty();
   if (!has_song_info_) return;
@@ -141,6 +167,7 @@ void FileInfo::ParseAudioInfo(const model::Song& audio) {
   const std::string source =
       is_stream ? audio.stream_info->base_url : audio.filepath.filename().string();
 
+  if (is_stream) url_ = source;
   title_ = !audio.title.empty() ? audio.title : source;
   artist_ = !audio.artist.empty() ? audio.artist : std::string{kUnknownArtist};
 
@@ -161,7 +188,7 @@ void FileInfo::ParseAudioInfo(const model::Song& audio) {
   }
 
   audio_info_ = {
-      {is_stream ? "url" : "file", source},
+      {is_stream ? std::string{kFieldUrl} : "file", source},
       {"format", !format.empty() ? format : std::string{kUnknown}},
       {"bitrate", audio.bit_rate > 0 ? util::format_with_prefix(audio.bit_rate, "bps")
                                      : std::string{kUnknown}},
@@ -183,6 +210,30 @@ void FileInfo::ParseAudioOutput(const std::optional<model::AudioOutput>& output)
       {"output", format},
       {"device", output ? output->device : std::string{kUnknown}},
   };
+}
+
+/* ********************************************************************************************** */
+
+bool FileInfo::OnUrlMouseEvent(ftxui::Event& event) {
+  const auto& mouse = event.mouse();
+  is_url_hovered_ = !url_.empty() && url_box_.Contain(mouse.x, mouse.y);
+
+  if (!is_url_hovered_ || mouse.button != ftxui::Mouse::Left ||
+      mouse.motion != ftxui::Mouse::Released)
+    return false;
+
+  INFO("Open URL=", std::quoted(url_));
+  if (url_opener_(url_)) return true;
+
+  ERROR("Cannot open URL using program=", kUrlOpener);
+
+  // Shown briefly by media player, without interrupting user
+  if (auto dispatcher = GetDispatcher(); dispatcher) {
+    dispatcher->SendEvent(CustomEvent::ShowWarning("Cannot open URL (is " +
+                                                   std::string{kUrlOpener} + " installed?)"));
+  }
+
+  return true;
 }
 
 }  // namespace interface

@@ -44,5 +44,13 @@ std::optional<ProcessResult> RunProcess(const std::vector<std::string>& args,
                                         std::chrono::milliseconds timeout,
                                         const std::atomic<bool>* cancel = nullptr);
 
+/**
+ * @brief Start an external program without waiting for it (it does not write anything to terminal,
+ * and keeps running after this application exits)
+ * @param args Program name (searched in PATH) followed by its arguments
+ * @return true if program was started, otherwise false
+ */
+bool StartProcess(const std::vector<std::string>& args);
+
 }  // namespace util
 #endif  // INCLUDE_UTIL_PROCESS_H_
