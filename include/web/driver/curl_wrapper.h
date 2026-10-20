@@ -38,6 +38,8 @@ class CURLWrapper : public web::UrlFetcher {
   static constexpr long kHttpSuccessFirst = 200;  //!< First HTTP status code meaning success
   static constexpr long kHttpSuccessLast = 299;   //!< Last HTTP status code meaning success
   static constexpr long kHttpNotFound = 404;      //!< HTTP status code for content not found
+  static constexpr long kHttpTooManyRequests = 429;   //!< HTTP status code for rate limiting
+  static constexpr long kHttpServerErrorFirst = 500;  //!< First HTTP status code for server errors
 
  public:
   /**

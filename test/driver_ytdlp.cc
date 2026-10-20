@@ -174,6 +174,81 @@ TEST_F(YtDlpWrapperTest, ArtistFromVideoTitle) {
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpWrapperTest, ArtistFromVideoTitleWithOtherSeparators) {
+  // Based on titles from real videos, split by the first separator surrounded by spaces
+  auto song = FillArtistAndTitle("JuNera Vision \u2013 Deep Inside The Night", "");
+  EXPECT_THAT(song.artist, StrEq("JuNera Vision"));
+  EXPECT_THAT(song.title, StrEq("Deep Inside The Night"));
+
+  song = FillArtistAndTitle("Dust & Paradise \u2022 The Pain of Loving You", "");
+  EXPECT_THAT(song.artist, StrEq("Dust & Paradise"));
+  EXPECT_THAT(song.title, StrEq("The Pain of Loving You"));
+
+  // Title with more sections is kept (as they are cleaned when searching for lyrics)
+  song = FillArtistAndTitle(
+      "Cartoon, J\u00e9ja - On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free",
+      R"({"uploader": "NoCopyrightSounds"})");
+  EXPECT_THAT(song.artist, StrEq("Cartoon, J\u00e9ja"));
+  EXPECT_THAT(song.title,
+              StrEq("On & On (feat. Daniel Levi) | Electronic Pop | NCS - Copyright Free"));
+
+  // Hyphens without spaces are part of names
+  song = FillArtistAndTitle("Abel York - LOVE ME AGAIN | Official Video | Melodic-Techno", "");
+  EXPECT_THAT(song.artist, StrEq("Abel York"));
+  EXPECT_THAT(song.title, StrEq("LOVE ME AGAIN | Official Video | Melodic-Techno"));
+
+  song = FillArtistAndTitle("Jay-Z - Song - Remastered 2011", "");
+  EXPECT_THAT(song.artist, StrEq("Jay-Z"));
+  EXPECT_THAT(song.title, StrEq("Song - Remastered 2011"));
+
+  // Artist is never after a section
+  song = FillArtistAndTitle("Song | Official Video | Artist - Live", R"({"uploader": "Artist"})");
+  EXPECT_THAT(song.artist, StrEq("Artist"));
+  EXPECT_THAT(song.title, StrEq("Song | Official Video | Artist - Live"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, SongNameBeforeArtistInVideoTitle) {
+  // Song name is the one in quotes
+  auto song = FillArtistAndTitle(R"("Dreamstate" - Phutureprimitive & Orenda)", "");
+  EXPECT_THAT(song.artist, StrEq("Phutureprimitive & Orenda"));
+  EXPECT_THAT(song.title, StrEq("Dreamstate"));
+
+  song = FillArtistAndTitle("Artist - \u201cSong\u201d", "");
+  EXPECT_THAT(song.artist, StrEq("Artist"));
+  EXPECT_THAT(song.title, StrEq("Song"));
+
+  // Or the one that is not the uploader
+  song = FillArtistAndTitle("Hold Me Down - Giulio Cercato",
+                            R"({"uploader": "Giulio Cercato - Topic", "channel": null})");
+  EXPECT_THAT(song.artist, StrEq("Giulio Cercato"));
+  EXPECT_THAT(song.title, StrEq("Hold Me Down"));
+
+  // Nothing changes when both (or none) are the uploader
+  song =
+      FillArtistAndTitle("Clipse - So Be It", R"({"uploader": "Clipse", "channel": "So Be It"})");
+  EXPECT_THAT(song.artist, StrEq("Clipse"));
+  EXPECT_THAT(song.title, StrEq("So Be It"));
+
+  song = FillArtistAndTitle("Clipse - So Be It", R"({"uploader": "Someone"})");
+  EXPECT_THAT(song.artist, StrEq("Clipse"));
+  EXPECT_THAT(song.title, StrEq("So Be It"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ArtistFromUploaderWithoutSuffix) {
+  // Suffix added by YouTube is not part of artist name
+  auto song = FillArtistAndTitle("three", R"({"artist": null, "uploader": "Cult Member - Topic"})");
+  EXPECT_THAT(song.artist, StrEq("Cult Member"));
+
+  song = FillArtistAndTitle("Song", R"({"uploader": "ArtistVEVO"})");
+  EXPECT_THAT(song.artist, StrEq("Artist"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(YtDlpWrapperTest, ArtistFromMetadataWhenVideoTitleHasNone) {
   const std::string title{"SO BE IT | Elevation Worship (feat. Tiffany Hudson & Chris Brown)"};
 

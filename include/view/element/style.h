@@ -160,6 +160,7 @@ struct Theme {
   //! Song lyric
   struct Lyric {
     Color text;
+    Color highlight;  //!< Line being sung (synced lyrics)
   };
 
   Lyric lyric;  //!< Colors for song lyric

@@ -244,6 +244,7 @@ Theme MakeTheme(const Palette& p) {
   };
 
   theme.lyric.text = p.text;
+  theme.lyric.highlight = p.accent;
 
   theme.player = Theme::Player{
       .text = p.text,

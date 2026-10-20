@@ -115,6 +115,12 @@ class Playback {
    * @return uint32_t Period size
    */
   virtual uint32_t GetPeriodSize() const = 0;
+
+  /**
+   * @brief Get number of frames written to playback stream that were not played yet
+   * @return uint32_t Number of frames (0 if unknown, e.g. stream is not running)
+   */
+  virtual uint32_t GetDelay() const = 0;
 };
 
 }  // namespace audio

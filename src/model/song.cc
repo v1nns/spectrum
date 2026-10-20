@@ -9,7 +9,8 @@
 namespace model {
 
 bool operator==(const Song::CurrentInformation& lhs, const Song::CurrentInformation& rhs) {
-  return std::tie(lhs.state, lhs.position) == std::tie(rhs.state, rhs.position);
+  return std::tie(lhs.state, lhs.position, lhs.position_ms) ==
+         std::tie(rhs.state, rhs.position, rhs.position_ms);
 }
 
 /* ********************************************************************************************** */
@@ -65,7 +66,7 @@ std::ostream& operator<<(std::ostream& out, const Song::MediaState& state) {
 //! Song::CurrentInformation pretty print
 std::ostream& operator<<(std::ostream& out, const Song::CurrentInformation& info) {
   out << "{state:\"" << info.state << "\"";
-  out << ", position:" << info.position << "}";
+  out << ", position:" << info.position << ", position_ms:" << info.position_ms << "}";
   return out;
 }
 

@@ -408,6 +408,22 @@ error::Code Alsa::Stop() {
 
 /* ********************************************************************************************** */
 
+uint32_t Alsa::GetDelay() const {
+  // Delay is only meaningful while stream is playing (e.g. pause discards every frame queued)
+  if (!playback_handle_ || snd_pcm_state(playback_handle_.get()) != SND_PCM_STATE_RUNNING) {
+    return 0;
+  }
+
+  snd_pcm_sframes_t frames = 0;
+
+  // Delay may be negative on underrun
+  if (snd_pcm_delay(playback_handle_.get(), &frames) < 0 || frames < 0) return 0;
+
+  return static_cast<uint32_t>(frames);
+}
+
+/* ********************************************************************************************** */
+
 error::Code Alsa::AudioCallback(void* buffer, int size) {
   // There is no playback stream when output device could not be opened
   if (!playback_handle_) return error::kPlaybackFailed;

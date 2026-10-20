@@ -113,6 +113,13 @@ class Alsa final : public audio::Playback {
    */
   uint32_t GetPeriodSize() const override { return (uint32_t)period_size_; }
 
+  /**
+   * @brief Get number of frames written to playback stream that were not played yet (including
+   * latency from sound server, when ALSA is routed to one)
+   * @return uint32_t Number of frames (0 if unknown, e.g. stream is not running)
+   */
+  uint32_t GetDelay() const override;
+
   /* ******************************************************************************************** */
   //! Utility
  private:

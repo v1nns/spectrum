@@ -245,17 +245,12 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
     return true;
   }
 
-  // Calculate new number of bars based on current animation
+  // Number of bars was already calculated by Terminal based on current animation
   if (event == CustomEvent::Identifier::CalculateNumberOfBars) {
     auto dispatcher = dispatcher_.lock();
     if (!dispatcher) return false;
 
     int number_bars = event.GetContent<int>();
-
-    // To fill entire screen, multiply value by 2
-    if (model::IsAnimationFullWidthPerChannel(curr_anim_)) {
-      number_bars *= 2;
-    }
 
     auto event_resize = CustomEvent::ResizeAnalysis(number_bars);
     dispatcher->SendEvent(event_resize);

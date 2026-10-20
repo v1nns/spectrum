@@ -22,6 +22,7 @@
 #include "mock/lyric_finder_mock.h"
 #include "model/bar_animation.h"
 #include "model/song.h"
+#include "util/formatter.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/audio_equalizer.h"
 #include "view/block/main_content/song_lyric.h"
@@ -37,6 +38,7 @@ using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
+using ::testing::IsEmpty;
 using ::testing::NiceMock;
 using ::testing::Not;
 using ::testing::Optional;
@@ -179,6 +181,76 @@ class MainContentTest : public ::BlockTest {
     }
 
     return rendered;
+  }
+
+  //! Getter for SongLyric tab item
+  auto GetSongLyric() -> interface::SongLyric* {
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
+    return static_cast<interface::SongLyric*>(
+        main_tab->tab_elem_[interface::MainContent::View::Lyric].get());
+  }
+
+  //! Check if song lyric is following line being sung from synced song lyrics
+  bool IsFollowingLyric() { return GetSongLyric()->follow_; }
+
+  //! Getter for index of line being sung from synced song lyrics
+  int GetCurrentLyricLine() { return GetSongLyric()->current_; }
+
+  //! Getter for offset (in milliseconds) applied on synced song lyrics
+  int32_t GetLyricOffset() { return GetSongLyric()->offset_ms_; }
+
+  //! Hide message from song lyric tab, as if it expired
+  void HideLyricMessage() { GetSongLyric()->message_.Hide(); }
+
+  //! Get the rendered row containing the given text (empty if there is none)
+  static std::string RenderedRowWith(const std::string& rendered, const std::string& text) {
+    std::istringstream rows(rendered);
+    for (std::string row; std::getline(rows, row);) {
+      if (row.find(text) != std::string::npos) return row;
+    }
+    return std::string{};
+  }
+
+  //! Render block and return the line highlighted from synced song lyrics (empty if none visible)
+  std::string RenderHighlightedLine() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+
+    // Skip borders, as tab title from active tab is also bold
+    for (int y = 1; y < screen->dimy() - 1; y++) {
+      std::string line;
+
+      for (int x = 1; x < screen->dimx() - 1; x++) {
+        if (const auto& pixel = screen->PixelAt(x, y); pixel.bold) line += pixel.character;
+      }
+
+      if (!util::trim(line).empty()) return util::trim(line);
+    }
+
+    return std::string{};
+  }
+
+  //! Send event with current song position (in milliseconds)
+  void UpdateSongPosition(uint32_t position_ms) {
+    Process(interface::CustomEvent::UpdateSongState(
+        model::Song::CurrentInformation{.state = model::Song::MediaState::Play,
+                                        .position = position_ms / 1000,
+                                        .position_ms = position_ms}));
+  }
+
+  //! Setup lyric finder to return synced song lyrics with lines "Line 1" to "Line 20", where
+  //! "Line N" starts at N * 2 seconds, and start fetching them
+  void FetchSyncedSongLyrics() {
+    model::SyncedLyric synced;
+    for (uint32_t i = 1; i <= 20; i++) synced.push_back({i * 2000, "Line " + std::to_string(i)});
+
+    EXPECT_CALL(*GetFinder(), Search(_, _, _))
+        .WillOnce(Return(lyric::SearchResult{.status = lyric::SearchResult::Status::Found,
+                                             .lyrics = {"Plain lyrics\n"},
+                                             .synced = synced}));
+
+    Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+        .filepath = "/path/to/song.mp3", .artist = "Artist", .title = "Song", .duration = 60}));
   }
 
   static constexpr int kNumberBars = 30;  //!< Number of bars for visualizer tab view
@@ -2127,8 +2199,8 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   std::string expected_title{"Midnight Tokyo"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2220,8 +2292,8 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   std::string expected_title{"Miss You"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2307,8 +2379,8 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   std::string expected_title{"Lucid Memories"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2394,7 +2466,7 @@ TEST_F(MainContentTest, RetryFetchSongLyricsAfterNetworkError) {
   auto* finder = GetFinder();
 
   // First attempt fails to reach search engines, second one finds song lyrics
-  EXPECT_CALL(*finder, Search(std::string{"southstar"}, std::string{"Miss You"}))
+  EXPECT_CALL(*finder, Search(std::string{"southstar"}, std::string{"Miss You"}, _))
       .WillOnce(Return(lyric::SearchResult{.status = lyric::SearchResult::Status::FetchFailed}))
       .WillOnce(Return(MakeSearchResult(model::SongLyric{"Miss you, miss you\n"})));
 
@@ -2403,7 +2475,8 @@ TEST_F(MainContentTest, RetryFetchSongLyricsAfterNetworkError) {
   Process(interface::CustomEvent::UpdateSongInfo(audio));
 
   std::string rendered = RenderUntilFetched();
-  EXPECT_THAT(rendered, HasSubstr("Could not reach lyrics websites (network error)"));
+  EXPECT_THAT(rendered,
+              HasSubstr("Could not reach lyrics websites (network error or server busy)"));
   EXPECT_THAT(rendered, HasSubstr("r: retry search"));
 
   // Retry search
@@ -2422,7 +2495,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutArtistAndTitle) {
   auto* finder = GetFinder();
 
   // Without metadata and without "artist - title" pattern in filename, search is not possible
-  EXPECT_CALL(*finder, Search(_, _)).Times(0);
+  EXPECT_CALL(*finder, Search(_, _, _)).Times(0);
 
   const model::Song audio{.filepath = "/path/to/song.mp3"};
   Process(interface::CustomEvent::UpdateSongInfo(audio));
@@ -2443,13 +2516,15 @@ TEST_F(MainContentTest, FetchSongLyricsFromStream) {
 
   auto* finder = GetFinder();
 
-  // Streamed song has no filepath, artist and title come from parsing its title
-  EXPECT_CALL(*finder, Search(std::string{"Sonic Youth"}, std::string{"Kool Thing"}))
+  // Streamed song has no filepath, artist and title come from parsing its title (and duration is
+  // used to match song lyrics)
+  EXPECT_CALL(*finder, Search(std::string{"Sonic Youth"}, std::string{"Kool Thing"}, 246))
       .WillOnce(Return(MakeSearchResult(model::SongLyric{"I don't wanna, I don't think so\n"})));
 
   const model::Song audio{
       .artist = "Sonic Youth",
       .title = "Kool Thing",
+      .duration = 246,
       .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=dummy"},
   };
   Process(interface::CustomEvent::UpdateSongInfo(audio));
@@ -2467,7 +2542,7 @@ TEST_F(MainContentTest, FetchSongLyricsFromStreamWithoutArtist) {
   auto* finder = GetFinder();
 
   // Stream title was not in "artist - title" format, so only title is known
-  EXPECT_CALL(*finder, Search(_, _)).Times(0);
+  EXPECT_CALL(*finder, Search(_, _, _)).Times(0);
 
   const model::Song audio{
       .title = "so be it",
@@ -2493,10 +2568,10 @@ TEST_F(MainContentTest, FetchSongLyricsWithDifferentFilenames) {
                                         const std::string& expected_title, int times = 1) {
     if (times == 0)
       // Setup expectations before start fetching song lyrics
-      EXPECT_CALL(*finder, Search(expected_artist, expected_title)).Times(0);
+      EXPECT_CALL(*finder, Search(expected_artist, expected_title, _)).Times(0);
     else
       // Setup expectations before start fetching song lyrics
-      EXPECT_CALL(*finder, Search(expected_artist, expected_title))
+      EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
           .WillRepeatedly(Return(lyric::SearchResult{}));
 
     // Send event to notify that song has started playing
@@ -2540,8 +2615,8 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   std::string expected_title{"Show Me"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2627,14 +2702,14 @@ TEST_F(MainContentTest, ChangeSongWhileFetchingLyrics) {
   std::shared_future<void> released = release.get_future().share();
   std::atomic<bool> first_started = false;
 
-  EXPECT_CALL(*finder, Search("Artist A", "Song A"))
-      .WillOnce(Invoke([&](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search("Artist A", "Song A", _))
+      .WillOnce(Invoke([&](const std::string&, const std::string&, uint32_t) {
         first_started = true;
         released.wait();
         return MakeSearchResult(model::SongLyric{"Lyrics from first song\n"});
       }));
 
-  EXPECT_CALL(*finder, Search("Artist B", "Song B"))
+  EXPECT_CALL(*finder, Search("Artist B", "Song B", _))
       .WillOnce(Return(MakeSearchResult(model::SongLyric{"Lyrics from second song\n"})));
 
   Process(interface::CustomEvent::UpdateSongInfo(
@@ -2680,8 +2755,8 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   std::string expected_title{"Innerbloom"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2768,8 +2843,17 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 
-  // Scroll lyrics
+  // First key already scrolls lyrics (instead of moving focus only on lines already visible)
   block->OnEvent(ftxui::Event::ArrowDown);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+  EXPECT_THAT(rendered, Not(HasSubstr("Feels like I'm waiting")));
+  EXPECT_THAT(rendered, HasSubstr("Feels like I'm dreaming"));
+
+  // Scroll lyrics
   block->OnEvent(ftxui::Event::ArrowDown);
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Character('j'));
@@ -2783,19 +2867,19 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
 
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
-│                                 Feels like I'm dreaming                                     │
-│                                 Like I'm walking                                            │
-│                                 Walking by your side                                        │
-│                                 Keeps on repeating                                         ┃│
-│                                 Repeating                                                  ┃│
-│                                                                                            ┃│
-│                                 So free my mind                                            ┃│
+│                                 So free my mind                                             │
 │                                 All the talking                                             │
 │                                 Wasting all your time                                       │
 │                                 I'm giving all                                              │
-│                                 That I've got                                               │
+│                                 That I've got                                              ╻│
+│                                                                                            ┃│
+│                                 If you want me                                             ┃│
+│                                 If you need me                                             ┃│
+│                                 I'm yours                                                  ╹│
 │                                                                                             │
 │                                 If you want me                                              │
+│                                 If you need me                                              │
+│                                 I'm yours                                                   │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -2866,8 +2950,8 @@ TEST_F(MainContentTest, MouseWheelOnSongLyrics) {
   auto finder = GetFinder();
 
   // More lines than the ones that fit on screen
-  EXPECT_CALL(*finder, Search(_, _))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(_, _, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         return MakeSearchResult(model::SongLyric{
             "First 1\nFirst 2\nFirst 3\nFirst 4\nFirst 5\n",
             "Second 1\nSecond 2\nSecond 3\nSecond 4\nSecond 5\n",
@@ -2931,8 +3015,8 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
   std::string expected_title{"Rich Girls"};
 
   // Setup expectations before start fetching song lyrics
-  EXPECT_CALL(*finder, Search(expected_artist, expected_title))
-      .WillOnce(Invoke([](const std::string&, const std::string&) {
+  EXPECT_CALL(*finder, Search(expected_artist, expected_title, _))
+      .WillOnce(Invoke([](const std::string&, const std::string&, uint32_t) {
         // Wait a bit, to simulate execution of Finder async task
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
@@ -2985,6 +3069,159 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, SyncedSongLyrics) {
+  FetchSyncedSongLyrics();
+
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+
+  // Synced lyrics are shown instead of plain lyrics, without highlight before first line starts
+  std::string rendered = RenderUntilFetched();
+  EXPECT_THAT(rendered, HasSubstr("Line 1"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Plain lyrics")));
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  // Line starts exactly at its timestamp
+  UpdateSongPosition(1999);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  UpdateSongPosition(2000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 1"));
+
+  UpdateSongPosition(3999);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 1"));
+
+  UpdateSongPosition(4000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 2"));
+
+  // Line being sung is out of initial view, so song lyrics are scrolled to it
+  UpdateSongPosition(30000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 15"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ScrollSyncedSongLyrics) {
+  FetchSyncedSongLyrics();
+  block->OnEvent(ftxui::Event::Character('3'));
+  RenderUntilFetched();
+
+  UpdateSongPosition(10000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 5"));
+
+  // Manual scroll starts from line being sung (by line, not by paragraph) and stops following it
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('k')));
+  EXPECT_FALSE(IsFollowingLyric());
+  EXPECT_EQ(GetLyricFocused(), 3);
+
+  block->OnEvent(ftxui::Event::End);
+  EXPECT_EQ(GetLyricFocused(), 19);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  // Song keeps playing, but song lyrics stay where user left them
+  UpdateSongPosition(11000);
+  EXPECT_THAT(RenderHighlightedLine(), StrEq(""));
+
+  // Follow line being sung again
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('c')));
+  EXPECT_TRUE(IsFollowingLyric());
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 5"));
+
+  // Mouse wheel also stops following
+  block->OnEvent(MouseEventAt("Line 5", ftxui::Mouse::WheelDown));
+  EXPECT_FALSE(IsFollowingLyric());
+
+  // Seek follows line being sung again
+  block->OnEvent(ftxui::Event::Home);
+  UpdateSongPosition(30000);
+  EXPECT_TRUE(IsFollowingLyric());
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 15"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ChangeSyncedSongLyricsOffset) {
+  FetchSyncedSongLyrics();
+  block->OnEvent(ftxui::Event::Character('3'));
+  RenderUntilFetched();
+
+  UpdateSongPosition(3800);
+  EXPECT_EQ(GetCurrentLyricLine(), 0);
+
+  // Show lyrics earlier, so next line starts sooner
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('[')));
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('[')));
+  EXPECT_EQ(GetCurrentLyricLine(), 1);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: +0.2s"));
+
+  // Show lyrics later
+  for (int i = 0; i < 5; i++) block->OnEvent(ftxui::Event::Character(']'));
+  EXPECT_EQ(GetCurrentLyricLine(), 0);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: -0.3s"));
+
+  // Offset stays visible after message expires, in its own row (not over song lyrics)
+  HideLyricMessage();
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  const std::string offset_row = RenderedRowWith(rendered, "lyrics offset: -0.3s");
+  EXPECT_THAT(offset_row, Not(IsEmpty()));
+  EXPECT_THAT(offset_row, Not(HasSubstr("Line")));
+
+  // Back to zero, it is shown only until message expires
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('0')));
+  EXPECT_EQ(GetLyricOffset(), 0);
+  EXPECT_EQ(GetCurrentLyricLine(), 0);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("lyrics offset: +0.0s"));
+
+  HideLyricMessage();
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("lyrics offset")));
+
+  // Nothing to reset anymore, so key is not handled
+  EXPECT_FALSE(block->OnEvent(ftxui::Event::Character('0')));
+
+  // Offset is reset on song change
+  block->OnEvent(ftxui::Event::Character(']'));
+  FetchSyncedSongLyrics();
+  RenderUntilFetched();
+  EXPECT_EQ(GetLyricOffset(), 0);
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("lyrics offset")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, SyncedSongLyricsOnBackground) {
+  FetchSyncedSongLyrics();
+
+  // Song position is received while another tab is active
+  UpdateSongPosition(6000);
+
+  // Set focus on tab item 3
+  block->OnEvent(ftxui::Event::Character('3'));
+  RenderUntilFetched();
+
+  EXPECT_THAT(RenderHighlightedLine(), StrEq("Line 3"));
 }
 
 /* ********************************************************************************************** */

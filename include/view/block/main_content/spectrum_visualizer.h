@@ -102,6 +102,12 @@ class SpectrumVisualizer : public TabItem {
   int GetBarWidth() const { return gauge_width_; }
 
   /**
+   * @brief Get current bar animation (used for Terminal calculation)
+   * @return Bar animation identifier
+   */
+  model::BarAnimation GetAnimation() const { return curr_anim_; }
+
+  /**
    * @brief Briefly show a hint on how to exit fullscreen mode (along with current animation name)
    */
   void ShowFullscreenHint();

@@ -312,10 +312,7 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
 /* ********************************************************************************************** */
 
-int Terminal::CalculateNumberBars(const std::optional<model::BarAnimation>& animation) {
-  static model::BarAnimation last_animation = model::BarAnimation::LAST;
-  if (animation.has_value()) last_animation = *animation;
-
+int Terminal::CalculateNumberBars() {
   // Width available for spectrum visualizer: in fullscreen mode it is the whole terminal,
   // otherwise it is what remains after sidebar block (with its border) and visualizer border
   int available = size_.dimx;
@@ -328,9 +325,11 @@ int Terminal::CalculateNumberBars(const std::optional<model::BarAnimation>& anim
     available -= sidebar_width + (2 * kBorderSize) + (2 * kBorderSize);
   }
 
-  const int bar_width =
-      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))->GetBarWidth();
-  const int bar_spacing = model::IsAnimationSpaced(last_animation) ? 1 : 0;
+  auto main_content = std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent));
+  model::BarAnimation animation = main_content->GetAnimation();
+
+  const int bar_width = main_content->GetBarWidth();
+  const int bar_spacing = model::IsAnimationSpaced(animation) ? 1 : 0;
 
   // Maximum number of bars that fit (N bars need N * width + (N - 1) * spacing columns)
   int number_bars = (available + bar_spacing) / (bar_width + bar_spacing);
@@ -338,16 +337,19 @@ int Terminal::CalculateNumberBars(const std::optional<model::BarAnimation>& anim
   // Bars are split between both audio channels, so round it down to an even number
   number_bars -= number_bars % 2;
 
+  // Animation draws each channel across the whole width, so it needs twice as many bars
+  if (model::IsAnimationFullWidthPerChannel(animation)) number_bars *= 2;
+
   return std::max(number_bars, 0);
 }
 
 /* ********************************************************************************************** */
 
 void Terminal::OnCustomEvent() {
-  // Events ignored for logging
-  static std::set<CustomEvent::Identifier> ignored{CustomEvent::Identifier::DrawAudioSpectrum,
-                                                   CustomEvent::Identifier::Refresh,
-                                                   CustomEvent::Identifier::SetFocused};
+  // Events ignored for logging (song state is received many times per second while playing)
+  static std::set<CustomEvent::Identifier> ignored{
+      CustomEvent::Identifier::DrawAudioSpectrum, CustomEvent::Identifier::Refresh,
+      CustomEvent::Identifier::SetFocused, CustomEvent::Identifier::UpdateSongState};
 
   while (receiver_->HasPending()) {
     CustomEvent event;
@@ -621,12 +623,8 @@ bool Terminal::HandleEventFromInterfaceToInterface(const CustomEvent& event) {
 
     case CustomEvent::Identifier::ChangeBarAnimation:
     case CustomEvent::Identifier::UpdateBarWidth: {
-      std::optional<model::BarAnimation> animation;
-      if (event.GetId() == CustomEvent::Identifier::ChangeBarAnimation)
-        animation = event.GetContent<model::BarAnimation>();
-
       // Recalculate maximum number of bars to show in spectrum visualizer
-      int number_bars = CalculateNumberBars(animation);
+      int number_bars = CalculateNumberBars();
 
       // Pass this new value to spectrum visualizer calculate based on the current animation
       auto event_calculate = CustomEvent::CalculateNumberOfBars(number_bars);

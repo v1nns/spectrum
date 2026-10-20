@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <numeric>
 #include <stdexcept>
@@ -212,6 +213,34 @@ bool Player::ChangePosition(const Command& command, int64_t& position) const {
 
 /* ********************************************************************************************** */
 
+void Player::AnchorPosition(int64_t position) {
+  anchor_ms_ = static_cast<double>(position) * kMillisecondsPerSecond;
+  written_ms_ = anchor_ms_;
+  notified_ms_ = static_cast<uint32_t>(anchor_ms_);
+}
+
+/* ********************************************************************************************** */
+
+void Player::SyncPosition(int64_t position) {
+  const double decoded_ms = static_cast<double>(position) * kMillisecondsPerSecond;
+
+  if (written_ms_ < decoded_ms - kPositionTolerance ||
+      written_ms_ > decoded_ms + kMillisecondsPerSecond + kPositionTolerance) {
+    LOG("Song position from samples written=", written_ms_, "ms does not match decoder=", position,
+        "s, restart counting from it");
+    AnchorPosition(position);
+  }
+}
+
+/* ********************************************************************************************** */
+
+uint32_t Player::GetHeardPosition() const {
+  const double delay_ms = playback_->GetDelay() * kMillisecondsPerSecond / format_.sample_rate;
+  return static_cast<uint32_t>(std::max(written_ms_ - delay_ms, anchor_ms_));
+}
+
+/* ********************************************************************************************** */
+
 bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_size,
                            int64_t& new_position, int& last_position) {
   auto command = media_control_.Pop();
@@ -242,6 +271,9 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
     case Command::Identifier::PauseOrResume: {
       INFO("Audio handler received command to pause song");
       media_control_.state = TranslateCommand(command);
+
+      // Samples still queued are discarded by pause, so get position before it
+      const uint32_t heard_ms = GetHeardPosition();
       playback_->Pause();
 
       // As this thread can stay blocked for a long time, waiting for a command,
@@ -250,6 +282,7 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
         media_notifier->NotifySongState(model::Song::CurrentInformation{
             .state = model::Song::MediaState::Pause,
             .position = (uint32_t)last_position,
+            .position_ms = heard_ms,
         });
       }
 
@@ -282,11 +315,13 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
           LOG("Audio handler changed position while song is paused, position=", new_position);
           position_changed = true;
           last_position = static_cast<int>(new_position);
+          AnchorPosition(new_position);
 
           if (media_notifier) {
             media_notifier->NotifySongState(model::Song::CurrentInformation{
                 .state = model::Song::MediaState::Pause,
                 .position = (uint32_t)last_position,
+                .position_ms = notified_ms_,
             });
           }
         }
@@ -363,6 +398,8 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
       LOG("Audio handler received command to ", command, " with value=", command.GetContent<int>());
 
       if (ChangePosition(command, new_position)) {
+        AnchorPosition(new_position);
+
         // Decoder may take a while to seek to the new position (e.g. on streams)
         if (media_notifier) media_notifier->NotifySongSeek();
         return true;
@@ -431,14 +468,24 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
     return false;
   }
 
-  // Notify song state to graphical interface
-  if (last_position != new_position) {
+  // Samples written are from the position given by decoder
+  SyncPosition(new_position);
+  written_ms_ += size * kMillisecondsPerSecond / format_.sample_rate;
+
+  // Notify song state to graphical interface (when position changes by a second, or often enough
+  // for interface to follow song closely, e.g. synced lyrics)
+  const uint32_t heard_ms = GetHeardPosition();
+
+  if (last_position != new_position ||
+      std::abs(static_cast<int64_t>(heard_ms) - notified_ms_) >= kPositionInterval) {
     last_position = static_cast<int>(new_position);
+    notified_ms_ = heard_ms;
 
     if (media_notifier) {
       media_notifier->NotifySongState(model::Song::CurrentInformation{
           .state = model::Song::MediaState::Play,
           .position = (uint32_t)last_position,
+          .position_ms = heard_ms,
       });
     }
   }
@@ -524,6 +571,7 @@ void Player::AudioHandler() {
     playback_->Prepare();
 
     int position = -1;  // in seconds
+    AnchorPosition(0);
 
     // To keep decoding audio, return true in lambda function
     result = decoder_->Decode(

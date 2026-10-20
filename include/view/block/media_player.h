@@ -39,8 +39,8 @@ class MediaPlayer : public Block {
   //! Seconds that position informed by player may differ from the one asked with mouse
   static constexpr int kSeekTolerance = 1;
 
-  //! Updates from player to wait for the position asked with mouse (it may never come, as player
-  //! ignores a position outside of song)
+  //! Updates from player (with a new position in seconds) to wait for the position asked with mouse
+  //! (it may never come, as player ignores a position outside of song)
   static constexpr int kMaxSeekPendingUpdates = 2;
 
   //! Time that a warning stays visible

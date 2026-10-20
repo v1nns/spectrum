@@ -430,15 +430,18 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::UpdateSongState) {
+    const uint32_t previous_position = song_.curr_info.position;
     song_.curr_info = event.GetContent<model::Song::CurrentInformation>();
 
-    // Stop showing the position asked with mouse, as player is already on it (or it gave up)
+    // Stop showing the position asked with mouse, as player is already on it (or it gave up). As
+    // player informs it many times a second, only updates with a new position (in seconds) count
     if (seek_pending_.has_value()) {
       const int difference = std::abs(static_cast<int>(song_.curr_info.position) -
                                       static_cast<int>(*seek_pending_));
+      const bool new_second = song_.curr_info.position != previous_position;
 
-      if (difference <= kSeekTolerance || ++seek_pending_updates_ >= kMaxSeekPendingUpdates ||
-          !IsPlaying()) {
+      if (difference <= kSeekTolerance ||
+          (new_second && ++seek_pending_updates_ >= kMaxSeekPendingUpdates) || !IsPlaying()) {
         seek_pending_.reset();
       }
     }

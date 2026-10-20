@@ -68,6 +68,12 @@ error::Code CURLWrapper::Fetch(const std::string &url, std::string &output) {
     return error::kUrlNotFound;
   }
 
+  // Server may be busy or temporarily unavailable, so request is worth retrying later
+  if (http_code == kHttpTooManyRequests || http_code >= kHttpServerErrorFirst) {
+    WARN("Server is unavailable, replied with HTTP status=", http_code, " for URL=", url);
+    return error::kUrlUnavailable;
+  }
+
   if (http_code < kHttpSuccessFirst || http_code > kHttpSuccessLast) {
     WARN("Server replied with HTTP status=", http_code, " for URL=", url);
     return error::kUnknownError;

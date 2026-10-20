@@ -2,14 +2,17 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <iomanip>
 #include <iterator>
 #include <optional>
+#include <regex>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "nlohmann/json.hpp"
@@ -21,6 +24,9 @@ namespace driver {
 namespace {
 
 constexpr double kBitsPerKilobit = 1000;  //!< To convert bit rate from kbps to bps
+
+//! Fields from metadata containing who uploaded the video
+constexpr std::array<const char*, 2> kUploaderKeys{"uploader", "channel"};
 
 //! Get value from JSON entry, or fallback if it does not exist, is null or has an unexpected type
 template <typename T>
@@ -35,15 +41,53 @@ T GetOr(const nlohmann::json& entry, const char* key, const T& fallback) {
   }
 }
 
+//! Remove suffix added by YouTube to uploader name, e.g. "Artist - Topic" or "ArtistVEVO"
+std::string CleanUploader(const std::string& name) {
+  static const std::regex kSuffix(R"((\s+-\s+Topic|VEVO)$)");
+  return util::trim(std::regex_replace(name, kSuffix, ""));
+}
+
+//! Remove quotes around the whole text (ASCII or typographic ones), returning true if removed
+bool Unquote(std::string& text) {
+  static const std::regex kQuoted(R"(^\s*(?:"|“)(.+)(?:"|”)\s*$)");
+
+  std::smatch match;
+  if (!std::regex_match(text, match, kQuoted)) return false;
+
+  text = util::trim(match.str(1));
+  return true;
+}
+
+//! Compare text ignoring case (only ASCII letters)
+bool EqualsIgnoreCase(std::string_view lhs, std::string_view rhs) {
+  return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), [](char a, char b) {
+    return std::tolower(static_cast<unsigned char>(a)) ==
+           std::tolower(static_cast<unsigned char>(b));
+  });
+}
+
 }  // namespace
 
 //! Split the given input string into artist + title
 static void ParseSongTitle(const std::string& input, std::string& artist, std::string& title) {
+  // Separator surrounded by spaces (so hyphens from names like "Jay-Z" are not taken as one):
+  // hyphen, en dash, em dash or bullet
+  static const std::regex kSeparator(R"(\s+(-|–|—|•)\s+)");
   static constexpr std::string_view kDelimiter = "-";
   std::string filtered = util::filter_emoji(input);
 
-  // Find the occurrences of the delimiter in the input string
-  size_t first_pos = filtered.find(kDelimiter);
+  // Split by the first separator, as title may contain more sections (e.g. "Song | Genre"), which
+  // are cleaned when searching for lyrics. But artist is never after one of these sections
+  const std::string head = filtered.substr(0, filtered.find('|'));
+
+  if (std::smatch match; std::regex_search(head, match, kSeparator)) {
+    artist = util::trim(match.prefix());
+    title = util::trim(filtered.substr(static_cast<size_t>(match.position() + match.length())));
+    return;
+  }
+
+  // Otherwise, find the occurrences of the delimiter in the input string
+  size_t first_pos = head.find(kDelimiter);
   size_t second_pos = filtered.find(kDelimiter, first_pos + kDelimiter.length());
 
   if (first_pos == std::string::npos || second_pos != std::string::npos) {
@@ -433,11 +477,35 @@ error::Code YtDlpWrapper::ParseInfo(const nlohmann::json& info, model::Song& son
 void YtDlpWrapper::FillArtistAndTitle(const std::string& title, const nlohmann::json& metadata,
                                       model::Song& song) {
   ParseSongTitle(title, song.artist, song.title);
-  if (!song.artist.empty() || !metadata.is_object()) return;
+
+  if (!song.artist.empty()) {
+    // Song name is usually the one in quotes, e.g. "Artist - "Song"" or ""Song" - Artist"
+    bool artist_quoted = Unquote(song.artist);
+    Unquote(song.title);
+
+    // Some videos have song name before artist, which is noticed when only the latter is the
+    // uploader
+    auto is_uploader = [&metadata](const std::string& name) {
+      if (!metadata.is_object()) return false;
+
+      return std::any_of(std::begin(kUploaderKeys), std::end(kUploaderKeys), [&](const char* key) {
+        return EqualsIgnoreCase(CleanUploader(GetOr<std::string>(metadata, key, "")), name);
+      });
+    };
+
+    if (artist_quoted || (is_uploader(song.title) && !is_uploader(song.artist))) {
+      std::swap(song.artist, song.title);
+    }
+
+    return;
+  }
+
+  if (!metadata.is_object()) return;
 
   // Video title has no artist, so use the first valid one from metadata
   for (const char* key : {"artist", "uploader", "channel"}) {
-    if (std::string artist = util::trim(util::filter_emoji(GetOr<std::string>(metadata, key, "")));
+    if (std::string artist =
+            CleanUploader(util::trim(util::filter_emoji(GetOr<std::string>(metadata, key, ""))));
         !artist.empty()) {
       LOG("Using ", key, " as artist=", std::quoted(artist));
       song.artist = artist;

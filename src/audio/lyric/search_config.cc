@@ -3,13 +3,16 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <regex>
 #include <sstream>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "nlohmann/json.hpp"
+#include "util/formatter.h"
 #include "util/logger.h"
 
 namespace lyric {
@@ -73,6 +76,67 @@ char RemoveAccent(std::string_view letter) {
   return kNoAccent;
 }
 
+//! Parse lyrics in LRC format, e.g. "[00:12.34] line", into lines sorted by timestamp
+model::SyncedLyric ParseLrc(const std::string& text) {
+  // Timestamp as [minutes:seconds] with optional fraction of second, e.g. [01:02.34] or [01:02:345]
+  static const std::regex kTimestamp(R"(\[(\d{1,4}):(\d{1,2})(?:[.:](\d{1,3}))?\])");
+
+  // Offset (in milliseconds) to apply on every timestamp, e.g. [offset:+500] or [offset:-250]
+  static const std::regex kOffset(R"(\[offset:\s*([+-]?\d{1,6})\s*\])", std::regex::icase);
+
+  static constexpr uint32_t kMillisecondsPerSecond = 1000;
+  static constexpr uint32_t kSecondsPerMinute = 60;
+  static constexpr std::size_t kFractionDigits = 3;  //!< Digits from fraction in milliseconds
+
+  // Positive offset shows lyrics earlier (it is subtracted from timestamps)
+  int64_t offset = 0;
+  if (std::smatch match; std::regex_search(text, match, kOffset)) {
+    offset = std::stoll(match[1].str());
+  }
+
+  model::SyncedLyric lyric;
+  std::istringstream input{text};
+
+  for (std::string line; std::getline(input, line);) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+
+    // A line may start with more than one timestamp, when it is sung more than once
+    std::vector<uint32_t> timestamps;
+    std::smatch match;
+    auto begin = line.cbegin();
+
+    while (std::regex_search(begin, line.cend(), match, kTimestamp,
+                             std::regex_constants::match_continuous)) {
+      // Fraction is padded to milliseconds, e.g. ".5" is 500 and ".34" is 340
+      std::string fraction = match[3].str();
+      fraction.resize(kFractionDigits, '0');
+
+      const auto minutes = static_cast<uint32_t>(std::stoul(match[1].str()));
+      const auto seconds = static_cast<uint32_t>(std::stoul(match[2].str()));
+      const auto milliseconds = static_cast<uint32_t>(std::stoul(fraction));
+
+      timestamps.push_back((minutes * kSecondsPerMinute + seconds) * kMillisecondsPerSecond +
+                           milliseconds);
+
+      begin = match[0].second;
+    }
+
+    // Metadata tags like [ar:Artist] or [offset:100] do not have a timestamp
+    if (timestamps.empty()) continue;
+
+    // Empty text is kept, as it marks an instrumental gap
+    std::string content = util::trim(std::string(begin, line.cend()));
+    for (uint32_t timestamp : timestamps) {
+      lyric.push_back({static_cast<uint32_t>(std::max<int64_t>(0, timestamp - offset)), content});
+    }
+  }
+
+  std::stable_sort(lyric.begin(), lyric.end(),
+                   [](const auto& lhs, const auto& rhs) { return lhs.timestamp < rhs.timestamp; });
+
+  return lyric;
+}
+
 }  // namespace
 
 /* ---------------------------------------------------------------------------------------------- */
@@ -90,8 +154,13 @@ Config SearchConfig::Create() {
 /*                                             LRCLIB                                             */
 /* ---------------------------------------------------------------------------------------------- */
 
-std::string LRCLIB::FormatSearchUrl(const std::string& artist, const std::string& name) const {
-  return url_ + "?artist_name=" + EncodeQuery(artist) + "&track_name=" + EncodeQuery(name);
+std::string LRCLIB::FormatSearchUrl(const std::string& artist, const std::string& name,
+                                    uint32_t duration) const {
+  std::string url =
+      url_ + "?artist_name=" + EncodeQuery(artist) + "&track_name=" + EncodeQuery(name);
+  if (duration > 0) url += "&duration=" + std::to_string(duration);
+
+  return url;
 }
 
 /* ********************************************************************************************** */
@@ -112,6 +181,67 @@ model::SongLyric LRCLIB::ExtractLyrics(const std::string& content, web::HtmlPars
 
   std::string text = lyrics->get<std::string>();
   return text.empty() ? model::SongLyric{} : model::SongLyric{std::move(text)};
+}
+
+/* ********************************************************************************************** */
+
+model::SyncedLyric LRCLIB::ExtractSyncedLyrics(const std::string& content) const {
+  static constexpr const char* kLyricsKey = "syncedLyrics";  //!< Lyrics with timestamps
+
+  nlohmann::json info = nlohmann::json::parse(content, nullptr, /*allow_exceptions=*/false);
+  if (!info.is_object()) return model::SyncedLyric{};
+
+  // Field is null when search engine has only plain lyrics (or for instrumental songs)
+  auto lyrics = info.find(kLyricsKey);
+  if (lyrics == info.end() || !lyrics->is_string()) return model::SyncedLyric{};
+
+  return ParseLrc(lyrics->get<std::string>());
+}
+
+/* ********************************************************************************************** */
+
+uint32_t LRCLIB::ExtractDuration(const std::string& content) const {
+  static constexpr const char* kDurationKey = "duration";  //!< Duration in seconds (with fraction)
+
+  nlohmann::json info = nlohmann::json::parse(content, nullptr, /*allow_exceptions=*/false);
+  if (!info.is_object()) return 0;
+
+  auto duration = info.find(kDurationKey);
+  if (duration == info.end() || !duration->is_number() || duration->get<double>() <= 0) return 0;
+
+  return static_cast<uint32_t>(std::lround(duration->get<double>()));
+}
+
+/* ********************************************************************************************** */
+
+std::string LRCLIB::FormatVersionsUrl(const std::string& artist, const std::string& title) const {
+  return versions_url_ + "?artist_name=" + EncodeQuery(artist) +
+         "&track_name=" + EncodeQuery(title);
+}
+
+/* ********************************************************************************************** */
+
+std::string LRCLIB::ExtractClosestVersion(const std::string& content, uint32_t duration) const {
+  nlohmann::json versions = nlohmann::json::parse(content, nullptr, /*allow_exceptions=*/false);
+  if (!versions.is_array()) return std::string{};
+
+  const nlohmann::json* closest = nullptr;
+  double closest_difference = 0;
+
+  for (const auto& version : versions) {
+    if (!version.is_object() || ExtractSyncedLyrics(version.dump()).empty()) continue;
+
+    auto found = version.find("duration");
+    if (found == version.end() || !found->is_number()) continue;
+
+    double difference = std::abs(found->get<double>() - duration);
+    if (closest == nullptr || difference < closest_difference) {
+      closest = &version;
+      closest_difference = difference;
+    }
+  }
+
+  return closest != nullptr ? closest->dump() : std::string{};
 }
 
 /* ********************************************************************************************** */
@@ -147,7 +277,8 @@ model::SongLyric LRCLIB::FormatLyrics(const model::SongLyric& raw) const {
 /*                                            AZLyrics                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-std::string AZLyrics::FormatSearchUrl(const std::string& artist, const std::string& name) const {
+std::string AZLyrics::FormatSearchUrl(const std::string& artist, const std::string& name,
+                                      uint32_t) const {
   // AZLyrics URL uses only lowercase letters and digits from artist and song name
   auto format = [](std::string_view input) {
     std::string output;

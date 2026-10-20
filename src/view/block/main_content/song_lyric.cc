@@ -2,10 +2,11 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <mutex>
 #include <iomanip>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -18,10 +19,48 @@
 
 namespace interface {
 
+namespace {
+
+/**
+ * @brief Center song lyrics horizontally (as a block, keeping lines aligned to the left) and make
+ * them scrollable
+ * @param lines Song lyrics lines (already styled)
+ * @param max_length Length from longest line
+ * @return UI element
+ */
+ftxui::Element DrawCentered(const ftxui::Elements& lines, int max_length) {
+  using ftxui::EQUAL;
+  using ftxui::WIDTH;
+
+  ftxui::Elements formatted_lines;
+
+  for (const auto& line : lines) {
+    formatted_lines.push_back(ftxui::hbox({
+        ftxui::filler(),
+        line | ftxui::size(WIDTH, EQUAL, max_length),
+        ftxui::filler(),
+    }));
+  }
+
+  return ftxui::vbox(formatted_lines) | ftxui::vscroll_indicator | ftxui::frame | ftxui::xflex |
+         ftxui::vcenter;
+}
+
+}  // namespace
+
+/* ********************************************************************************************** */
+
 SongLyric::SongLyric(const model::BlockIdentifier& id,
                      const std::shared_ptr<EventDispatcher>& dispatcher,
                      const FocusCallback& on_focus, const keybinding::Key& keybinding)
     : TabItem(id, dispatcher, on_focus, keybinding, std::string{kTabName}),
+      message_{[this] {
+                 // Message has expired, so UI must be refreshed to remove it from screen
+                 if (auto disp = dispatcher_.lock(); disp) {
+                   disp->SendEvent(CustomEvent::Refresh());
+                 }
+               },
+               kMessageDuration},
       fetcher_{&SongLyric::FetchLoop, this} {}
 
 /* ********************************************************************************************** */
@@ -53,11 +92,29 @@ ftxui::Element SongLyric::Render() {
     return ftxui::text("Fetching lyrics...") | style;
   }
 
-  if (lyrics_.empty()) {
+  if (!HasLyrics()) {
     return DrawFailure();
   }
 
-  return DrawSongLyrics(lyrics_) | ftxui::reflect(box_);
+  content =
+      (synced_.empty() ? DrawSongLyrics(lyrics_) : DrawSyncedLyrics()) | ftxui::reflect(lyric_box_);
+
+  // Offset applied on synced song lyrics stays visible on the upper-right corner, in a row above
+  // them (bold right after it changes, which also shows it going back to zero)
+  std::optional<std::string> message = message_.GetText();
+
+  if (message.has_value() || (!synced_.empty() && offset_ms_ != 0)) {
+    ftxui::Element offset =
+        ftxui::text(message.value_or(FormatOffset())) | ftxui::color(GetTheme().lyric.text);
+    if (message.has_value()) offset |= ftxui::bold;
+
+    content = ftxui::vbox({
+        ftxui::hbox({ftxui::filler(), offset, ftxui::text(" ")}),
+        content | ftxui::flex,
+    });
+  }
+
+  return content | ftxui::reflect(box_);
 }
 
 /* ********************************************************************************************** */
@@ -72,32 +129,91 @@ bool SongLyric::OnEvent(const ftxui::Event& event) {
     return true;
   }
 
-  if (lyrics_.empty()) return false;
+  // Go back to follow line being sung, after user scrolled synced song lyrics
+  if (event == keybinding::Lyric::Follow && !synced_.empty()) {
+    LOG("Handle key to follow current line from synced song lyrics");
+    follow_ = true;
+    return true;
+  }
+
+  // Shift synced song lyrics, when they are not in time with song
+  if ((event == keybinding::Lyric::OffsetEarlier || event == keybinding::Lyric::OffsetLater) &&
+      !synced_.empty()) {
+    LOG("Handle key to change offset from synced song lyrics");
+    ChangeOffset(event == keybinding::Lyric::OffsetEarlier ? kOffsetStep : -kOffsetStep);
+    return true;
+  }
+
+  if (event == keybinding::Lyric::OffsetReset && !synced_.empty() && offset_ms_ != 0) {
+    LOG("Handle key to reset offset from synced song lyrics");
+    ChangeOffset(-offset_ms_);
+    return true;
+  }
+
+  if (!HasLyrics()) return false;
+
+  const bool is_navigation = event == Keybind::ArrowUp || event == Keybind::Up ||
+                             event == Keybind::ArrowDown || event == Keybind::Down ||
+                             event == Keybind::Home || event == Keybind::End;
+
+  if (!is_navigation) return false;
+
+  LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
+
+  // Synced song lyrics scroll by line, while plain song lyrics scroll by paragraph
+  const int last = static_cast<int>(synced_.empty() ? lyrics_.size() : synced_.size()) - 1;
+
+  // Manual scroll on synced song lyrics starts from line being sung, and stops following it
+  const bool stop_following = !synced_.empty() && follow_;
+  if (stop_following) {
+    focused_ = std::max(current_, 0);
+    follow_ = false;
+  }
 
   int old_focus = focused_;
 
-  // Calculate new index based on upper bound
-  if (event == Keybind::ArrowUp || event == Keybind::Up) {
-    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
-    focused_ = focused_ - (focused_ > 0 ? 1 : 0);
+  // Song lyrics keep focused row centered, except near the edges, where focus moves without
+  // scrolling them. So move from row on the center of view, to scroll them on every key
+  const int height = lyric_box_.y_max - lyric_box_.y_min;
+  const int max_scroll = std::max(0, GetRow(last + 1) - height - 1);
+  const int center = std::clamp(GetRow(focused_) - height / 2, 0, max_scroll) + height / 2;
+
+  if ((event == Keybind::ArrowUp || event == Keybind::Up) && focused_ > 0) {
+    focused_--;
+    while (focused_ > 0 && GetRow(focused_) >= center) focused_--;
   }
 
-  if (event == Keybind::ArrowDown || event == Keybind::Down) {
-    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
-    focused_ = focused_ + (focused_ < (static_cast<int>(lyrics_.size()) - 1) ? 1 : 0);
+  if ((event == Keybind::ArrowDown || event == Keybind::Down) && focused_ < last) {
+    focused_++;
+    while (focused_ < last && GetRow(focused_) <= center) focused_++;
   }
 
   if (event == Keybind::Home) {
-    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
     focused_ = 0;
   }
 
   if (event == Keybind::End) {
-    LOG("Handle menu navigation key=", std::quoted(util::EventToString(event)));
-    focused_ = static_cast<int>(lyrics_.size() - 1);
+    focused_ = last;
   }
 
-  return focused_ != old_focus ? true : false;
+  return focused_ != old_focus || stop_following;
+}
+
+/* ********************************************************************************************** */
+
+int SongLyric::GetRow(int index) const {
+  if (!synced_.empty()) return index;
+
+  // Each paragraph takes its lines (last one may not end with a line break), plus a line separator
+  int row = 0;
+  for (int i = 0; i < index && i < static_cast<int>(lyrics_.size()); i++) {
+    const std::string& paragraph = lyrics_[i];
+    const bool unterminated = !paragraph.empty() && paragraph.back() != '\n';
+    row +=
+        static_cast<int>(std::count(paragraph.begin(), paragraph.end(), '\n')) + unterminated + 1;
+  }
+
+  return row;
 }
 
 /* ********************************************************************************************** */
@@ -108,7 +224,7 @@ bool SongLyric::OnMouseEvent(ftxui::Event& event) {
 
   if (!wheel_up && mouse.button != ftxui::Mouse::WheelDown) return false;
 
-  if (lyrics_.empty() || !box_.Contain(mouse.x, mouse.y)) return false;
+  if (!HasLyrics() || !box_.Contain(mouse.x, mouse.y)) return false;
 
   // Set focus on parent block, so keys go to song lyric after scrolling it
   if (on_focus_) on_focus_();
@@ -127,21 +243,41 @@ bool SongLyric::OnCustomEvent(const CustomEvent& event) {
     audio_info_ = model::Song{};
     CancelFetching();
     lyrics_.clear();
+    synced_.clear();
     artist_.clear();
     title_.clear();
     status_.reset();
     focused_ = 0;
+    position_ms_ = 0;
+    offset_ms_ = 0;
+    current_ = -1;
+    follow_ = true;
+    message_.Hide();
   }
 
   // Do not return true because other blocks may use it
   if (event == CustomEvent::Identifier::UpdateSongInfo) {
     LOG("Received new song information from player");
     audio_info_ = event.GetContent<model::Song>();
+    position_ms_ = 0;
     ParseSearchTerms();
 
     if (!audio_info_.IsEmpty()) {
       StartFetching();
     }
+  }
+
+  // Do not return true because other blocks may use it
+  if (event == CustomEvent::Identifier::UpdateSongState) {
+    const uint32_t position = event.GetContent<model::Song::CurrentInformation>().position_ms;
+
+    // Position jumping by more than a second means a seek, so follow line being sung again
+    if (position > position_ms_ + kSeekThreshold || position + kSeekThreshold < position_ms_) {
+      follow_ = true;
+    }
+
+    position_ms_ = position;
+    UpdateCurrentLine();
   }
 
   return false;
@@ -153,8 +289,13 @@ void SongLyric::StartFetching() {
   // Reset any result from last search
   CancelFetching();
   lyrics_.clear();
+  synced_.clear();
   status_.reset();
   focused_ = 0;
+  offset_ms_ = 0;
+  current_ = -1;
+  follow_ = true;
+  message_.Hide();
 
   if (!HasSearchTerms()) {
     INFO("Missing artist or title, song lyrics will not be fetched");
@@ -165,7 +306,8 @@ void SongLyric::StartFetching() {
 
   {
     std::scoped_lock lock(mutex_);
-    pending_ = Request{.id = ++request_id_, .artist = artist_, .title = title_};
+    pending_ = Request{
+        .id = ++request_id_, .artist = artist_, .title = title_, .duration = audio_info_.duration};
     fetching_ = true;
   }
 
@@ -192,8 +334,44 @@ void SongLyric::ConsumeSearchResult() {
 
   status_ = result_->status;
   lyrics_ = std::move(result_->lyrics);
+  synced_ = std::move(result_->synced);
   result_.reset();
   fetching_ = false;
+
+  UpdateCurrentLine();
+}
+
+/* ********************************************************************************************** */
+
+void SongLyric::UpdateCurrentLine() {
+  // Line starts when song reaches its timestamp (sooner when offset is positive)
+  const int64_t position = static_cast<int64_t>(position_ms_) + offset_ms_;
+
+  auto next = std::upper_bound(
+      synced_.begin(), synced_.end(), position,
+      [](int64_t pos, const model::LyricLine& line) { return pos < line.timestamp; });
+
+  current_ = static_cast<int>(std::distance(synced_.begin(), next)) - 1;
+}
+
+/* ********************************************************************************************** */
+
+void SongLyric::ChangeOffset(int32_t step) {
+  offset_ms_ = std::clamp(offset_ms_ + step, -kMaxOffset, kMaxOffset);
+  UpdateCurrentLine();
+
+  message_.Show(FormatOffset());
+}
+
+/* ********************************************************************************************** */
+
+std::string SongLyric::FormatOffset() const {
+  // Show offset in seconds, e.g. "+0.3s" (positive means lyrics are shown earlier)
+  std::ostringstream text;
+  text << "lyrics offset: " << std::showpos << std::fixed << std::setprecision(1)
+       << offset_ms_ / 1000.0 << "s";
+
+  return text.str();
 }
 
 /* ********************************************************************************************** */
@@ -213,7 +391,7 @@ void SongLyric::FetchLoop() {
     lock.unlock();
 
     finder_->SetCancelCheck([this, id = request.id] { return exit_ || id != request_id_; });
-    lyric::SearchResult result = finder_->Search(request.artist, request.title);
+    lyric::SearchResult result = finder_->Search(request.artist, request.title, request.duration);
 
     lock.lock();
 
@@ -331,7 +509,7 @@ ftxui::Element SongLyric::DrawFailure() const {
 
     case lyric::SearchResult::Status::FetchFailed:
       lines = {
-          line("Could not reach lyrics websites (network error)") | ftxui::bold,
+          line("Could not reach lyrics websites (network error or server busy)") | ftxui::bold,
           ftxui::text(""),
           line(retry_hint) | ftxui::dim,
       };
@@ -359,7 +537,7 @@ ftxui::Element SongLyric::DrawSongLyrics(const model::SongLyric& lyrics) const {
 
     for (std::string line; std::getline(input, line);) {
       // Simply add raw line
-      lines.push_back(ftxui::text(line));
+      lines.push_back(ftxui::text(line) | ftxui::color(GetTheme().lyric.text));
 
       // If paragraph index matches the focus index, set focus on element only once
       if (set_focus && count == focused_) {
@@ -379,23 +557,33 @@ ftxui::Element SongLyric::DrawSongLyrics(const model::SongLyric& lyrics) const {
     count++;
   }
 
-  // Use maximum length to set width size for text
-  using ftxui::EQUAL;
-  using ftxui::WIDTH;
+  return DrawCentered(lines, max_length);
+}
 
-  // Format song lyrics in the desired style
-  ftxui::Elements formatted_lines;
+/* ********************************************************************************************** */
 
-  for (const auto& line : lines) {
-    formatted_lines.push_back(ftxui::hbox({
-        ftxui::filler(),
-        line | ftxui::size(WIDTH, EQUAL, max_length) | ftxui::color(GetTheme().lyric.text),
-        ftxui::filler(),
-    }));
+ftxui::Element SongLyric::DrawSyncedLyrics() const {
+  const auto& theme = GetTheme().lyric;
+  const int focus = follow_ ? std::max(current_, 0) : focused_;
+
+  ftxui::Elements lines;
+  int max_length = 0;
+
+  for (int index = 0; index < static_cast<int>(synced_.size()); index++) {
+    const std::string& text = synced_[index].text;
+
+    // Line being sung is highlighted, while the others are dimmed
+    ftxui::Element line = ftxui::text(text);
+    line |= index == current_ ? ftxui::color(theme.highlight) | ftxui::bold
+                              : ftxui::color(theme.text) | ftxui::dim;
+
+    if (index == focus) line |= ftxui::focus;
+
+    lines.push_back(line);
+    max_length = std::max(max_length, static_cast<int>(text.length()));
   }
 
-  return ftxui::vbox(formatted_lines) | ftxui::vscroll_indicator | ftxui::frame | ftxui::xflex |
-         ftxui::vcenter;
+  return DrawCentered(lines, max_length);
 }
 
 }  // namespace interface

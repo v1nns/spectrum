@@ -15,7 +15,8 @@ namespace {
 
 class LyricFinderMock final : public lyric::LyricFinder {
  public:
-  MOCK_METHOD(lyric::SearchResult, Search, (const std::string&, const std::string&), (override));
+  MOCK_METHOD(lyric::SearchResult, Search, (const std::string&, const std::string&, uint32_t),
+              (override));
 };
 
 }  // namespace

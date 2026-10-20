@@ -60,6 +60,7 @@ static constexpr Code kStreamCookiesFailed = 97;
 
 //! Web errors
 static constexpr Code kUrlNotFound = 95;
+static constexpr Code kUrlUnavailable = 98;
 
 //! How error is presented to user
 enum class Level : std::uint8_t {
@@ -82,7 +83,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 25> kErrorMap{{
+  static constexpr std::array<Message, 26> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -113,6 +114,7 @@ class ApplicationError {
       {kStreamUnavailable, Level::Warning, "Song from URL is not available anymore"},
       {kStreamTimedOut, Level::Warning, "Took too long to fetch song from URL"},
       {kUrlNotFound, Level::Warning, "Content not found in URL"},
+      {kUrlUnavailable, Level::Warning, "Server is busy or temporarily unavailable"},
       {kUnknownError, Level::Critical,
        "Unknown error used for almost everything during development =)"},
   }};
