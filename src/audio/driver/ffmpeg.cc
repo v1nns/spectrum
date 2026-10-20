@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <iomanip>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -644,6 +645,20 @@ void FFmpeg::FillAudioInformation(model::Song& audio_info) {
   // Get artist name
   tag = av_dict_get(input_stream_->metadata, "artist", nullptr, AV_DICT_IGNORE_SUFFIX);
   if (tag) audio_info.artist = std::string{tag->value};
+
+  // Get cover art (an image kept in its own stream, already encoded as an image file)
+  audio_info.cover.reset();
+
+  for (unsigned int i = 0; i < input_stream_->nb_streams; i++) {
+    const AVStream* stream = input_stream_->streams[i];
+    const AVPacket& picture = stream->attached_pic;
+
+    if ((stream->disposition & AV_DISPOSITION_ATTACHED_PIC) != 0 && picture.size > 0) {
+      audio_info.cover = std::make_shared<const std::string>(
+          reinterpret_cast<const char*>(picture.data), static_cast<std::size_t>(picture.size));
+      break;
+    }
+  }
 
   const AVCodecParameters* audio_stream = input_stream_->streams[stream_index_]->codecpar;
 

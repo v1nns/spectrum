@@ -31,6 +31,9 @@ option(SPECTRUM_DEBUG
 option(ENABLE_TESTS "Set to ON to build executable for unit testing" OFF)
 option(ENABLE_COVERAGE "Set to ON to build tests with coverage" OFF)
 option(ENABLE_INSTALL "Generate the install target" ON)
+option(ENABLE_MPRIS
+       "Set to ON to support control through MPRIS (D-Bus), when libsystemd or basu is found"
+       ON)
 
 if(SPECTRUM_DEBUG)
   message(STATUS "Enabling debug mode...")

@@ -38,11 +38,11 @@ jobs:
         run: sudo apt-get update
 
       - name: Install external dependencies
-        # Install ALSA, FFmpeg, FFTW3 and GTest
+        # Install ALSA, FFmpeg, FFTW3, GTest and libsystemd
         run:
           sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev
           libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev libcurl4-openssl-dev
-          libxml++2.6-dev
+          libxml++2.6-dev libsystemd-dev
 
       - uses: actions/checkout@v4
 
@@ -66,11 +66,11 @@ jobs:
         run: sudo apt-get update
 
       - name: Install external dependencies
-        # Install ALSA, FFmpeg, FFTW3 and GTest
+        # Install ALSA, FFmpeg, FFTW3, GTest and libsystemd
         run:
           sudo apt-get install -y alsa-base alsa-utils pkg-config doxygen libasound2-dev libfftw3-dev
           libgtest-dev libavcodec-dev libavformat-dev libswresample-dev libavfilter-dev libcurl4-openssl-dev
-          libxml++2.6-dev
+          libxml++2.6-dev libsystemd-dev
 
       - uses: actions/checkout@v4
 

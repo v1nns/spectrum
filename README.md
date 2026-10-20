@@ -131,6 +131,8 @@ With `subscribe`, a status bar does not need to ask for status from time to time
 
 When more than one instance is running, only the first one started receives the commands.
 
+spectrum also registers itself as a media player on D-Bus ([MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/)), so media keys, desktop media widgets and tools like `playerctl` control it with no setup (e.g. `playerctl -p spectrum next`). Each instance is listed separately there.
+
 ### Files and settings
 
 Playlists (`playlists.json`) and settings (`settings.json`) are saved in `$XDG_CONFIG_HOME/spectrum`, or `~/.config/spectrum` when that is not set. Log is written to `~/.cache/spectrum/spectrum.log` (use `-l <path>` to change it, and `-v` for verbose messages).
@@ -186,6 +188,9 @@ To build spectrum, you need a C++ compiler installed on your system along with a
 sudo apt install build-essential libasound2-dev libavcodec-dev \
      libavfilter-dev libavformat-dev libfftw3-dev libswresample-dev \
      libcurl4-openssl-dev libxml++2.6-dev
+
+# Optional: install libsystemd to support MPRIS (media keys, playerctl), or build with -DENABLE_MPRIS=OFF
+sudo apt install libsystemd-dev
 
 # Optional: install yt-dlp to play songs from YouTube (only needed at runtime, found in PATH)
 sudo apt install yt-dlp

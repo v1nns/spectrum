@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -52,6 +53,9 @@ struct Song {
   uint32_t duration;      //!< Audio duration (in seconds)
 
   std::optional<StreamInfo> stream_info;  //!< Detailed streaming information
+
+  //! Cover art embedded in file, as the content of an image file (shared, as it is never changed)
+  std::shared_ptr<const std::string> cover;
 
   //! Audio state
   enum class MediaState {

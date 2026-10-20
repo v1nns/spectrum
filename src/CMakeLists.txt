@@ -29,6 +29,16 @@ if(NOT SPECTRUM_DEBUG)
   pkg_search_module(LIBXML2 REQUIRED IMPORTED_TARGET libxml-2.0)
 
   # yt-dlp is optional: it is only run (when found in PATH) to play songs from YouTube URL
+
+  # sd-bus (from libsystemd, or basu on systems without systemd) is optional: without it, MPRIS is
+  # not supported
+  if(ENABLE_MPRIS)
+    pkg_search_module(SDBUS IMPORTED_TARGET libsystemd basu)
+
+    if(NOT SDBUS_FOUND)
+      message(STATUS "Neither libsystemd nor basu was found, building without MPRIS support...")
+    endif()
+  endif()
 endif()
 
 if(NOT DISABLE_POPULATE)
@@ -86,6 +96,7 @@ target_sources(
           model/audio_filter.cc
           model/block_identifier.cc
           model/bar_animation.cc
+          model/mpris.cc
           model/player_status.cc
           model/playlist.cc
           model/playlist_operation.cc
@@ -196,6 +207,13 @@ if(NOT SPECTRUM_DEBUG)
     PRIVATE
     INTERFACE PkgConfig::LIBXML
     INTERFACE PkgConfig::LIBXML2)
+
+  if(SDBUS_FOUND)
+    message(STATUS "Enabling MPRIS support...")
+    target_sources(spectrum_lib PRIVATE util/mpris.cc)
+    target_compile_definitions(spectrum_lib PUBLIC ENABLE_MPRIS)
+    target_link_libraries(spectrum_lib PUBLIC PkgConfig::SDBUS)
+  endif()
 
   if(ENABLE_TESTS)
     message(STATUS "Enabling additional compile definitions for tests...")

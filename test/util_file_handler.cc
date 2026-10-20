@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "general/utils.h"
+#include "model/mpris.h"
 #include "model/player_status.h"
 #include "model/playlist.h"
 #include "model/remote_command.h"
@@ -724,6 +726,183 @@ TEST(PlayerStatusTest, FormatAsText) {
   EXPECT_FALSE(model::format_status("unknown command \"status\"", "{title}").has_value());
   EXPECT_FALSE(model::format_status("ok", std::nullopt).has_value());
   EXPECT_FALSE(model::format_status("\"text\"", "{title}").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST(MprisTest, ConvertStatus) {
+  using model::Song;
+
+  EXPECT_THAT(model::GetMprisPlaybackStatus(Song::MediaState::Play), StrEq("Playing"));
+  EXPECT_THAT(model::GetMprisPlaybackStatus(Song::MediaState::Pause), StrEq("Paused"));
+  EXPECT_THAT(model::GetMprisPlaybackStatus(Song::MediaState::Stop), StrEq("Stopped"));
+  EXPECT_THAT(model::GetMprisPlaybackStatus(Song::MediaState::Empty), StrEq("Stopped"));
+  EXPECT_THAT(model::GetMprisPlaybackStatus(Song::MediaState::Finished), StrEq("Stopped"));
+
+  for (auto mode : {model::RepeatMode::Off, model::RepeatMode::All, model::RepeatMode::One}) {
+    EXPECT_EQ(model::ParseMprisLoopStatus(model::GetMprisLoopStatus(mode)), mode);
+  }
+
+  EXPECT_THAT(model::GetMprisLoopStatus(model::RepeatMode::One), StrEq("Track"));
+  EXPECT_FALSE(model::ParseMprisLoopStatus("track").has_value());
+
+  // Each song loaded has its own identifier
+  model::PlayerStatus status;
+  EXPECT_THAT(model::GetMprisTrackId(status), StrEq(model::kMprisNoTrack));
+
+  status.title = "Song";
+  status.song_count = 7;
+  EXPECT_THAT(model::GetMprisTrackId(status), StrEq("/org/spectrum/track/7"));
+
+  EXPECT_EQ(model::ToMprisTime(90), 90'000'000);
+}
+
+/* ********************************************************************************************** */
+
+TEST(MprisTest, ConvertLocation) {
+  using ::testing::IsEmpty;
+
+  // Local file has special characters encoded (including any byte from UTF-8)
+  EXPECT_THAT(model::ToMprisFileUrl("/home/me/My Songs/a+b #1 (ação).mp3"),
+              StrEq("file:///home/me/My%20Songs/a%2Bb%20%231%20%28a%C3%A7%C3%A3o%29.mp3"));
+
+  // And it is decoded back to the same path
+  const std::string path = "/home/me/100% [live]/~song_1-2.flac";
+  EXPECT_EQ(model::CreateMprisOpenUri(model::ToMprisFileUrl(path)),
+            model::RemoteRequest(model::RemoteCommand::Play, path));
+
+  model::PlayerStatus status;
+  EXPECT_THAT(model::GetMprisUrl(status), IsEmpty());
+
+  status.location = "/music/song.mp3";
+  EXPECT_THAT(model::GetMprisUrl(status), StrEq("file:///music/song.mp3"));
+
+  // Stream keeps its original URL
+  status.location = "https://www.youtube.com/watch?v=abc&t=10";
+  EXPECT_THAT(model::GetMprisUrl(status), StrEq("https://www.youtube.com/watch?v=abc&t=10"));
+
+  EXPECT_THAT(model::GetMprisImageExtension(std::string{"\x89PNG\r\n\x1a\n", 8}), StrEq(".png"));
+  EXPECT_THAT(model::GetMprisImageExtension("\xff\xd8\xff\xe0"), StrEq(".jpg"));
+  EXPECT_THAT(model::GetMprisImageExtension(""), StrEq(".jpg"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(MprisTest, CreateRequests) {
+  using model::RemoteCommand;
+  using model::RemoteNumber;
+  using model::RemoteRequest;
+
+  // Offset is rounded to seconds
+  EXPECT_EQ(model::CreateMprisSeek(5'400'000),
+            RemoteRequest(RemoteCommand::Seek, RemoteNumber{.value = 5, .relative = true}));
+  EXPECT_EQ(model::CreateMprisSeek(-10'000'000),
+            RemoteRequest(RemoteCommand::Seek, RemoteNumber{.value = -10, .relative = true}));
+  EXPECT_FALSE(model::CreateMprisSeek(400'000).has_value());
+
+  model::PlayerStatus status{
+      .state = model::Song::MediaState::Play, .title = "Song", .duration = 200, .song_count = 3};
+  const std::string track = model::GetMprisTrackId(status);
+
+  EXPECT_EQ(model::CreateMprisSetPosition(status, track, 30'000'000),
+            RemoteRequest(RemoteCommand::Seek, RemoteNumber{.value = 30, .relative = false}));
+
+  // Ignored for another song, or a position outside of it
+  EXPECT_FALSE(model::CreateMprisSetPosition(status, "/org/spectrum/track/2", 0).has_value());
+  EXPECT_FALSE(model::CreateMprisSetPosition(status, track, -1).has_value());
+  EXPECT_FALSE(model::CreateMprisSetPosition(status, track, 201'000'000).has_value());
+
+  EXPECT_EQ(model::CreateMprisSetVolume(0.355),
+            RemoteRequest(RemoteCommand::SetVolume, RemoteNumber{.value = 36, .relative = false}));
+  EXPECT_EQ(model::CreateMprisSetVolume(1.5),
+            RemoteRequest(RemoteCommand::SetVolume, RemoteNumber{.value = 100, .relative = false}));
+  EXPECT_EQ(model::CreateMprisSetVolume(-1),
+            RemoteRequest(RemoteCommand::SetVolume, RemoteNumber{.value = 0, .relative = false}));
+
+  // Local file is played by its path
+  EXPECT_EQ(model::CreateMprisOpenUri("file:///home/me/My%20Songs/a%2Bb.flac"),
+            RemoteRequest(RemoteCommand::Play, std::string{"/home/me/My Songs/a+b.flac"}));
+  EXPECT_EQ(
+      model::CreateMprisOpenUri("https://www.youtube.com/watch?v=abc%20"),
+      RemoteRequest(RemoteCommand::Play, std::string{"https://www.youtube.com/watch?v=abc%20"}));
+
+  EXPECT_FALSE(model::CreateMprisOpenUri("file://host/song.mp3").has_value());
+  EXPECT_FALSE(model::CreateMprisOpenUri("file:///song%2.mp3").has_value());
+  EXPECT_FALSE(model::CreateMprisOpenUri("file:///song%").has_value());
+  EXPECT_FALSE(model::CreateMprisOpenUri("ftp://host/song.mp3").has_value());
+  EXPECT_FALSE(model::CreateMprisOpenUri("/home/me/song.mp3").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST(MprisTest, NotifyChanges) {
+  using ::testing::ElementsAre;
+  using ::testing::IsEmpty;
+
+  model::PlayerStatus before{.state = model::Song::MediaState::Play,
+                             .artist = "Artist",
+                             .title = "Song",
+                             .position = 10,
+                             .duration = 200,
+                             .song_count = 1};
+
+  // Position moving forward while playing is not notified
+  auto after = before;
+  after.position = 11;
+  auto changes = model::GetMprisChanges(before, after);
+  EXPECT_THAT(changes.properties, IsEmpty());
+  EXPECT_FALSE(changes.seeked);
+
+  after.position = 60;
+  changes = model::GetMprisChanges(before, after);
+  EXPECT_THAT(changes.properties, IsEmpty());
+  EXPECT_TRUE(changes.seeked);
+
+  after.position = 5;
+  EXPECT_TRUE(model::GetMprisChanges(before, after).seeked);
+
+  // Position does not move while paused
+  before.state = model::Song::MediaState::Pause;
+  after = before;
+  after.position = 11;
+  EXPECT_TRUE(model::GetMprisChanges(before, after).seeked);
+
+  after.state = model::Song::MediaState::Play;
+  after.position = 10;
+  changes = model::GetMprisChanges(before, after);
+  EXPECT_THAT(changes.properties, ElementsAre(StrEq(model::kMprisPlaybackStatus)));
+  EXPECT_FALSE(changes.seeked);
+
+  // A new song starts from the beginning, even if it is the same song again
+  after = before;
+  after.state = model::Song::MediaState::Play;
+  after.position = 0;
+  after.song_count = 2;
+  changes = model::GetMprisChanges(before, after);
+  EXPECT_THAT(changes.properties,
+              ElementsAre(StrEq(model::kMprisPlaybackStatus), StrEq(model::kMprisMetadata)));
+  EXPECT_FALSE(changes.seeked);
+
+  // Cover art changes metadata
+  after = before;
+  after.cover = std::make_shared<const std::string>("image");
+  EXPECT_THAT(model::GetMprisChanges(before, after).properties,
+              ElementsAre(StrEq(model::kMprisMetadata)));
+
+  // Song stopped also starts from the beginning
+  after = before;
+  after.state = model::Song::MediaState::Stop;
+  after.position = 0;
+  EXPECT_FALSE(model::GetMprisChanges(before, after).seeked);
+
+  // Without a song (or a live stream), position cannot be changed
+  after = model::PlayerStatus{
+      .volume = model::Volume{0.5F}, .repeat = model::RepeatMode::One, .shuffle = true};
+  changes = model::GetMprisChanges(before, after);
+  EXPECT_THAT(changes.properties,
+              ElementsAre(StrEq(model::kMprisPlaybackStatus), StrEq(model::kMprisLoopStatus),
+                          StrEq(model::kMprisShuffle), StrEq(model::kMprisVolume),
+                          StrEq(model::kMprisMetadata), StrEq(model::kMprisCanSeek)));
 }
 
 /* ********************************************************************************************** */
