@@ -29,6 +29,24 @@ cppcheck --max-ctu-depth=3 --enable=all --inline-suppr \
   --language=c++ --std=c++17 src
 ```
 
+Profiling (threads are named for the OS, e.g. `analysis`, `audio`, so tools can tell them apart):
+
+```bash
+cmake -S . -B build-prof -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer"
+cmake --build build-prof
+./build-prof/src/spectrum -l /tmp/log.txt -v           # play a song with the visualizer visible
+grep " fps=" /tmp/log.txt                               # analysis/render frame stats, once per second
+top -H -p $(pidof spectrum)                             # CPU per thread
+
+# Start app under perf (attaching with -p is blocked by Yama ptrace_scope=1), then report UI thread
+perf record -e cpu-clock:u --call-graph fp --user-callchains -o perf.data -- ./build-prof/src/spectrum
+perf report -i perf.data --comm spectrum --sort sym
+```
+
+Use `--call-graph fp`: DWARF unwinding stops inside FTXUI's Unicode lookups and loses the callers.
+
+`fps` is frames per second, `avg`/`max` how long a frame took, and `gap` the longest time between two frames (more than ~20 ms looks like stutter). Rendering also costs CPU in the terminal emulator, so check it as well.
+
 Other CMake options: `ENABLE_COVERAGE`, `ENABLE_INSTALL`, `DISABLE_POPULATE` (use system FTXUI/nlohmann_json instead of FetchContent, for Flatpak).
 
 Source files are listed explicitly — no globbing:

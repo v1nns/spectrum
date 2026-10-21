@@ -6,10 +6,12 @@
 #ifndef INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 #define INCLUDE_MIDDLEWARE_MEDIA_CONTROLLER_H_
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -19,6 +21,7 @@
 #include "audio/base/notifier.h"
 #include "audio/player.h"
 #include "model/application_error.h"
+#include "model/audio_format.h"
 #include "model/player_status.h"
 #include "model/song.h"
 #include "view/base/event_dispatcher.h"
@@ -56,6 +59,15 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   //! Time to wait for audio samples after a seek, before clearing spectrum bars (so they are kept
   //! as they are when seek is fast enough, like on local files)
   static constexpr std::chrono::milliseconds kSeekGracePeriod{100};
+
+  //! Number of times per second that spectrum bars are analyzed and sent to UI while song plays
+  static constexpr int kFrameRate = 60;
+
+  //! Maximum audio data kept for analysis (older data is dropped, so bars never lag behind song)
+  static constexpr std::chrono::milliseconds kMaxBufferedAudio{250};
+
+  //! Format of audio samples received for analysis (16-bit stereo samples at 44.1 kHz)
+  static constexpr model::AudioFormat kAnalysisFormat{};
 
   /**
    * @brief Construct a new MediaController object
@@ -274,7 +286,6 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   enum class Command {
     None = 10000,
-    Analyze = 10001,
     RunClearAnimation = 10002,
     RunRegainAnimation = 10003,
     Exit = 10004,
@@ -291,23 +302,24 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
     std::queue<Command> queue;  //!< Queue with media control commands
 
-    std::vector<double> buffer;  //!< Input buffer with raw audio data
+    std::deque<double> buffer;  //!< Input buffer with raw audio data
 
     /**
-     * @brief Get a slice from raw audio data to run frequency analysis
+     * @brief Get the oldest slice from raw audio data to run frequency analysis. Before that,
+     * audio data exceeding the maximum size is dropped (the oldest one)
      *
      * @param size Chunk size
-     * @return Vector containing raw audio data
+     * @param max_size Maximum size for audio data kept in buffer
+     * @return Vector containing raw audio data (smaller than chunk size when buffer runs out)
      */
-    std::vector<double> GetBuffer(int size) {
+    std::vector<double> GetBuffer(size_t size, size_t max_size) {
       std::unique_lock lock(mutex);
-      if (size > buffer.size()) size = (int)buffer.size();
+      if (buffer.size() > max_size) buffer.erase(buffer.begin(), buffer.end() - max_size);
 
-      std::vector<double>::const_iterator first = buffer.begin();
-      std::vector<double>::const_iterator last = buffer.begin() + size;
+      const auto last = buffer.begin() + std::min(size, buffer.size());
 
-      std::vector<double> output(first, last);
-      buffer.erase(first, last);
+      std::vector<double> output(buffer.begin(), last);
+      buffer.erase(buffer.begin(), last);
 
       return output;
     }
@@ -320,11 +332,9 @@ class MediaController : public audio::Notifier, public interface::Notifier {
      */
     void Append(const int16_t* input, int size) {
       std::unique_lock lock(mutex);
-      std::vector<double>::const_iterator end = buffer.end();
+      std::deque<double>::const_iterator end = buffer.end();
 
       buffer.insert(end, input, input + size);
-
-      queue.push(Command::Analyze);
       notifier.notify_one();
     }
 
@@ -343,6 +353,10 @@ class MediaController : public audio::Notifier, public interface::Notifier {
         }
         std::queue<Command>().swap(queue);
       }
+
+      // Audio data received so far is not going to be heard (e.g. song was paused or its position
+      // has changed), so it must not be analyzed
+      if (cmd == Command::RunClearAnimation || cmd == Command::WaitForSeek) buffer.clear();
 
       queue.push(cmd);
       notifier.notify_one();
@@ -364,40 +378,42 @@ class MediaController : public audio::Notifier, public interface::Notifier {
 
     /**
      * @brief Block thread until player sends an event and media controller translate it into a
-     * command.
+     * command, or until it is time to analyze a new frame (only while there is audio data to
+     * analyze, otherwise thread is kept blocked).
      *
+     * @param next_frame Timestamp when next frame must be analyzed
      * @return True if thread should keep working, False if not
      */
-    bool WaitForCommand() {
+    bool WaitForCommandOrFrame(const std::chrono::steady_clock::time_point& next_frame) {
       std::unique_lock lock(mutex);
-      notifier.wait(lock, [this]() {
-        // No command in queue
-        if (queue.empty()) return false;
 
-        return true;
-      });
+      while (queue.empty()) {
+        if (buffer.empty()) {
+          notifier.wait(lock);
+        } else if (notifier.wait_until(lock, next_frame) == std::cv_status::timeout) {
+          break;
+        }
+      }
 
-      return queue.front() != Command::Exit;
+      return queue.empty() || queue.front() != Command::Exit;
     }
 
     /**
-     * @brief Block thread until player sends a command or reaches timeout
+     * @brief Block thread until player sends a command or audio data, or reaches timeout
      * @param timeout Timestamp deadline
      *
-     * @return True if thread unlocked by command, False if reached timeout
+     * @return True if thread unlocked by command or audio data, False if reached timeout
      */
     bool WaitForCommandOrUntil(
         const std::chrono::time_point<std::chrono::system_clock,
                                       std::chrono::duration<long double, std::nano>>& timeout) {
       std::unique_lock lock(mutex);
       notifier.wait_until(lock, timeout, [this]() {
-        // No command in queue
-        if (queue.empty()) return false;
-
-        return true;
+        // No command or audio data in queue
+        return !queue.empty() || !buffer.empty();
       });
 
-      return !queue.empty();
+      return !queue.empty() || !buffer.empty();
     }
   };
 

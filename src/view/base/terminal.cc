@@ -1,6 +1,7 @@
 #include "view/base/terminal.h"
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <iomanip>
 #include <memory>
@@ -27,6 +28,7 @@
 #include "model/playlist_operation.h"
 #include "util/file_handler.h"
 #include "util/formatter.h"
+#include "util/frame_stats.h"
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/base/keybinding.h"
@@ -168,6 +170,10 @@ void Terminal::RegisterExitCallback(Callback cb) { cb_exit_ = cb; }
 /* ********************************************************************************************** */
 
 ftxui::Element Terminal::Render() {
+  // Measure how often screen is rendered (only logged with verbose logging)
+  static util::FrameStats render_stats("render");
+  const auto render_start = std::chrono::steady_clock::now();
+
   if (children_.empty() || children_.size() != 4) {
     ERROR("Terminal is empty, it has no child block");
     Exit();
@@ -221,7 +227,10 @@ ftxui::Element Terminal::Render() {
   // Render element as overlay
   ftxui::Element overlay = GetOverlay();
 
-  return ftxui::dbox({terminal | dim, overlay}) | screen;
+  ftxui::Element rendered = ftxui::dbox({terminal | dim, overlay}) | screen;
+  render_stats.Tick(std::chrono::steady_clock::now() - render_start);
+
+  return rendered;
 }
 
 /* ********************************************************************************************** */

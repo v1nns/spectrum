@@ -4,9 +4,11 @@
 #include <gtest/gtest-test-part.h>
 
 #include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -219,7 +221,6 @@ class MediaControllerTest : public ::testing::Test {
       auto analyzer = GetAnalyzer();
       auto dispatcher = GetEventDispatcher();
 
-      EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
       EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
       EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
@@ -268,6 +269,21 @@ class MediaControllerTest : public ::testing::Test {
 
   //! Check if bars will be faded in by the next analysis
   bool IsFadeInPending() const { return controller->fade_in_pending_; }
+
+  //! Get number of audio samples waiting to be analyzed
+  size_t GetBufferedSamples() const { return controller->sync_data_.buffer.size(); }
+
+  //! Get number of audio samples analyzed by each frame
+  static constexpr int GetSamplesPerFrame() {
+    constexpr auto kFormat = middleware::MediaController::kAnalysisFormat;
+    return static_cast<int>(kFormat.sample_rate * kFormat.channels) /
+           middleware::MediaController::kFrameRate;
+  }
+
+  //! Get time between two analyzed frames
+  static constexpr auto GetFrameInterval() {
+    return std::chrono::milliseconds{1000} / middleware::MediaController::kFrameRate;
+  }
 
   //! Run analysis loop (same one executed as a thread in the real-life)
   void RunAnalysisLoop() { controller->AnalysisHandler(); }
@@ -566,7 +582,6 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
     // Setup all expectations
     InSequence seq;
 
-    EXPECT_CALL(*analyzer, GetBufferSize()).WillOnce(Return(sample_size));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillOnce(Return(kNumberBars));
 
     // Thread received a new command, create expectation to analyze and send its result back to UI
@@ -605,6 +620,87 @@ TEST_F(MediaControllerTest, AnalysisOnRawAudio) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MediaControllerTest, AnalyzeAtFixedFrameRate) {
+  using Clock = std::chrono::steady_clock;
+
+  // Audio data for some frames, sent all at once (just like decoder does when filling playback)
+  constexpr int kFrames = 12;
+  constexpr int kTotalSamples = kFrames * GetSamplesPerFrame();
+
+  std::vector<int> sizes;
+  std::vector<Clock::time_point> timestamps;
+
+  auto analysis = [&](TestSyncer& syncer) {
+    auto analyzer = GetAnalyzer();
+    auto dispatcher = GetEventDispatcher();
+
+    EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
+
+    EXPECT_CALL(*analyzer, Execute(_, _, _)).WillRepeatedly(Invoke([&](double*, int size, double*) {
+      sizes.push_back(size);
+      timestamps.push_back(Clock::now());
+      return error::kSuccess;
+    }));
+
+    EXPECT_CALL(*dispatcher,
+                SendEvent(Field(&interface::CustomEvent::id,
+                                interface::CustomEvent::Identifier::DrawAudioSpectrum)))
+        .WillRepeatedly(Invoke([&](const interface::CustomEvent&) {
+          if (std::accumulate(sizes.begin(), sizes.end(), 0) == kTotalSamples) syncer.NotifyStep(2);
+        }));
+
+    syncer.NotifyStep(1);
+    RunAnalysisLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto notifier = GetInterfaceNotifier();
+    std::vector<int16_t> buffer(kTotalSamples, 1);
+
+    syncer.WaitForStep(1);
+    notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+
+    syncer.WaitForStep(2);
+    controller->Exit();
+  };
+
+  testing::RunAsyncTest({analysis, client});
+
+  // Audio data is not analyzed all at once, but frame by frame as it is played (first frame takes
+  // the samples for a frame, minus a fraction of a sample kept for the next one, and the others
+  // depend on how much time has passed)
+  ASSERT_GE(sizes.size(), kFrames - 2);
+  EXPECT_NEAR(sizes.front(), GetSamplesPerFrame(), 2);
+
+  const auto elapsed = timestamps.back() - timestamps.front();
+  EXPECT_GE(elapsed, GetFrameInterval() * (kFrames - 2));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaControllerTest, DropAudioDataThatIsNotHeard) {
+  auto notifier = GetInterfaceNotifier();
+  EXPECT_CALL(*GetEventDispatcher(), SendEvent(_)).Times(::testing::AnyNumber());
+
+  std::vector<int16_t> buffer(GetSamplesPerFrame(), 1);
+
+  // Song is paused, so audio data sent to playback is discarded
+  notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+  EXPECT_EQ(GetBufferedSamples(), buffer.size());
+
+  notifier->NotifySongState({.state = model::Song::MediaState::Pause, .position = 10});
+  EXPECT_EQ(GetBufferedSamples(), 0);
+
+  // Song position is changed
+  notifier->SendAudioRaw(buffer.data(), static_cast<int>(buffer.size()));
+  EXPECT_EQ(GetBufferedSamples(), buffer.size());
+
+  notifier->NotifySongSeek();
+  EXPECT_EQ(GetBufferedSamples(), 0);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MediaControllerTest, FadeInBarsWhenNewSongStarts) { CheckFadeIn(true); }
 
 /* ********************************************************************************************** */
@@ -625,7 +721,6 @@ TEST_F(MediaControllerTest, AnalysisAndClearAnimation) {
     auto analyzer = GetAnalyzer();
     auto dispatcher = GetEventDispatcher();
 
-    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(sample_size));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
     std::vector<double> result(kNumberBars, 1);
@@ -727,7 +822,6 @@ TEST_F(MediaControllerTest, ClearBarsWhenSeekTakesTooLong) {
     auto analyzer = GetAnalyzer();
     auto dispatcher = GetEventDispatcher();
 
-    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
     EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
@@ -834,7 +928,6 @@ TEST_F(MediaControllerTest, KeepBarsWhenSeekIsFast) {
     auto analyzer = GetAnalyzer();
     auto dispatcher = GetEventDispatcher();
 
-    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
     EXPECT_CALL(*analyzer, Execute(_, Eq(kSampleSize), _))
@@ -895,7 +988,6 @@ TEST_F(MediaControllerTest, CancelClearAnimationWhenNumberOfBarsChanges) {
     auto analyzer = GetAnalyzer();
     auto dispatcher = GetEventDispatcher();
 
-    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(kSampleSize));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Invoke([&]() {
       return number_bars.load();
     }));
@@ -972,7 +1064,6 @@ TEST_F(MediaControllerTest, AnalysisAndRegainAnimation) {
     auto analyzer = GetAnalyzer();
     auto dispatcher = GetEventDispatcher();
 
-    EXPECT_CALL(*analyzer, GetBufferSize()).WillRepeatedly(Return(sample_size));
     EXPECT_CALL(*analyzer, GetOutputSize()).WillRepeatedly(Return(kNumberBars));
 
     // Player must only be resumed after animation, when UI sends ResumeSong back without animation

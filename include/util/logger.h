@@ -7,6 +7,8 @@
 #define INCLUDE_UTIL_LOGGER_H_
 
 #include <cxxabi.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include <atomic>
 #include <cstdint>
@@ -97,7 +99,13 @@ class Logger {
    * @brief Set name for the calling thread, shown in its log messages instead of thread id
    * @param name Thread name (e.g. "audio")
    */
-  static void SetThreadName(const std::string& name) { GetThreadName() = name; }
+  static void SetThreadName(const std::string& name) {
+    GetThreadName() = name;
+
+    // Also name it for the OS, so tools like top and perf show it (limited to 15 characters).
+    // Except for main thread, whose name is the process name (e.g. used by pidof)
+    if (gettid() != getpid()) pthread_setname_np(pthread_self(), name.substr(0, 15).c_str());
+  }
 
   /**
    * @brief Concatenate all arguments into a single string and write it to output stream

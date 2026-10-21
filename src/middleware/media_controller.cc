@@ -16,6 +16,7 @@
 #include "audio/player.h"
 #include "model/application_error.h"
 #include "model/song.h"
+#include "util/frame_stats.h"
 #include "util/logger.h"
 #include "view/base/block.h"
 #include "view/base/terminal.h"
@@ -135,13 +136,30 @@ void MediaController::AnalysisHandler() {
 
   std::vector<double> input, output, previous;
 
+  using Clock = std::chrono::steady_clock;
+
+  // Measure how often spectrum is analyzed (only logged with verbose logging)
+  util::FrameStats analysis_stats("analysis");
+
   // Start time of fade-in animation (only set while animation is running)
-  std::optional<std::chrono::steady_clock::time_point> fade_in_start;
+  std::optional<Clock::time_point> fade_in_start;
 
-  while (sync_data_.WaitForCommand()) {
-    // Get buffer size directly from audio analyzer, to discover chunk size to receive and send
-    int in_size = analyzer_->GetBufferSize();
+  // Frames are analyzed at a fixed rate, each one with the audio data played since the last one
+  constexpr auto kFrameInterval =
+      std::chrono::duration_cast<Clock::duration>(std::chrono::seconds{1}) / kFrameRate;
+  constexpr double kSamplesPerSecond = kAnalysisFormat.sample_rate * kAnalysisFormat.channels;
+  constexpr auto kMaxBufferedSamples = static_cast<size_t>(
+      kSamplesPerSecond * std::chrono::duration<double>(kMaxBufferedAudio).count());
 
+  Clock::time_point next_frame;
+
+  // When last frame was analyzed (unset while there is no audio data to analyze)
+  std::optional<Clock::time_point> last_frame;
+
+  // Samples due to be analyzed, kept between frames to not lose fractions of a sample
+  double due_samples = 0;
+
+  while (sync_data_.WaitForCommandOrFrame(next_frame)) {
     // Resize output vector if necessary
     if (int out_size = analyzer_->GetOutputSize(); output.size() != out_size) {
       output.resize(out_size);
@@ -149,11 +167,41 @@ void MediaController::AnalysisHandler() {
 
     auto command = sync_data_.Pop();
 
+    // Any command changes what is being played, so start counting time again on the next frame
+    if (command != Command::None) last_frame.reset();
+
     switch (command) {
-      case Command::Analyze: {
-        // Get input data, run FFT and update local cache
-        // P.S.: do not log this because this command is received too often
-        input = sync_data_.GetBuffer(in_size);
+      case Command::None: {
+        // No command, so it is time to analyze the audio data played since last frame (or a whole
+        // frame, when audio data has just arrived)
+        // P.S.: do not log this because this happens too often
+        const auto now = Clock::now();
+        const Clock::duration elapsed = last_frame ? now - *last_frame : kFrameInterval;
+
+        due_samples += std::chrono::duration<double>(elapsed).count() * kSamplesPerSecond;
+
+        // Keep samples from all channels together
+        const auto size =
+            static_cast<size_t>(due_samples / kAnalysisFormat.channels) * kAnalysisFormat.channels;
+        due_samples -= static_cast<double>(size);
+
+        input = sync_data_.GetBuffer(size, kMaxBufferedSamples);
+
+        // Schedule next frame (when thread falls behind, skip frames instead of rushing them)
+        next_frame += kFrameInterval;
+        if (next_frame <= now) next_frame = now + kFrameInterval;
+
+        last_frame = now;
+
+        // Audio data has run out (e.g. waiting for decoder), so wait for more before next frame
+        if (input.size() < size) {
+          last_frame.reset();
+          due_samples = 0;
+        }
+
+        if (input.empty()) break;
+
+        // Run FFT and update local cache
         analyzer_->Execute(input.data(), static_cast<int>(input.size()), output.data());
 
         // Do not normalize output vector, just set 1.0 as maximum value
@@ -189,6 +237,7 @@ void MediaController::AnalysisHandler() {
         auto event = interface::CustomEvent::DrawAudioSpectrum(output);
         dispatcher->SendEvent(event);
 
+        analysis_stats.Tick(Clock::now() - now);
       } break;
 
       case Command::RunClearAnimation: {

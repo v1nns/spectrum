@@ -50,12 +50,6 @@ class FFTW final : public Analyzer {
   error::Code Execute(double *in, int size, double *out) override;
 
   /**
-   * @brief Get internal buffer size
-   * @return Maximum size for input vector
-   */
-  int GetBufferSize() override { return kBufferSize; }
-
-  /**
    * @brief Get output buffer size
    * @return Size for output vector (considering number of bars multiplied per number of channels)
    */
