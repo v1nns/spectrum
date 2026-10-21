@@ -7,6 +7,7 @@
 #define INCLUDE_MODEL_PLAYER_STATUS_H_
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -28,6 +29,15 @@ struct PlayerStatus {
 
   uint32_t position = 0;  //!< Current position (in seconds) of the audio
   uint32_t duration = 0;  //!< Audio duration (in seconds)
+
+  //! Number of songs loaded so far (it changes when a new song starts, even if it is the same one)
+  uint32_t song_count = 0;
+
+  //! Song file path, or its URL for streams (empty without a song)
+  std::string location;
+
+  //! Cover art from song, as the content of an image file (null when it has none)
+  std::shared_ptr<const std::string> cover;
 
   //! Output device and format of audio samples sent to it (nothing without a song)
   std::optional<AudioOutput> output;

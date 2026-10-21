@@ -23,6 +23,9 @@
 #include "util/arg_parser.h"
 #include "util/file_handler.h"
 #include "util/logger.h"
+#ifdef ENABLE_MPRIS
+#include "util/mpris.h"
+#endif
 #include "util/remote.h"
 #include "view/base/terminal.h"
 
@@ -330,10 +333,26 @@ int main(int argc, char** argv) {
     screen.ExitLoopClosure()();
   });
 
+  // Run command received from another instance or from MPRIS (reply is an error, when it fails)
+  auto run_command = [&terminal,
+                      &file_handler](const model::RemoteRequest& command) -> std::string {
+    // Unlike the other commands, this one does not depend on anything from UI
+    if (const auto* target = std::get_if<std::string>(&command.value); target) {
+      auto playlist = middleware::CreateRemotePlaylist(*target, file_handler);
+      if (!playlist) return "nothing to play was found for \"" + *target + "\"";
+
+      terminal->SendEvent(interface::CustomEvent::NotifyPlaylistSelection(*playlist));
+      return kRemoteReplyOk;
+    }
+
+    terminal->SendEvent(interface::CustomEvent::RunRemoteCommand(command));
+    return kRemoteReplyOk;
+  };
+
   // Listen for commands sent by other instances (only the first instance running does it)
   auto remote = util::RemoteServer::Create(
       util::GetRemoteSocketPath(),
-      [&terminal, &middleware, &file_handler](const std::string& request) -> std::string {
+      [&middleware, &run_command](const std::string& request) -> std::string {
         // Status is read directly from this thread, without waiting for UI
         if (request == model::kRemoteStatusQuery) return model::to_json(middleware->GetStatus());
 
@@ -344,25 +363,30 @@ int main(int argc, char** argv) {
         auto command = model::ParseRemoteRequest(request, error);
         if (!command) return error;
 
-        // Unlike the other commands, this one does not depend on anything from UI
-        if (const auto* target = std::get_if<std::string>(&command->value); target) {
-          auto playlist = middleware::CreateRemotePlaylist(*target, file_handler);
-          if (!playlist) return "nothing to play was found for \"" + *target + "\"";
-
-          terminal->SendEvent(interface::CustomEvent::NotifyPlaylistSelection(*playlist));
-          return kRemoteReplyOk;
-        }
-
-        terminal->SendEvent(interface::CustomEvent::RunRemoteCommand(*command));
-        return kRemoteReplyOk;
+        return run_command(*command);
       },
       std::string{model::kRemoteSubscribeQuery});
 
+#ifdef ENABLE_MPRIS
+  // Media keys, desktop widgets and tools like playerctl control this instance through D-Bus
+  auto mpris = util::MprisServer::Create([&run_command](const model::RemoteRequest& command) {
+    return run_command(command) == kRemoteReplyOk;
+  });
+
+  // Every change on status is sent to the instances that asked to receive it, and to MPRIS clients
+  if (remote || mpris) {
+    middleware->SetStatusListener([&remote, &mpris](const model::PlayerStatus& status) {
+      if (remote) remote->Publish(model::to_json(status));
+      if (mpris) mpris->Publish(status);
+    });
+  }
+#else
   // Every change on status is sent to the instances that asked to receive it
   if (remote) {
     middleware->SetStatusListener(
         [&remote](const model::PlayerStatus& status) { remote->Publish(model::to_json(status)); });
   }
+#endif
 
   // Events posted to screen are discarded while its loop does not exist, so create it and ask
   // terminal to handle any custom event sent in the meantime (e.g. a warning about something that
@@ -373,10 +397,11 @@ int main(int argc, char** argv) {
   // Start GUI loop and clear screen after exit
   loop.Run();
 
-  if (remote) {
-    middleware->SetStatusListener(nullptr);
-    remote->Stop();
-  }
+  middleware->SetStatusListener(nullptr);
+  if (remote) remote->Stop();
+#ifdef ENABLE_MPRIS
+  if (mpris) mpris->Stop();
+#endif
   screen.ResetPosition(true);
 
   return EXIT_SUCCESS;

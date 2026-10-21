@@ -407,6 +407,8 @@ void MediaController::ClearSongInformation(bool playing) {
     status.title.clear();
     status.position = 0;
     status.duration = 0;
+    status.location.clear();
+    status.cover.reset();
     status.output.reset();
   });
 
@@ -428,9 +430,13 @@ void MediaController::NotifySongInformation(const model::Song& info) {
   UpdateStatus([&info](model::PlayerStatus& status) {
     // Song starts playing right after being loaded
     status.state = model::Song::MediaState::Play;
+    status.song_count++;
     status.artist = info.artist;
     status.position = 0;
     status.duration = info.duration;
+    status.location =
+        info.stream_info.has_value() ? info.stream_info->base_url : info.filepath.string();
+    status.cover = info.cover;
 
     // Without a title in metadata, use the same as UI to identify song
     status.title = !info.title.empty()            ? info.title

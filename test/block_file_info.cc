@@ -26,13 +26,19 @@ class FileInfoTest : public ::BlockTest {
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
 
-    // Create FileInfo block
-    block = ftxui::Make<interface::FileInfo>(dispatcher);
+    // Create FileInfo block (URL is never opened for real)
+    block = ftxui::Make<interface::FileInfo>(dispatcher, [this](const std::string& url) {
+      opened_urls.push_back(url);
+      return can_open_url;
+    });
 
     // Set this block as focused
     auto dummy = std::static_pointer_cast<interface::Block>(block);
     dummy->SetFocused(true);
   }
+
+  std::vector<std::string> opened_urls;  //!< URLs that block asked to open
+  bool can_open_url = true;              //!< Result returned when block asks to open URL
 };
 
 /* ********************************************************************************************** */
@@ -298,6 +304,81 @@ TEST_F(FileInfoTest, MouseOnTitle) {
                                                                model::BlockIdentifier::FileInfo)))));
 
   EXPECT_TRUE(send_mouse(kTitleColumn, kTitleRow, ftxui::Mouse::Left, ftxui::Mouse::Released));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileInfoTest, ClickOnUrlToOpenIt) {
+  using interface::CustomEvent;
+  using ::testing::ElementsAre;
+
+  //! Position of first value (URL or filename) on screen, after border and field name
+  static constexpr int kSourceRow = 4;
+  static constexpr int kSourceColumn = 10;
+
+  // Use the whole block width (content + border), with a URL longer than it
+  screen = std::make_unique<ftxui::Screen>(38, 11);
+  const std::string url = "https://www.youtube.com/watch?v=uNw_a7HFwvg&list=RDuNw_a7HFwvg";
+
+  //! Simulate a mouse event on the given position, and render block
+  auto send_mouse = [this](int x, int y, ftxui::Mouse::Button button, ftxui::Mouse::Motion motion) {
+    bool handled = block->OnEvent(ftxui::Event::Mouse(
+        "", ftxui::Mouse{.button = button, .motion = motion, .x = x, .y = y}));
+
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+
+    return handled;
+  };
+
+  Process(CustomEvent::UpdateSongInfo(model::Song{
+      .title = "Streamed song",
+      .stream_info = model::StreamInfo{.base_url = url},
+  }));
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()),
+              HasSubstr("│url      https://www.youtube.com/wa…│"));
+
+  // URL looks like a link, and it is highlighted while hovered
+  const auto& pixel = screen->PixelAt(kSourceColumn, kSourceRow);
+  EXPECT_TRUE(pixel.underlined);
+  EXPECT_FALSE(pixel.bold);
+
+  EXPECT_FALSE(send_mouse(kSourceColumn, kSourceRow, ftxui::Mouse::None, ftxui::Mouse::Pressed));
+  EXPECT_TRUE(screen->PixelAt(kSourceColumn, kSourceRow).bold);
+
+  EXPECT_FALSE(send_mouse(kSourceColumn, kSourceRow + 1, ftxui::Mouse::None, ftxui::Mouse::Pressed));
+  EXPECT_FALSE(screen->PixelAt(kSourceColumn, kSourceRow).bold);
+
+  // Clicking on it opens the full URL (even if it is cut on screen)
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_TRUE(send_mouse(kSourceColumn, kSourceRow, ftxui::Mouse::Left, ftxui::Mouse::Released));
+  EXPECT_THAT(opened_urls, ElementsAre(StrEq(url)));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // When it cannot be opened, user is warned
+  can_open_url = false;
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&CustomEvent::id, CustomEvent::Identifier::ShowWarning),
+                              Field(&CustomEvent::content,
+                                    VariantWith<std::string>(HasSubstr("Cannot open URL"))))));
+
+  EXPECT_TRUE(send_mouse(kSourceColumn, kSourceRow, ftxui::Mouse::Left, ftxui::Mouse::Released));
+  testing::Mock::VerifyAndClearExpectations(dispatcher.get());
+
+  // Filename from a local song is not a link
+  opened_urls.clear();
+  Process(CustomEvent::UpdateSongInfo(model::Song{.filepath = "/music/song.flac"}));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_FALSE(screen->PixelAt(kSourceColumn, kSourceRow).underlined);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(0);
+  EXPECT_FALSE(send_mouse(kSourceColumn, kSourceRow, ftxui::Mouse::Left, ftxui::Mouse::Released));
+  EXPECT_TRUE(opened_urls.empty());
 }
 
 }  // namespace

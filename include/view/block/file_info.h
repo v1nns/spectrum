@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 #define INCLUDE_VIEW_BLOCK_FILE_INFO_H_
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -29,14 +30,19 @@ class FileInfo : public Block {
   static constexpr int kMaxRows = 11;                   //!< Maximum rows for Component
   static constexpr int kFieldColumns = 9;  //!< Columns for field name (and space after it)
 
-  static constexpr std::string_view kUnknown = "—";  //!< Value not informed by song or player
+  static constexpr std::string_view kUnknown = "—";     //!< Value not informed by song or player
+  static constexpr std::string_view kFieldUrl = "url";  //!< Field with URL from streamed song
 
  public:
+  //! Open URL in another application (return false if it could not be opened)
+  using UrlOpener = std::function<bool(const std::string&)>;
+
   /**
    * @brief Construct a new File Info object
    * @param dispatcher Block event dispatcher
+   * @param opener Callback to open URL from streamed song (if null, it is opened by xdg-open)
    */
-  explicit FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher);
+  explicit FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher, UrlOpener opener = nullptr);
 
   /**
    * @brief Destroy the File Info object
@@ -79,8 +85,17 @@ class FileInfo : public Block {
   void ParseAudioOutput(const std::optional<model::AudioOutput>& output);
 
   /* ******************************************************************************************* */
-  //! Variables
+  //! Internal handling
  private:
+  /**
+   * @brief Handle mouse event on URL from streamed song (hover and click to open it)
+   * @param event Received mouse event
+   * @return true if event was handled, otherwise false
+   */
+  bool OnUrlMouseEvent(ftxui::Event& event);
+
+  /* ******************************************************************************************* */
+  //! Variables
   using Entry = std::pair<std::string, std::string>;  //!< A pair of <Field,Value>
   std::string title_;                                 //!< Song title (or its source, without one)
   std::string artist_;                                //!< Song artist
@@ -88,6 +103,11 @@ class FileInfo : public Block {
   std::vector<Entry> output_info_;                    //!< Parsed audio output to render on UI
 
   bool has_song_info_ = false;  //!< Flag to indicate if displaying information from a song
+
+  std::string url_;              //!< Full URL from streamed song (empty for a local file)
+  ftxui::Box url_box_;           //!< Area where URL is rendered (to be clicked)
+  bool is_url_hovered_ = false;  //!< Mouse is over URL
+  UrlOpener url_opener_;         //!< Callback to open URL
 };
 
 }  // namespace interface

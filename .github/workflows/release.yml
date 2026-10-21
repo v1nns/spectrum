@@ -32,11 +32,11 @@ jobs:
         run: apt-get update
 
       - name: Install external dependencies
-        # Install build tools, ALSA, FFmpeg, FFTW3, curl and libxml++
+        # Install build tools, ALSA, FFmpeg, FFTW3, curl, libxml++ and libsystemd
         run:
           apt-get install -y build-essential git ca-certificates file pkg-config python3-venv
           libasound2-dev libfftw3-dev libavcodec-dev libavformat-dev libswresample-dev
-          libavfilter-dev libcurl4-openssl-dev libxml++2.6-dev
+          libavfilter-dev libcurl4-openssl-dev libxml++2.6-dev libsystemd-dev
 
       - name: Install CMake
         # Version from distro may be older than the minimum required

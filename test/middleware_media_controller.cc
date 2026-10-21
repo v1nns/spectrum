@@ -2155,4 +2155,39 @@ TEST_F(TerminalTest, MouseClickOnHiddenButtonsInFullscreen) {
   EXPECT_EQ(exit_count, 1);
 }
 
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, RefreshOnlyWhenSongPositionChangesBySecond) {
+  using interface::CustomEvent;
+  using State = model::Song::MediaState;
+
+  auto send_state = [this](State state, uint32_t position, uint32_t position_ms) {
+    const int before = refresh_count;
+    terminal->SendEvent(CustomEvent::UpdateSongState(model::Song::CurrentInformation{
+        .state = state, .position = position, .position_ms = position_ms}));
+
+    return refresh_count > before;
+  };
+
+  // First position always refreshes screen
+  EXPECT_TRUE(send_state(State::Play, 10, 10'000));
+
+  // While playing, a change within the same second is shown on next frame from visualizer
+  EXPECT_FALSE(send_state(State::Play, 10, 10'050));
+  EXPECT_FALSE(send_state(State::Play, 10, 10'900));
+
+  // But a new second, or any other state, refreshes it right away
+  EXPECT_TRUE(send_state(State::Play, 11, 11'000));
+  EXPECT_TRUE(send_state(State::Pause, 11, 11'020));
+  EXPECT_TRUE(send_state(State::Pause, 11, 11'020));
+  EXPECT_TRUE(send_state(State::Play, 11, 11'020));
+  EXPECT_FALSE(send_state(State::Play, 11, 11'070));
+
+  // Other events always refresh it
+  const int before = refresh_count;
+  terminal->SendEvent(CustomEvent::DrawAudioSpectrum(std::vector<double>(2, 0.5)));
+  EXPECT_EQ(refresh_count, before + 1);
+}
+
 }  // namespace

@@ -12,10 +12,11 @@ ignore:
   - "src/main.cc"
   # unit tests (only application code is measured)
   - "test"
-  # wrappers for external libraries, which need real hardware/network to run
+  # wrappers for external libraries, which need real hardware/network/D-Bus to run
   - "src/audio/driver/alsa.cc"
   - "src/audio/driver/ffmpeg.cc"
   - "src/web/driver/curl_wrapper.cc"
   - "src/web/driver/libxml_wrapper.cc"
+  - "src/util/mpris.cc"
   - "include/audio/driver/alsa.h"
   - "include/audio/driver/ffmpeg.h"

@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <system_error>
+#include <thread>
 
 extern char** environ;
 
@@ -160,6 +161,44 @@ std::optional<ProcessResult> RunProcess(const std::vector<std::string>& args,
   if (WIFEXITED(status)) result.exit_code = WEXITSTATUS(status);
 
   return result;
+}
+
+/* ********************************************************************************************** */
+
+bool StartProcess(const std::vector<std::string>& args) {
+  if (args.empty()) return false;
+
+  // Anything written by program would be mixed with interface
+  posix_spawn_file_actions_t actions;
+  posix_spawn_file_actions_init(&actions);
+  posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+  posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
+  posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+
+  // In its own session, so it is not closed together with terminal
+  posix_spawnattr_t attributes;
+  posix_spawnattr_init(&attributes);
+  posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID);
+
+  std::vector<char*> argv;
+  argv.reserve(args.size() + 1);
+  for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+  argv.push_back(nullptr);
+
+  pid_t pid = -1;
+  int spawned = posix_spawnp(&pid, argv[0], &actions, &attributes, argv.data(), environ);
+  posix_spawnattr_destroy(&attributes);
+  posix_spawn_file_actions_destroy(&actions);
+
+  if (spawned != 0) return false;
+
+  // Wait for it from another thread, otherwise it would remain as a zombie process after exiting
+  std::thread([pid]() {
+    while (waitpid(pid, nullptr, 0) < 0 && errno == EINTR) {
+    }
+  }).detach();
+
+  return true;
 }
 
 }  // namespace util
