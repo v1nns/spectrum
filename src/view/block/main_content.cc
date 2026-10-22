@@ -81,6 +81,10 @@ ftxui::Element MainContent::OnRender() {
 
 /* ********************************************************************************************** */
 
+void MainContent::SetDimmed(bool dimmed) { visualizer_->SetDimmed(dimmed); }
+
+/* ********************************************************************************************** */
+
 ftxui::Element MainContent::RenderFullscreen() {
   // Toggle flag only if it was disabled (and let user know how to exit from it)
   if (!is_fullscreen_) {

@@ -925,7 +925,8 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
 
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
-  // Maybe filtering ansi commands is messing up with this animation =(
+  // Bottom half is filled from top to bottom, so the last cell of each bar uses inverted colors
+  // (in text, it shows the complementary block from the one shown on screen)
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
 │                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁                    │
@@ -934,16 +935,63 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
 │           ▄▄ ██ ▄▄                ▄▄ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
 │     ▂▂ ▇▇ ██ ██ ██ ▇▇ ▂▂    ▂▂ ▇▇ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
 │  ▅▅ ██ ██ ██ ██ ██ ██ ██ ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
-│  ▃▃                      ▃▃                                                                 │
-│  ██ ▅▅                ▅▅ ██ ▅▅                                                              │
-│  ██ ██ ██ ▂▂    ▂▂ ██ ██ ██ ██ ██ ▂▂                                                        │
-│  ██ ██ ██ ██ ▄▄ ██ ██ ██ ██ ██ ██ ██ ▄▄ ▂▂                                              ▂▂  │
-│  ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▇▇ ▄▄ ▁▁                            ▁▁ ▄▄ ▇▇ ██  │
-│  ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▆▆ ▄▄ ▁▁          ▁▁ ▄▄ ▆▆ ██ ██ ██ ██  │
-│  ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▆▆ ▃▃ ▆▆ ██ ██ ██ ██ ██ ██ ██  │
+│  ▃▃ ██ ██ ██ ██ ██ ██ ██ ▃▃ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
+│     ▅▅ ██ ██ ██ ██ ██ ▅▅    ▅▅ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
+│           ▂▂ ██ ▂▂                ▂▂ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██  │
+│              ▄▄                      ▄▄ ▂▂ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▂▂  │
+│                                            ▇▇ ▄▄ ▁▁ ██ ██ ██ ██ ██ ██ ██ ██ ██ ▁▁ ▄▄ ▇▇     │
+│                                                     ▆▆ ▄▄ ▁▁ ██ ██ ██ ▁▁ ▄▄ ▆▆              │
+│                                                              ▆▆ ▃▃ ▆▆                       │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+
+  // Only the last cell from a bar uses inverted colors, otherwise empty cells would look filled
+  // once dim is applied over them (e.g. while a dialog is opened)
+  for (int y = 0; y < screen->dimy(); y++) {
+    for (int x = 0; x < screen->dimx(); x++) {
+      const auto& cell = screen->CellAt(x, y);
+      if (cell.inverted) {
+        EXPECT_THAT(cell.character, Not(StrEq("█"))) << "cell at " << x << "," << y;
+      }
+    }
+  }
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationVerticalMirrorDimmed) {
+  std::vector<double> values{
+      0.1,  0.2, 0.3,  0.4, 0.5,  0.4, 0.3,  0.2,  0.1,  0.2,  0.3,  0.4,  0.5,  0.55, 0.6,
+      0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55,
+
+      0.1,  0.2, 0.3,  0.4, 0.5,  0.4, 0.3,  0.2,  0.1,  0.2,  0.3,  0.4,  0.5,  0.55, 0.6,
+      0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55,
+  };
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  SelectAnimation(model::BarAnimation::VerticalMirror);
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+
+  // Screen is dimmed while a dialog is opened, so bottom half must not use inverted colors at all
+  // (dim does not apply to them, so these cells would have a different color from the mirrored bar)
+  std::static_pointer_cast<interface::MainContent>(block)->SetDimmed(true);
+  ftxui::Render(*screen, block->Render());
+
+  int tips = 0;
+
+  for (int y = 0; y < screen->dimy(); y++) {
+    for (int x = 0; x < screen->dimx(); x++) {
+      const auto& cell = screen->CellAt(x, y);
+      EXPECT_FALSE(cell.inverted) << "cell at " << x << "," << y;
+
+      // Instead, last cell from each bar is filled from top
+      if (cell.character == "▀" || cell.character == "▔") tips++;
+    }
+  }
+
+  EXPECT_GT(tips, 0);
 }
 
 /* ********************************************************************************************** */

@@ -201,13 +201,17 @@ ftxui::Element Terminal::OnRender() {
     return RenderTooSmall() | screen;
   }
 
+  // Visualizer must know it is dimmed, as dim does not apply to some of its cells
+  auto main_content = std::static_pointer_cast<MainContent>(children().at(kBlockMainContent));
+  main_content->SetDimmed(IsDialogVisible());
+
   ftxui::Element terminal;
 
   if (!fullscreen_mode_) {
     // Render each block
     ftxui::Element sidebar = children().at(kBlockSidebar)->Render();
     ftxui::Element file_info = children().at(kBlockFileInfo)->Render();
-    ftxui::Element tab_viewer = children().at(kBlockMainContent)->Render();
+    ftxui::Element tab_viewer = main_content->Render();
     ftxui::Element media_player = children().at(kBlockMediaPlayer)->Render();
 
     // Glue everything together
@@ -217,8 +221,7 @@ ftxui::Element Terminal::OnRender() {
     });
   } else {
     // Render only spectrum visualizer
-    auto tab_viewer = std::static_pointer_cast<MainContent>(children().at(kBlockMainContent));
-    terminal = tab_viewer->RenderFullscreen() | ftxui::xflex_grow;
+    terminal = main_content->RenderFullscreen() | ftxui::xflex_grow;
   }
 
   // Apply decorator to dim terminal
