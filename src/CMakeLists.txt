@@ -46,11 +46,7 @@ if(NOT DISABLE_POPULATE)
   FetchContent_Declare(
     ftxui
     GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-    GIT_TAG 7de4f8683d530ff5573483f40b17df4b3c6ed736
-    # Backport upstream fix for out-of-bounds read in LinearGradient (fixed in FTXUI v6.0.0).
-    # Skip applying it when already applied, so that re-running the patch step does not fail.
-    PATCH_COMMAND sh -c "git apply --reverse --check \"$0\" 2>/dev/null || git apply \"$0\""
-                  ${PROJECT_SOURCE_DIR}/patches/ftxui-linear-gradient-oob.patch)
+    GIT_TAG f921fad208912747c17d129a8ef75ec7624b6eec) # v7.0.3
 
   FetchContent_MakeAvailable(ftxui)
 

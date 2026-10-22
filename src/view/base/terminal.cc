@@ -169,12 +169,12 @@ void Terminal::RegisterExitCallback(Callback cb) { cb_exit_ = cb; }
 
 /* ********************************************************************************************** */
 
-ftxui::Element Terminal::Render() {
+ftxui::Element Terminal::OnRender() {
   // Measure how often screen is rendered (only logged with verbose logging)
   static util::FrameStats render_stats("render");
   const auto render_start = std::chrono::steady_clock::now();
 
-  if (children_.empty() || children_.size() != 4) {
+  if (children().empty() || children().size() != 4) {
     ERROR("Terminal is empty, it has no child block");
     Exit();
   }
@@ -205,10 +205,10 @@ ftxui::Element Terminal::Render() {
 
   if (!fullscreen_mode_) {
     // Render each block
-    ftxui::Element sidebar = children_.at(kBlockSidebar)->Render();
-    ftxui::Element file_info = children_.at(kBlockFileInfo)->Render();
-    ftxui::Element tab_viewer = children_.at(kBlockMainContent)->Render();
-    ftxui::Element media_player = children_.at(kBlockMediaPlayer)->Render();
+    ftxui::Element sidebar = children().at(kBlockSidebar)->Render();
+    ftxui::Element file_info = children().at(kBlockFileInfo)->Render();
+    ftxui::Element tab_viewer = children().at(kBlockMainContent)->Render();
+    ftxui::Element media_player = children().at(kBlockMediaPlayer)->Render();
 
     // Glue everything together
     terminal = ftxui::hbox({
@@ -217,7 +217,7 @@ ftxui::Element Terminal::Render() {
     });
   } else {
     // Render only spectrum visualizer
-    auto tab_viewer = std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent));
+    auto tab_viewer = std::static_pointer_cast<MainContent>(children().at(kBlockMainContent));
     terminal = tab_viewer->RenderFullscreen() | ftxui::xflex_grow;
   }
 
@@ -263,6 +263,13 @@ bool Terminal::OnEvent(ftxui::Event event) {
   // Translate terminal-specific key sequences (e.g. Home/End under tmux)
   event = keybinding::Normalize(event);
 
+  // Ctrl+C always quits, even with a dialog opened or while typing
+  if (event == ftxui::Event::CtrlC) {
+    LOG("Handle Ctrl+C to exit");
+    Exit();
+    return true;
+  }
+
   // Blocks are not visible, so do not let user interact with them (only quit is allowed)
   if (IsTooSmall()) {
     if (event == keybinding::General::ExitApplication) {
@@ -294,9 +301,8 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
   // Animation picker is shown over spectrum visualizer without blocking anything else, but a
   // click anywhere outside of it closes it (so it must handle mouse before any block)
-  if (event.is_mouse() &&
-      std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent))
-          ->OnPickerMouseEvent(event)) {
+  if (event.is_mouse() && std::static_pointer_cast<MainContent>(children().at(kBlockMainContent))
+                              ->OnPickerMouseEvent(event)) {
     return true;
   }
 
@@ -308,7 +314,7 @@ bool Terminal::OnEvent(ftxui::Event event) {
 
   // Block commands
   if (bool event_handled =
-          std::any_of(children_.begin(), children_.end(),
+          std::any_of(children().begin(), children().end(),
                       [&event](const ftxui::Component& child) { return child->OnEvent(event); });
       event_handled)
     return true;
@@ -328,13 +334,13 @@ int Terminal::CalculateNumberBars() {
 
   if (!fullscreen_mode_) {
     const int sidebar_width =
-        std::static_pointer_cast<Block>(children_.at(kBlockSidebar))->GetSize().width;
+        std::static_pointer_cast<Block>(children().at(kBlockSidebar))->GetSize().width;
 
     // Both sidebar and visualizer have borders on left and right sides
     available -= sidebar_width + (2 * kBorderSize) + (2 * kBorderSize);
   }
 
-  auto main_content = std::static_pointer_cast<MainContent>(children_.at(kBlockMainContent));
+  auto main_content = std::static_pointer_cast<MainContent>(children().at(kBlockMainContent));
   model::BarAnimation animation = main_content->GetAnimation();
 
   const int bar_width = main_content->GetBarWidth();
@@ -387,7 +393,7 @@ void Terminal::OnCustomEvent() {
     }
 
     // Otherwise, send it to children blocks
-    for (const auto& child : children_) {
+    for (const auto& child : children()) {
       auto block = std::static_pointer_cast<Block>(child);
       if (block->OnCustomEvent(event)) {
         break;  // Skip to next event
@@ -440,8 +446,8 @@ bool Terminal::OnGlobalModeEvent(const ftxui::Event& event) {
 
 bool Terminal::OnFullscreenModeEvent(const ftxui::Event& event) {
   // In this case, only spectrum visualizer and media player may handle this event
-  std::vector<ftxui::Component>::const_iterator first = children_.begin() + kBlockMainContent;
-  std::vector<ftxui::Component>::const_iterator last = children_.end();
+  std::vector<ftxui::Component>::const_iterator first = children().begin() + kBlockMainContent;
+  std::vector<ftxui::Component>::const_iterator last = children().end();
 
   // Media player is not rendered, so it must not handle mouse events (only its keybindings)
   if (event.is_mouse()) last = first + 1;
@@ -785,14 +791,14 @@ void Terminal::UpdateFocus(int old_index, int new_index) {
 
   // Remove focus from old block
   if (old_index != kInvalidIndex) {
-    auto block = std::static_pointer_cast<Block>(children_.at(old_index));
+    auto block = std::static_pointer_cast<Block>(children().at(old_index));
     block->SetFocused(false);
     old_block = block->GetId();
   }
 
   // Set focus on newly-focused block
   if (new_index != kInvalidIndex) {
-    auto block = std::static_pointer_cast<Block>(children_.at(new_index));
+    auto block = std::static_pointer_cast<Block>(children().at(new_index));
     block->SetFocused(true);
     new_block = block->GetId();
   }

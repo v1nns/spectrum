@@ -1448,7 +1448,7 @@ class TerminalTest : public ::testing::Test {
   //! Getters for internal state
   int GetFocusedIndex() const { return terminal->focused_index_; }
   bool IsBlockFocused(int index) const {
-    return std::static_pointer_cast<interface::Block>(terminal->children_.at(index))->IsFocused();
+    return std::static_pointer_cast<interface::Block>(terminal->children().at(index))->IsFocused();
   }
 
   bool IsFullscreen() const { return terminal->fullscreen_mode_; }
@@ -1584,6 +1584,28 @@ TEST_F(TerminalTest, ExitApplication) {
   // Any block may also ask to exit
   terminal->ProcessEvent(interface::CustomEvent::Exit());
   EXPECT_EQ(exit_count, 2);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(TerminalTest, ExitWithCtrlC) {
+  using interface::CustomEvent;
+
+  EXPECT_TRUE(Send(ftxui::Event::CtrlC));
+  EXPECT_EQ(exit_count, 1);
+
+  // Even with a dialog opened
+  Send(interface::keybinding::General::ShowHelper);
+  ASSERT_TRUE(IsHelpVisible());
+
+  EXPECT_TRUE(Send(ftxui::Event::CtrlC));
+  EXPECT_EQ(exit_count, 2);
+
+  // Or while user is typing
+  terminal->ProcessEvent(CustomEvent::DisableGlobalEvent());
+
+  EXPECT_TRUE(Send(ftxui::Event::CtrlC));
+  EXPECT_EQ(exit_count, 3);
 }
 
 /* ********************************************************************************************** */

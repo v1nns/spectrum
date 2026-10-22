@@ -228,7 +228,7 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
 
 /* ********************************************************************************************** */
 
-ftxui::Element MediaPlayer::Render() {
+ftxui::Element MediaPlayer::OnRender() {
   using ftxui::EQUAL;
   using ftxui::HEIGHT;
   using ftxui::WIDTH;

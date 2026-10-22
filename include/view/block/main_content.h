@@ -44,7 +44,7 @@ class MainContent : public Block {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() override;
+  ftxui::Element OnRender() override;
 
   /**
    * @brief Renders the component in fullscreen (without window borders)

@@ -16,6 +16,7 @@
 #include "util/formatter.h"
 #include "util/url.h"
 #include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -271,8 +272,8 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 
                  ftxui::vbox({
                      ftxui::filler(),
-                     ftxui::window(RenderPlaylistTitle(max_columns_per_menu),
-                                   menu_playlist_->Render()) |
+                     full_title_window(RenderPlaylistTitle(max_columns_per_menu),
+                                       menu_playlist_->Render()) |
                          size_decorator | focus_decorator(menu_playlist_->IsFocused()),
                      ftxui::filler(),
 

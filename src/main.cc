@@ -2,14 +2,23 @@
  * \file
  * \brief Main function
  */
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/eventfd.h>
+#include <unistd.h>
+
+#include <array>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <system_error>
+#include <tuple>
 
 #include "audio/player.h"
 #include "ftxui/component/loop.hpp"
@@ -46,6 +55,51 @@ struct Settings {
 
 //! Reply sent to remote instance when its command was accepted
 static constexpr char kRemoteReplyOk[] = "ok";
+
+/**
+ * @brief Wakes up GUI loop as soon as there is something to handle: an event sent by spectrum or
+ * input from terminal. FTXUI loop only checks for them once every 16 ms, so frames sent by audio
+ * visualizer at the same rate would be delayed and sometimes merged (dropping frames)
+ */
+class LoopWaker {
+  //! Maximum time to wait, so FTXUI keeps doing anything else on time (e.g. tell Escape key apart
+  //! from the beginning of a key sequence, which takes 50 ms without any other input)
+  static constexpr int kMaxWaitMs = 50;
+
+ public:
+  LoopWaker()
+      : event_fd_{eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)},
+        tty_fd_{open("/dev/tty", O_RDONLY | O_NONBLOCK | O_CLOEXEC)} {}
+
+  ~LoopWaker() {
+    if (event_fd_ >= 0) close(event_fd_);
+    if (tty_fd_ >= 0) close(tty_fd_);
+  }
+
+  LoopWaker(const LoopWaker&) = delete;
+  LoopWaker& operator=(const LoopWaker&) = delete;
+
+  //! Wake up loop (thread-safe)
+  void Notify() const {
+    const uint64_t value = 1;
+    if (event_fd_ >= 0) std::ignore = write(event_fd_, &value, sizeof(value));
+  }
+
+  //! Block until an event is sent, terminal has input to read or maximum time has passed
+  void Wait() const {
+    // Terminal input is only checked here (FTXUI is the one to read it)
+    std::array<pollfd, 2> fds{{{event_fd_, POLLIN, 0}, {tty_fd_, POLLIN, 0}}};
+
+    if (poll(fds.data(), fds.size(), kMaxWaitMs) > 0 && (fds[0].revents & POLLIN)) {
+      uint64_t value = 0;
+      std::ignore = read(event_fd_, &value, sizeof(value));
+    }
+  }
+
+ private:
+  int event_fd_;  //!< Signaled when spectrum sends an event
+  int tty_fd_;    //!< Terminal, to know when it has input
+};
 
 /**
  * @brief Command-line argument parsing
@@ -317,14 +371,22 @@ int main(int argc, char** argv) {
   // Create a full-size screen and register callbacks
   ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
 
+  // Ctrl+C is handled by Terminal, which exits like any other way to quit (otherwise FTXUI would
+  // raise SIGINT, terminating spectrum before it finishes)
+  screen.ForceHandleCtrlC(false);
+
+  // Events may still be sent by other threads while spectrum exits, so keep it alive for them
+  auto waker = std::make_shared<LoopWaker>();
+
   // Register callbacks
-  terminal->RegisterEventSenderCallback([&screen](const ftxui::Event& e) {
+  terminal->RegisterEventSenderCallback([&screen, waker](const ftxui::Event& e) {
     // Workaround: always set cursor as hidden
     // P.S.: sometimes when ftxui::Input is rendered, a blinking cursor appears at bottom-right
     static ftxui::Screen::Cursor cursor{.shape = ftxui::Screen::Cursor::Shape::Hidden};
     screen.SetCursor(cursor);
 
     screen.PostEvent(e);
+    waker->Notify();
   });
 
   terminal->RegisterExitCallback([&screen, &player, &middleware]() {
@@ -394,8 +456,11 @@ int main(int argc, char** argv) {
   ftxui::Loop loop(&screen, terminal);
   screen.PostEvent(ftxui::Event::Custom);
 
-  // Start GUI loop and clear screen after exit
-  loop.Run();
+  // Start GUI loop (handling events as soon as they arrive) and clear screen after exit
+  while (!loop.HasQuitted()) {
+    loop.RunOnce();
+    waker->Wait();
+  }
 
   middleware->SetStatusListener(nullptr);
   if (remote) remote->Stop();

@@ -32,7 +32,7 @@ Sidebar::Sidebar(const std::shared_ptr<EventDispatcher>& dispatcher,
 
 /* ********************************************************************************************** */
 
-ftxui::Element Sidebar::Render() {
+ftxui::Element Sidebar::OnRender() {
   ftxui::Decorator max_size = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, kMaxColumns);
   ftxui::Elements buttons;
 

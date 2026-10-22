@@ -50,7 +50,7 @@ class Sidebar : public Block {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() override;
+  ftxui::Element OnRender() override;
 
   /**
    * @brief Handles an event (from mouse/keyboard)

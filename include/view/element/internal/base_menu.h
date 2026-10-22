@@ -545,7 +545,7 @@ class BaseMenu : public Element {
 
     return ftxui::hbox({
         ftxui::text("Search:") | ftxui::color(GetTheme().menu.search),
-        ftxui::Input(search_params_->text_to_search, " ", &opt)->Render() | ftxui::flex,
+        ftxui::Input(search_params_->text_to_search, " ", opt)->Render() | ftxui::flex,
     });
   }
 

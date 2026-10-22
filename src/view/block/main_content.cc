@@ -45,7 +45,7 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
 
 /* ********************************************************************************************** */
 
-ftxui::Element MainContent::Render() {
+ftxui::Element MainContent::OnRender() {
   // Toggle flag only if it was enabled (and hide fullscreen hint, if still visible)
   if (is_fullscreen_) {
     is_fullscreen_ = false;

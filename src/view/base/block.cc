@@ -5,6 +5,7 @@
 #include "util/logger.h"
 #include "view/base/event_dispatcher.h"
 #include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -58,14 +59,14 @@ ftxui::Decorator Block::GetBorderDecorator() const {
 ftxui::Decorator Block::GetContentDecorator() const {
   // Without focus, border uses a color of its own, so do not let anything inside inherit it
   // (as it happens with any text without a color)
-  return focused_ ? ftxui::nothing : ftxui::color(GetTheme().screen.foreground);
+  return focused_ ? ftxui::nothing : opaque_color(GetTheme().screen.foreground);
 }
 
 /* ********************************************************************************************** */
 
 ftxui::Element Block::RenderWindow(ftxui::Element title, ftxui::Element content) const {
   // Title is not decorated here, otherwise it would also change the border line around it
-  return ftxui::window(std::move(title), std::move(content) | GetContentDecorator()) |
+  return full_title_window(std::move(title), std::move(content) | GetContentDecorator()) |
          GetBorderDecorator();
 }
 
