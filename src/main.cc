@@ -2,29 +2,21 @@
  * \file
  * \brief Main function
  */
-#include <fcntl.h>
-#include <poll.h>
-#include <sys/eventfd.h>
-#include <unistd.h>
-
-#include <array>
-#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <system_error>
-#include <tuple>
 
 #include "audio/player.h"
 #include "ftxui/component/loop.hpp"
 #include "ftxui/component/screen_interactive.hpp"
 #include "ftxui/screen/terminal.hpp"
 #include "middleware/media_controller.h"
+#include "middleware/remote_client.h"
 #include "middleware/remote_playlist.h"
 #include "model/player_status.h"
 #include "model/remote_command.h"
@@ -32,6 +24,7 @@
 #include "util/arg_parser.h"
 #include "util/file_handler.h"
 #include "util/logger.h"
+#include "util/loop_waker.h"
 #ifdef ENABLE_MPRIS
 #include "util/mpris.h"
 #endif
@@ -51,54 +44,6 @@ struct Settings {
 
   //! Text with fields to print player status (when empty, it is printed as JSON)
   std::optional<std::string> remote_format;
-};
-
-//! Reply sent to remote instance when its command was accepted
-static constexpr char kRemoteReplyOk[] = "ok";
-
-/**
- * @brief Wakes up GUI loop as soon as there is something to handle: an event sent by spectrum or
- * input from terminal. FTXUI loop only checks for them once every 16 ms, so frames sent by audio
- * visualizer at the same rate would be delayed and sometimes merged (dropping frames)
- */
-class LoopWaker {
-  //! Maximum time to wait, so FTXUI keeps doing anything else on time (e.g. tell Escape key apart
-  //! from the beginning of a key sequence, which takes 50 ms without any other input)
-  static constexpr int kMaxWaitMs = 50;
-
- public:
-  LoopWaker()
-      : event_fd_{eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC)},
-        tty_fd_{open("/dev/tty", O_RDONLY | O_NONBLOCK | O_CLOEXEC)} {}
-
-  ~LoopWaker() {
-    if (event_fd_ >= 0) close(event_fd_);
-    if (tty_fd_ >= 0) close(tty_fd_);
-  }
-
-  LoopWaker(const LoopWaker&) = delete;
-  LoopWaker& operator=(const LoopWaker&) = delete;
-
-  //! Wake up loop (thread-safe)
-  void Notify() const {
-    const uint64_t value = 1;
-    if (event_fd_ >= 0) std::ignore = write(event_fd_, &value, sizeof(value));
-  }
-
-  //! Block until an event is sent, terminal has input to read or maximum time has passed
-  void Wait() const {
-    // Terminal input is only checked here (FTXUI is the one to read it)
-    std::array<pollfd, 2> fds{{{event_fd_, POLLIN, 0}, {tty_fd_, POLLIN, 0}}};
-
-    if (poll(fds.data(), fds.size(), kMaxWaitMs) > 0 && (fds[0].revents & POLLIN)) {
-      uint64_t value = 0;
-      std::ignore = read(event_fd_, &value, sizeof(value));
-    }
-  }
-
- private:
-  int event_fd_;  //!< Signaled when spectrum sends an event
-  int tty_fd_;    //!< Terminal, to know when it has input
 };
 
 /**
@@ -201,125 +146,6 @@ bool parse(int argc, char** argv, Settings& options) {
 
 /* ********************************************************************************************** */
 
-/**
- * @brief Print status from the running instance every time it changes, until that instance exits
- *
- * @param format Text with fields to print status (if empty, it is printed as received, in JSON)
- * @return EXIT_SUCCESS if status was received from the running instance, otherwise EXIT_FAILURE
- */
-int print_remote_status_updates(const std::optional<std::string>& format) {
-  bool failed = false;
-  std::optional<std::string> printed;
-
-  auto print = [&format, &failed, &printed](const std::string& update) {
-    auto status = model::format_status(update, format);
-
-    // Anything other than status is an error message
-    if (!status) {
-      std::cerr << "spectrum: " << update << "\n";
-      failed = true;
-      return false;
-    }
-
-    // Nothing new to print when the change was on a field not used by text
-    if (status == printed) return true;
-    printed = status;
-
-    // Whoever is reading it (e.g. a status bar) must receive each update right away
-    std::cout << *status << std::endl;
-    return std::cout.good();
-  };
-
-  bool sent = util::ReceiveRemoteUpdates(util::GetRemoteSocketPath(),
-                                         std::string{model::kRemoteSubscribeQuery}, print);
-
-  if (!sent) {
-    std::cerr << "spectrum: there is no running instance to control\n";
-    return EXIT_FAILURE;
-  }
-
-  return failed ? EXIT_FAILURE : EXIT_SUCCESS;
-}
-
-/* ********************************************************************************************** */
-
-/**
- * @brief Send command to the running instance (or ask for its status, which is printed)
- *
- * @param command Command name
- * @param format Text with fields to print status (if empty, it is printed as received, in JSON)
- * @return EXIT_SUCCESS if command was accepted by the running instance, otherwise EXIT_FAILURE
- */
-int send_remote_command(const std::string& command, const std::optional<std::string>& format) {
-  if (command == model::kRemoteSubscribeQuery) return print_remote_status_updates(format);
-
-  const bool is_query = command == model::kRemoteStatusQuery;
-  std::string request = command;
-
-  if (!is_query) {
-    std::string error;
-    auto parsed = model::ParseRemoteRequest(command, error);
-
-    if (!parsed) {
-      std::cerr << "spectrum: " << error;
-
-      // Command exists when error is about its value, so there is no reason to list all of them
-      if (!model::ParseRemoteCommand(command.substr(0, command.find(' ')))) {
-        std::cerr << " (available: " << model::GetRemoteCommandNames() << ")";
-      }
-
-      std::cerr << "\n";
-      return EXIT_FAILURE;
-    }
-
-    // Running instance has another working directory, so it must receive the full path. Anything
-    // that does not exist here is sent as it is (e.g. name of a playlist)
-    if (auto* target = std::get_if<std::string>(&parsed->value);
-        target && !middleware::IsRemoteUrl(*target)) {
-      std::error_code failure;
-
-      if (auto path = std::filesystem::absolute(*target, failure);
-          !failure && std::filesystem::exists(path, failure)) {
-        *target = path.lexically_normal().string();
-      }
-    }
-
-    // Send it in a single format, no matter how it was written
-    std::ostringstream text;
-    text << *parsed;
-    request = text.str();
-  }
-
-  auto reply = util::SendRemoteRequest(util::GetRemoteSocketPath(), request);
-
-  if (!reply) {
-    std::cerr << "spectrum: there is no running instance to control\n";
-    return EXIT_FAILURE;
-  }
-
-  if (is_query) {
-    // Anything other than status is an error message
-    auto status = model::format_status(*reply, format);
-
-    if (!status) {
-      std::cerr << "spectrum: " << *reply << "\n";
-      return EXIT_FAILURE;
-    }
-
-    std::cout << *status << "\n";
-    return EXIT_SUCCESS;
-  }
-
-  if (*reply != kRemoteReplyOk) {
-    std::cerr << "spectrum: " << *reply << "\n";
-    return EXIT_FAILURE;
-  }
-
-  return EXIT_SUCCESS;
-}
-
-/* ********************************************************************************************** */
-
 int main(int argc, char** argv) {
   // In case of getting some unexpected argument or some other error: do not execute the program
   Settings options;
@@ -329,7 +155,8 @@ int main(int argc, char** argv) {
 
   // Instead of starting a new instance, just send command to the one already running
   if (options.remote_command)
-    return send_remote_command(*options.remote_command, options.remote_format);
+    return middleware::SendRemoteCommand(util::GetRemoteSocketPath(), *options.remote_command,
+                                         options.remote_format, std::cout, std::cerr);
 
   // Write some information useful to understand any issue reported from this log
   util::Logger::SetThreadName("ui");
@@ -376,7 +203,7 @@ int main(int argc, char** argv) {
   screen.ForceHandleCtrlC(false);
 
   // Events may still be sent by other threads while spectrum exits, so keep it alive for them
-  auto waker = std::make_shared<LoopWaker>();
+  auto waker = std::make_shared<util::LoopWaker>();
 
   // Register callbacks
   terminal->RegisterEventSenderCallback([&screen, waker](const ftxui::Event& e) {
@@ -404,11 +231,11 @@ int main(int argc, char** argv) {
       if (!playlist) return "nothing to play was found for \"" + *target + "\"";
 
       terminal->SendEvent(interface::CustomEvent::NotifyPlaylistSelection(*playlist));
-      return kRemoteReplyOk;
+      return std::string{model::kRemoteReplyOk};
     }
 
     terminal->SendEvent(interface::CustomEvent::RunRemoteCommand(command));
-    return kRemoteReplyOk;
+    return std::string{model::kRemoteReplyOk};
   };
 
   // Listen for commands sent by other instances (only the first instance running does it)
@@ -432,7 +259,7 @@ int main(int argc, char** argv) {
 #ifdef ENABLE_MPRIS
   // Media keys, desktop widgets and tools like playerctl control this instance through D-Bus
   auto mpris = util::MprisServer::Create([&run_command](const model::RemoteRequest& command) {
-    return run_command(command) == kRemoteReplyOk;
+    return run_command(command) == model::kRemoteReplyOk;
   });
 
   // Every change on status is sent to the instances that asked to receive it, and to MPRIS clients

@@ -68,6 +68,9 @@ inline constexpr std::string_view kRemoteStatusQuery{"status"};
 //! Name of the request to keep receiving player status, every time it changes
 inline constexpr std::string_view kRemoteSubscribeQuery{"subscribe"};
 
+//! Reply sent by the running instance when a command was accepted
+inline constexpr std::string_view kRemoteReplyOk{"ok"};
+
 //! Get remote command name
 inline std::string_view GetRemoteCommandName(RemoteCommand command) {
   for (const auto& [id, name] : kRemoteCommands) {

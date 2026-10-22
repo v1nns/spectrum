@@ -87,6 +87,7 @@ target_sources(
           audio/lyric/lyric_finder.cc
           # middleware
           middleware/media_controller.cc
+          middleware/remote_client.cc
           middleware/remote_playlist.cc
           # model
           model/audio_filter.cc
@@ -140,6 +141,7 @@ target_sources(
           util/arg_parser.cc
           util/file_handler.cc
           util/logger.cc
+          util/loop_waker.cc
           util/process.cc
           util/remote.cc
           util/sink.cc)
