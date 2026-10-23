@@ -86,6 +86,47 @@ class DownGauge : public ftxui::Node {
   bool dimmed_;     //!< Dim is applied over gauge
 };
 
+/**
+ * @brief Stack two elements vertically, giving both of them the same height. Unlike ftxui::vbox
+ * with both elements flexible, the row left over from an odd height is not given to the bottom
+ * one (which would make it look bigger), but kept empty at the top
+ */
+class EqualHalves : public ftxui::Node {
+ public:
+  EqualHalves(ftxui::Element top, ftxui::Element bottom)
+      : ftxui::Node{{std::move(top), std::move(bottom)}} {}
+
+  void ComputeRequirement() override {
+    ftxui::Node::ComputeRequirement();
+
+    const auto& top = children_.front()->requirement();
+    const auto& bottom = children_.back()->requirement();
+
+    requirement_.min_x = std::max(top.min_x, bottom.min_x);
+    requirement_.min_y = 2 * std::max(top.min_y, bottom.min_y);
+    requirement_.flex_grow_x = std::max(top.flex_grow_x, bottom.flex_grow_x);
+    requirement_.flex_shrink_x = std::max(top.flex_shrink_x, bottom.flex_shrink_x);
+    requirement_.flex_grow_y = 1;
+    requirement_.flex_shrink_y = 1;
+  }
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+
+    const int half = (box.y_max - box.y_min + 1) / 2;
+
+    ftxui::Box bottom = box;
+    bottom.y_min = box.y_max - half + 1;
+
+    ftxui::Box top = box;
+    top.y_max = bottom.y_min - 1;
+    top.y_min = top.y_max - half + 1;
+
+    children_.front()->SetBox(top);
+    children_.back()->SetBox(bottom);
+  }
+};
+
 }  // namespace
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
@@ -412,8 +453,8 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer,
     right.pop_back();
   }
 
-  visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
-                           ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
+  visualizer = std::make_shared<EqualHalves>(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
+                                             ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
 }
 
 /* ********************************************************************************************** */
