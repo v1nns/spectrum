@@ -587,7 +587,7 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
   return ftxui::hbox({
              prefix,
              ftxui::text(indent) | style,
-             entry_text | style | ftxui::xflex_grow,
+             entry_text | style | ftxui::xflex,
          }) |
          max_size | focus_management | ftxui::reflect(boxes[index]);
 }
