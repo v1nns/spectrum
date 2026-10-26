@@ -398,8 +398,10 @@ error::Code Alsa::Stop() {
   LOG("Stop playback stream");
   if (!playback_handle_) return error::kOpenDeviceFailed;
 
-  if (snd_pcm_drain(playback_handle_.get()) < 0) {
-    ERROR("Cannot stop playback stream and preserve remaining frames on buffer");
+  // Frames on buffer are discarded instead of drained, as user asked to stop hearing them (and
+  // draining blocks forever on PipeWire 1.6.10 ALSA plugin)
+  if (snd_pcm_drop(playback_handle_.get()) < 0) {
+    ERROR("Cannot stop playback stream and clear remaining frames on buffer");
     return error::kUnknownError;
   }
 
