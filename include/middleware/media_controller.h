@@ -260,6 +260,12 @@ class MediaController : public audio::Notifier, public interface::Notifier {
   void NotifySongSeek() override;
 
   /**
+   * @brief Let UI know that song from URL is waiting until its stream may be played
+   * @param waiting True when it starts waiting, false when it stops
+   */
+  void NotifyStreamWait(bool waiting) override;
+
+  /**
    * @brief Send raw audio samples to UI
    * @param buffer Audio samples
    * @param size Sample count

@@ -1,6 +1,9 @@
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
 
+#include <chrono>
+#include <thread>
+
 #include "general/block.h"
 #include "general/utils.h"
 #include "mock/event_dispatcher_mock.h"
@@ -12,6 +15,7 @@ namespace {
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::AnyNumber;
+using ::testing::AtLeast;
 using ::testing::DoAll;
 using ::testing::Field;
 using ::testing::HasSubstr;
@@ -730,6 +734,69 @@ TEST_F(MediaPlayerTest, ShowWarning) {
 │                                                                    shuffle off  repeat off   │
 │                                                                        vol ━━━━━━━━━━ 100%   │
 │                                File not supported: broken.mp3                                │
+│   ◀◀  ▶   ■   ▶▶   --:-- ──────────────────────────────────────────────────────────── --:--  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MediaPlayerTest, ShowWaitingForStream) {
+  // UI is refreshed while waiting, so dots after message are animated
+  EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
+                                           interface::CustomEvent::Identifier::Refresh)))
+      .Times(AtLeast(1));
+
+  // While song from URL waits for its stream, it is shown in the same line used by warnings (with
+  // dots appearing one by one)
+  Process(interface::CustomEvent::UpdateStreamWait(true));
+
+  ftxui::Render(*screen, block->Render());
+
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  std::string expected = R"(
+╭ player ──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                    shuffle off  repeat off   │
+│                                                                        vol ━━━━━━━━━━ 100%   │
+│                            Waiting for stream to be available.                               │
+│   ◀◀  ▶   ■   ▶▶   --:-- ──────────────────────────────────────────────────────────── --:--  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // Later, more dots are shown (and message does not move)
+  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ player ──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                    shuffle off  repeat off   │
+│                                                                        vol ━━━━━━━━━━ 100%   │
+│                            Waiting for stream to be available...                             │
+│   ◀◀  ▶   ■   ▶▶   --:-- ──────────────────────────────────────────────────────────── --:--  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+
+  // And it is gone once waiting is over
+  Process(interface::CustomEvent::UpdateStreamWait(false));
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ player ──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                    shuffle off  repeat off   │
+│                                                                        vol ━━━━━━━━━━ 100%   │
+│                                                                                              │
 │   ◀◀  ▶   ■   ▶▶   --:-- ──────────────────────────────────────────────────────────── --:--  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────╯)";
 

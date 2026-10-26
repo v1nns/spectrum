@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <variant>
 
@@ -228,6 +229,10 @@ MediaPlayer::MediaPlayer(const std::shared_ptr<EventDispatcher>& dispatcher,
 
 /* ********************************************************************************************** */
 
+MediaPlayer::~MediaPlayer() { SetStreamWait(false); }
+
+/* ********************************************************************************************** */
+
 ftxui::Element MediaPlayer::OnRender() {
   using ftxui::EQUAL;
   using ftxui::HEIGHT;
@@ -318,6 +323,15 @@ ftxui::Element MediaPlayer::OnRender() {
   ftxui::Element warning = ftxui::text("");
   if (auto message = warning_.GetText(); message.has_value()) {
     warning = ftxui::text(*message) | ftxui::bold | ftxui::color(theme.warning) | ftxui::center;
+  } else if (stream_wait_.refresher.joinable()) {
+    // Otherwise, let user know why song from URL takes a while to start playing (with dots
+    // appearing one by one, padded so that centered text does not move)
+    const auto elapsed = std::chrono::steady_clock::now() - stream_wait_.since;
+    const auto dots = static_cast<size_t>(elapsed / kWaitingDotsInterval) % kWaitingDots + 1;
+
+    warning = ftxui::text("Waiting for stream to be available" + std::string(dots, '.') +
+                          std::string(kWaitingDots - dots, ' ')) |
+              ftxui::dim | ftxui::center;
   }
 
   ftxui::Element content = ftxui::vbox({
@@ -401,6 +415,12 @@ bool MediaPlayer::OnCustomEvent(const CustomEvent& event) {
 
   if (event == CustomEvent::Identifier::RunRemoteCommand) {
     HandleRemoteCommand(event.GetContent<model::RemoteRequest>());
+
+    return true;
+  }
+
+  if (event == CustomEvent::Identifier::UpdateStreamWait) {
+    SetStreamWait(event.GetContent<bool>());
 
     return true;
   }
@@ -957,6 +977,41 @@ void MediaPlayer::SaveModes() const {
   if (!file_handler_->SaveSettings(model::Settings{.repeat = repeat_, .shuffle = shuffle_})) {
     ERROR("Cannot save repeat mode and shuffle");
   }
+}
+
+/* ********************************************************************************************** */
+
+void MediaPlayer::SetStreamWait(bool waiting) {
+  if (waiting == stream_wait_.refresher.joinable()) return;
+
+  if (!waiting) {
+    {
+      std::scoped_lock lock{stream_wait_.mutex};
+      stream_wait_.waiting = false;
+    }
+
+    stream_wait_.notifier.notify_one();
+    stream_wait_.refresher.join();
+    return;
+  }
+
+  stream_wait_.since = std::chrono::steady_clock::now();
+  stream_wait_.waiting = true;
+
+  // Nothing else refreshes UI while there is no song playing, so do it to animate message
+  stream_wait_.refresher = std::thread([this] {
+    util::Logger::SetThreadName("stream wait");
+    std::unique_lock lock{stream_wait_.mutex};
+
+    while (!stream_wait_.notifier.wait_for(lock, kWaitingDotsInterval,
+                                           [this] { return !stream_wait_.waiting; })) {
+      lock.unlock();
+      if (auto dispatcher = GetDispatcher(); dispatcher) {
+        dispatcher->SendEvent(CustomEvent::Refresh());
+      }
+      lock.lock();
+    }
+  });
 }
 
 }  // namespace interface

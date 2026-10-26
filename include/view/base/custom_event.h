@@ -44,6 +44,7 @@ struct CustomEvent {
     UpdateSongState = 50003,
     DrawAudioSpectrum = 50004,
     UpdateAudioOutput = 50005,
+    UpdateStreamWait = 50006,
 
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
@@ -99,6 +100,7 @@ struct CustomEvent {
   static CustomEvent UpdateSongState(const model::Song::CurrentInformation& new_state);
   static CustomEvent DrawAudioSpectrum(const std::vector<double>& data);
   static CustomEvent UpdateAudioOutput(const model::AudioOutput& output);
+  static CustomEvent UpdateStreamWait(bool waiting);
 
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);

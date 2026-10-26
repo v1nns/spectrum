@@ -81,6 +81,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
       out << "UpdateAudioOutput";
       break;
 
+    case CustomEvent::Identifier::UpdateStreamWait:
+      out << "UpdateStreamWait";
+      break;
+
     case CustomEvent::Identifier::NotifyFileSelection:
       out << "NotifyFileSelection";
       break;
@@ -287,6 +291,16 @@ CustomEvent CustomEvent::UpdateAudioOutput(const model::AudioOutput& output) {
       .type = Type::FromAudioThreadToInterface,
       .id = Identifier::UpdateAudioOutput,
       .content = output,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::UpdateStreamWait(bool waiting) {
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::UpdateStreamWait,
+      .content = waiting,
   };
 }
 

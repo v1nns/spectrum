@@ -130,7 +130,7 @@ error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
 
     std::string http_header;
     for (const auto& [key, value] : audio_info.stream_info->http_header) {
-      http_header += key + ":" + value + ";";
+      http_header += key + ": " + value + "\r\n";
     }
 
     // Set up HTTP header and a few parameters for reconnection (to avoid any network-related issue)

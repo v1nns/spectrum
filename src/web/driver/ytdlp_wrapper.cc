@@ -536,6 +536,7 @@ void YtDlpWrapper::FillStreamInfo(const nlohmann::json& entry, uint32_t duration
   info.description = GetOr<std::string>(entry, "format", "");
   info.base_url = song.stream_info->base_url;
   info.streaming_url = GetOr<std::string>(entry, "url", "");
+  info.available_at = std::chrono::seconds{GetOr<int64_t>(entry, "available_at", 0)};
 
   if (auto headers = entry.find("http_headers"); headers != entry.end() && headers->is_object()) {
     for (const auto& [key, value] : headers->items()) {

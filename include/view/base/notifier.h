@@ -57,6 +57,13 @@ class Notifier {
   virtual void NotifySongSeek() = 0;
 
   /**
+   * @brief Notify UI that song from URL is waiting until its stream may be played (site refuses
+   * requests for it before that), or that it is not waiting anymore
+   * @param waiting True when it starts waiting, false when it stops
+   */
+  virtual void NotifyStreamWait(bool waiting) = 0;
+
+  /**
    * @brief Send raw audio samples to UI
    * @param buffer Audio samples (16-bit, interleaved channels)
    * @param size Sample count (considering all channels)

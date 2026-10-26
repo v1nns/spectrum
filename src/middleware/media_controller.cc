@@ -541,6 +541,16 @@ void MediaController::NotifySongSeek() {
 
 /* ********************************************************************************************** */
 
+void MediaController::NotifyStreamWait(bool waiting) {
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  // Notify Audio Player block to show (or hide) that song is waiting for its stream
+  dispatcher->SendEvent(interface::CustomEvent::UpdateStreamWait(waiting));
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::SendAudioRaw(const int16_t* buffer, int size) {
   // Append audio data to be analyzed by thread
   sync_data_.Append(buffer, size);

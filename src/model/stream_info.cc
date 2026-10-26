@@ -7,9 +7,9 @@ namespace model {
 
 bool operator==(const StreamInfo& lhs, const StreamInfo& rhs) {
   return std::tie(lhs.codec, lhs.extension, lhs.filesize, lhs.description, lhs.base_url,
-                  lhs.streaming_url, lhs.http_header) ==
+                  lhs.streaming_url, lhs.http_header, lhs.available_at) ==
          std::tie(rhs.codec, rhs.extension, rhs.filesize, rhs.description, rhs.base_url,
-                  rhs.streaming_url, rhs.http_header);
+                  rhs.streaming_url, rhs.http_header, rhs.available_at);
 }
 
 /* ********************************************************************************************** */

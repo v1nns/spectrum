@@ -2653,6 +2653,129 @@ TEST_F(PlayerTest, FetchSongFromUrlAgainWhenInformationKeptIsNotAccepted) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, WaitForStreamToBeAvailableBeforeOpeningIt) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+  };
+
+  // Site only accepts requests for streaming URL from the next second
+  const auto available_at = std::chrono::duration_cast<std::chrono::seconds>(
+                                std::chrono::system_clock::now().time_since_epoch()) +
+                            std::chrono::seconds{1};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    InSequence seq;
+
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke([&](model::Song& song) {
+      song.stream_info->available_at = available_at;
+      return error::kSuccess;
+    }));
+
+    EXPECT_CALL(*notifier, NotifyStreamWait(true));
+    EXPECT_CALL(*notifier, NotifyStreamWait(false));
+
+    // Stream is only opened once site accepts it
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke([&](const model::Song&) {
+      EXPECT_GE(std::chrono::system_clock::now().time_since_epoch(), available_at);
+      return error::kFileNotSupported;
+    }));
+
+    EXPECT_CALL(*fetcher, Forget(_)).WillOnce(Return(false));
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported), _)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, StopWhileWaitingForStreamToBeAvailable) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs =
+          {
+              model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}},
+              model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/second"}},
+          },
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    InSequence seq;
+
+    // Site would only accept requests for streaming URL much later
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke([](model::Song& song) {
+      song.stream_info->available_at =
+          std::chrono::duration_cast<std::chrono::seconds>(
+              std::chrono::system_clock::now().time_since_epoch()) +
+          std::chrono::hours{1};
+      return error::kSuccess;
+    }));
+
+    EXPECT_CALL(*notifier, NotifyStreamWait(true)).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+    EXPECT_CALL(*notifier, NotifyStreamWait(false));
+
+    // Song is stopped without being opened, and nothing else from playlist is played
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(false)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(3);
+    }));
+
+    EXPECT_CALL(*decoder, Open(_)).Times(0);
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).Times(0);
+    EXPECT_CALL(*notifier, NotifyError(_, _)).Times(0);
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // Stop while it is waiting for stream
+    syncer.WaitForStep(2);
+    player_ctl->Stop();
+
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, StopPlaylistWhenSongsFromUrlAreRefused) {
   model::Playlist playlist = model::Playlist{
       .index = 0,

@@ -6,6 +6,7 @@
 #ifndef INCLUDE_MODEL_STREAM_INFO_H_
 #define INCLUDE_MODEL_STREAM_INFO_H_
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <ostream>
@@ -27,6 +28,9 @@ struct StreamInfo {
 
   std::map<std::string, std::string>
       http_header;  //!< Additional information to use on HTTP request to stream audio
+
+  //! When site starts accepting requests for streaming URL (since epoch, zero if not informed)
+  std::chrono::seconds available_at{0};
 
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const StreamInfo& s);

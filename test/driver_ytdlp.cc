@@ -162,6 +162,27 @@ TEST_F(YtDlpWrapperTest, FillStreamInfoWithAudioBitRate) {
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpWrapperTest, FillStreamInfoWithAvailableTime) {
+  // Site only accepts requests for streaming URL after this moment (seconds since epoch)
+  auto entry = nlohmann::json::parse(R"({
+    "format_id": "251", "url": "https://stream", "protocol": "https", "acodec": "opus",
+    "available_at": 1792982772
+  })");
+
+  model::Song song{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/dQw4w9WgXcQ"}};
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.stream_info->available_at.count(), Eq(1792982772));
+
+  // Without it, stream may be played right away
+  entry.erase("available_at");
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.stream_info->available_at.count(), Eq(0));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(YtDlpWrapperTest, ArtistFromVideoTitle) {
   auto song =
       FillArtistAndTitle("Clipse - So Be It (Official Music Video)",
