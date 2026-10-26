@@ -147,7 +147,8 @@ class Alsa final : public audio::Playback {
   //! Custom declarations with deleters
   struct PcmDeleter {
     void operator()(snd_pcm_t* p) const {
-      snd_pcm_drain(p);
+      // Drop instead of drain, as draining blocks forever on PipeWire 1.6.10 ALSA plugin
+      snd_pcm_drop(p);
       snd_pcm_close(p);
     }
   };
