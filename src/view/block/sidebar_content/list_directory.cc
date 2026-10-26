@@ -95,8 +95,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     const auto& song = event.GetContent<model::Song>();
     curr_playing_ = song.filepath;
 
-    // Update highlighted entry in menu
-    menu_->ResetSearch();
+    // Update highlighted entry in menu (search from user is kept)
     menu_->SetEntryHighlighted(*curr_playing_);
   }
 
@@ -111,6 +110,7 @@ bool ListDirectory::OnCustomEvent(const CustomEvent& event) {
     auto active = menu_->GetActiveEntry();
     if (!active) return false;
 
+    menu_->SetFollowPlaying(true);
     SendFileSelection(*active);
     return true;
   }
