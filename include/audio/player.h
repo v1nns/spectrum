@@ -223,6 +223,14 @@ class Player : public AudioControl {
   bool CanSkip(const Command& command);
 
   /**
+   * @brief Wait until site accepts requests for streaming URL from current song (it refuses them
+   * for a few seconds after it is extracted), unless user asks to stop it or to play another song
+   * @return True if stream may be played, False if waiting was interrupted (current song must be
+   * stopped, as the command that interrupted it was already handled)
+   */
+  bool WaitStreamAvailable();
+
+  /**
    * @brief Replace playback stream by a new one on the given output device, keeping the current one
    * when it is not possible (and notifying interface about it)
    * @param device Name of output device (empty to let Playback driver choose it)

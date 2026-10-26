@@ -685,6 +685,96 @@ TEST_F(SidebarTest, ShowIconOnEntryPlaying) {
 
 /* ********************************************************************************************** */
 
+TEST_F(SidebarTest, FollowSongPlayingUntilUserMovesAway) {
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  auto play = [&](const std::string& filename) {
+    sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+        model::Song{.filepath = LISTDIR_PATH + std::string("/") + filename}));
+  };
+
+  // While user does not move it, selected entry follows the song playing
+  play("audio_player.cc");
+  EXPECT_EQ(GetActiveFilename(), "audio_player.cc");
+
+  play("block_file_info.cc");
+  EXPECT_EQ(GetActiveFilename(), "block_file_info.cc");
+
+  // After user moves it (e.g. to pick the next song), it is kept there
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_EQ(GetActiveFilename(), "block_main_content.cc");
+
+  play("block_media_player.cc");
+  EXPECT_EQ(GetActiveFilename(), "block_main_content.cc");
+  EXPECT_EQ(GetCurrentPlaying().filename(), "block_media_player.cc");
+  EXPECT_TRUE(IsFileHighlighted());
+
+  // Until user plays something, then it follows the song playing again
+  block->OnEvent(ftxui::Event::Return);
+  play("block_main_content.cc");
+  play("block_sidebar.cc");
+  EXPECT_EQ(GetActiveFilename(), "block_sidebar.cc");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, KeepSearchWhenSongPlayingChanges) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // User is searching for something while a song is playing
+  utils::QueueCharacterEvents(*block, "/player");
+  EXPECT_THAT(render(), HasSubstr("Search:player"));
+
+  // Next song starts, but search is not interrupted
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.filepath = LISTDIR_PATH + std::string("/block_sidebar.cc")}));
+
+  EXPECT_THAT(render(), HasSubstr("Search:player"));
+  EXPECT_TRUE(IsFileHighlighted());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, KeepPlaylistSelectedWhenUserMovedAway) {
+  std::filesystem::path file{LISTDIR_PATH + std::string("/audio_player.cc")};
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix", .songs = {model::Song{.filepath = file}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = file}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Load playlists and select the second one
+  block->OnEvent(ftxui::Event::F2);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  // Song from first playlist starts: it is highlighted, but its songs are not shown (otherwise
+  // entry selected by user would move down) and selection is kept
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+      model::Song{.index = 0, .filepath = file, .playlist = "Chill mix"}));
+
+  EXPECT_TRUE(IsPlaylistSongHighlighted());
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+  EXPECT_THAT(render(), HasSubstr("▶ Lofi [1]"));
+  EXPECT_THAT(render(), Not(HasSubstr("audio_player.cc")));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
   // Setup expectation for event disabling global mode
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,

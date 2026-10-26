@@ -43,12 +43,6 @@ class Analyzer {
   virtual error::Code Execute(double *in, int size, double *out) = 0;
 
   /**
-   * @brief Get internal buffer size
-   * @return Maximum size for input vector
-   */
-  virtual int GetBufferSize() = 0;
-
-  /**
    * @brief Get output buffer size
    * @return Size for output vector (considering number of bars multiplied per number of channels)
    */

@@ -204,7 +204,14 @@ bool PlaylistMenu::OnClickImpl() {
 
   if (!active.has_value()) return false;
 
-  return on_click_(active);
+  // Song played from it must be selected once it starts (which may be notified right away)
+  const bool follow = IsFollowingPlaying();
+  SetFollowPlaying(true);
+
+  if (on_click_(active)) return true;
+
+  SetFollowPlaying(follow);
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -349,8 +356,9 @@ bool PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
     for (auto& song : tmp.playlist.songs) {
       // Check if it is the same entry (by position in playlist, or by streaming URL or filepath)
       if (!found && IsSameEntry(entry, song)) {
-        // Always collapse playlist
-        tmp.collapsed = true;
+        // Show songs from playlist only when song playing is selected (otherwise, entries would
+        // move under the one selected by user)
+        if (IsFollowingPlaying()) tmp.collapsed = true;
 
         // From now on, we cannot increment index anymore
         highlighted_ = entry;
@@ -369,12 +377,14 @@ bool PlaylistMenu::SetEntryHighlightedImpl(const model::Song& entry) {
     return false;
   }
 
+  // Select song playing, unless user moved away from it (e.g. to pick another song), in which case
+  // entries are not changed
+  if (!IsFollowingPlaying()) return true;
+
   // Resize boxes vector
   auto& boxes = GetBoxes();
   boxes.resize(count);
 
-  // To get a better experience, update focused and select indexes,
-  // to highlight current playing song entry in playlist
   ResetState(index);
 
   // And check for animation effect
@@ -587,7 +597,7 @@ ftxui::Element PlaylistMenu::CreateEntry(int index, const std::string& text, boo
   return ftxui::hbox({
              prefix,
              ftxui::text(indent) | style,
-             entry_text | style | ftxui::xflex_grow,
+             entry_text | style | ftxui::xflex,
          }) |
          max_size | focus_management | ftxui::reflect(boxes[index]);
 }

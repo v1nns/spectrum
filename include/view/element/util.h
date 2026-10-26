@@ -159,5 +159,90 @@ inline ftxui::Element spaced_row(ftxui::Elements elements) {
   return std::make_shared<SpacedRow>(std::move(elements));
 }
 
+/**
+ * @brief Node that sets foreground or background color on every cell from its child. Unlike
+ * ftxui::color and ftxui::bgcolor, default color (from terminal) also replaces the one below it,
+ * instead of being transparent (as it is since FTXUI 6)
+ */
+class OpaqueColor : public ftxui::Node {
+ public:
+  OpaqueColor(ftxui::Element child, ftxui::Color color, bool background)
+      : ftxui::Node({std::move(child)}), color_{color}, background_{background} {}
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+    children_[0]->SetBox(box);
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    for (int y = box_.y_min; y <= box_.y_max; ++y) {
+      for (int x = box_.x_min; x <= box_.x_max; ++x) {
+        auto& cell = screen.CellAt(x, y);
+        (background_ ? cell.background_color : cell.foreground_color) = color_;
+      }
+    }
+
+    ftxui::Node::Render(screen);
+  }
+
+ private:
+  ftxui::Color color_;
+  bool background_;
+};
+
+//! Same as ftxui::color, but default color (from terminal) is not transparent
+inline ftxui::Decorator opaque_color(ftxui::Color color) {
+  return [color](ftxui::Element child) {
+    return std::make_shared<OpaqueColor>(std::move(child), color, /*background=*/false);
+  };
+}
+
+//! Same as ftxui::bgcolor, but default color (from terminal) is not transparent
+inline ftxui::Decorator opaque_bgcolor(ftxui::Color color) {
+  return [color](ftxui::Element child) {
+    return std::make_shared<OpaqueColor>(std::move(child), color, /*background=*/true);
+  };
+}
+
+/**
+ * @brief Node that renders a window (content with border) and its title over the top border line,
+ * taking the whole width of it (between both corners)
+ */
+class FullTitleWindow : public ftxui::Node {
+ public:
+  FullTitleWindow(ftxui::Element window, ftxui::Element title)
+      : ftxui::Node({std::move(window), std::move(title)}) {}
+
+  void ComputeRequirement() override {
+    // Same requirement from window (including flex), but wide enough to fit title too
+    ftxui::Node::ComputeRequirement();
+    requirement_.min_x = std::max(requirement_.min_x, children_[1]->requirement().min_x + 2);
+  }
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+    children_[0]->SetBox(box);
+
+    ftxui::Box title_box = box;
+    title_box.x_min++;
+    title_box.x_max--;
+    title_box.y_max = title_box.y_min;
+    children_[1]->SetBox(title_box);
+  }
+};
+
+/**
+ * @brief Same as ftxui::window, but title takes the whole width of the top border line, so it can
+ * be split by a filler (e.g. to align buttons to the right). Since FTXUI 6, ftxui::window keeps
+ * title with only the width it requires
+ * @param title Element drawn over the top border line (border is kept where it draws nothing)
+ * @param content Element drawn inside border
+ * @return Content with border and title
+ */
+inline ftxui::Element full_title_window(ftxui::Element title, ftxui::Element content) {
+  return std::make_shared<FullTitleWindow>(std::move(content) | ftxui::borderRounded,
+                                           std::move(title));
+}
+
 }  // namespace interface
 #endif  // INCLUDE_VIEW_ELEMENT_UTIL_H_

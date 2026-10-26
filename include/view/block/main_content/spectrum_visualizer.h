@@ -102,6 +102,12 @@ class SpectrumVisualizer : public TabItem {
   int GetBarWidth() const { return gauge_width_; }
 
   /**
+   * @brief Set if visualizer is dimmed when rendered (e.g. while a dialog is opened over it)
+   * @param dimmed True if dim is applied over visualizer
+   */
+  void SetDimmed(bool dimmed) { dimmed_ = dimmed; }
+
+  /**
    * @brief Get current bar animation (used for Terminal calculation)
    * @return Bar animation identifier
    */
@@ -170,6 +176,7 @@ class SpectrumVisualizer : public TabItem {
       model::BarAnimation::HorizontalMirror;  //!< Control which bar animation to draw
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
   int gauge_width_ = kGaugeDefaultWidth;  //!< Current audio bar width
+  bool dimmed_ = false;                   //!< Dim is applied over visualizer when rendered
 
   FlashMessage message_;  //!< Brief feedback shown over visualizer (e.g. animation name)
 

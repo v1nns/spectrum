@@ -44,13 +44,19 @@ class MainContent : public Block {
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() override;
+  ftxui::Element OnRender() override;
 
   /**
    * @brief Renders the component in fullscreen (without window borders)
    * @return Element Built element based on internal state
    */
   ftxui::Element RenderFullscreen();
+
+  /**
+   * @brief Set if content is dimmed when rendered (e.g. while a dialog is opened over it)
+   * @param dimmed True if dim is applied over content
+   */
+  void SetDimmed(bool dimmed);
 
   /**
    * @brief Handles an event (from mouse/keyboard)

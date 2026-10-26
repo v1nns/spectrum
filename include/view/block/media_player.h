@@ -7,9 +7,12 @@
 #define INCLUDE_VIEW_BLOCK_AUDIO_PLAYER_H_
 
 #include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 
 #include "ftxui/dom/elements.hpp"
 #include "model/remote_command.h"
@@ -46,6 +49,10 @@ class MediaPlayer : public Block {
   //! Time that a warning stays visible
   static constexpr std::chrono::milliseconds kWarningDuration{4000};
 
+  //! Time that each frame from the dots after waiting message stays visible
+  static constexpr std::chrono::milliseconds kWaitingDotsInterval{400};
+  static constexpr size_t kWaitingDots = 3;  //!< Maximum number of dots after waiting message
+
  public:
   /**
    * @brief Construct a new Audio Player object
@@ -58,13 +65,13 @@ class MediaPlayer : public Block {
   /**
    * @brief Destroy the Audio Player object
    */
-  ~MediaPlayer() override = default;
+  ~MediaPlayer() override;
 
   /**
    * @brief Renders the component
    * @return Element Built element based on internal state
    */
-  ftxui::Element Render() override;
+  ftxui::Element OnRender() override;
 
   /**
    * @brief Handles an event (from mouse/keyboard)
@@ -132,6 +139,13 @@ class MediaPlayer : public Block {
 
   //! Save repeat mode and shuffle state, so they are restored on next run
   void SaveModes() const;
+
+  /**
+   * @brief Start or stop showing that song from URL is waiting for its stream (while shown, UI is
+   * refreshed periodically to animate it)
+   * @param waiting True to start showing it, false to stop
+   */
+  void SetStreamWait(bool waiting);
 
   /**
    * @brief Handle event for seek position in song
@@ -202,6 +216,15 @@ class MediaPlayer : public Block {
   int seek_pending_updates_ = 0;  //!< Updates from player without the position asked
 
   FlashMessage warning_;  //!< Brief warning shown above song duration (e.g. file not supported)
+
+  //! Song from URL waiting until its stream may be played (message is animated in the meantime)
+  struct StreamWait {
+    std::chrono::steady_clock::time_point since;  //!< When waiting started
+    std::thread refresher;                        //!< Thread refreshing UI to animate message
+    std::mutex mutex;                             //!< Control access for flag below
+    std::condition_variable notifier;             //!< Wake up refresher when waiting is over
+    bool waiting = false;                         //!< Flag to keep refresher running
+  } stream_wait_;
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save volume
 };

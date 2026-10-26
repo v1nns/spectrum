@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "general/utils.h"
+#include "middleware/remote_client.h"
 #include "model/mpris.h"
 #include "model/player_status.h"
 #include "model/playlist.h"
@@ -24,6 +25,7 @@
 #include "model/song.h"
 #include "model/stream_info.h"
 #include "util/file_handler.h"
+#include "util/loop_waker.h"
 #include "util/process.h"
 #include "util/remote.h"
 #include "util/sink.h"
@@ -1166,6 +1168,136 @@ TEST_F(RemoteTest, InvalidSocketPath) {
   EXPECT_EQ(util::RemoteServer::Create("", [](const std::string&) { return ""; }), nullptr);
   EXPECT_EQ(util::RemoteServer::Create(too_long, [](const std::string&) { return ""; }), nullptr);
   EXPECT_FALSE(util::SendRemoteRequest(too_long, "next").has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, SendCommandToRunningInstance) {
+  std::vector<std::string> requests;
+
+  auto server = util::RemoteServer::Create(path, [&requests](const std::string& request) {
+    if (request == model::kRemoteStatusQuery) return model::to_json({.title = "Song"});
+
+    requests.push_back(request);
+    return request == "stop" ? std::string{"busy"} : std::string{model::kRemoteReplyOk};
+  });
+  ASSERT_NE(server, nullptr);
+
+  std::ostringstream out;
+  std::ostringstream err;
+
+  const auto send = [&](const std::string& command,
+                        const std::optional<std::string>& format = std::nullopt) {
+    out.str("");
+    err.str("");
+    return middleware::SendRemoteCommand(path, command, format, out, err);
+  };
+
+  // Command is sent in a single format, no matter how it was written
+  EXPECT_EQ(send("volume   50"), EXIT_SUCCESS);
+  EXPECT_THAT(out.str(), IsEmpty());
+  EXPECT_THAT(err.str(), IsEmpty());
+
+  // Path is sent in full, as running instance has another working directory (anything else is
+  // sent as it is, like the name of a playlist)
+  EXPECT_EQ(send("play ."), EXIT_SUCCESS);
+  EXPECT_EQ(send("play some playlist"), EXIT_SUCCESS);
+
+  ASSERT_THAT(requests, SizeIs(3));
+  EXPECT_THAT(requests[0], StrEq("volume 50"));
+  EXPECT_THAT(requests[1], ::testing::HasSubstr(std::filesystem::current_path().string()));
+  EXPECT_THAT(requests[2], ::testing::HasSubstr("some playlist"));
+
+  // Status is printed using the given format
+  EXPECT_EQ(send(std::string{model::kRemoteStatusQuery}, "title: {title}"), EXIT_SUCCESS);
+  EXPECT_THAT(out.str(), StrEq("title: Song\n"));
+
+  // Error replied by running instance is printed
+  EXPECT_EQ(send("stop"), EXIT_FAILURE);
+  EXPECT_THAT(err.str(), StrEq("spectrum: busy\n"));
+
+  // Invalid commands are not sent, and all commands are listed only when it does not exist
+  requests.clear();
+
+  EXPECT_EQ(send("dance"), EXIT_FAILURE);
+  EXPECT_THAT(err.str(), ::testing::HasSubstr("(available: "));
+
+  EXPECT_EQ(send("volume loud"), EXIT_FAILURE);
+  EXPECT_THAT(err.str(), Not(::testing::HasSubstr("(available: ")));
+
+  EXPECT_THAT(requests, IsEmpty());
+
+  // Nobody is listening anymore
+  server->Stop();
+
+  EXPECT_EQ(send("next"), EXIT_FAILURE);
+  EXPECT_THAT(err.str(), StrEq("spectrum: there is no running instance to control\n"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(RemoteTest, PrintStatusUpdatesFromRunningInstance) {
+  auto server = util::RemoteServer::Create(
+      path, [](const std::string&) { return std::string{model::kRemoteReplyOk}; },
+      std::string{model::kRemoteSubscribeQuery});
+  ASSERT_NE(server, nullptr);
+
+  server->Publish(model::to_json({.title = "Song"}));
+
+  // Status is printed until running instance exits
+  std::thread exit([&server]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    server->Stop();
+  });
+
+  std::ostringstream out;
+  std::ostringstream err;
+
+  int result = middleware::SendRemoteCommand(path, std::string{model::kRemoteSubscribeQuery},
+                                             "{title}", out, err);
+  exit.join();
+
+  EXPECT_EQ(result, EXIT_SUCCESS);
+  EXPECT_THAT(out.str(), StrEq("Song\n"));
+  EXPECT_THAT(err.str(), IsEmpty());
+
+  // Nobody is listening anymore
+  result = middleware::SendRemoteCommand(path, std::string{model::kRemoteSubscribeQuery},
+                                         std::nullopt, out, err);
+
+  EXPECT_EQ(result, EXIT_FAILURE);
+  EXPECT_THAT(err.str(), StrEq("spectrum: there is no running instance to control\n"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(LoopWakerTest, WakeUpOnlyWhenNotified) {
+  using std::chrono::milliseconds;
+  using std::chrono::steady_clock;
+
+  util::LoopWaker waker;
+
+  const auto wait = [&waker]() {
+    auto start = steady_clock::now();
+    waker.Wait();
+    return std::chrono::duration_cast<milliseconds>(steady_clock::now() - start);
+  };
+
+  // Notified before waiting, so it does not wait at all
+  waker.Notify();
+  EXPECT_LT(wait(), milliseconds(util::LoopWaker::kMaxWaitMs / 2));
+
+  // Notification was already handled, so it waits for the maximum time
+  EXPECT_GE(wait(), milliseconds(util::LoopWaker::kMaxWaitMs - 5));
+
+  // Notified by another thread while waiting
+  std::thread notifier([&waker]() {
+    std::this_thread::sleep_for(milliseconds(10));
+    waker.Notify();
+  });
+
+  EXPECT_LT(wait(), milliseconds(util::LoopWaker::kMaxWaitMs - 5));
+  notifier.join();
 }
 
 /* ********************************************************************************************** */

@@ -60,7 +60,7 @@ FileInfo::FileInfo(const std::shared_ptr<EventDispatcher>& dispatcher, UrlOpener
 
 /* ********************************************************************************************** */
 
-ftxui::Element FileInfo::Render() {
+ftxui::Element FileInfo::OnRender() {
   using ftxui::EQUAL;
   using ftxui::HEIGHT;
   using ftxui::WIDTH;

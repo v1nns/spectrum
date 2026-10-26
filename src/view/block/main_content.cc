@@ -45,7 +45,7 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
 
 /* ********************************************************************************************** */
 
-ftxui::Element MainContent::Render() {
+ftxui::Element MainContent::OnRender() {
   // Toggle flag only if it was enabled (and hide fullscreen hint, if still visible)
   if (is_fullscreen_) {
     is_fullscreen_ = false;
@@ -78,6 +78,10 @@ ftxui::Element MainContent::Render() {
 
   return RenderWindow(title_border, view | ftxui::yflex);
 }
+
+/* ********************************************************************************************** */
+
+void MainContent::SetDimmed(bool dimmed) { visualizer_->SetDimmed(dimmed); }
 
 /* ********************************************************************************************** */
 

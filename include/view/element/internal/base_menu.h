@@ -157,7 +157,11 @@ class BaseMenu : public Element {
 
     if (GetSize() && OnMenuNavigation(event)) return true;
 
-    return actual().OnEventImpl(event);
+    if (!actual().OnEventImpl(event)) return false;
+
+    // User changed what is shown (e.g. collapsed playlist or started a search)
+    follow_playing_ = false;
+    return true;
   }
 
   /**
@@ -193,6 +197,7 @@ class BaseMenu : public Element {
     int* focused = GetFocused();
 
     *selected = *focused;
+    follow_playing_ = false;
 
     // Update indexes based on wheel event
     if (is_wheel_up) {
@@ -243,6 +248,7 @@ class BaseMenu : public Element {
 
       entry_focused = true;
       *focused = i;
+      if (*selected != i) follow_playing_ = false;
       *selected = i;
 
       if (click) {
@@ -285,6 +291,7 @@ class BaseMenu : public Element {
         LOG_T("Handled menu navigation key=", std::quoted(util::EventToString(event)));
         *focused = *selected;
         event_handled = true;
+        follow_playing_ = false;
 
         // Check if must enable text animation
         UpdateActiveEntry();
@@ -508,6 +515,20 @@ class BaseMenu : public Element {
    */
   void ResetHighlight() { actual().ResetHighlightImpl(); }
 
+  /**
+   * @brief Set if selected entry must follow the song playing (until user moves it)
+   * @param follow True when user plays something, false when user changes what is shown
+   */
+  void SetFollowPlaying(bool follow) { follow_playing_ = follow; }
+
+ protected:
+  /**
+   * @brief Check if selected entry must follow the song playing when it is highlighted, which is
+   * true until user moves it (e.g. to pick another song) and again after user plays something
+   * @return true if selected entry must move to the song playing, otherwise false
+   */
+  bool IsFollowingPlaying() const { return follow_playing_; }
+
   /* ******************************************************************************************** */
   //! Search mode
  protected:
@@ -545,7 +566,7 @@ class BaseMenu : public Element {
 
     return ftxui::hbox({
         ftxui::text("Search:") | ftxui::color(GetTheme().menu.search),
-        ftxui::Input(search_params_->text_to_search, " ", &opt)->Render() | ftxui::flex,
+        ftxui::Input(search_params_->text_to_search, " ", opt)->Render() | ftxui::flex,
     });
   }
 
@@ -662,6 +683,8 @@ class BaseMenu : public Element {
 
   int selected_index_ = 0;  //!< Index in list for selected entry
   int focused_index_ = 0;   //!< Index in list for focused entry
+
+  bool follow_playing_ = true;  //!< Selected entry moves to the song playing
 
   //!< Mode to render only files matching the search pattern
   std::optional<Search> search_params_ = std::nullopt;

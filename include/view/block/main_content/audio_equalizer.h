@@ -436,7 +436,7 @@ class AudioEqualizer : public TabItem {
       ftxui::Element list = ftxui::vbox(entries) | ftxui::vscroll_indicator | ftxui::yframe |
                             ftxui::size(WIDTH, EQUAL, kPrefixColumns + kMaxWidth + kScrollColumns) |
                             ftxui::color(GetTheme().equalizer.text) | ftxui::border |
-                            ftxui::bgcolor(GetTheme().screen.background) |
+                            opaque_bgcolor(GetTheme().screen.background) |
                             ftxui::reflect(list_box);
 
       // List uses only the columns it needs, instead of all the ones used by title

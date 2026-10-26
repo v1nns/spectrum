@@ -17,6 +17,7 @@ error::Code FFTW::Init(int output_size) {
   }
 
   frame_rate_ = 75;
+  frame_skip_ = 1;
   sensitivity_ = 1;
   sens_init_ = 1;
   bass_.buffer_size = kBufferSize * 8;

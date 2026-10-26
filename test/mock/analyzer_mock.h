@@ -16,7 +16,6 @@ class AnalyzerMock final : public driver::Analyzer {
  public:
   MOCK_METHOD(error::Code, Init, (int), (override));
   MOCK_METHOD(error::Code, Execute, (double *, int, double *), (override));
-  MOCK_METHOD(int, GetBufferSize, (), (override));
   MOCK_METHOD(int, GetOutputSize, (), (override));
 };
 

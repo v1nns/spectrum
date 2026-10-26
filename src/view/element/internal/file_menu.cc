@@ -244,6 +244,7 @@ bool FileMenu::OnClickImpl() {
   if (!new_dir.empty()) {
     // Search results belong to the current folder, so leave search mode before changing it
     ResetSearch();
+    SetFollowPlaying(false);
 
     std::filesystem::path old_dir = curr_dir_;
     if (!RefreshList(new_dir)) return false;
@@ -254,8 +255,15 @@ bool FileMenu::OnClickImpl() {
     return true;
   }
 
-  // Otherwise, it is a file, so execute custom on_click function (implemented by owner class)
-  return on_click_(*active);
+  // Otherwise, it is a file, so execute custom on_click function (implemented by owner class).
+  // Song played from it must be selected once it starts (which may be notified right away)
+  const bool follow = IsFollowingPlaying();
+  SetFollowPlaying(true);
+
+  if (on_click_(*active)) return true;
+
+  SetFollowPlaying(follow);
+  return false;
 }
 
 /* ********************************************************************************************** */
@@ -424,8 +432,12 @@ bool FileMenu::SetEntryHighlightedImpl(const util::File& entry) {
 
   highlighted_ = *it;
 
-  // To get a better experience, update focused and select indexes,
-  // to highlight current playing song entry in list
+  // Select song playing, unless user moved away from it (e.g. to pick another song or to search)
+  if (!IsFollowingPlaying()) return true;
+
+  // Song was just played from search results, so show all entries again to select it
+  ResetSearch();
+
   int index = static_cast<int>(it - entries_.begin());
 
   ResetState(index);

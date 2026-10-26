@@ -49,23 +49,11 @@ class DummyAnalyzer : public Analyzer {
   error::Code Execute(double *in, int size, double *out) override { return error::kSuccess; }
 
   /**
-   * @brief Get internal buffer size
-   *
-   * @return Maximum size for input vector
-   */
-  int GetBufferSize() override { return kBufferSize; }
-
-  /**
    * @brief Get output buffer size
    *
    * @return Size for output vector (considering number of bars multiplied per number of channels)
    */
   int GetOutputSize() override { return output_size_; }
-
-  /* *********************************************************************************************/
-  //! Default Constants
- private:
-  static constexpr int kBufferSize = 1024;  //!< Base size for buffers
 
   /* ******************************************************************************************** */
   //! Variables

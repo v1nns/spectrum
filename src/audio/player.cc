@@ -529,8 +529,11 @@ void Player::AudioHandler() {
     // Get streaming information if song contains a valid URL
     if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
 
+    // Stream may not be accepted yet, and user may ask for something else in the meantime
+    bool interrupted = result == error::kSuccess && !WaitStreamAvailable();
+
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
-    if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
+    if (result == error::kSuccess && !interrupted) result = decoder_->Open(*curr_song_);
 
     // Streaming information may be the one kept from the last time that this song was played, and
     // its URL may not be accepted anymore, so fetch it again (only once)
@@ -540,7 +543,14 @@ void Player::AudioHandler() {
       decoder_->ClearCache();
 
       result = fetcher_->ExtractInfo(*curr_song_);
-      if (result == error::kSuccess) result = decoder_->Open(*curr_song_);
+      interrupted = result == error::kSuccess && !WaitStreamAvailable();
+      if (result == error::kSuccess && !interrupted) result = decoder_->Open(*curr_song_);
+    }
+
+    // Song was stopped (or replaced) before it could be opened
+    if (interrupted) {
+      ResetMediaControl(error::kSuccess, /* error_parsing= */ true);
+      continue;
     }
 
     // Playback is asked to use the format from song, and decoder must create samples in the format
@@ -704,6 +714,61 @@ bool Player::CanSkip(const Command& command) {
 
   return command == Command::Identifier::SkipToNext &&
          (curr_position_ + 1 < order_.size() || repeat_ == model::RepeatMode::All);
+}
+
+/* ********************************************************************************************** */
+
+bool Player::WaitStreamAvailable() {
+  using std::chrono::system_clock;
+
+  if (!curr_song_->stream_info.has_value()) return true;
+
+  const system_clock::time_point available{curr_song_->stream_info->available_at};
+  const auto now = system_clock::now();
+  if (available <= now) return true;
+
+  INFO("Wait for stream to be available, seconds=",
+       std::chrono::duration_cast<std::chrono::seconds>(available - now).count() + 1);
+
+  auto media_notifier = notifier_.lock();
+  if (media_notifier) media_notifier->NotifyStreamWait(true);
+
+  using Cmd = Command::Identifier;
+  std::optional<Command> command;
+
+  {
+    // Only commands that would stop current song interrupt it (others are handled once it plays)
+    std::unique_lock lock(media_control_.mutex);
+    media_control_.notifier.wait_until(lock, available, [this, &command] {
+      if (media_control_.state == State::Exit) return true;
+
+      for (const Command& cmd : media_control_.queue) {
+        bool skip = cmd == Cmd::SkipToNext || cmd == Cmd::SkipToPrevious;
+
+        if (cmd == Cmd::Play || cmd == Cmd::Stop || (skip && CanSkip(cmd))) {
+          command = cmd;
+          return true;
+        }
+      }
+
+      return false;
+    });
+  }
+
+  if (media_notifier) media_notifier->NotifyStreamWait(false);
+
+  if (media_control_.state == State::Exit) return false;
+  if (!command.has_value()) return true;
+
+  INFO("Audio handler received command to ", *command, " while waiting for stream");
+
+  // Same as when song is playing: new song to play is kept in queue, skip request selects the song
+  // to play after stopping this one, and stop request means there is no next song to play
+  if (*command == Cmd::SkipToNext || *command == Cmd::SkipToPrevious) pending_skip_ = *command;
+  if (*command == Cmd::Stop) curr_playlist_.reset();
+
+  media_control_.state = State::Stop;
+  return false;
 }
 
 /* ********************************************************************************************** */

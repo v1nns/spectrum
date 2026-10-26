@@ -1,12 +1,17 @@
 #include "view/block/main_content/spectrum_visualizer.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <ftxui/dom/canvas.hpp>
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/dom/node.hpp>
+#include <ftxui/screen/screen.hpp>
+#include <memory>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -19,6 +24,110 @@
 #include "view/element/tab.h"
 
 namespace interface {
+
+namespace {
+
+/**
+ * @brief Vertical gauge filled from top to bottom. Unlike ftxui::gaugeDirection with
+ * ftxui::Direction::Down, the empty part is not drawn as full blocks with inverted colors, which
+ * would look filled once dim is applied over it (e.g. while a dialog is opened). Its last cell is
+ * filled from top by inverting colors from a block filling it from bottom, unless it is dimmed:
+ * dim does not apply to inverted colors, so it uses the closest block filling a cell from top
+ * instead (there are only a few of them)
+ */
+class DownGauge : public ftxui::Node {
+  //! Blocks filling a cell from its bottom, from empty (none) to full (eight eighths)
+  static constexpr std::array<std::string_view, 9> kLowerBlocks{" ", "▁", "▂", "▃", "▄",
+                                                                "▅", "▆", "▇", "█"};
+  static constexpr int kEighths = 8;  //!< Steps to fill a single cell
+
+  //! Closest block filling a cell from its top, for each eighth filled (from none to all of them)
+  static constexpr std::array<std::string_view, 9> kClosestUpperBlocks{" ", "▔", "▔", "▀", "▀",
+                                                                       "▀", "▀", "█", "█"};
+
+ public:
+  DownGauge(float progress, bool dimmed)
+      : progress_{std::clamp(progress, 0.F, 1.F)}, dimmed_{dimmed} {}
+
+  void ComputeRequirement() override {
+    requirement_.flex_grow_y = 1;
+    requirement_.flex_shrink_y = 1;
+    requirement_.min_x = 1;
+    requirement_.min_y = 1;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    const float limit = static_cast<float>(box_.y_min) +
+                        progress_ * static_cast<float>(box_.y_max - box_.y_min + 1);
+    const int full = static_cast<int>(limit);
+    const int eighths = static_cast<int>(kEighths * (limit - static_cast<float>(full)));
+
+    for (int x = box_.x_min; x <= box_.x_max; x++) {
+      for (int y = box_.y_min; y <= box_.y_max; y++) {
+        auto& cell = screen.CellAt(x, y);
+
+        if (y < full) {
+          cell.character = kLowerBlocks.back();
+        } else if (y == full && eighths > 0 && dimmed_) {
+          cell.character = kClosestUpperBlocks[eighths];
+        } else if (y == full && eighths > 0) {
+          // Only a partially filled cell needs inverted colors, so its top part is filled
+          cell.character = kLowerBlocks[kEighths - eighths];
+          cell.inverted = true;
+        } else {
+          cell.character = kLowerBlocks.front();
+        }
+      }
+    }
+  }
+
+ private:
+  float progress_;  //!< Filled part, from 0.0 to 1.0
+  bool dimmed_;     //!< Dim is applied over gauge
+};
+
+/**
+ * @brief Stack two elements vertically, giving both of them the same height. Unlike ftxui::vbox
+ * with both elements flexible, the row left over from an odd height is not given to the bottom
+ * one (which would make it look bigger), but kept empty at the top
+ */
+class EqualHalves : public ftxui::Node {
+ public:
+  EqualHalves(ftxui::Element top, ftxui::Element bottom)
+      : ftxui::Node{{std::move(top), std::move(bottom)}} {}
+
+  void ComputeRequirement() override {
+    ftxui::Node::ComputeRequirement();
+
+    const auto& top = children_.front()->requirement();
+    const auto& bottom = children_.back()->requirement();
+
+    requirement_.min_x = std::max(top.min_x, bottom.min_x);
+    requirement_.min_y = 2 * std::max(top.min_y, bottom.min_y);
+    requirement_.flex_grow_x = std::max(top.flex_grow_x, bottom.flex_grow_x);
+    requirement_.flex_shrink_x = std::max(top.flex_shrink_x, bottom.flex_shrink_x);
+    requirement_.flex_grow_y = 1;
+    requirement_.flex_shrink_y = 1;
+  }
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+
+    const int half = (box.y_max - box.y_min + 1) / 2;
+
+    ftxui::Box bottom = box;
+    bottom.y_min = box.y_max - half + 1;
+
+    ftxui::Box top = box;
+    top.y_max = bottom.y_min - 1;
+    top.y_min = top.y_max - half + 1;
+
+    children_.front()->SetBox(top);
+    children_.back()->SetBox(bottom);
+  }
+};
+
+}  // namespace
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
                                        const std::shared_ptr<EventDispatcher>& dispatcher,
@@ -278,7 +387,11 @@ void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
   };
 
   for (int i = 0; i < gauge_width_; i++) {
-    elements.emplace_back(gaugeDirection(static_cast<float>(value), direction) | color(direction));
+    ftxui::Element gauge = direction == ftxui::Direction::Down
+                               ? std::make_shared<DownGauge>(static_cast<float>(value), dimmed_)
+                               : gaugeDirection(static_cast<float>(value), direction);
+
+    elements.emplace_back(std::move(gauge) | color(direction));
   }
 
   if (space) elements.emplace_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
@@ -340,8 +453,8 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer,
     right.pop_back();
   }
 
-  visualizer = ftxui::vbox(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
-                           ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
+  visualizer = std::make_shared<EqualHalves>(ftxui::hbox(left) | ftxui::hcenter | ftxui::yflex,
+                                             ftxui::hbox(right) | ftxui::hcenter | ftxui::yflex);
 }
 
 /* ********************************************************************************************** */

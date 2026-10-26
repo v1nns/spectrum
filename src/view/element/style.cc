@@ -50,7 +50,8 @@ struct Palette {
   Color green;
   Color red;
   Color yellow;
-  Color special;  //!< Tags and anything else that needs a color of its own
+  Color special;   //!< Tags and anything else that needs a color of its own
+  Color emphasis;  //!< Border from pickers and dialogs, so they stand out from blocks behind them
 
   Color highlight;         //!< Highlighted letter placed over an accent color
   Color error_background;  //!< Background for error dialog
@@ -87,6 +88,9 @@ struct ColorScheme {
   //! Highlighted letter placed over an accent color (when empty, a darker red is used)
   std::optional<Rgb> highlight = std::nullopt;
 
+  //! Border from pickers and dialogs (when empty, special color is used)
+  std::optional<Rgb> emphasis = std::nullopt;
+
   //! Fill screen with colors from scheme instead of using the ones from terminal (needed by a
   //! light scheme, otherwise it could not be read on a terminal with dark background)
   bool fill_screen = false;
@@ -109,6 +113,7 @@ Palette MakePalette(const ColorScheme& s) {
       .red = s.red,
       .yellow = s.yellow,
       .special = s.special,
+      .emphasis = s.emphasis.value_or(s.special),
       .highlight = s.highlight.value_or(Mix(s.red, s.base, 0.6F)),
       .error_background = Mix(s.base, s.red, 0.3F),
       .error_foreground = s.text,
@@ -138,6 +143,7 @@ Palette MakeTerminalPalette() {
       .red = Color::Red,
       .yellow = Color::Yellow,
       .special = Color::Magenta,
+      .emphasis = Color::Magenta,
       .highlight = Color::Black,
       .error_background = Color::Red,
       .error_foreground = Color::Black,
@@ -260,7 +266,7 @@ Theme MakeTheme(const Palette& p) {
   };
 
   theme.dialog = Theme::Dialog{
-      .border = p.accent,
+      .border = p.emphasis,
       .background = p.surface,
       .background_error = p.error_background,
       .foreground = p.text,
@@ -307,7 +313,7 @@ Theme MakeTheme(const Palette& p) {
   };
 
   theme.picker = Theme::Picker{
-      .border = p.accent,
+      .border = p.emphasis,
       .entry = p.subtext,
       .entry_selected = p.text,
   };
@@ -418,6 +424,8 @@ const ColorScheme kCatppuccinLatte{
     .special = {0xFE, 0x64, 0x0B},
     .gradient = {{{0x1E, 0x66, 0xF5}, {0x72, 0x87, 0xFD}, {0x88, 0x39, 0xEF}, {0xEA, 0x76, 0xCB}}},
     .highlight = Rgb{0xF9, 0xE2, 0xAF},
+    // Peach (special) darkened, otherwise it would not stand out from light background
+    .emphasis = Rgb{0xC8, 0x5D, 0x27},
     .fill_screen = true,
 };
 

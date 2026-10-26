@@ -299,8 +299,7 @@ inline void FillBackground(ftxui::Canvas& canvas) {
 
   for (int y = 0; y < canvas.height(); y += kCellHeight) {
     for (int x = 0; x < canvas.width(); x += kCellWidth) {
-      canvas.Style(x, y,
-                   [&background](ftxui::Pixel& pixel) { pixel.background_color = background; });
+      canvas.Style(x, y, [&background](ftxui::Cell& cell) { cell.background_color = background; });
     }
   }
 }

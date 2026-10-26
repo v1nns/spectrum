@@ -130,7 +130,7 @@ error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
 
     std::string http_header;
     for (const auto& [key, value] : audio_info.stream_info->http_header) {
-      http_header += key + ":" + value + ";";
+      http_header += key + ": " + value + "\r\n";
     }
 
     // Set up HTTP header and a few parameters for reconnection (to avoid any network-related issue)
@@ -139,8 +139,9 @@ error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
     av_dict_set(&options, "reconnect_streamed", "1", 0);
     av_dict_set(&options, "reconnect_delay_max", "10", 0);
 
+    // Read stream ahead on a background thread, so playback does not stutter while reconnecting
     LOG("Open input stream from url=", std::quoted(audio_info.stream_info->base_url));
-    url = audio_info.stream_info->streaming_url;
+    url = "async:" + audio_info.stream_info->streaming_url;
   } else if (!audio_info.filepath.empty()) {
     LOG("Open input stream from filepath=", std::quoted(audio_info.filepath.string()));
     url = audio_info.filepath;
