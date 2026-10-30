@@ -8,6 +8,7 @@
 
 #include <iomanip>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "ftxui/component/component.hpp"
@@ -157,11 +158,14 @@ class BaseMenu : public Element {
 
     if (GetSize() && OnMenuNavigation(event)) return true;
 
-    if (!actual().OnEventImpl(event)) return false;
+    // User changed what is shown (e.g. collapsed playlist or started a search), unless derived
+    // class enables it again (e.g. jumped to the song playing)
+    const bool follow = std::exchange(follow_playing_, false);
 
-    // User changed what is shown (e.g. collapsed playlist or started a search)
-    follow_playing_ = false;
-    return true;
+    if (actual().OnEventImpl(event)) return true;
+
+    follow_playing_ = follow;
+    return false;
   }
 
   /**
@@ -281,8 +285,14 @@ class BaseMenu : public Element {
     if (event == Keybind::ArrowDown || event == Keybind::Down) *selected = (*selected + 1) % size;
     if (event == Keybind::PageUp) (*selected) -= Box().y_max - Box().y_min;
     if (event == Keybind::PageDown) (*selected) += Box().y_max - Box().y_min;
-    if (event == Keybind::Home) (*selected) = 0;
-    if (event == Keybind::End) (*selected) = size - 1;
+    if (event == Keybind::HalfPageUp) (*selected) -= (Box().y_max - Box().y_min) / 2;
+    if (event == Keybind::HalfPageDown) (*selected) += (Box().y_max - Box().y_min) / 2;
+    // Go to first entry only when key is pressed twice in a row (as "gg" in vim)
+    const bool go_to_first = event == Keybind::GoToFirst && pending_go_to_first_;
+    pending_go_to_first_ = event == Keybind::GoToFirst && !go_to_first;
+
+    if (event == Keybind::Home || go_to_first) (*selected) = 0;
+    if (event == Keybind::End || event == Keybind::GoToLast) (*selected) = size - 1;
 
     if (*selected != old_selected) {
       *selected = clamp(*selected, 0, size - 1);
@@ -297,6 +307,9 @@ class BaseMenu : public Element {
         UpdateActiveEntry();
       }
     }
+
+    // Wait for the same key to be pressed again
+    if (pending_go_to_first_) event_handled = true;
 
     // Otherwise, user clicked on active entry
     if (event == Keybind::Return) {
@@ -685,6 +698,8 @@ class BaseMenu : public Element {
   int focused_index_ = 0;   //!< Index in list for focused entry
 
   bool follow_playing_ = true;  //!< Selected entry moves to the song playing
+
+  bool pending_go_to_first_ = false;  //!< Key to go to first entry was pressed once
 
   //!< Mode to render only files matching the search pattern
   std::optional<Search> search_params_ = std::nullopt;

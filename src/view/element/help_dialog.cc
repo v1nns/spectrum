@@ -98,8 +98,11 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
        "lists (files and playlists)",
        {
            {up_down + " " + jk, "Move selection"},
-           {Join(Navigation::Home, Navigation::End), "Go to first/last entry"},
+           {Join(Navigation::Home, Navigation::End) + " " + ToString(Navigation::GoToFirst) +
+                ToString(Navigation::GoToFirst) + "/" + ToString(Navigation::GoToLast),
+            "Go to first/last entry"},
            {Join(Navigation::PageUp, Navigation::PageDown), "Go to previous/next page"},
+           {"Ctrl+U/Ctrl+D", "Go half a page up/down"},
            {ToString(Navigation::EnableSearch), "Search"},
            {ToString(Navigation::Escape), "Exit search"},
        }},
@@ -116,6 +119,9 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {ToString(Navigation::Return), "Play playlist (or song from it)"},
            {ToString(Navigation::Space), "Expand/collapse playlist"},
            {"←/→ " + Join(Navigation::Left, Navigation::Right), "Collapse/expand playlist"},
+           {Join(keybinding::Playlist::PreviousPlaylist, keybinding::Playlist::NextPlaylist),
+            "Go to previous/next playlist"},
+           {ToString(keybinding::Playlist::JumpToPlaying), "Go to song playing"},
            {ToString(keybinding::Playlist::Create), "Create playlist"},
            {ToString(keybinding::Playlist::Modify), "Modify playlist"},
            {ToString(keybinding::Playlist::Delete), "Delete playlist"},

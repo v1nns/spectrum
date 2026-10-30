@@ -129,8 +129,12 @@ class PlaylistMenu : public BaseMenu<PlaylistMenu> {
   //! Reset search mode (if enabled) and highlight the given entry
   void ResetSearchImpl() { filtered_entries_.reset(); }
 
-  //! Toggle collapse state for current selected entry (only available for playlist entries)
+  //! Toggle collapse state for playlist from current selected entry (on a song entry, only hiding
+  //! songs is supported, which also selects the playlist entry)
   bool ToggleActivePlaylist(const CollapseState& state);
+
+  //! Select the previous/next playlist entry, relative to the current selected entry
+  bool SelectSiblingPlaylist(bool next);
 
   //! Getter for active playlist from default list (shuffle if selected is a song)
   std::optional<model::Playlist> GetActivePlaylistFromNormal() const;
