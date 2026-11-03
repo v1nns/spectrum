@@ -2081,6 +2081,50 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, ResetSelectedPresetToApplied) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Set focus on tab item 2
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // Setup expectation to check that will send audio filters matching Rock EQ only once
+  using model::AudioFilter;
+  using model::EqualizerPreset;
+  EqualizerPreset audio_filters{AudioFilter::CreatePresets()["Rock"]};
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ApplyAudioFilters),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::EqualizerPreset>(audio_filters)))))
+      .Times(1);
+
+  // Using keybindings for navigation, open preset picker, select and apply "Rock"
+  std::string typed{"lh jjjjjjjjjjj a"};
+  utils::QueueCharacterEvents(*block, typed);
+  EXPECT_THAT(render(), HasSubstr("→ Rock"));
+
+  // Select another preset without applying it
+  block->OnEvent(ftxui::Event::Character('k'));
+  EXPECT_THAT(render(), HasSubstr("→ Pop"));
+
+  // Reset goes back to the preset applied, without sending it again
+  block->OnEvent(ftxui::Event::Character('r'));
+  EXPECT_THAT(render(), HasSubstr("→ Rock"));
+
+  // As it is already applied, there is nothing else to reset
+  block->OnEvent(ftxui::Event::Character('k'));
+  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::Character('r'));
+  EXPECT_THAT(render(), HasSubstr("→ Rock"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   // Set focus on tab item 2
   block->OnEvent(ftxui::Event::Character('2'));

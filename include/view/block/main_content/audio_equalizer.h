@@ -356,7 +356,8 @@ class AudioEqualizer : public TabItem {
                                              //!< scrolling it with mouse wheel (default is none)
     bool title_hovered = false;              //!< Flag to control hover state on title
 
-    model::MusicGenre* preset_name;  //!< Current preset
+    model::MusicGenre* preset_name;           //!< Current preset
+    const model::MusicGenre* preset_applied;  //!< Preset applied to audio
 
     //! Callback to inform external TabView (this AudioVisualizer) to update its current preset
     using Callback = std::function<void(const model::MusicGenre&)>;
@@ -370,15 +371,18 @@ class AudioEqualizer : public TabItem {
      * @brief Initialize this element with data from TabView
      * @param eq_presets Equalizer presets
      * @param name Current preset
+     * @param applied Preset applied to audio
+     * @param update Callback to update current preset
      */
     void Initialize(const model::EqualizerPresets& eq_presets, model::MusicGenre* name,
-                    const Callback& update) {
+                    const model::MusicGenre* applied, const Callback& update) {
       presets.reserve(eq_presets.size());
       boxes.resize(eq_presets.size() + 1);  // presets + title
 
       for (const auto& [genre, filters] : eq_presets) presets.push_back(genre);
 
       preset_name = name;
+      preset_applied = applied;
       update_preset = update;
     }
 
@@ -427,8 +431,14 @@ class AudioEqualizer : public TabItem {
                              : entry_focused > 0 ? i == (entry_focused - 1)
                                                  : active;
 
-        entries.push_back(ftxui::RadioboxOption::Simple().transform(state) |
-                          (visible ? ftxui::focus : ftxui::nothing) | ftxui::reflect(boxes[i + 1]));
+        // Preset applied to audio uses its own color, to tell it apart when another one is selected
+        auto entry = ftxui::RadioboxOption::Simple().transform(state);
+        if (presets[i] == *preset_applied) {
+          entry |= ftxui::color(GetTheme().equalizer.preset_applied);
+        }
+
+        entries.push_back(entry | (visible ? ftxui::focus : ftxui::nothing) |
+                          ftxui::reflect(boxes[i + 1]));
       }
 
       // As list is rendered above other elements, it must fill its own background (with the one
@@ -561,6 +571,9 @@ class AudioEqualizer : public TabItem {
 
       auto prefix = ftxui::text(std::string{opened ? kPrefixOpened : kPrefixClosed});
       auto title = ftxui::text(*preset_name);
+
+      // Same color used by list, so it is clear whether current preset is applied to audio
+      if (*preset_name == *preset_applied) title |= ftxui::color(theme.preset_applied);
 
       if ((IsFocused() && entry_focused == 0) || title_hovered) {
         title |= ftxui::inverted;
