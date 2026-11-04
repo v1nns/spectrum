@@ -142,6 +142,21 @@ bool PlaylistMenu::OnEventImpl(const ftxui::Event& event) {
     return ToggleActivePlaylist(CollapseState::Toggle);
   }
 
+  // Select playlist above/below the selected entry
+  if (event == keybinding::Playlist::PreviousPlaylist) {
+    return SelectSiblingPlaylist(/*next=*/false);
+  }
+
+  if (event == keybinding::Playlist::NextPlaylist) {
+    return SelectSiblingPlaylist(/*next=*/true);
+  }
+
+  // Show songs from playlist playing and select the song playing
+  if (event == keybinding::Playlist::JumpToPlaying && highlighted_.has_value()) {
+    SetFollowPlaying(true);
+    return SetEntryHighlightedImpl(model::Song{*highlighted_});
+  }
+
   // Enable search mode
   if (!IsSearchEnabled() && event == keybinding::Navigation::EnableSearch) {
     EnableSearch();
@@ -429,27 +444,27 @@ bool PlaylistMenu::ToggleActivePlaylist(const CollapseState& state) {
   if (IsSearchEnabled()) return false;
 
   int selected = *GetSelected();
-  int count = 0, total_size = 0;
+  int header = 0;  // Index of playlist entry owning the selected entry
 
   InternalPlaylist* internal_playlist = nullptr;
 
   for (auto& entry : entries_) {
-    if (count == selected) {
+    int songs = entry.collapsed ? static_cast<int>(entry.playlist.songs.size()) : 0;
+
+    // Selected entry is either the playlist itself or one of its songs
+    if (selected <= header + songs) {
       internal_playlist = &entry;
+      break;
     }
 
-    // Already checked playlist index, so increment both counters
-    total_size += 1 + (entry.collapsed ? entry.playlist.songs.size() : 0);
-    ++count;
-
-    // As we do not care about song entries, just increment count
-    if (entry.collapsed) count += entry.playlist.songs.size();
-
-    // Do not attempt to find the selected playlist anymore
-    if (count > selected) break;
+    header += 1 + songs;
   }
 
   if (!internal_playlist) return false;
+
+  // On a song entry, only hiding songs is supported (and then playlist entry gets selected)
+  bool is_song = selected != header;
+  if (is_song && state != CollapseState::ForceClose) return false;
 
   if (state == CollapseState::Toggle ||
       (state == CollapseState::ForceOpen && !internal_playlist->collapsed) ||
@@ -458,10 +473,43 @@ bool PlaylistMenu::ToggleActivePlaylist(const CollapseState& state) {
     LOG(internal_playlist->collapsed ? "Show" : "Hide",
         " collapsed playlist=", std::quoted(internal_playlist->playlist.name));
 
+    if (is_song) *GetSelected() = *GetFocused() = header;
+
     // Resize vector of boxes to new size and check if must enable text animation
     Clamp();
     UpdateActiveEntry();
   }
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool PlaylistMenu::SelectSiblingPlaylist(bool next) {
+  const InternalPlaylists* const tmp =
+      IsSearchEnabled() ? std::addressof(*filtered_entries_) : &entries_;
+
+  int selected = *GetSelected();
+  int header = 0;  // Index of each playlist entry
+
+  std::optional<int> target;
+
+  for (const auto& entry : *tmp) {
+    if (next && header > selected) {
+      target = header;
+      break;
+    }
+
+    // Keep the last playlist entry above the selected one
+    if (!next && header < selected) target = header;
+
+    header += 1 + (entry.collapsed ? static_cast<int>(entry.playlist.songs.size()) : 0);
+  }
+
+  if (!target.has_value()) return false;
+
+  *GetSelected() = *GetFocused() = *target;
+  UpdateActiveEntry();
 
   return true;
 }

@@ -2663,8 +2663,8 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 
   EXPECT_THAT(rendered, StrEq(expected));
 
-  // Nothing should happen on song entry
-  typed = "jlh";
+  // On song entry, nothing should happen when expanding
+  typed = "jjl";
   utils::QueueCharacterEvents(*block, typed);
 
   // Redraw element on screen
@@ -2676,8 +2676,8 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │  Chill mix [3]                     │
-│▶   chilling 1.mp3                  │
-│    chilling 2.mp3                  │
+│    chilling 1.mp3                  │
+│▶   chilling 2.mp3                  │
 │    chilling 3.mp3                  │
 │                                    │
 │                                    │
@@ -2691,6 +2691,226 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+
+  // But collapsing hides songs from its playlist, and selects the playlist
+  block->OnEvent(ftxui::Event::Character('h'));
+
+  // Redraw element on screen
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+
+  rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  expected = R"(
+╭ F1:files  F2:playlist ─────────────╮
+│▶ Chill mix [3]                     │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│                                    │
+│   c create · o modify · d delete   │
+╰────────────────────────────────────╯)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, CollapsePlaylistFromSongWithArrow) {
+  model::Playlists data{{
+      model::Playlist{.index = 0,
+                      .name = "Chill mix",
+                      .songs = {model::Song{.filepath = "chilling 1.mp3"},
+                                model::Song{.filepath = "chilling 2.mp3"}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = "lofi.mp3"}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Show songs from second playlist and select its song
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowRight);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 2);
+
+  block->OnEvent(ftxui::Event::ArrowLeft);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  ftxui::Render(*screen, block->Render());
+  std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+
+  EXPECT_THAT(rendered, HasSubstr("▶ Lofi [1]"));
+  EXPECT_THAT(rendered, Not(HasSubstr("lofi.mp3")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NavigateBetweenPlaylists) {
+  model::Playlists data{{
+      model::Playlist{.index = 0,
+                      .name = "Chill mix",
+                      .songs = {model::Song{.filepath = "chilling 1.mp3"},
+                                model::Song{.filepath = "chilling 2.mp3"}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = "lofi.mp3"}}},
+      model::Playlist{.index = 2, .name = "Rock", .songs = {model::Song{.filepath = "rock.mp3"}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Show songs from first playlist (entries: Chill mix, 2 songs, Lofi, Rock)
+  block->OnEvent(ftxui::Event::Character('l'));
+
+  // Skip songs to select next playlist, until the last one
+  block->OnEvent(ftxui::Event::Character(']'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 3);
+
+  block->OnEvent(ftxui::Event::Character(']'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 4);
+
+  EXPECT_FALSE(block->OnEvent(ftxui::Event::Character(']')));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 4);
+
+  block->OnEvent(ftxui::Event::Character('['));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 3);
+
+  // From a song, go to its own playlist
+  block->OnEvent(ftxui::Event::Character('k'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 2);
+
+  block->OnEvent(ftxui::Event::Character('['));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+
+  EXPECT_FALSE(block->OnEvent(ftxui::Event::Character('[')));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, JumpToSongPlaying) {
+  std::filesystem::path song_a{LISTDIR_PATH + std::string("/audio_player.cc")};
+  std::filesystem::path song_b{LISTDIR_PATH + std::string("/block_sidebar.cc")};
+  model::Playlists data{{
+      model::Playlist{.index = 0,
+                      .name = "Chill mix",
+                      .songs = {model::Song{.filepath = song_a}, model::Song{.filepath = song_b}}},
+      model::Playlist{.index = 1, .name = "Lofi", .songs = {model::Song{.filepath = song_a}}},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(data), Return(true)));
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(_)).WillRepeatedly(Return(true));
+
+  auto sidebar = std::static_pointer_cast<interface::Sidebar>(block);
+  auto play = [&](int index, const std::filesystem::path& file) {
+    sidebar->OnCustomEvent(interface::CustomEvent::UpdateSongInfo(
+        model::Song{.index = index, .filepath = file, .playlist = "Chill mix"}));
+  };
+
+  // Nothing is playing yet
+  block->OnEvent(ftxui::Event::F2);
+  EXPECT_FALSE(block->OnEvent(ftxui::Event::Character('i')));
+
+  // User moved away, so selection is kept when song starts
+  block->OnEvent(ftxui::Event::ArrowDown);
+  play(0, song_a);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  // Jump to song playing, showing songs from its playlist
+  block->OnEvent(ftxui::Event::Character('i'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶   audio_player.cc"));
+
+  // And selection follows the song playing again
+  play(1, song_b);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 2);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NavigateToFirstAndLastEntryAsVim) {
+  model::Playlists data{{
+      model::Playlist{.index = 0, .name = "Chill mix"},
+      model::Playlist{.index = 1, .name = "Lofi"},
+      model::Playlist{.index = 2, .name = "Rock"},
+  }};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  block->OnEvent(ftxui::Event::Character('G'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 2);
+
+  // A single key press does nothing
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('g')));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 2);
+
+  // Any other key in between resets it
+  block->OnEvent(ftxui::Event::Character('k'));
+  block->OnEvent(ftxui::Event::Character('g'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+
+  block->OnEvent(ftxui::Event::Character('g'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
+
+  // After going to first entry, it needs to be pressed twice again
+  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::Character('g'));
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 1);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, NavigateHalfPage) {
+  model::Playlist playlist{.index = 0, .name = "Long mix"};
+  for (int i = 0; i < 30; ++i) {
+    playlist.songs.push_back(model::Song{.filepath = "song " + std::to_string(i) + ".mp3"});
+  }
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(model::Playlists{playlist}), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+  block->OnEvent(ftxui::Event::Character('l'));
+
+  // Box is only known after rendering
+  ftxui::Render(*screen, block->Render());
+  const ftxui::Box box = GetPlaylistsMenuBox();
+  const int half_page = (box.y_max - box.y_min) / 2;
+  ASSERT_GT(half_page, 0);
+
+  const auto ctrl_d = ftxui::Event::Special({4});
+  const auto ctrl_u = ftxui::Event::Special({21});
+
+  block->OnEvent(ctrl_d);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), half_page);
+
+  block->OnEvent(ctrl_d);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 2 * half_page);
+
+  block->OnEvent(ctrl_u);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), half_page);
+
+  // Stop at first entry
+  block->OnEvent(ctrl_u);
+  block->OnEvent(ctrl_u);
+  EXPECT_EQ(GetSelectedPlaylistEntry(), 0);
 }
 
 /* ********************************************************************************************** */

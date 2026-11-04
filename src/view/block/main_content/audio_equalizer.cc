@@ -18,7 +18,7 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
     : TabItem(id, dispatcher, on_focus, keybinding, std::string(kTabName)),
       file_handler_{file_handler} {
   // Initialize picker
-  picker_.Initialize(presets_, &preset_name_,
+  picker_.Initialize(presets_, &preset_name_, &last_applied_.genre,
                      std::bind(&AudioEqualizer::UpdatePreset, this, std::placeholders::_1));
 
   // Link initial EQ settings to UI
@@ -210,6 +210,17 @@ void AudioEqualizer::CreateButtons() {
         btn_apply_->Disable();
         btn_reset_->Disable();
 
+        // Selected preset is not the one applied, so go back to it
+        if (preset_name_ != last_applied_.genre) {
+          UpdatePreset(last_applied_.genre);
+          UpdateButtonState();
+
+          // Set this block as active (focused)
+          if (on_focus_) on_focus_();
+
+          return true;
+        }
+
         if (preset_name_ != kModifiablePreset) return false;
         auto& current = current_preset();
 
@@ -260,11 +271,12 @@ void AudioEqualizer::UpdateButtonState() {
   }
 
   // Set reset button as active only if:
-  // - current preset is "Custom"
-  // - exists at least one bar with gain different from zero
-  if (preset_name_ == kModifiablePreset &&
-      std::any_of(current.begin(), current.end(),
-                  [](const model::AudioFilter& filter) { return filter.gain != 0; })) {
+  // - current preset is not the one applied, or
+  // - current preset is "Custom" and exists at least one bar with gain different from zero
+  if (preset_name_ != last_applied_.genre ||
+      (preset_name_ == kModifiablePreset &&
+       std::any_of(current.begin(), current.end(),
+                   [](const model::AudioFilter& filter) { return filter.gain != 0; }))) {
     btn_reset_->Enable();
   } else {
     btn_reset_->Disable();

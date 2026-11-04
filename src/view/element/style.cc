@@ -236,6 +236,7 @@ Theme MakeTheme(const Palette& p) {
   theme.equalizer = Theme::Equalizer{
       .text = p.text,
       .label = p.muted,
+      .preset_applied = p.green,
       .bar = State{.foreground = p.accent, .background = p.overlay},
       .bar_hovered = State{.foreground = p.accent_alt, .background = p.muted},
       .bar_focused = State{.foreground = p.red, .background = p.muted},

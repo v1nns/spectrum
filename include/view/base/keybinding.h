@@ -34,8 +34,12 @@ struct Navigation {
 
   static Key Home;
   static Key End;
+  static Key GoToFirst;  //!< Must be pressed twice
+  static Key GoToLast;
   static Key PageUp;
   static Key PageDown;
+  static Key HalfPageUp;
+  static Key HalfPageDown;
 
   static Key Backspace;
   static Key AltBackspace;
@@ -161,6 +165,10 @@ struct Playlist {
 
   static Key ShowFiles;
   static Key ShowYoutube;
+
+  static Key PreviousPlaylist;
+  static Key NextPlaylist;
+  static Key JumpToPlaying;
 };
 
 /* ********************************************************************************************** */

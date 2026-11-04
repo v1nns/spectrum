@@ -2551,8 +2551,8 @@ TEST_F(HelpDialogTest, ShowKeybindingsInTwoColumnsWhenTheyFit) {
   EXPECT_THAT(rendered, HasSubstr("1-54 of"));
 
   // So the first entry from both columns are in the same line
-  const std::string line = find_line(rendered, "Show this help");
-  EXPECT_THAT(line, HasSubstr("playlists"));
+  const std::string line = find_line(rendered, "general");
+  EXPECT_THAT(line, HasSubstr("Enter directory or play song"));
 
   // And content is scrolled by everything that is visible
   dialog->OnEvent(ftxui::Event::PageDown);

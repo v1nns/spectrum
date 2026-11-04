@@ -27,8 +27,12 @@ Key Navigation::TabReverse = Key::Special({27, 91, 90});  //! Shift + Tab
 
 Key Navigation::Home = Key::Special({27, 91, 72});           //! Home key
 Key Navigation::End = Key::Special({27, 91, 70});            //! End key
+Key Navigation::GoToFirst = Key::Character('g');
+Key Navigation::GoToLast = Key::Character('G');
 Key Navigation::PageUp = Key::Special({27, 91, 53, 126});    //! PageUp key
 Key Navigation::PageDown = Key::Special({27, 91, 54, 126});  //! PageDown key
+Key Navigation::HalfPageUp = Key::Special({21});             //! Ctrl + U
+Key Navigation::HalfPageDown = Key::Special({4});             //! Ctrl + D
 
 Key Navigation::Backspace = Key::Special({127});         //! Backspace key
 Key Navigation::AltBackspace = Key::Special({27, 127});  //! Alt + Backspace
@@ -127,6 +131,10 @@ Key Playlist::RemoveSong = Key::Character('d');
 
 Key Playlist::ShowFiles = Key::Special("\x1BOP");    //! F1
 Key Playlist::ShowYoutube = Key::Special("\x1BOQ");  //! F2
+
+Key Playlist::PreviousPlaylist = Key::Character('[');
+Key Playlist::NextPlaylist = Key::Character(']');
+Key Playlist::JumpToPlaying = Key::Character('i');
 
 /* ********************************************************************************************** */
 

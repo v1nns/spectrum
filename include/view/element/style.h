@@ -143,8 +143,9 @@ struct Theme {
 
   //! Audio equalizer
   struct Equalizer {
-    Color text;   //!< Frequency, gain and preset picker
-    Color label;  //!< Units, scale for gain and anything else that describes a value
+    Color text;            //!< Frequency, gain and preset picker
+    Color label;           //!< Units, scale for gain and anything else that describes a value
+    Color preset_applied;  //!< Preset from picker list that is applied to audio
 
     //! Frequency bar (border is not used)
     State bar;
