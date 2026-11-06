@@ -36,6 +36,12 @@ class ListeningStatistics : public TabItem {
   //! Biggest change of song position counted as listened (anything else is a seek)
   static constexpr uint32_t kMaxPositionStep = 500;
 
+  //! Time listened to a song before counting it as played (unless it finishes before that)
+  static constexpr uint64_t kPlayedThreshold = 30000;
+
+  //! Time listened before saving stats again (besides saving when each song stops)
+  static constexpr uint64_t kSaveInterval = 300000;
+
   static constexpr int kFieldColumns = 16;  //!< Columns for the name of each stat
   static constexpr int kTimeColumns = 11;   //!< Columns for time listened on top lists
   static constexpr int kColumnGap = 3;      //!< Columns between both top lists
@@ -100,9 +106,10 @@ class ListeningStatistics : public TabItem {
   }
 
   /**
-   * @brief Save stats from all time to file
+   * @brief Save stats from all time to file, adding only what was counted since the last time it
+   * was saved to what is in it right now (as another instance may have saved it in the meantime)
    */
-  void Save() const;
+  void Save();
 
   /**
    * @brief Renders tabs to choose between stats from all time and from this session
@@ -130,15 +137,21 @@ class ListeningStatistics : public TabItem {
 
   //! Song playing right now
   struct Current {
-    std::string key;        //!< Song identifier (filepath or URL)
-    bool from_url = false;  //!< Song is played from URL
-    bool finished = false;  //!< Song was played until its end
+    std::string key;           //!< Song identifier (filepath or URL)
+    std::string artist;        //!< Song artist
+    std::string title;         //!< Song title (or filename/URL, when it has no title)
+    bool from_url = false;     //!< Song is played from URL
+    uint64_t listened_ms = 0;  //!< Time listened to it (in milliseconds)
+    bool played = false;       //!< Song was already counted as played
+    bool finished = false;     //!< Song was played until its end
   };
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save stats from all time
 
   model::ListeningStats all_time_;  //!< Stats from all time (saved between runs)
   model::ListeningStats session_;   //!< Stats from this session only
+  model::ListeningStats saved_;     //!< Stats from all time, as they were saved the last time
+  uint64_t unsaved_ms_ = 0;         //!< Time listened since stats were saved (in milliseconds)
   int64_t session_start_ = 0;       //!< When this session started (seconds since epoch)
 
   bool show_all_time_ = true;  //!< Show stats from all time (otherwise, only from this session)

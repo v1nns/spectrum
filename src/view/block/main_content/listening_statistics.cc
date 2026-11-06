@@ -112,6 +112,7 @@ ListeningStatistics::ListeningStatistics(const model::BlockIdentifier& id,
       session_start_{Now()} {
   // Missing (or invalid) file means that nothing was listened to yet
   if (file_handler_ && !file_handler_->ParseStats(all_time_)) all_time_ = model::ListeningStats{};
+  saved_ = all_time_;
 }
 
 /* ********************************************************************************************** */
@@ -208,10 +209,8 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
                               : from_url          ? song.stream_info->base_url
                                                   : song.filepath.filename().string();
 
-    const int64_t now = Now();
-    Update([&](model::ListeningStats& stats) { stats.AddPlayed(key, song.artist, title, now); });
-
-    current_ = Current{.key = key, .from_url = from_url};
+    // Song is only counted once it is listened to
+    current_ = Current{.key = key, .artist = song.artist, .title = title, .from_url = from_url};
     last_position_.reset();
   }
 
@@ -224,15 +223,32 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
         info.position_ms > *last_position_ &&
         info.position_ms - *last_position_ <= kMaxPositionStep) {
       const uint64_t listened = info.position_ms - *last_position_;
+      const Current& song = *current_;
+      const int64_t now = Now();
+
       Update([&](model::ListeningStats& stats) {
-        stats.AddListened(current_->key, current_->from_url, listened);
+        stats.AddListened(song.key, song.artist, song.title, song.from_url, listened, now);
       });
+
+      current_->listened_ms += listened;
+      unsaved_ms_ += listened;
     }
 
-    if (info.state == model::Song::MediaState::Finished && !current_->finished) {
+    // Song skipped right after starting is not counted as played (but it was skipped)
+    const bool finished = info.state == model::Song::MediaState::Finished;
+
+    if (!current_->played && (finished || current_->listened_ms >= kPlayedThreshold)) {
+      current_->played = true;
+      Update([this](model::ListeningStats& stats) { stats.AddPlayed(current_->key); });
+    }
+
+    if (finished && !current_->finished) {
       current_->finished = true;
       Update([](model::ListeningStats& stats) { stats.songs_finished++; });
     }
+
+    // Otherwise, a long song (or application closed abruptly) would lose a lot of what was counted
+    if (unsaved_ms_ >= kSaveInterval) Save();
 
     last_position_ = info.position_ms;
   }
@@ -259,10 +275,24 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void ListeningStatistics::Save() const {
-  if (!file_handler_ || all_time_.IsEmpty()) return;
+void ListeningStatistics::Save() {
+  unsaved_ms_ = 0;
+  if (!file_handler_ || all_time_ == saved_) return;
 
-  if (!file_handler_->SaveStats(all_time_)) ERROR("Cannot save listening stats");
+  // Another instance may have saved stats in the meantime (a missing file means that they were
+  // removed by user, so only what was counted since then is kept)
+  model::ListeningStats latest;
+  if (!file_handler_->ParseStats(latest)) latest = model::ListeningStats{};
+
+  latest.Add(all_time_.Difference(saved_));
+
+  if (!file_handler_->SaveStats(latest)) {
+    ERROR("Cannot save listening stats");
+    return;
+  }
+
+  all_time_ = latest;
+  saved_ = std::move(latest);
 }
 
 /* ********************************************************************************************** */

@@ -501,19 +501,15 @@ TEST_F(FileHandlerTest, ParseInvalidStats) {
 
 /* ********************************************************************************************** */
 
-TEST(ListeningStatsTest, CountPlayedAndListened) {
+TEST(ListeningStatsTest, CountListenedAndPlayed) {
   model::ListeningStats stats;
   EXPECT_TRUE(stats.IsEmpty());
 
-  // First song played tells since when stats are counted
-  stats.AddPlayed("/song.mp3", "Artist", "Song", 1000);
-  stats.AddPlayed("https://site/mix", "", "Mix", 2000);
+  // First song listened to tells since when stats are counted
+  stats.AddListened("/song.mp3", "Artist", "Song", false, 1500, 1000);
+  stats.AddListened("https://site/mix", "", "Mix", true, 2500, 2000);
   EXPECT_FALSE(stats.IsEmpty());
   EXPECT_EQ(stats.since, 1000);
-  EXPECT_EQ(stats.songs_played, 2);
-
-  stats.AddListened("/song.mp3", false, 1500);
-  stats.AddListened("https://site/mix", true, 2500);
 
   EXPECT_EQ(stats.listened_ms, 4000);
   EXPECT_EQ(stats.local_ms, 1500);
@@ -521,10 +517,15 @@ TEST(ListeningStatsTest, CountPlayedAndListened) {
   EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 1500);
   EXPECT_EQ(stats.songs["https://site/mix"].listened_ms, 2500);
 
-  // Playing the same song again keeps its totals (with its latest information)
-  stats.AddPlayed("/song.mp3", "Artist", "Song (Remastered)", 3000);
-  EXPECT_EQ(stats.songs["/song.mp3"].plays, 2);
-  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 1500);
+  // Song is counted as played on its own
+  EXPECT_EQ(stats.songs_played, 0);
+  stats.AddPlayed("/song.mp3");
+  EXPECT_EQ(stats.songs_played, 1);
+  EXPECT_EQ(stats.songs["/song.mp3"].plays, 1);
+
+  // Listening to the same song again keeps its totals (with its latest information)
+  stats.AddListened("/song.mp3", "Artist", "Song (Remastered)", false, 500, 3000);
+  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 2000);
   EXPECT_EQ(stats.songs["/song.mp3"].title, "Song (Remastered)");
   EXPECT_EQ(stats.since, 1000);
 }
@@ -537,22 +538,21 @@ TEST(ListeningStatsTest, KeepOnlyMostListenedSongs) {
   // Song N was listened to for N + 1 milliseconds
   for (std::size_t i = 0; i < model::ListeningStats::kMaxSongs; i++) {
     const std::string key = "/song" + std::to_string(i);
-    stats.AddPlayed(key, "", key, 1);
-    stats.AddListened(key, false, i + 1);
+    stats.AddListened(key, "", key, false, i + 1, 1);
   }
 
   ASSERT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
 
-  // Song already kept is not removed when played again
-  stats.AddPlayed("/song0", "", "/song0", 1);
+  // Song already kept is not removed when listened to again
+  stats.AddListened("/song0", "", "/song0", false, 1000, 1);
   EXPECT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
   EXPECT_EQ(stats.songs.count("/song0"), 1);
 
-  // But it gives room to a new one, as it is the least listened
-  stats.AddPlayed("/new", "", "/new", 1);
+  // But the least listened one gives room to a new one
+  stats.AddListened("/new", "", "/new", false, 1, 1);
   EXPECT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
-  EXPECT_EQ(stats.songs.count("/song0"), 0);
-  EXPECT_EQ(stats.songs.count("/song1"), 1);
+  EXPECT_EQ(stats.songs.count("/song1"), 0);
+  EXPECT_EQ(stats.songs.count("/song0"), 1);
   EXPECT_EQ(stats.songs.count("/new"), 1);
 }
 
@@ -561,16 +561,15 @@ TEST(ListeningStatsTest, KeepOnlyMostListenedSongs) {
 TEST(ListeningStatsTest, GetTopArtistsAndSongs) {
   model::ListeningStats stats;
 
-  auto play = [&stats](const std::string& key, const std::string& artist, uint64_t ms) {
-    stats.AddPlayed(key, artist, key, 1);
-    stats.AddListened(key, false, ms);
+  auto listen = [&stats](const std::string& key, const std::string& artist, uint64_t ms) {
+    stats.AddListened(key, artist, key, false, ms, 1);
   };
 
-  play("a1", "First", 100);
-  play("a2", "First", 250);
-  play("b1", "Second", 300);
-  play("c1", "", 1000);
-  play("d1", "Third", 0);
+  listen("a1", "First", 100);
+  listen("a2", "First", 250);
+  listen("b1", "Second", 300);
+  listen("c1", "", 1000);
+  listen("d1", "Third", 0);
 
   // Artists sum their songs, and songs without artist or not listened to are not included
   const auto artists = stats.GetTopArtists(5);
@@ -589,6 +588,56 @@ TEST(ListeningStatsTest, GetTopArtistsAndSongs) {
   // Only asked number of entries
   EXPECT_THAT(stats.GetTopSongs(2), SizeIs(2));
   EXPECT_THAT(stats.GetTopArtists(1), SizeIs(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
+  // Stats saved by this instance
+  model::ListeningStats saved;
+  saved.AddListened("/song.mp3", "Artist", "Song", false, 1000, 2000);
+  saved.AddPlayed("/song.mp3");
+
+  // Then this instance counts a bit more
+  model::ListeningStats current = saved;
+  current.AddListened("/song.mp3", "Artist", "Song", false, 500, 3000);
+  current.AddListened("/other.mp3", "", "Other", false, 200, 3000);
+  current.AddPlayed("/other.mp3");
+  current.songs_skipped++;
+
+  const model::ListeningStats diff = current.Difference(saved);
+  EXPECT_EQ(diff.since, 0);
+  EXPECT_EQ(diff.listened_ms, 700);
+  EXPECT_EQ(diff.songs_played, 1);
+  EXPECT_EQ(diff.songs_skipped, 1);
+  ASSERT_THAT(diff.songs, SizeIs(2));
+  EXPECT_EQ(diff.songs.at("/song.mp3").listened_ms, 500);
+  EXPECT_EQ(diff.songs.at("/song.mp3").plays, 0);
+  EXPECT_EQ(diff.songs.at("/other.mp3").plays, 1);
+
+  // While another instance saved stats from an earlier moment, with another song
+  model::ListeningStats latest;
+  latest.AddListened("/song.mp3", "Artist", "Song", false, 4000, 1000);
+  latest.AddListened("https://site/mix", "", "Mix", true, 3000, 1000);
+  latest.AddPlayed("https://site/mix");
+
+  // So only what was counted by this instance is added to them
+  latest.Add(diff);
+  EXPECT_EQ(latest.since, 1000);
+  EXPECT_EQ(latest.listened_ms, 7700);
+  EXPECT_EQ(latest.local_ms, 4700);
+  EXPECT_EQ(latest.stream_ms, 3000);
+  EXPECT_EQ(latest.songs_played, 2);
+  EXPECT_EQ(latest.songs_skipped, 1);
+  EXPECT_EQ(latest.songs.at("/song.mp3").listened_ms, 4500);
+  EXPECT_EQ(latest.songs.at("/other.mp3").listened_ms, 200);
+  EXPECT_EQ(latest.songs.at("https://site/mix").plays, 1);
+
+  // Nothing counted means nothing to add
+  EXPECT_EQ(saved.Difference(saved), model::ListeningStats{});
+
+  // Without stats saved before, everything counted is added
+  EXPECT_EQ(current.Difference(model::ListeningStats{}).since, 2000);
 }
 
 /* ********************************************************************************************** */

@@ -40,13 +40,13 @@ struct ListeningStats {
     uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds)
   };
 
-  int64_t since = 0;  //!< When the first song was played (seconds since epoch, zero if none yet)
+  int64_t since = 0;  //!< When the first song was listened to (seconds since epoch, zero if none)
 
   uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds), from files and URLs
   uint64_t local_ms = 0;     //!< Time listened to songs from files (in milliseconds)
   uint64_t stream_ms = 0;    //!< Time listened to songs from URL (in milliseconds)
 
-  uint32_t songs_played = 0;    //!< Songs that started playing
+  uint32_t songs_played = 0;    //!< Songs listened to for a while (or until their end)
   uint32_t songs_finished = 0;  //!< Songs played until their end
   uint32_t songs_skipped = 0;   //!< Songs stopped before their end (e.g. skipped, stopped by user)
 
@@ -59,28 +59,41 @@ struct ListeningStats {
   //! Public API
 
   /**
-   * @brief Count song that started playing
+   * @brief Count time listened to a song (keeping totals for it)
    * @param key Song identifier (filepath or URL)
    * @param artist Song artist
    * @param title Song title
-   * @param now Current moment (seconds since epoch)
-   */
-  void AddPlayed(const std::string& key, const std::string& artist, const std::string& title,
-                 int64_t now);
-
-  /**
-   * @brief Count time listened to a song (already counted as played)
-   * @param key Song identifier (filepath or URL)
    * @param from_url Song is played from URL
    * @param ms Time listened to (in milliseconds)
+   * @param now Current moment (seconds since epoch)
    */
-  void AddListened(const std::string& key, bool from_url, uint64_t ms);
+  void AddListened(const std::string& key, const std::string& artist, const std::string& title,
+                   bool from_url, uint64_t ms, int64_t now);
+
+  /**
+   * @brief Count song as played (once it was listened to for a while, or until its end)
+   * @param key Song identifier (filepath or URL)
+   */
+  void AddPlayed(const std::string& key);
+
+  /**
+   * @brief Get what was counted since the given stats, which were taken from these ones earlier
+   * @param before Stats taken earlier
+   * @return Stats with only what was counted since then
+   */
+  ListeningStats Difference(const ListeningStats& before) const;
+
+  /**
+   * @brief Add stats counted somewhere else (e.g. by another instance) to these ones
+   * @param other Stats to add
+   */
+  void Add(const ListeningStats& other);
 
   /**
    * @brief Check if nothing was listened to yet
-   * @return true if there is no song played, false otherwise
+   * @return true if there is nothing counted, false otherwise
    */
-  bool IsEmpty() const { return songs_played == 0; }
+  bool IsEmpty() const { return listened_ms == 0 && songs_played == 0 && songs_skipped == 0; }
 
   /**
    * @brief Get songs listened to the most (by time)
@@ -99,6 +112,10 @@ struct ListeningStats {
   //! Overloaded operators
   bool operator==(const ListeningStats& other) const;
   bool operator!=(const ListeningStats& other) const { return !operator==(other); }
+
+ private:
+  //! Remove song listened to the least (there must be at least one)
+  void RemoveLeastListened();
 };
 
 }  // namespace model

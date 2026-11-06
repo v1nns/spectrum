@@ -7,6 +7,7 @@
 #include <chrono>
 #include <future>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -209,6 +210,30 @@ class MainContentTest : public ::BlockTest {
     return session ? stats->session_ : stats->all_time_;
   }
 
+  //! Keep stats saved by file handler mock, so they are read back as from a real file
+  void UseStatsFile() {
+    ON_CALL(*file_handler, ParseStats(_))
+        .WillByDefault(Invoke([this](model::ListeningStats& stats) {
+          if (!stats_file.has_value()) return false;
+          stats = *stats_file;
+          return true;
+        }));
+
+    ON_CALL(*file_handler, SaveStats(_))
+        .WillByDefault(Invoke([this](const model::ListeningStats& stats) {
+          stats_file = stats;
+          return true;
+        }));
+  }
+
+  //! Send events for song playing from the given position until the other one (in milliseconds)
+  void ListenToSong(uint32_t from_ms, uint32_t until_ms) {
+    constexpr uint32_t kStep = 100;
+    for (uint32_t position = from_ms; position <= until_ms; position += kStep) {
+      UpdateSongState(model::Song::MediaState::Play, position);
+    }
+  }
+
   //! Getter for active tab
   int GetActiveTab() {
     return static_cast<interface::MainContent*>(block.get())->tab_elem_.active();
@@ -282,6 +307,9 @@ class MainContentTest : public ::BlockTest {
   }
 
   static constexpr int kNumberBars = 30;  //!< Number of bars for visualizer tab view
+
+  //! Stats saved by file handler mock (only when UseStatsFile is called)
+  std::optional<model::ListeningStats> stats_file;
 
   //! Load/save settings (by default, there are no settings saved)
   std::shared_ptr<NiceMock<FileHandlerMock>> file_handler =
@@ -3372,6 +3400,7 @@ TEST_F(MainContentTest, ShowListeningStatsOnTheRight) {
 
 TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   using State = model::Song::MediaState;
+  UseStatsFile();
 
   // Song lyrics are also searched for each song
   EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
@@ -3379,10 +3408,7 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   // Song from file played until its end
   Process(interface::CustomEvent::UpdateSongInfo(model::Song{
       .filepath = "/music/song.mp3", .artist = "Artist", .title = "Song", .duration = 120}));
-
-  for (uint32_t position = 0; position <= 1000; position += 100) {
-    UpdateSongState(State::Play, position);
-  }
+  ListenToSong(0, 1000);
 
   // Seek and pause are not listened to
   UpdateSongState(State::Play, 61000);
@@ -3395,30 +3421,23 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   // Stats are saved whenever a song stops
   EXPECT_CALL(*file_handler, SaveStats(AllOf(Field(&model::ListeningStats::songs_played, 1),
                                              Field(&model::ListeningStats::songs_finished, 1),
-                                             Field(&model::ListeningStats::listened_ms, 1100))))
-      .WillOnce(Return(true));
+                                             Field(&model::ListeningStats::listened_ms, 1100))));
   Process(interface::CustomEvent::ClearSongInfo());
-  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
 
-  // Song from URL stopped before its end
+  // Song from URL stopped right after starting (so it is not counted as played)
   Process(interface::CustomEvent::UpdateSongInfo(model::Song{
       .title = "Mix",
       .duration = 3600,
       .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=id"}}));
-
-  for (uint32_t position = 0; position <= 500; position += 100) {
-    UpdateSongState(State::Play, position);
-  }
-
+  ListenToSong(0, 500);
   Process(interface::CustomEvent::UpdateStreamUsage(4096));
 
-  EXPECT_CALL(*file_handler, SaveStats(_)).WillOnce(Return(true));
+  EXPECT_CALL(*file_handler, SaveStats(Field(&model::ListeningStats::songs_skipped, 1)));
   Process(interface::CustomEvent::ClearSongInfo());
-  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
 
   for (bool session : {false, true}) {
     const model::ListeningStats& stats = GetStats(session);
-    EXPECT_EQ(stats.songs_played, 2);
+    EXPECT_EQ(stats.songs_played, 1);
     EXPECT_EQ(stats.songs_finished, 1);
     EXPECT_EQ(stats.songs_skipped, 1);
     EXPECT_EQ(stats.listened_ms, 1600);
@@ -3427,11 +3446,13 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
     EXPECT_EQ(stats.stream_bytes, 4096);
   }
 
+  EXPECT_EQ(stats_file, GetStats());
+
   block->OnEvent(ftxui::Event::Character('9'));
   const std::string rendered = RenderScreen();
 
   EXPECT_THAT(rendered, HasSubstr("Time listened   1 s"));
-  EXPECT_THAT(rendered, HasSubstr("Songs           2 played · 1 finished · 1 skipped"));
+  EXPECT_THAT(rendered, HasSubstr("Songs           1 played · 1 finished · 1 skipped (50%)"));
   EXPECT_THAT(rendered, HasSubstr("Audio streamed  4.1 KB"));
   EXPECT_THAT(rendered, HasSubstr("1. Artist"));
   EXPECT_THAT(rendered, HasSubstr("1. Song · Artist"));
@@ -3440,8 +3461,105 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, CountSongAsPlayedAfterListeningForAWhile) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/long.mp3", .artist = "Artist", .title = "Long", .duration = 600}));
+
+  // Not yet
+  ListenToSong(0, 29900);
+  EXPECT_EQ(GetStats().songs_played, 0);
+  EXPECT_EQ(GetStats().listened_ms, 29900);
+
+  // Only once, no matter how long it is listened to
+  ListenToSong(30000, 45000);
+  EXPECT_EQ(GetStats().songs_played, 1);
+  EXPECT_EQ(GetStats().songs.at("/music/long.mp3").plays, 1);
+
+  // And it may still be skipped afterwards
+  Process(interface::CustomEvent::ClearSongInfo());
+  EXPECT_EQ(GetStats().songs_played, 1);
+  EXPECT_EQ(GetStats().songs_skipped, 1);
+  EXPECT_EQ(GetStats().songs_finished, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, SaveListeningStatsWhileSongIsPlaying) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+  UseStatsFile();
+
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/mix.mp3", .artist = "Artist", .title = "Mix", .duration = 3600}));
+
+  // Long song is saved every few minutes (not only when it stops)
+  EXPECT_CALL(*file_handler, SaveStats(_)).Times(0);
+  ListenToSong(0, 299900);
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  UseStatsFile();
+
+  EXPECT_CALL(*file_handler, SaveStats(Field(&model::ListeningStats::listened_ms, 300000)));
+  ListenToSong(300000, 300000);
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  UseStatsFile();
+
+  EXPECT_CALL(*file_handler, SaveStats(_)).Times(0);
+  ListenToSong(300100, 400000);
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, KeepListeningStatsSavedByAnotherInstance) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+  UseStatsFile();
+
+  // Stats saved when this instance started
+  model::ListeningStats started;
+  started.AddListened("/music/old.mp3", "Old", "Song", false, 60000, 1000);
+  started.AddPlayed("/music/old.mp3");
+  stats_file = started;
+
+  block = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(true);
+
+  // In the meantime, another instance saved what it played
+  model::ListeningStats other = started;
+  other.AddListened("https://site/mix", "", "Mix", true, 120000, 2000);
+  other.AddPlayed("https://site/mix");
+  stats_file = other;
+
+  // So this instance only adds what it played when saving
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/new.mp3", .artist = "New", .title = "Song", .duration = 120}));
+  ListenToSong(0, 1000);
+  UpdateSongState(model::Song::MediaState::Finished, 0);
+  Process(interface::CustomEvent::ClearSongInfo());
+
+  ASSERT_TRUE(stats_file.has_value());
+  EXPECT_EQ(stats_file->songs_played, 3);
+  EXPECT_EQ(stats_file->listened_ms, 181000);
+  EXPECT_EQ(stats_file->since, 1000);
+  EXPECT_EQ(stats_file->songs.size(), 3);
+  EXPECT_EQ(GetStats(), *stats_file);
+
+  // File removed by user means that only what is counted from now on is kept
+  stats_file.reset();
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/new.mp3", .artist = "New", .title = "Song", .duration = 120}));
+  ListenToSong(0, 500);
+  Process(interface::CustomEvent::ClearSongInfo());
+
+  ASSERT_TRUE(stats_file.has_value());
+  EXPECT_EQ(stats_file->listened_ms, 500);
+  EXPECT_EQ(stats_file->songs_skipped, 1);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, ToggleListeningStatsScope) {
-  // Stats from all time are restored when block is created, and saved when it is destroyed
+  // Stats from all time are restored when block is created
   const model::ListeningStats saved{
       .since = 1792982772,
       .listened_ms = 7200000,
@@ -3468,7 +3586,8 @@ TEST_F(MainContentTest, ToggleListeningStatsScope) {
   block->OnEvent(MouseEventAt("all time", ftxui::Mouse::Left));
   EXPECT_THAT(RenderScreen(), HasSubstr("Time listened   2 h"));
 
-  EXPECT_CALL(*file_handler, SaveStats(Eq(saved))).WillOnce(Return(true));
+  // Nothing changed, so nothing is saved
+  EXPECT_CALL(*file_handler, SaveStats(_)).Times(0);
   block.reset();
 }
 

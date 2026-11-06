@@ -2,6 +2,7 @@
  * \file
  * \brief Main function
  */
+#include <csignal>
 #include <cstdlib>
 #include <filesystem>
 #include <iomanip>
@@ -45,6 +46,12 @@ struct Settings {
   //! Text with fields to print player status (when empty, it is printed as JSON)
   std::optional<std::string> remote_format;
 };
+
+//! Signal that asked spectrum to exit (zero if none)
+volatile std::sig_atomic_t exit_signal = 0;
+
+//! Keep signal asking to exit (it must be async-signal-safe)
+void RecordExitSignal(int signal) { exit_signal = signal; }
 
 /**
  * @brief Command-line argument parsing
@@ -179,6 +186,10 @@ int main(int argc, char** argv) {
   model::Settings settings;
   file_handler.ParseSettings(settings);
 
+  // Screen is created before everything that sends events to it, so it is destroyed only after them
+  // (their threads may still send events while spectrum exits, e.g. after a signal asking to exit)
+  ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
+
   // Create and initialize a new player
   auto player = audio::Player::Create(options.verbose_logging, settings);
 
@@ -194,9 +205,6 @@ int main(int argc, char** argv) {
   // Register callbacks to Terminal and Player
   terminal->RegisterPlayerNotifier(middleware);
   player->RegisterInterfaceNotifier(middleware);
-
-  // Create a full-size screen and register callbacks
-  ftxui::ScreenInteractive screen = ftxui::ScreenInteractive::Fullscreen();
 
   // Ctrl+C is handled by Terminal, which exits like any other way to quit (otherwise FTXUI would
   // raise SIGINT, terminating spectrum before it finishes)
@@ -277,24 +285,39 @@ int main(int argc, char** argv) {
   }
 #endif
 
-  // Events posted to screen are discarded while its loop does not exist, so create it and ask
-  // terminal to handle any custom event sent in the meantime (e.g. a warning about something that
-  // has failed on initialization, otherwise it would be shown only after the first key pressed)
-  ftxui::Loop loop(&screen, terminal);
-  screen.PostEvent(ftxui::Event::Custom);
+  // When terminal is closed (or spectrum is asked to terminate), FTXUI leaves its loop, restores
+  // terminal and then raises the same signal again, using the handler installed before its own. So
+  // this one keeps spectrum alive until it finishes like any other way to quit (e.g. saving
+  // listening stats when blocks are destroyed)
+  for (int signal : {SIGHUP, SIGINT, SIGQUIT, SIGTERM}) std::signal(signal, RecordExitSignal);
 
-  // Start GUI loop (handling events as soon as they arrive) and clear screen after exit
-  while (!loop.HasQuitted()) {
-    loop.RunOnce();
-    waker->Wait();
+  {
+    // Events posted to screen are discarded while its loop does not exist, so create it and ask
+    // terminal to handle any custom event sent in the meantime (e.g. a warning about something that
+    // has failed on initialization, otherwise it would be shown only after the first key pressed)
+    ftxui::Loop loop(&screen, terminal);
+    screen.PostEvent(ftxui::Event::Custom);
+
+    // Start GUI loop (handling events as soon as they arrive) and clear screen after exit
+    while (!loop.HasQuitted()) {
+      loop.RunOnce();
+      waker->Wait();
+    }
+
+    middleware->SetStatusListener(nullptr);
+    if (remote) remote->Stop();
+#ifdef ENABLE_MPRIS
+    if (mpris) mpris->Stop();
+#endif
+    screen.ResetPosition(true);
   }
 
-  middleware->SetStatusListener(nullptr);
-  if (remote) remote->Stop();
-#ifdef ENABLE_MPRIS
-  if (mpris) mpris->Stop();
-#endif
-  screen.ResetPosition(true);
+  // Signal is raised again when loop is destroyed, so exit status still tells about it
+  if (exit_signal != 0) {
+    INFO("Exit after receiving signal=", static_cast<int>(exit_signal));
+    constexpr int kSignalExitBase = 128;
+    return kSignalExitBase + exit_signal;
+  }
 
   return EXIT_SUCCESS;
 }
