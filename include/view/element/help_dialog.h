@@ -48,6 +48,7 @@ class HelpDialog : public Dialog {
     Visualizer,      //!< Spectrum visualizer
     Equalizer,       //!< Audio equalizer
     Lyrics,          //!< Song lyrics
+    Stats,           //!< Listening stats
     Player,          //!< Media player
     Questions,       //!< Dialog asking for confirmation
   };

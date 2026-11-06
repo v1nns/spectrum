@@ -2653,6 +2653,59 @@ TEST_F(PlayerTest, FetchSongFromUrlAgainWhenInformationKeptIsNotAccepted) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, NotifyAudioDataReadFromStream) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Mixed sources",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}},
+                model::Song{.filepath = "/music/second.mp3"}},
+  };
+
+  constexpr uint64_t kStreamBytes = 4096;
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+    EXPECT_CALL(*notifier, NotifySongInformation(_)).Times(2);
+    EXPECT_CALL(*playback, Prepare()).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, ClearCache()).Times(AnyNumber());
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).Times(2).WillRepeatedly(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Decode(_, _)).Times(2).WillRepeatedly(Return(error::kSuccess));
+
+    // Data read is only notified for song from URL (file also reads something, but not from URL)
+    EXPECT_CALL(*decoder, GetBytesRead())
+        .WillOnce(Return(kStreamBytes))
+        .WillOnce(Return(uint64_t{2048}));
+    EXPECT_CALL(*notifier, NotifyStreamUsage(kStreamBytes));
+
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Return()).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, ResumeStreamThatEndedBeforeSong) {
   model::Playlist playlist = model::Playlist{
       .index = 0,

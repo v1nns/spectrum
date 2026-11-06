@@ -11,6 +11,7 @@
 #include <set>
 #include <string_view>
 #include <system_error>
+#include <type_traits>
 
 #include "model/audio_filter.h"
 #include "nlohmann/json.hpp"
@@ -24,12 +25,16 @@ namespace internal {
 
 static constexpr std::string_view kPlaylistsFile = "playlists.json";  //!< File with playlists
 static constexpr std::string_view kSettingsFile = "settings.json";    //!< File with settings
+static constexpr std::string_view kStatsFile = "stats.json";          //!< File with listening stats
 
 //! Directory (inside home) used by default for files saved by user
 static constexpr std::string_view kConfigDirectory = "/.config/spectrum";
 
 //! Directory (inside home) used for log file, and by older versions for files saved by user
 static constexpr std::string_view kCacheDirectory = "/.cache/spectrum";
+
+//! Directory (inside home) used by default for state kept between runs (e.g. listening stats)
+static constexpr std::string_view kStateDirectory = "/.local/state/spectrum";
 
 //! Transform single character into lowercase
 static void to_lower(char& c) { c = (char)std::tolower(c); }
@@ -150,6 +155,19 @@ std::string FileHandler::GetSettingsPath() const {
 
 std::string FileHandler::GetLogPath() const {
   return GetHome() + std::string{internal::kCacheDirectory} + "/spectrum.log";
+}
+
+/* ********************************************************************************************** */
+
+std::string FileHandler::GetStatsPath() const {
+  // Relative path is not valid for this variable, so it is ignored (as stated by XDG specification)
+  if (const char* state = std::getenv("XDG_STATE_HOME");
+      state && std::filesystem::path{state}.is_absolute()) {
+    return (std::filesystem::path{state} / "spectrum" / internal::kStatsFile).string();
+  }
+
+  return GetHome() + std::string{internal::kStateDirectory} + "/" +
+         std::string{internal::kStatsFile};
 }
 
 /* ********************************************************************************************** */
@@ -510,6 +528,131 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
 
   if (out.fail()) {
     ERROR("Failed to write JSON");
+    return false;
+  }
+
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::ParseStats(model::ListeningStats& stats) {
+  std::string file_path{GetStatsPath()};
+
+  if (!std::filesystem::exists(file_path)) return false;
+
+  nlohmann::json parsed;
+
+  try {
+    std::ifstream json(file_path);
+    parsed = nlohmann::json::parse(json);
+  } catch (const std::exception& e) {
+    // Besides invalid JSON, file may not even be readable (e.g. it is a directory)
+    ERROR("Cannot parse stats file=", std::quoted(file_path), ", error=", e.what());
+    internal::BackupFile(file_path);
+    return false;
+  }
+
+  if (!parsed.is_object()) {
+    ERROR("Stats file does not contain an object, file=", std::quoted(file_path));
+    internal::BackupFile(file_path);
+    return false;
+  }
+
+  // Values are only filled when they have the expected type (so a single bad one is ignored)
+  auto read = [&parsed](const char* name, auto& value) {
+    using Value = std::remove_reference_t<decltype(value)>;
+    if (auto it = parsed.find(name); it != parsed.end() && it->is_number_unsigned()) {
+      value = it->get<Value>();
+    }
+  };
+
+  model::ListeningStats tmp;
+  read("since", tmp.since);
+  read("listened_ms", tmp.listened_ms);
+  read("local_ms", tmp.local_ms);
+  read("stream_ms", tmp.stream_ms);
+  read("songs_played", tmp.songs_played);
+  read("songs_finished", tmp.songs_finished);
+  read("songs_skipped", tmp.songs_skipped);
+  read("stream_bytes", tmp.stream_bytes);
+
+  if (auto songs = parsed.find("songs"); songs != parsed.end() && songs->is_array()) {
+    for (const auto& song : *songs) {
+      if (!song.is_object() || !song.contains("key") || !song["key"].is_string()) continue;
+
+      model::ListeningStats::Song entry;
+      if (auto it = song.find("artist"); it != song.end() && it->is_string()) entry.artist = *it;
+      if (auto it = song.find("title"); it != song.end() && it->is_string()) entry.title = *it;
+      if (auto it = song.find("listened_ms"); it != song.end() && it->is_number_unsigned())
+        entry.listened_ms = it->get<uint64_t>();
+      if (auto it = song.find("plays"); it != song.end() && it->is_number_unsigned())
+        entry.plays = it->get<uint32_t>();
+
+      if (tmp.songs.size() < model::ListeningStats::kMaxSongs) {
+        tmp.songs[song["key"].get<std::string>()] = std::move(entry);
+      }
+    }
+  }
+
+  LOG("Parsed listening stats with songs=", tmp.songs.size());
+  stats = std::move(tmp);
+  return true;
+}
+
+/* ********************************************************************************************** */
+
+bool FileHandler::SaveStats(const model::ListeningStats& stats) {
+  nlohmann::json json_songs = nlohmann::json::array();
+
+  for (const auto& [key, song] : stats.songs) {
+    json_songs.push_back({{"key", key},
+                          {"artist", song.artist},
+                          {"title", song.title},
+                          {"listened_ms", song.listened_ms},
+                          {"plays", song.plays}});
+  }
+
+  nlohmann::json json_data{{"since", stats.since},
+                           {"listened_ms", stats.listened_ms},
+                           {"local_ms", stats.local_ms},
+                           {"stream_ms", stats.stream_ms},
+                           {"songs_played", stats.songs_played},
+                           {"songs_finished", stats.songs_finished},
+                           {"songs_skipped", stats.songs_skipped},
+                           {"stream_bytes", stats.stream_bytes},
+                           {"songs", json_songs}};
+
+  std::filesystem::path filepath{GetStatsPath()};
+  std::error_code error;
+
+  // Check that parent directory exists
+  if (!CreateDirectory(filepath.parent_path(), error)) {
+    ERROR("Cannot create parent directory for stats file, error=", error);
+    return false;
+  }
+
+  // Written to another file first, so the one saved before is not lost if writing fails midway
+  std::filesystem::path temporary{filepath.string() + ".tmp"};
+
+  {
+    std::ofstream out(temporary.string());
+
+    if (!out.is_open()) {
+      ERROR("Cannot open file for writing stats");
+      return false;
+    }
+
+    out << std::setw(2) << json_data;
+
+    if (out.fail()) {
+      ERROR("Failed to write JSON");
+      return false;
+    }
+  }
+
+  if (std::filesystem::rename(temporary, filepath, error); error) {
+    ERROR("Cannot replace stats file, error=", error.message());
     return false;
   }
 

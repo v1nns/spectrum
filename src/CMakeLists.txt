@@ -92,6 +92,7 @@ target_sources(
           # model
           model/audio_filter.cc
           model/block_identifier.cc
+          model/listening_stats.cc
           model/bar_animation.cc
           model/mpris.cc
           model/player_status.cc
@@ -114,6 +115,7 @@ target_sources(
           view/block/sidebar.cc
           view/block/main_content/audio_equalizer.cc
           view/block/main_content/spectrum_visualizer.cc
+          view/block/main_content/listening_statistics.cc
           view/block/main_content/song_lyric.cc
           view/block/sidebar_content/list_directory.cc
           view/block/sidebar_content/playlist_viewer.cc

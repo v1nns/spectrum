@@ -877,6 +877,15 @@ bool FFmpeg::Flush(int samples, AudioCallback& callback) {
 
 /* ********************************************************************************************** */
 
+uint64_t FFmpeg::GetBytesRead() const {
+  if (!input_stream_ || !input_stream_->pb) return 0;
+
+  // Counts what was read by demuxer (data read ahead and never used is not included)
+  return static_cast<uint64_t>(std::max<int64_t>(input_stream_->pb->bytes_read, 0));
+}
+
+/* ********************************************************************************************** */
+
 void FFmpeg::ClearCache() {
   LOG("Clear internal cache");
   // Decoding

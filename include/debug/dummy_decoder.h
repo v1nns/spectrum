@@ -92,6 +92,12 @@ class DummyDecoder : public audio::Decoder {
    */
   void ClearCache() override {}
 
+  /**
+   * @brief Get how much data was read from the song opened (before clearing internal cache)
+   * @return Number of bytes read (zero when nothing is opened)
+   */
+  uint64_t GetBytesRead() const override { return 0; }
+
   /* ******************************************************************************************** */
   //! Public API for Equalizer
 

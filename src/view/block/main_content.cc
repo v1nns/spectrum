@@ -7,6 +7,7 @@
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 #include "view/block/main_content/audio_equalizer.h"
+#include "view/block/main_content/listening_statistics.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/block/main_content/spectrum_visualizer.h"
 #include "view/element/style.h"
@@ -36,6 +37,9 @@ MainContent::MainContent(const std::shared_ptr<EventDispatcher>& dispatcher,
   tab_elem_[View::Lyric] = std::make_unique<SongLyric>(
       GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusLyric);
 
+  tab_elem_[View::Stats] = std::make_unique<ListeningStatistics>(
+      GetId(), dispatcher, [this] { AskForFocus(); }, keybinding::MainContent::FocusStats, handler);
+
   // Set visualizer as active tab
   tab_elem_.SetActive(View::Visualizer);
 
@@ -57,16 +61,22 @@ ftxui::Element MainContent::OnRender() {
 
   ftxui::Elements buttons;
 
-  // Append tab buttons
+  auto tab_button = [&](View id) {
+    return tab_elem_[id]->GetButton()->Render() | GetContentDecorator() |
+           (block_focused && id == active_button ? ftxui::bold : ftxui::nothing);
+  };
+
+  // Append tab buttons (except for stats, which is always placed on the right)
   for (const auto& [id, item] : tab_elem_.items()) {
-    buttons.emplace_back(item->GetButton()->Render() | GetContentDecorator() |
-                         (block_focused && id == active_button ? ftxui::bold : ftxui::nothing));
+    if (id != View::Stats) buttons.emplace_back(tab_button(static_cast<View>(id)));
   }
 
   // Append general buttons
   buttons.insert(buttons.end(),
                  {
                      ftxui::filler(),
+                     tab_button(View::Stats),
+                     ftxui::text(" ") | ftxui::border,  // dummy space between buttons
                      btn_help_->Render() | GetContentDecorator(),
                      ftxui::text(" ") | ftxui::border,  // dummy space between buttons
                      btn_exit_->Render() | GetContentDecorator(),
@@ -141,6 +151,15 @@ bool MainContent::OnCustomEvent(const CustomEvent& event) {
        event == CustomEvent::Identifier::UpdateSongState) &&
       tab_elem_.active() != View::Lyric) {
     tab_elem_[View::Lyric]->OnCustomEvent(event);
+  }
+
+  // Listening stats must count everything played, even while not active
+  if ((event == CustomEvent::Identifier::ClearSongInfo ||
+       event == CustomEvent::Identifier::UpdateSongInfo ||
+       event == CustomEvent::Identifier::UpdateSongState ||
+       event == CustomEvent::Identifier::UpdateStreamUsage) &&
+      tab_elem_.active() != View::Stats) {
+    tab_elem_[View::Stats]->OnCustomEvent(event);
   }
 
   // Same for TabItem::SpectrumVisualizer, it must always know the number of bars that fits on

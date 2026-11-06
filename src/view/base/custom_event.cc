@@ -15,6 +15,7 @@ struct ContentVisitor {
   void operator()(const std::monostate&) const { out << std::quoted("empty"); }
   void operator()(int i) const { out << i; }
   void operator()(bool b) const { out << (b ? "true" : "false"); }
+  void operator()(uint64_t u) const { out << u; }
   void operator()(const std::string& s) const { out << std::quoted(s); }
   void operator()(const model::RepeatMode& m) const { out << m; }
   void operator()(const model::RemoteRequest& r) const { out << r; }
@@ -83,6 +84,10 @@ std::ostream& operator<<(std::ostream& out, const CustomEvent::Identifier& i) {
 
     case CustomEvent::Identifier::UpdateStreamWait:
       out << "UpdateStreamWait";
+      break;
+
+    case CustomEvent::Identifier::UpdateStreamUsage:
+      out << "UpdateStreamUsage";
       break;
 
     case CustomEvent::Identifier::NotifyFileSelection:
@@ -301,6 +306,16 @@ CustomEvent CustomEvent::UpdateStreamWait(bool waiting) {
       .type = Type::FromAudioThreadToInterface,
       .id = Identifier::UpdateStreamWait,
       .content = waiting,
+  };
+}
+
+/* ********************************************************************************************** */
+
+CustomEvent CustomEvent::UpdateStreamUsage(uint64_t bytes) {
+  return CustomEvent{
+      .type = Type::FromAudioThreadToInterface,
+      .id = Identifier::UpdateStreamUsage,
+      .content = bytes,
   };
 }
 

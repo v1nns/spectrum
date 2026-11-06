@@ -16,14 +16,15 @@
 
 #include "general/utils.h"
 #include "middleware/remote_client.h"
+#include "model/listening_stats.h"
 #include "model/mpris.h"
 #include "model/player_status.h"
 #include "model/playlist.h"
 #include "model/remote_command.h"
 #include "model/settings.h"
-#include "nlohmann/json.hpp"
 #include "model/song.h"
 #include "model/stream_info.h"
+#include "nlohmann/json.hpp"
 #include "util/file_handler.h"
 #include "util/loop_waker.h"
 #include "util/process.h"
@@ -46,6 +47,7 @@ class FileHandlerTest : public ::testing::Test {
   void SetUp() override {
     if (const char* home = std::getenv("HOME"); home) original_home = home;
     if (const char* config = std::getenv("XDG_CONFIG_HOME"); config) original_config = config;
+    if (const char* state = std::getenv("XDG_STATE_HOME"); state) original_state = state;
 
     home_dir = std::filesystem::temp_directory_path() / "spectrum_file_handler_test";
     std::filesystem::remove_all(home_dir);
@@ -54,6 +56,7 @@ class FileHandlerTest : public ::testing::Test {
 
     // Otherwise files would be saved in the real directory from user
     unsetenv("XDG_CONFIG_HOME");
+    unsetenv("XDG_STATE_HOME");
   }
 
   void TearDown() override {
@@ -67,6 +70,12 @@ class FileHandlerTest : public ::testing::Test {
       setenv("XDG_CONFIG_HOME", original_config->c_str(), 1);
     } else {
       unsetenv("XDG_CONFIG_HOME");
+    }
+
+    if (original_state.has_value()) {
+      setenv("XDG_STATE_HOME", original_state->c_str(), 1);
+    } else {
+      unsetenv("XDG_STATE_HOME");
     }
 
     std::filesystem::remove_all(home_dir);
@@ -101,6 +110,7 @@ class FileHandlerTest : public ::testing::Test {
 
   std::optional<std::string> original_home;    //!< HOME before test
   std::optional<std::string> original_config;  //!< XDG_CONFIG_HOME before test
+  std::optional<std::string> original_state;   //!< XDG_STATE_HOME before test
   std::filesystem::path home_dir;              //!< Temporary HOME directory
   util::FileHandler handler;                   //!< Class under test
 };
@@ -410,6 +420,175 @@ TEST_F(FileHandlerTest, ParseCookiesFromBrowser) {
   settings = model::Settings{};
   ASSERT_TRUE(handler.ParseSettings(settings));
   EXPECT_FALSE(settings.cookies_from_browser.has_value());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveAndParseStats) {
+  model::ListeningStats stats{
+      .since = 1792982772,
+      .listened_ms = 300000,
+      .local_ms = 120000,
+      .stream_ms = 180000,
+      .songs_played = 4,
+      .songs_finished = 3,
+      .songs_skipped = 1,
+      .stream_bytes = 5840670,
+      .songs = {{"/music/song.mp3",
+                 {.artist = "Artist", .title = "Song", .listened_ms = 120000, .plays = 1}},
+                {"https://www.youtube.com/watch?v=id",
+                 {.title = "Mix", .listened_ms = 180000, .plays = 3}}},
+  };
+
+  // Nothing saved yet
+  model::ListeningStats parsed;
+  EXPECT_FALSE(handler.ParseStats(parsed));
+
+  // It is not something chosen by user, so it is kept apart from settings
+  ASSERT_TRUE(handler.SaveStats(stats));
+  EXPECT_EQ(handler.GetStatsPath(),
+            (home_dir / ".local" / "state" / "spectrum" / "stats.json").string());
+  EXPECT_TRUE(std::filesystem::exists(handler.GetStatsPath()));
+  EXPECT_FALSE(std::filesystem::exists(handler.GetStatsPath() + ".tmp"));
+
+  ASSERT_TRUE(handler.ParseStats(parsed));
+  EXPECT_EQ(parsed, stats);
+
+  // Saving again replaces everything saved before
+  stats.songs.erase("/music/song.mp3");
+  ASSERT_TRUE(handler.SaveStats(stats));
+  ASSERT_TRUE(handler.ParseStats(parsed));
+  EXPECT_EQ(parsed, stats);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, StatsPathFromXdgStateHome) {
+  setenv("XDG_STATE_HOME", (home_dir / "state").c_str(), 1);
+  EXPECT_EQ(handler.GetStatsPath(), (home_dir / "state" / "spectrum" / "stats.json").string());
+
+  // Relative path is ignored (as stated by XDG specification)
+  setenv("XDG_STATE_HOME", "state", 1);
+  EXPECT_EQ(handler.GetStatsPath(),
+            (home_dir / ".local" / "state" / "spectrum" / "stats.json").string());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, ParseInvalidStats) {
+  std::filesystem::create_directories(std::filesystem::path{handler.GetStatsPath()}.parent_path());
+
+  // Values with unexpected type are not filled, and songs without identifier are skipped
+  std::ofstream(handler.GetStatsPath()) << R"({
+    "listened_ms": "a lot", "songs_played": 3, "stream_bytes": -1,
+    "songs": [{"title": "No key"}, {"key": "/song.mp3", "plays": "2", "listened_ms": 5}, 42]
+  })";
+
+  model::ListeningStats stats;
+  ASSERT_TRUE(handler.ParseStats(stats));
+  EXPECT_EQ(stats.listened_ms, 0);
+  EXPECT_EQ(stats.songs_played, 3);
+  EXPECT_EQ(stats.stream_bytes, 0);
+  ASSERT_THAT(stats.songs, SizeIs(1));
+  EXPECT_EQ(stats.songs["/song.mp3"].plays, 0);
+  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 5);
+
+  // Malformed file is kept as backup
+  std::ofstream(handler.GetStatsPath()) << R"({"songs": )";
+  EXPECT_FALSE(handler.ParseStats(stats));
+  EXPECT_TRUE(std::filesystem::exists(handler.GetStatsPath() + ".bak"));
+}
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, CountPlayedAndListened) {
+  model::ListeningStats stats;
+  EXPECT_TRUE(stats.IsEmpty());
+
+  // First song played tells since when stats are counted
+  stats.AddPlayed("/song.mp3", "Artist", "Song", 1000);
+  stats.AddPlayed("https://site/mix", "", "Mix", 2000);
+  EXPECT_FALSE(stats.IsEmpty());
+  EXPECT_EQ(stats.since, 1000);
+  EXPECT_EQ(stats.songs_played, 2);
+
+  stats.AddListened("/song.mp3", false, 1500);
+  stats.AddListened("https://site/mix", true, 2500);
+
+  EXPECT_EQ(stats.listened_ms, 4000);
+  EXPECT_EQ(stats.local_ms, 1500);
+  EXPECT_EQ(stats.stream_ms, 2500);
+  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 1500);
+  EXPECT_EQ(stats.songs["https://site/mix"].listened_ms, 2500);
+
+  // Playing the same song again keeps its totals (with its latest information)
+  stats.AddPlayed("/song.mp3", "Artist", "Song (Remastered)", 3000);
+  EXPECT_EQ(stats.songs["/song.mp3"].plays, 2);
+  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 1500);
+  EXPECT_EQ(stats.songs["/song.mp3"].title, "Song (Remastered)");
+  EXPECT_EQ(stats.since, 1000);
+}
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, KeepOnlyMostListenedSongs) {
+  model::ListeningStats stats;
+
+  // Song N was listened to for N + 1 milliseconds
+  for (std::size_t i = 0; i < model::ListeningStats::kMaxSongs; i++) {
+    const std::string key = "/song" + std::to_string(i);
+    stats.AddPlayed(key, "", key, 1);
+    stats.AddListened(key, false, i + 1);
+  }
+
+  ASSERT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
+
+  // Song already kept is not removed when played again
+  stats.AddPlayed("/song0", "", "/song0", 1);
+  EXPECT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
+  EXPECT_EQ(stats.songs.count("/song0"), 1);
+
+  // But it gives room to a new one, as it is the least listened
+  stats.AddPlayed("/new", "", "/new", 1);
+  EXPECT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
+  EXPECT_EQ(stats.songs.count("/song0"), 0);
+  EXPECT_EQ(stats.songs.count("/song1"), 1);
+  EXPECT_EQ(stats.songs.count("/new"), 1);
+}
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, GetTopArtistsAndSongs) {
+  model::ListeningStats stats;
+
+  auto play = [&stats](const std::string& key, const std::string& artist, uint64_t ms) {
+    stats.AddPlayed(key, artist, key, 1);
+    stats.AddListened(key, false, ms);
+  };
+
+  play("a1", "First", 100);
+  play("a2", "First", 250);
+  play("b1", "Second", 300);
+  play("c1", "", 1000);
+  play("d1", "Third", 0);
+
+  // Artists sum their songs, and songs without artist or not listened to are not included
+  const auto artists = stats.GetTopArtists(5);
+  ASSERT_THAT(artists, SizeIs(2));
+  EXPECT_EQ(artists[0].name, "First");
+  EXPECT_EQ(artists[0].listened_ms, 350);
+  EXPECT_EQ(artists[1].name, "Second");
+
+  const auto songs = stats.GetTopSongs(5);
+  ASSERT_THAT(songs, SizeIs(4));
+  EXPECT_EQ(songs[0].title, "c1");
+  EXPECT_EQ(songs[1].title, "b1");
+  EXPECT_EQ(songs[2].title, "a2");
+  EXPECT_EQ(songs[3].title, "a1");
+
+  // Only asked number of entries
+  EXPECT_THAT(stats.GetTopSongs(2), SizeIs(2));
+  EXPECT_THAT(stats.GetTopArtists(1), SizeIs(1));
 }
 
 /* ********************************************************************************************** */

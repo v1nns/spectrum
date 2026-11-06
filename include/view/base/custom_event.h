@@ -6,6 +6,7 @@
 #ifndef INCLUDE_VIEW_BASE_CUSTOM_EVENT_H_
 #define INCLUDE_VIEW_BASE_CUSTOM_EVENT_H_
 
+#include <cstdint>
 #include <filesystem>
 #include <variant>
 #include <vector>
@@ -45,6 +46,7 @@ struct CustomEvent {
     DrawAudioSpectrum = 50004,
     UpdateAudioOutput = 50005,
     UpdateStreamWait = 50006,
+    UpdateStreamUsage = 50007,
 
     // Events from interface to audio thread
     NotifyFileSelection = 60000,
@@ -101,6 +103,7 @@ struct CustomEvent {
   static CustomEvent DrawAudioSpectrum(const std::vector<double>& data);
   static CustomEvent UpdateAudioOutput(const model::AudioOutput& output);
   static CustomEvent UpdateStreamWait(bool waiting);
+  static CustomEvent UpdateStreamUsage(uint64_t bytes);
 
   //! Possible events (from interface to audio thread)
   static CustomEvent NotifyFileSelection(const std::filesystem::path& file_path);
@@ -147,7 +150,7 @@ struct CustomEvent {
                    std::filesystem::path, std::vector<double>, int, model::EqualizerPreset,
                    model::BarAnimation, model::BlockIdentifier, model::Playlist,
                    model::PlaylistOperation, model::QuestionData, bool, std::string,
-                   model::RepeatMode, model::RemoteRequest, model::AudioOutput>;
+                   model::RepeatMode, model::RemoteRequest, model::AudioOutput, uint64_t>;
 
   //! Getter for event identifier
   Identifier GetId() const { return id; }

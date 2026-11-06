@@ -75,40 +75,6 @@ class ProgressLine : public ftxui::Node {
   bool show_knob_;       //!< Draw a knob on current position
 };
 
-/**
- * @brief Text in a single line, ending with an ellipsis when there is not enough space for it
- */
-class EllipsizedText : public ftxui::Node {
- public:
-  explicit EllipsizedText(std::string text) : text_{std::move(text)} {}
-
-  void ComputeRequirement() override {
-    requirement_.min_x = ftxui::string_width(text_);
-    requirement_.min_y = 1;
-  }
-
-  void Render(ftxui::Screen& screen) override {
-    if (box_.y_min > box_.y_max) return;
-
-    const int width = box_.x_max - box_.x_min + 1;
-    int x = box_.x_min;
-
-    // A glyph using more than one column is followed by empty cells, one for each extra column
-    for (const auto& cell : ftxui::Utf8ToGlyphs(ellipsize(text_, width))) {
-      if (x > box_.x_max) return;
-      screen.PixelAt(x++, box_.y_min).character = cell;
-    }
-  }
-
- private:
-  std::string text_;  //!< Whole text
-};
-
-//! Create a text that is cut (ending with an ellipsis) when it gets less space than it needs
-ftxui::Element ellipsized_text(const std::string& text) {
-  return std::make_shared<EllipsizedText>(text);
-}
-
 //! Create a line filled according to the given progress
 ftxui::Element progress_line(float progress, const Theme::State& colors, bool show_knob = false) {
   return std::make_shared<ProgressLine>(progress, colors, show_knob);
