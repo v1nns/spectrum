@@ -190,8 +190,13 @@ std::string get_timestamp();
 /*                                           PUBLIC API                                           */
 /* ---------------------------------------------------------------------------------------------- */
 
-//! Parse pre-processing macro to get only filename instead of absolute path from source file
+//! Filename from source file without its directory (otherwise, binary keeps the path where it was
+//! built). Older compilers do not have __FILE_NAME__ (GCC 12, Clang 9), so it is cut at runtime
+#ifdef __FILE_NAME__
+#define __FILENAME__ __FILE_NAME__
+#else
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#endif
 
 //! Macro to log messages with the given level (the only way found to append "filename:line")
 #define LOG_LEVEL(level, ...) \
