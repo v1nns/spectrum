@@ -44,7 +44,8 @@ class ListeningStatistics : public TabItem {
 
   static constexpr int kFieldColumns = 16;  //!< Columns for the name of each stat
   static constexpr int kTimeColumns = 11;   //!< Columns for time listened on top lists
-  static constexpr int kColumnGap = 3;      //!< Columns between both top lists
+  static constexpr int kColumnGap = 3;      //!< Columns between both top lists (and other columns)
+  static constexpr int kHourLabelStep = 6;  //!< Hours between each label below hours listened
 
  public:
   /**
@@ -126,6 +127,27 @@ class ListeningStatistics : public TabItem {
   ftxui::Element DrawField(const std::string& field, const std::string& value) const;
 
   /**
+   * @brief Scroll content (when it does not fit in the tab)
+   * @param rows Rows to scroll (negative scrolls up)
+   * @return true if content was scrolled, otherwise false
+   */
+  bool Scroll(int rows);
+
+  /**
+   * @brief Renders totals from stats (e.g. time listened, songs played)
+   * @param stats Stats to show
+   * @return UI element
+   */
+  ftxui::Element DrawTotals(const model::ListeningStats& stats) const;
+
+  /**
+   * @brief Renders time listened on each hour from each weekday
+   * @param stats Stats to show
+   * @return UI element
+   */
+  ftxui::Element DrawHours(const model::ListeningStats& stats) const;
+
+  /**
    * @brief Renders lists with artists and songs listened to the most
    * @param stats Stats to show
    * @return UI element
@@ -161,6 +183,10 @@ class ListeningStatistics : public TabItem {
 
   ftxui::Box all_time_box_;  //!< Box to click to show stats from all time
   ftxui::Box session_box_;   //!< Box to click to show stats from this session
+
+  int scroll_ = 0;          //!< Rows scrolled from the top of content
+  ftxui::Box view_box_;     //!< Box with visible part of content
+  ftxui::Box content_box_;  //!< Box with whole content (even what is not visible)
 
   /* ******************************************************************************************** */
   //! Friend class for testing purpose

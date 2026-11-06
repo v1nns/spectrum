@@ -60,6 +60,20 @@ static bool sort_files(const File& a, const File& b) {
 }
 
 /**
+ * @brief Fill value with unsigned number from JSON object, only when it has the expected type (so a
+ * single bad value is ignored)
+ * @param object JSON object with value
+ * @param name Value name
+ * @param value Value to fill (unchanged when missing or invalid)
+ */
+template <typename Value>
+static void ReadUnsigned(const nlohmann::json& object, const char* name, Value& value) {
+  if (auto it = object.find(name); it != object.end() && it->is_number_unsigned()) {
+    value = it->get<Value>();
+  }
+}
+
+/**
  * @brief Parse a single song from playlists file and append it to the given playlist
  * @param song JSON object with song data (throws nlohmann::json::exception if a field is invalid)
  * @param filepaths Files already added to playlist (to avoid including the same file twice)
@@ -559,23 +573,15 @@ bool FileHandler::ParseStats(model::ListeningStats& stats) {
     return false;
   }
 
-  // Values are only filled when they have the expected type (so a single bad one is ignored)
-  auto read = [&parsed](const char* name, auto& value) {
-    using Value = std::remove_reference_t<decltype(value)>;
-    if (auto it = parsed.find(name); it != parsed.end() && it->is_number_unsigned()) {
-      value = it->get<Value>();
-    }
-  };
-
   model::ListeningStats tmp;
-  read("since", tmp.since);
-  read("listened_ms", tmp.listened_ms);
-  read("local_ms", tmp.local_ms);
-  read("stream_ms", tmp.stream_ms);
-  read("songs_played", tmp.songs_played);
-  read("songs_finished", tmp.songs_finished);
-  read("songs_skipped", tmp.songs_skipped);
-  read("stream_bytes", tmp.stream_bytes);
+  internal::ReadUnsigned(parsed, "since", tmp.since);
+  internal::ReadUnsigned(parsed, "listened_ms", tmp.listened_ms);
+  internal::ReadUnsigned(parsed, "local_ms", tmp.local_ms);
+  internal::ReadUnsigned(parsed, "stream_ms", tmp.stream_ms);
+  internal::ReadUnsigned(parsed, "songs_played", tmp.songs_played);
+  internal::ReadUnsigned(parsed, "songs_finished", tmp.songs_finished);
+  internal::ReadUnsigned(parsed, "songs_skipped", tmp.songs_skipped);
+  internal::ReadUnsigned(parsed, "stream_bytes", tmp.stream_bytes);
 
   if (auto songs = parsed.find("songs"); songs != parsed.end() && songs->is_array()) {
     for (const auto& song : *songs) {
@@ -584,15 +590,38 @@ bool FileHandler::ParseStats(model::ListeningStats& stats) {
       model::ListeningStats::Song entry;
       if (auto it = song.find("artist"); it != song.end() && it->is_string()) entry.artist = *it;
       if (auto it = song.find("title"); it != song.end() && it->is_string()) entry.title = *it;
-      if (auto it = song.find("listened_ms"); it != song.end() && it->is_number_unsigned())
-        entry.listened_ms = it->get<uint64_t>();
-      if (auto it = song.find("plays"); it != song.end() && it->is_number_unsigned())
-        entry.plays = it->get<uint32_t>();
+      internal::ReadUnsigned(song, "listened_ms", entry.listened_ms);
+      internal::ReadUnsigned(song, "plays", entry.plays);
 
       if (tmp.songs.size() < model::ListeningStats::kMaxSongs) {
         tmp.songs[song["key"].get<std::string>()] = std::move(entry);
       }
     }
+  }
+
+  // Hours are only filled when there is one list for each weekday with a value for each hour
+  auto is_list = [](const nlohmann::json& value, std::size_t size) {
+    return value.is_array() && value.size() == size;
+  };
+
+  if (auto hours = parsed.find("hours");
+      hours != parsed.end() && is_list(*hours, model::ListeningStats::kWeekdays) &&
+      std::all_of(hours->begin(), hours->end(), [&is_list](const nlohmann::json& day) {
+        return is_list(day, model::ListeningStats::kDayHours);
+      })) {
+    for (std::size_t day = 0; day < model::ListeningStats::kWeekdays; day++) {
+      for (std::size_t hour = 0; hour < model::ListeningStats::kDayHours; hour++) {
+        if (const auto& value = (*hours)[day][hour]; value.is_number_unsigned()) {
+          tmp.hours[day][hour] = value.get<uint64_t>();
+        }
+      }
+    }
+  }
+
+  if (auto streak = parsed.find("streak"); streak != parsed.end() && streak->is_object()) {
+    internal::ReadUnsigned(*streak, "day", tmp.streak.day);
+    internal::ReadUnsigned(*streak, "current", tmp.streak.current);
+    internal::ReadUnsigned(*streak, "longest", tmp.streak.longest);
   }
 
   LOG("Parsed listening stats with songs=", tmp.songs.size());
@@ -621,7 +650,12 @@ bool FileHandler::SaveStats(const model::ListeningStats& stats) {
                            {"songs_finished", stats.songs_finished},
                            {"songs_skipped", stats.songs_skipped},
                            {"stream_bytes", stats.stream_bytes},
-                           {"songs", json_songs}};
+                           {"songs", json_songs},
+                           {"hours", stats.hours},
+                           {"streak",
+                            {{"day", stats.streak.day},
+                             {"current", stats.streak.current},
+                             {"longest", stats.streak.longest}}}};
 
   std::filesystem::path filepath{GetStatsPath()};
   std::error_code error;

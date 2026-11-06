@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -438,7 +439,11 @@ TEST_F(FileHandlerTest, SaveAndParseStats) {
                  {.artist = "Artist", .title = "Song", .listened_ms = 120000, .plays = 1}},
                 {"https://www.youtube.com/watch?v=id",
                  {.title = "Mix", .listened_ms = 180000, .plays = 3}}},
+      .streak = {.day = 20759, .current = 3, .longest = 12},
   };
+
+  stats.hours[0][22] = 120000;
+  stats.hours[6][9] = 180000;
 
   // Nothing saved yet
   model::ListeningStats parsed;
@@ -493,6 +498,28 @@ TEST_F(FileHandlerTest, ParseInvalidStats) {
   EXPECT_EQ(stats.songs["/song.mp3"].plays, 0);
   EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 5);
 
+  // Hours without a list for each weekday, with a value for each hour, are not filled at all
+  std::ofstream(handler.GetStatsPath()) << R"({"hours": [[1, 2, 3]], "streak": [1, 2]})";
+  ASSERT_TRUE(handler.ParseStats(stats));
+  EXPECT_EQ(stats.hours, model::ListeningStats::Hours{});
+  EXPECT_EQ(stats.streak, model::ListeningStats::Streak{});
+
+  // While a single bad value is ignored
+  nlohmann::json hours(model::ListeningStats::kWeekdays,
+                       nlohmann::json(model::ListeningStats::kDayHours, 10));
+  hours[1][2] = "a lot";
+  hours[3][4] = -5;
+
+  std::ofstream(handler.GetStatsPath())
+      << nlohmann::json{{"hours", hours}, {"streak", {{"day", 20759}, {"current", "3"}}}};
+  ASSERT_TRUE(handler.ParseStats(stats));
+  EXPECT_EQ(stats.hours[0][0], 10);
+  EXPECT_EQ(stats.hours[1][2], 0);
+  EXPECT_EQ(stats.hours[3][4], 0);
+  EXPECT_EQ(stats.hours[6][23], 10);
+  EXPECT_EQ(stats.streak.day, 20759);
+  EXPECT_EQ(stats.streak.current, 0);
+
   // Malformed file is kept as backup
   std::ofstream(handler.GetStatsPath()) << R"({"songs": )";
   EXPECT_FALSE(handler.ParseStats(stats));
@@ -519,7 +546,7 @@ TEST(ListeningStatsTest, CountListenedAndPlayed) {
 
   // Song is counted as played on its own
   EXPECT_EQ(stats.songs_played, 0);
-  stats.AddPlayed("/song.mp3");
+  stats.AddPlayed("/song.mp3", 2000);
   EXPECT_EQ(stats.songs_played, 1);
   EXPECT_EQ(stats.songs["/song.mp3"].plays, 1);
 
@@ -596,13 +623,13 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   // Stats saved by this instance
   model::ListeningStats saved;
   saved.AddListened("/song.mp3", "Artist", "Song", false, 1000, 2000);
-  saved.AddPlayed("/song.mp3");
+  saved.AddPlayed("/song.mp3", 2000);
 
   // Then this instance counts a bit more
   model::ListeningStats current = saved;
   current.AddListened("/song.mp3", "Artist", "Song", false, 500, 3000);
   current.AddListened("/other.mp3", "", "Other", false, 200, 3000);
-  current.AddPlayed("/other.mp3");
+  current.AddPlayed("/other.mp3", 3000);
   current.songs_skipped++;
 
   const model::ListeningStats diff = current.Difference(saved);
@@ -619,7 +646,7 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   model::ListeningStats latest;
   latest.AddListened("/song.mp3", "Artist", "Song", false, 4000, 1000);
   latest.AddListened("https://site/mix", "", "Mix", true, 3000, 1000);
-  latest.AddPlayed("https://site/mix");
+  latest.AddPlayed("https://site/mix", 1000);
 
   // So only what was counted by this instance is added to them
   latest.Add(diff);
@@ -638,6 +665,155 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
 
   // Without stats saved before, everything counted is added
   EXPECT_EQ(current.Difference(model::ListeningStats{}).since, 2000);
+}
+
+/* ********************************************************************************************** */
+
+//! Set time zone while it exists (POSIX format, so it does not depend on time zone database)
+class TimeZone {
+ public:
+  explicit TimeZone(const char* zone) {
+    if (const char* current = std::getenv("TZ"); current) previous_ = current;
+    setenv("TZ", zone, 1);
+    tzset();
+  }
+
+  ~TimeZone() {
+    if (previous_) {
+      setenv("TZ", previous_->c_str(), 1);
+    } else {
+      unsetenv("TZ");
+    }
+    tzset();
+  }
+
+ private:
+  std::optional<std::string> previous_;
+};
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, CountListenedByWeekdayAndHour) {
+  constexpr int64_t kMonday = 1793579400;  // Mon, Nov 2 2026 00:30 UTC
+  constexpr int64_t kSunday = 1794182340;  // Sun, Nov 8 2026 23:59 UTC
+
+  const TimeZone utc{"UTC0"};
+  model::ListeningStats stats;
+
+  // Week starts on Monday
+  stats.AddListened("/song.mp3", "", "Song", false, 1000, kMonday);
+  stats.AddListened("/song.mp3", "", "Song", false, 500, kMonday);
+  stats.AddListened("/song.mp3", "", "Song", false, 300, kSunday);
+
+  EXPECT_EQ(stats.hours[0][0], 1500);
+  EXPECT_EQ(stats.hours[6][23], 300);
+
+  // Weekday and hour come from local time
+  const TimeZone local{"<-03>3"};
+  stats.AddListened("/song.mp3", "", "Song", false, 200, kMonday);
+  EXPECT_EQ(stats.hours[6][21], 200);
+  EXPECT_EQ(stats.hours[0][0], 1500);
+
+  // Only hours from each moment were counted
+  uint64_t total = 0;
+  for (const auto& day : stats.hours) {
+    for (uint64_t listened : day) total += listened;
+  }
+
+  EXPECT_EQ(total, stats.listened_ms);
+}
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, CountDaysInARowWithSongsPlayed) {
+  constexpr int64_t kDay = 24 * 60 * 60;
+  constexpr int64_t kMonday = 1793579400;  // Mon, Nov 2 2026 00:30 UTC
+
+  const TimeZone utc{"UTC0"};
+  model::ListeningStats stats;
+  EXPECT_EQ(stats.GetCurrentStreak(kMonday), 0);
+
+  // Each day counts once
+  stats.AddPlayed("/song.mp3", kMonday);
+  stats.AddPlayed("/song.mp3", kMonday + 60);
+  EXPECT_EQ(stats.streak.current, 1);
+  EXPECT_EQ(stats.streak.longest, 1);
+
+  stats.AddPlayed("/song.mp3", kMonday + kDay);
+  stats.AddPlayed("/song.mp3", kMonday + 2 * kDay);
+  EXPECT_EQ(stats.streak.current, 3);
+  EXPECT_EQ(stats.streak.longest, 3);
+
+  // Streak goes on until a whole day goes by without songs played
+  EXPECT_EQ(stats.GetCurrentStreak(kMonday + 2 * kDay), 3);
+  EXPECT_EQ(stats.GetCurrentStreak(kMonday + 3 * kDay), 3);
+  EXPECT_EQ(stats.GetCurrentStreak(kMonday + 4 * kDay), 0);
+
+  // Then it starts again, keeping the longest one
+  stats.AddPlayed("/song.mp3", kMonday + 4 * kDay);
+  EXPECT_EQ(stats.streak.current, 1);
+  EXPECT_EQ(stats.streak.longest, 3);
+
+  // Clock going back does not change it
+  stats.AddPlayed("/song.mp3", kMonday);
+  EXPECT_EQ(stats.streak.current, 1);
+  EXPECT_EQ(stats.streak.day, (kMonday + 4 * kDay) / kDay);
+
+  // Day comes from local time (00:30 UTC is still the day before)
+  model::ListeningStats local_stats;
+  const TimeZone local{"<-03>3"};
+  local_stats.AddPlayed("/song.mp3", kMonday);
+  local_stats.AddPlayed("/song.mp3", kMonday + 4 * 60 * 60);
+  EXPECT_EQ(local_stats.streak.current, 2);
+}
+
+/* ********************************************************************************************** */
+
+TEST(ListeningStatsTest, AddHoursAndStreakCountedSomewhereElse) {
+  constexpr int64_t kDay = 24 * 60 * 60;
+  constexpr int64_t kMonday = 1793579400;  // Mon, Nov 2 2026 00:30 UTC
+
+  const TimeZone utc{"UTC0"};
+
+  // Stats saved by this instance (streak of two days)
+  model::ListeningStats saved;
+  saved.AddListened("/song.mp3", "", "Song", false, 1000, kMonday);
+  saved.AddPlayed("/song.mp3", kMonday);
+  saved.AddPlayed("/song.mp3", kMonday + kDay);
+
+  // Then this instance listens a bit more on the next day
+  model::ListeningStats current = saved;
+  current.AddListened("/song.mp3", "", "Song", false, 500, kMonday + 2 * kDay);
+  current.AddPlayed("/song.mp3", kMonday + 2 * kDay);
+
+  // Hours are added like any other total, but streak is carried as it is
+  const model::ListeningStats diff = current.Difference(saved);
+  EXPECT_EQ(diff.hours[0][0], 0);
+  EXPECT_EQ(diff.hours[2][0], 500);
+  EXPECT_EQ(diff.streak, current.streak);
+
+  // Another instance saved a longer streak, but it ended before
+  model::ListeningStats latest = saved;
+  latest.streak = {.day = saved.streak.day - 1, .current = 1, .longest = 10};
+  latest.Add(diff);
+  EXPECT_EQ(latest.hours[0][0], 1000);
+  EXPECT_EQ(latest.hours[2][0], 500);
+  EXPECT_EQ(latest.streak.day, current.streak.day);
+  EXPECT_EQ(latest.streak.current, 3);
+  EXPECT_EQ(latest.streak.longest, 10);
+
+  // Both played songs on the same day, so the longest streak until then is kept
+  latest.Add(
+      model::ListeningStats{.streak = {.day = latest.streak.day, .current = 5, .longest = 5}});
+  EXPECT_EQ(latest.streak.current, 5);
+
+  // Streak from an older day is not the current one
+  latest.Add(model::ListeningStats{.streak = {.day = 1, .current = 20, .longest = 20}});
+  EXPECT_EQ(latest.streak.current, 5);
+  EXPECT_EQ(latest.streak.longest, 20);
+
+  // Streak not changed is not carried
+  EXPECT_EQ(saved.Difference(saved).streak, model::ListeningStats::Streak{});
 }
 
 /* ********************************************************************************************** */

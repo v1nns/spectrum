@@ -6,6 +6,7 @@
 #ifndef INCLUDE_MODEL_LISTENING_STATS_H_
 #define INCLUDE_MODEL_LISTENING_STATS_H_
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -21,6 +22,12 @@ namespace model {
 struct ListeningStats {
   //! Maximum number of songs with totals kept (the least listened is removed to add another one)
   static constexpr std::size_t kMaxSongs = 500;
+
+  static constexpr std::size_t kWeekdays = 7;   //!< Days in a week (Monday is the first one)
+  static constexpr std::size_t kDayHours = 24;  //!< Hours in a day
+
+  //! Time listened (in milliseconds) on each hour from each weekday
+  using Hours = std::array<std::array<uint64_t, kDayHours>, kWeekdays>;
 
   //! Totals from a single song
   struct Song {
@@ -40,6 +47,17 @@ struct ListeningStats {
     uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds)
   };
 
+  //! Days in a row with songs played (there is no history of which days had songs played)
+  struct Streak {
+    int64_t day = 0;       //!< Last day with a song played (days since epoch, in local time)
+    uint32_t current = 0;  //!< Days in a row until the last day with a song played
+    uint32_t longest = 0;  //!< Most days in a row ever
+
+    //! Overloaded operators
+    bool operator==(const Streak& other) const;
+    bool operator!=(const Streak& other) const { return !operator==(other); }
+  };
+
   int64_t since = 0;  //!< When the first song was listened to (seconds since epoch, zero if none)
 
   uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds), from files and URLs
@@ -55,6 +73,9 @@ struct ListeningStats {
   //! Totals from each song, identified by its filepath (or URL)
   std::map<std::string, Song> songs;
 
+  Hours hours{};  //!< Time listened by weekday and hour (in local time)
+  Streak streak;  //!< Days in a row with songs played
+
   /* ******************************************************************************************** */
   //! Public API
 
@@ -65,7 +86,7 @@ struct ListeningStats {
    * @param title Song title
    * @param from_url Song is played from URL
    * @param ms Time listened to (in milliseconds)
-   * @param now Current moment (seconds since epoch)
+   * @param now Current moment (seconds since epoch), which also tells weekday and hour
    */
   void AddListened(const std::string& key, const std::string& artist, const std::string& title,
                    bool from_url, uint64_t ms, int64_t now);
@@ -73,8 +94,9 @@ struct ListeningStats {
   /**
    * @brief Count song as played (once it was listened to for a while, or until its end)
    * @param key Song identifier (filepath or URL)
+   * @param now Current moment (seconds since epoch), which also counts day for streak
    */
-  void AddPlayed(const std::string& key);
+  void AddPlayed(const std::string& key, int64_t now);
 
   /**
    * @brief Get what was counted since the given stats, which were taken from these ones earlier
@@ -94,6 +116,13 @@ struct ListeningStats {
    * @return true if there is nothing counted, false otherwise
    */
   bool IsEmpty() const { return listened_ms == 0 && songs_played == 0 && songs_skipped == 0; }
+
+  /**
+   * @brief Get days in a row with songs played until now
+   * @param now Current moment (seconds since epoch)
+   * @return Days in a row, or zero when no song was played today nor yesterday
+   */
+  uint32_t GetCurrentStreak(int64_t now) const;
 
   /**
    * @brief Get songs listened to the most (by time)
