@@ -133,9 +133,17 @@ class SpectrumVisualizer : public TabItem {
   //! restored on next run
   void SaveSettings() const;
 
+  /**
+   * @brief Get color for bars filled in the given direction (single color or gradient from theme),
+   * to be shared by all bars from the same frame
+   * @param direction Direction where bars are filled
+   * @return Decorator setting color
+   */
+  static ftxui::Decorator GetBarColor(ftxui::Direction direction);
+
   //! Utility to create UI gauge
-  void CreateGauge(double value, ftxui::Direction direction, ftxui::Elements& elements,
-                   bool space = true) const;
+  void CreateGauge(double value, ftxui::Direction direction, const ftxui::Decorator& color,
+                   ftxui::Elements& elements, bool space = true) const;
 
   //! Animations
   void DrawAnimationHorizontalMirror(ftxui::Element& visualizer, bool space = true);

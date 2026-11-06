@@ -29,6 +29,7 @@
 #include "view/block/main_content/listening_statistics.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/element/flash_message.h"
+#include "view/element/style.h"
 
 namespace {
 
@@ -380,6 +381,47 @@ TEST_F(MainContentTest, AnimationHorizontalMirror) {
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarsColoredWithGradientOnEachRow) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Every bar at maximum height, so all their rows are filled
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+  ftxui::Render(*screen, block->Render());
+
+  // Expected colors come from FTXUI gradient applied to a single column with the same height as
+  // bars (which take every row inside block border)
+  constexpr int kTop = 1;
+  const int height = screen->dimy() - 2;
+
+  auto gradient = ftxui::LinearGradient().Angle(270);
+  for (const auto& stop : interface::GetTheme().visualizer.gradient) {
+    gradient.Stop(ftxui::Color(stop.red, stop.green, stop.blue), stop.position);
+  }
+
+  ftxui::Screen column(1, height);
+  ftxui::Render(column, ftxui::emptyElement() | ftxui::flex | ftxui::color(gradient));
+
+  // Gradient goes from bottom to top
+  ASSERT_NE(column.CellAt(0, 0).foreground_color, column.CellAt(0, height - 1).foreground_color);
+
+  int bar_cells = 0;
+
+  for (int y = 0; y < height; y++) {
+    for (int x = 1; x < screen->dimx() - 1; x++) {
+      const auto& cell = screen->CellAt(x, kTop + y);
+      if (cell.character != "█") continue;  // Not a bar (e.g. space between them)
+
+      bar_cells++;
+      ASSERT_EQ(cell.foreground_color, column.CellAt(0, y).foreground_color)
+          << "Cell x=" << x << " y=" << y;
+    }
+  }
+
+  EXPECT_GT(bar_cells, 0);
 }
 
 /* ********************************************************************************************** */
