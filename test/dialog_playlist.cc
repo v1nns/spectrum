@@ -2517,7 +2517,7 @@ TEST_F(HelpDialogTest, ContainsAllKeybindings) {
   EXPECT_THAT(content, HasSubstr("Go to previous/next page"));
 
   // Keybindings from pickers have a section of their own
-  EXPECT_THAT(content, HasSubstr("theme and animation pickers"));
+  EXPECT_THAT(content, HasSubstr("theme and visualizer pickers"));
   EXPECT_THAT(content, HasSubstr("Preview entry"));
   EXPECT_THAT(content, HasSubstr("Keep entry"));
 }
@@ -2552,7 +2552,7 @@ TEST_F(HelpDialogTest, ShowKeybindingsInTwoColumnsWhenTheyFit) {
 
   // So the first entry from both columns are in the same line
   const std::string line = find_line(rendered, "general");
-  EXPECT_THAT(line, HasSubstr("Enter directory or play song"));
+  EXPECT_THAT(line, HasSubstr("Show files"));
 
   // And content is scrolled by everything that is visible
   dialog->OnEvent(ftxui::Event::PageDown);

@@ -139,12 +139,22 @@ class MainContentTest : public ::BlockTest {
     return song_lyric->focused_;
   }
 
-  //! Select animation using picker: open it, move selection until animation and keep it
+  //! Select animation using picker: open it, change animation (first option) until the given one
+  //! and keep it
   void SelectAnimation(model::BarAnimation animation) {
     block->OnEvent(ftxui::Event::Character('a'));
     for (int i = model::BarAnimation::HorizontalMirror; i < animation; i++) {
-      block->OnEvent(ftxui::Event::Character('j'));
+      block->OnEvent(ftxui::Event::ArrowRight);
     }
+    block->OnEvent(ftxui::Event::Return);
+  }
+
+  //! Choose visualizer options using picker: open it, move to the given option (counting from the
+  //! first one, skipping disabled ones), change its value the given number of times and keep it
+  void ChangeOption(int option, int times) {
+    block->OnEvent(ftxui::Event::Character('a'));
+    for (int i = 0; i < option; i++) block->OnEvent(ftxui::Event::ArrowDown);
+    for (int i = 0; i < times; i++) block->OnEvent(ftxui::Event::ArrowRight);
     block->OnEvent(ftxui::Event::Return);
   }
 
@@ -426,6 +436,425 @@ TEST_F(MainContentTest, BarsColoredWithGradientOnEachRow) {
 
 /* ********************************************************************************************** */
 
+namespace {
+
+//! Picker entries, in the order they are shown
+constexpr int kOptionBars = 1;
+constexpr int kOptionSpacing = 2;
+constexpr int kOptionColors = 3;
+constexpr int kOptionPeaks = 4;
+constexpr int kOptionHue = 5;
+
+//! Get color from a stop from theme gradient
+ftxui::Color StopColor(size_t index) {
+  const auto& stop = interface::GetTheme().visualizer.gradient.at(index);
+  return ftxui::Color(stop.red, stop.green, stop.blue);
+}
+
+}  // namespace
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarStyleLed) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler,
+              SaveSettings(Field(&model::Settings::bar_style, Optional(model::BarStyle::Led))))
+      .WillOnce(Return(true));
+
+  ChangeOption(kOptionBars, 1);
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 0.5)));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+  const int height = screen->dimy() - 2;
+
+  // Each bar has a separate segment for each cell, lit from bottom up to its value
+  int bars = 0;
+  for (int x = 1; x < screen->dimx() - 1; x++) {
+    if (screen->CellAt(x, bottom).character != "▄") continue;
+    bars++;
+
+    int lit = 0;
+    for (int y = bottom; y >= 1 && screen->CellAt(x, y).character == "▄"; y--) lit++;
+    EXPECT_EQ(lit, std::lround(0.5 * height)) << "Column x=" << x;
+  }
+
+  EXPECT_GT(bars, 0);
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("█")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarStyleBraille) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  ChangeOption(kOptionBars, 2);
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 0.5)));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+  const int height = screen->dimy() - 2;
+
+  // Each cell has four rows of dots, so full cells are the ones below the last filled dot
+  const int dots = static_cast<int>(std::lround(0.5 * height * 4));
+
+  int bars = 0;
+  for (int x = 1; x < screen->dimx() - 1; x++) {
+    if (screen->CellAt(x, bottom).character != "⣿") continue;
+    bars++;
+
+    int full = 0;
+    for (int y = bottom; y >= 1 && screen->CellAt(x, y).character == "⣿"; y--) full++;
+    EXPECT_EQ(full, dots / 4) << "Column x=" << x;
+  }
+
+  EXPECT_GT(bars, 0);
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("█")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarsWithoutSpacing) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  // Disabling spacing changes number of bars, so terminal must calculate it again
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::ChangeBarAnimation)));
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::bar_spacing, Optional(false))))
+      .WillOnce(Return(true));
+
+  ChangeOption(kOptionSpacing, 1);
+
+  auto main_content = std::static_pointer_cast<interface::MainContent>(block);
+  EXPECT_FALSE(main_content->IsBarSpaced());
+
+  // Bars are drawn side by side
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+  int first = -1;
+  int last = -1;
+
+  for (int x = 1; x < screen->dimx() - 1; x++) {
+    if (screen->CellAt(x, bottom).character != "█") continue;
+    if (first < 0) first = x;
+    last = x;
+  }
+
+  ASSERT_GE(first, 0);
+  EXPECT_EQ(last - first + 1, 30 * 2);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, PeakCapsFallAfterHolding) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::peaks, Optional(true))))
+      .WillOnce(Return(true));
+
+  ChangeOption(kOptionPeaks, 1);
+
+  constexpr int kTop = 1;
+  const int bottom = screen->dimy() - 2;
+
+  auto caps_on_top = [&]() {
+    ftxui::Render(*screen, block->Render());
+
+    int caps = 0;
+    for (int x = 1; x < screen->dimx() - 1; x++) {
+      if (screen->CellAt(x, kTop).character == "▔") caps++;
+    }
+    return caps;
+  };
+
+  // Loud frame, followed by a quiet one: cap stays on top
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 0.2)));
+
+  EXPECT_EQ(caps_on_top(), 30 * 2);
+  EXPECT_EQ(screen->CellAt(screen->dimx() / 2 - 2, bottom).character, "█");
+
+  // Until it falls back to the bar
+  for (int i = 0; i < 100; i++) {
+    Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 0.2)));
+  }
+
+  EXPECT_EQ(caps_on_top(), 0);
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), Not(HasSubstr("▁")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, OptionsNotUsedByAnimationAreDisabled) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  block->OnEvent(ftxui::Event::Character('a'));
+
+  // Lines do not have bars, so moving down goes straight to colors
+  for (int i = model::BarAnimation::HorizontalMirror; i < model::BarAnimation::SpectrumLine; i++) {
+    block->OnEvent(ftxui::Event::ArrowRight);
+  }
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_THAT(render(), HasSubstr("▶ Colors"));
+
+  // Zones have fixed colors, so there is no hue to rotate
+  for (int i = 0; i < static_cast<int>(model::BarColors::Zones); i++) {
+    block->OnEvent(ftxui::Event::ArrowRight);
+  }
+
+  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::ArrowDown);
+  EXPECT_THAT(render(), HasSubstr("▶ Colors"));
+
+  // Going back to the first option skips disabled ones as well
+  block->OnEvent(ftxui::Event::ArrowUp);
+  EXPECT_THAT(render(), HasSubstr("▶ Animation"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarColorsHorizontal) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  ChangeOption(kOptionColors, static_cast<int>(model::BarColors::Horizontal));
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+  int first = -1;
+  int last = -1;
+
+  for (int x = 1; x < screen->dimx() - 1; x++) {
+    if (screen->CellAt(x, bottom).character != "█") continue;
+    if (first < 0) first = x;
+    last = x;
+
+    // Each bar has a single color
+    for (int y = 1; y < bottom; y++) {
+      ASSERT_EQ(screen->CellAt(x, y).foreground_color, screen->CellAt(x, bottom).foreground_color);
+    }
+  }
+
+  // Gradient goes from the first bar to the last one
+  ASSERT_GE(first, 0);
+  EXPECT_EQ(screen->CellAt(first, bottom).foreground_color, StopColor(0));
+  EXPECT_EQ(screen->CellAt(last, bottom).foreground_color, StopColor(3));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarColorsByLevel) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  ChangeOption(kOptionColors, static_cast<int>(model::BarColors::Level));
+
+  // Left channel (drawn on the left half) is quiet, while right one is at maximum height
+  std::vector<double> values(30, 0.0);
+  values.insert(values.end(), 30, 1.0);
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(values));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+
+  // Loud bars take the last color from gradient on every cell
+  int loud = 0;
+  for (int x = screen->dimx() / 2; x < screen->dimx() - 1; x++) {
+    if (screen->CellAt(x, 1).character != "█") continue;
+    loud++;
+
+    EXPECT_EQ(screen->CellAt(x, 1).foreground_color, StopColor(3));
+    EXPECT_EQ(screen->CellAt(x, bottom).foreground_color, StopColor(3));
+  }
+
+  EXPECT_GT(loud, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarColorsByLevelStretched) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  ChangeOption(kOptionColors, static_cast<int>(model::BarColors::LevelStretched));
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 0.5)));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+  const int x = screen->dimx() / 2 - 2;
+  ASSERT_EQ(screen->CellAt(x, bottom).character, "█");
+
+  // Gradient goes from the base of bar to its top, even if bar is only half of the height
+  int top = bottom;
+  while (top > 1 && screen->CellAt(x, top - 1).character == "█") top--;
+
+  EXPECT_EQ(screen->CellAt(x, bottom).foreground_color, StopColor(0));
+  EXPECT_EQ(screen->CellAt(x, top).foreground_color, StopColor(3));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, BarColorsZones) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  ChangeOption(kOptionColors, static_cast<int>(model::BarColors::Zones));
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+  ftxui::Render(*screen, block->Render());
+
+  const auto& zones = interface::GetTheme().visualizer.zones;
+  const int bottom = screen->dimy() - 2;
+  const int x = screen->dimx() / 2 - 2;
+
+  EXPECT_EQ(screen->CellAt(x, bottom).foreground_color, zones[0]);
+  EXPECT_EQ(screen->CellAt(x, 1).foreground_color, zones[2]);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, HueCycleChangesColorsOverTime) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+  EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::hue_cycle,
+                                                Optional(model::HueCycle::On))))
+      .WillOnce(Return(true));
+
+  ChangeOption(kOptionHue, 1);
+
+  const int bottom = screen->dimy() - 2;
+  const int x = screen->dimx() / 2 - 2;
+
+  auto color = [&]() {
+    Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+    ftxui::Render(*screen, block->Render());
+    return screen->CellAt(x, bottom).foreground_color;
+  };
+
+  const ftxui::Color first = color();
+  for (int i = 0; i < 60; i++) color();
+
+  EXPECT_NE(color(), first);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationRadial) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  SelectAnimation(model::BarAnimation::Radial);
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(60, 1.0)));
+  ftxui::Render(*screen, block->Render());
+
+  // Rays are drawn with braille dots, leaving the center of the circle empty
+  EXPECT_THAT(screen->CellAt(screen->dimx() / 2, screen->dimy() / 2).character,
+              ::testing::AnyOf(IsEmpty(), StrEq(" ")));
+
+  int dots = 0;
+  for (int y = 1; y < screen->dimy() - 1; y++) {
+    for (int x = 1; x < screen->dimx() - 1; x++) {
+      if (screen->CellAt(x, y).character.rfind("\xE2\xA0", 0) == 0 ||
+          screen->CellAt(x, y).character.rfind("\xE2\xA1", 0) == 0 ||
+          screen->CellAt(x, y).character.rfind("\xE2\xA2", 0) == 0 ||
+          screen->CellAt(x, y).character.rfind("\xE2\xA3", 0) == 0) {
+        dots++;
+      }
+    }
+  }
+
+  EXPECT_GT(dots, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, AnimationWaterfall) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  SelectAnimation(model::BarAnimation::Waterfall);
+
+  // A row is added every few frames, the newest one on top
+  constexpr int kFramesPerRow = 4;
+
+  for (int i = 0; i < kFramesPerRow * 2; i++) {
+    Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(60, 1.0)));
+  }
+
+  for (int i = 0; i < kFramesPerRow; i++) {
+    Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(60, 0.5)));
+  }
+
+  ftxui::Render(*screen, block->Render());
+
+  const int x = screen->dimx() / 2;
+  EXPECT_EQ(screen->CellAt(x, 1).character, "▒");
+  EXPECT_EQ(screen->CellAt(x, 2).character, "█");
+  EXPECT_EQ(screen->CellAt(x, 3).character, "█");
+  EXPECT_THAT(screen->CellAt(x, 4).character, ::testing::AnyOf(IsEmpty(), StrEq(" ")));
+
+  // Quiet noise is not drawn
+  for (int i = 0; i < kFramesPerRow; i++) {
+    Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(60, 0.1)));
+  }
+
+  screen->Clear();
+  ftxui::Render(*screen, block->Render());
+  EXPECT_THAT(screen->CellAt(x, 1).character, ::testing::AnyOf(IsEmpty(), StrEq(" ")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, RestoreVisualizerOptions) {
+  EXPECT_CALL(*file_handler, ParseSettings(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(model::Settings{
+                                .animation = model::BarAnimation::Mono,
+                                .bar_style = model::BarStyle::Braille,
+                                .bar_spacing = false,
+                                .bar_colors = model::BarColors::Zones,
+                                .peaks = true,
+                                .hue_cycle = model::HueCycle::Flash,
+                            }),
+                            Return(true)));
+
+  auto restored = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::MainContent>(restored)->SetFocused(true);
+
+  restored->OnEvent(ftxui::Event::Character('a'));
+  ftxui::Render(*screen, restored->Render());
+
+  const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
+  EXPECT_THAT(rendered, HasSubstr("◂ Mono ▸"));
+  EXPECT_THAT(rendered, HasSubstr("Bars         Braille"));
+  EXPECT_THAT(rendered, HasSubstr("Spacing      Off"));
+  EXPECT_THAT(rendered, HasSubstr("Colors       Zones"));
+  EXPECT_THAT(rendered, HasSubstr("Peak caps    On"));
+  EXPECT_THAT(rendered, HasSubstr("Hue cycle    On + beat flash"));
+
+  // Keeping them saves all of them
+  EXPECT_CALL(*file_handler,
+              SaveSettings(AllOf(
+                  Field(&model::Settings::animation, Optional(model::BarAnimation::Mono)),
+                  Field(&model::Settings::bar_style, Optional(model::BarStyle::Braille)),
+                  Field(&model::Settings::bar_spacing, Optional(false)),
+                  Field(&model::Settings::bar_colors, Optional(model::BarColors::Zones)),
+                  Field(&model::Settings::peaks, Optional(true)),
+                  Field(&model::Settings::hue_cycle, Optional(model::HueCycle::Flash)))))
+      .WillOnce(Return(true));
+  restored->OnEvent(ftxui::Event::Return);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, AnimationMonoUsesAverageFromChannels) {
   // Left channel is silent, while right channel is at maximum height
   constexpr int kBarsPerChannel = 30;
@@ -593,37 +1022,38 @@ TEST_F(MainContentTest, PickAnimationWithPreview) {
 
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
-│╭ animation ─────────────────────╮                                                           │
-││▶ Horizontal mirror             │                                                           │
-││  Vertical mirror               │                                                           │
-││  Mono                          │                                                           │
-││  Horizontal mirror (no space)  │                                                           │
-││  Vertical mirror (no space)    │                                                           │
-││  Mono (no space)               │                                                           │
-││  Line                          │                                                           │
-││  Line (mirror)                 │                                                           │
-││  Line (filled)                 │                                                           │
-││  Line (filled mirror)          │                                                           │
-│╰────────────────────────────────╯                                                           │
+│╭ visualizer ───────────────────────────╮                                                    │
+││▶ Animation  ◂ Horizontal mirror ▸     │                                                    │
+││  Bars         Solid                   │                                                    │
+││  Spacing      On                      │                                                    │
+││  Colors       Vertical                │                                                    │
+││  Peak caps    Off                     │                                                    │
+││  Hue cycle    Off                     │                                                    │
+│╰───────────────────────────────────────╯                                                    │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
+│                                                                                             │
 │                                                                                             │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
 
-  // There is nothing above first animation
+  // There is nothing above first option
   block->OnEvent(ftxui::Event::Character('k'));
 
-  // Moving selection changes animation right away
+  // Changing value from option shows it right away
   EXPECT_CALL(*dispatcher,
               SendEvent(AllOf(
                   Field(&interface::CustomEvent::id,
                         interface::CustomEvent::Identifier::ChangeBarAnimation),
                   Field(&interface::CustomEvent::content,
                         VariantWith<model::BarAnimation>(model::BarAnimation::VerticalMirror)))));
-  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::ArrowRight);
 
   ftxui::Render(*screen, block->Render());
-  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Vertical mirror"));
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()),
+              HasSubstr("▶ Animation  ◂ Vertical mirror"));
 
   // Keeping it closes picker and saves it
   EXPECT_CALL(*file_handler,
@@ -671,23 +1101,30 @@ TEST_F(MainContentTest, PickAnimationWithMouse) {
   block->OnEvent(ftxui::Event::Character('a'));
   ftxui::Render(*screen, block->Render());
 
-  // Wheel moves selection by one animation, changing it right away
+  // Wheel changes value from selected option, showing it right away
   EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::VerticalMirror)));
-  EXPECT_TRUE(block->OnEvent(mouse_at("Line (mirror)", ftxui::Mouse::WheelDown)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Spacing", ftxui::Mouse::WheelDown)));
 
-  // Click selects the animation under mouse cursor
-  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::SpectrumLine)));
-  EXPECT_TRUE(block->OnEvent(mouse_at("Line  ", ftxui::Mouse::Left)));
+  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::HorizontalMirror)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Spacing", ftxui::Mouse::WheelUp)));
+
+  // Click selects the option under mouse cursor
+  EXPECT_TRUE(block->OnEvent(mouse_at("Peak caps", ftxui::Mouse::Left)));
 
   ftxui::Render(*screen, block->Render());
-  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Line  "));
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Peak caps  ◂ Off"));
 
-  // Double-click keeps it, closing picker and saving it
-  EXPECT_CALL(*dispatcher, SendEvent(animation_changed_to(model::BarAnimation::Mono)));
+  // Wheel enables it
+  EXPECT_TRUE(block->OnEvent(mouse_at("Peak caps", ftxui::Mouse::WheelDown)));
+
+  // Double-click keeps options, closing picker and saving them (the click from before was a moment
+  // ago, so this one counts as the second click)
   EXPECT_CALL(*file_handler,
-              SaveSettings(Field(&model::Settings::animation, Optional(model::BarAnimation::Mono))))
+              SaveSettings(AllOf(Field(&model::Settings::animation,
+                                       Optional(model::BarAnimation::HorizontalMirror)),
+                                 Field(&model::Settings::peaks, Optional(true)))))
       .WillOnce(Return(true));
-  EXPECT_TRUE(block->OnEvent(mouse_at("Mono  ", ftxui::Mouse::Left)));
+  EXPECT_TRUE(block->OnEvent(mouse_at("Colors", ftxui::Mouse::Left)));
 
   screen->Clear();
   ftxui::Render(*screen, block->Render());
@@ -708,7 +1145,7 @@ TEST_F(MainContentTest, ChangeBarWidthWithAnimationPickerOpen) {
 
   // Select another animation, without choosing it
   block->OnEvent(ftxui::Event::Character('a'));
-  block->OnEvent(ftxui::Event::Character('j'));
+  block->OnEvent(ftxui::Event::ArrowRight);
 
   // Bar width is saved, but not the animation (as it is only a preview, which may be cancelled)
   EXPECT_CALL(*file_handler,
@@ -748,7 +1185,7 @@ TEST_F(MainContentTest, ClickOnButtonClosesAnimationPicker) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 
   block->OnEvent(ftxui::Event::Character('a'));
-  ASSERT_THAT(render(), HasSubstr("animation"));
+  ASSERT_THAT(render(), HasSubstr("Animation"));
 
   // A click on any button from this block only closes picker (as it is a click outside of it)
   EXPECT_CALL(*dispatcher, SendEvent(Field(&CustomEvent::id, CustomEvent::Identifier::Exit)))
@@ -759,15 +1196,15 @@ TEST_F(MainContentTest, ClickOnButtonClosesAnimationPicker) {
   EXPECT_TRUE(block->OnEvent(MouseEventAt("2:equalizer", ftxui::Mouse::Left)));
 
   std::string rendered = render();
-  EXPECT_THAT(rendered, Not(HasSubstr("animation")));
+  EXPECT_THAT(rendered, Not(HasSubstr("Animation")));
   EXPECT_THAT(rendered, Not(HasSubstr("preset")));
 
   for (const std::string button : {"F12:help", " X "}) {
     block->OnEvent(ftxui::Event::Character('a'));
-    ASSERT_THAT(render(), HasSubstr("animation"));
+    ASSERT_THAT(render(), HasSubstr("Animation"));
 
     EXPECT_TRUE(block->OnEvent(MouseEventAt(button, ftxui::Mouse::Left)));
-    EXPECT_THAT(render(), Not(HasSubstr("animation")));
+    EXPECT_THAT(render(), Not(HasSubstr("Animation")));
   }
 
   // With picker closed, they are clicked as usual
@@ -796,8 +1233,8 @@ TEST_F(MainContentTest, ChangeTabClosesAnimationPicker) {
 
   // Open picker and preview another animation
   block->OnEvent(ftxui::Event::Character('a'));
-  block->OnEvent(ftxui::Event::Character('j'));
-  ASSERT_THAT(render(), HasSubstr("animation"));
+  block->OnEvent(ftxui::Event::ArrowRight);
+  ASSERT_THAT(render(), HasSubstr("Animation"));
 
   // Showing another tab closes picker, restoring animation from before opening it
   EXPECT_CALL(*dispatcher,
@@ -811,7 +1248,7 @@ TEST_F(MainContentTest, ChangeTabClosesAnimationPicker) {
 
   std::string rendered = render();
   EXPECT_THAT(rendered, Not(HasSubstr("preset")));
-  EXPECT_THAT(rendered, Not(HasSubstr("animation")));
+  EXPECT_THAT(rendered, Not(HasSubstr("Animation")));
 }
 
 /* ********************************************************************************************** */
@@ -821,8 +1258,8 @@ TEST_F(MainContentTest, CancelAnimationPicker) {
   EXPECT_CALL(*file_handler, SaveSettings(_)).Times(0);
 
   block->OnEvent(ftxui::Event::Character('a'));
-  block->OnEvent(ftxui::Event::Character('j'));
-  block->OnEvent(ftxui::Event::ArrowDown);
+  block->OnEvent(ftxui::Event::Character('l'));
+  block->OnEvent(ftxui::Event::ArrowRight);
 
   // Going back restores animation from before opening picker
   EXPECT_CALL(*dispatcher,
@@ -853,7 +1290,7 @@ TEST_F(MainContentTest, RestoreAndSaveVisualizerSettings) {
 
   restored->OnEvent(ftxui::Event::Character('a'));
   ftxui::Render(*screen, restored->Render());
-  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("▶ Mono"));
+  EXPECT_THAT(utils::FilterAnsiCommands(screen->ToString()), HasSubstr("◂ Mono"));
 
   // Invalid bar width is ignored
   testing::Mock::VerifyAndClearExpectations(file_handler.get());

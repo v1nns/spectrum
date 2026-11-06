@@ -9,6 +9,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -17,9 +18,9 @@
 #include "ftxui/dom/canvas.hpp"
 #include "model/bar_animation.h"
 #include "util/file_handler.h"
-#include "view/element/animation_picker.h"
 #include "view/element/flash_message.h"
 #include "view/element/tab.h"
+#include "view/element/visualizer_picker.h"
 
 namespace interface {
 
@@ -34,6 +35,13 @@ class SpectrumVisualizer : public TabItem {
   static constexpr int kGaugeSpacing = 1;       //!< Spacing between gauges
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
+
+  //! Effects are updated on each frame received from audio analysis (60 frames per second)
+  static constexpr int kPeakHoldFrames = 20;        //!< Frames that peak cap stays before falling
+  static constexpr double kPeakGravity = 0.0015;    //!< Speed gained by falling peak cap per frame
+  static constexpr double kHueStep = 0.5;           //!< Degrees that hue rotates per frame
+  static constexpr int kWaterfallFrameStep = 4;     //!< Frames for each row added to waterfall
+  static constexpr size_t kWaterfallMaxRows = 200;  //!< Rows kept by waterfall
 
   //! Possible styles for animations drawing spectrum as a line
   enum class LineStyle : uint8_t {
@@ -111,7 +119,13 @@ class SpectrumVisualizer : public TabItem {
    * @brief Get current bar animation (used for Terminal calculation)
    * @return Bar animation identifier
    */
-  model::BarAnimation GetAnimation() const { return curr_anim_; }
+  model::BarAnimation GetAnimation() const { return options_.animation; }
+
+  /**
+   * @brief Check if there is an empty column between bars (used for Terminal calculation)
+   * @return true if bars are spaced, otherwise false
+   */
+  bool IsBarSpaced() const { return model::IsBarAnimation(options_.animation) && options_.spacing; }
 
   /**
    * @brief Briefly show a hint on how to exit fullscreen mode (along with current animation name)
@@ -126,37 +140,60 @@ class SpectrumVisualizer : public TabItem {
   /* ******************************************************************************************** */
   // Private methods
  private:
-  //! Change current animation and notify terminal (to recalculate number of bars)
-  void SetAnimation(model::BarAnimation animation);
+  //! Colors for a single frame (from theme, with hue cycle applied), defined in source file
+  struct Colorizer;
 
-  //! Save current animation (unless it is being previewed by picker) and bar width, so they are
+  //! Cap on recent maximum from a bar
+  struct Peak {
+    double value = 0;   //!< Bar value where cap is
+    int hold = 0;       //!< Frames left before it starts falling
+    double speed = 0;   //!< Falling speed (per frame)
+  };
+
+  //! Change current options and notify terminal when number of bars may change
+  void SetOptions(const model::VisualizerOptions& options);
+
+  //! Save current options (unless they are being previewed by picker) and bar width, so they are
   //! restored on next run
   void SaveSettings() const;
 
-  /**
-   * @brief Get color for bars filled in the given direction (single color or gradient from theme),
-   * to be shared by all bars from the same frame
-   * @param direction Direction where bars are filled
-   * @return Decorator setting color
-   */
-  static ftxui::Decorator GetBarColor(ftxui::Direction direction);
+  //! Update effects (peak caps, hue cycle and waterfall) with the frame just received
+  void UpdateEffects();
 
-  //! Utility to create UI gauge
-  void CreateGauge(double value, ftxui::Direction direction, const ftxui::Decorator& color,
-                   ftxui::Elements& elements, bool space = true) const;
+  //! Get colors for the frame being rendered
+  Colorizer GetColorizer() const;
+
+  //! Get peak cap for the bar with the given index (or nothing when peak caps are disabled)
+  std::optional<double> GetPeak(size_t index) const;
+
+  /**
+   * @brief Create bar with the current style, appending its columns (and space, if any)
+   * @param value Bar value, from 0.0 to 1.0
+   * @param peak Peak cap value (if any)
+   * @param column Bar position, from the first bar (0.0) to the last one (1.0)
+   * @param direction Direction where bar is filled
+   * @param colorizer Colors for current frame
+   * @param elements Elements to append bar
+   */
+  void CreateGauge(double value, std::optional<double> peak, double column,
+                   ftxui::Direction direction, const Colorizer& colorizer,
+                   ftxui::Elements& elements) const;
 
   //! Animations
-  void DrawAnimationHorizontalMirror(ftxui::Element& visualizer, bool space = true);
-  void DrawAnimationVerticalMirror(ftxui::Element& visualizer, bool space = true);
-  void DrawAnimationMono(ftxui::Element& visualizer, bool space = true);
-  void DrawAnimationLine(ftxui::Element& visualizer, LineStyle style);
+  void DrawAnimationHorizontalMirror(ftxui::Element& visualizer, const Colorizer& colorizer);
+  void DrawAnimationVerticalMirror(ftxui::Element& visualizer, const Colorizer& colorizer);
+  void DrawAnimationMono(ftxui::Element& visualizer, const Colorizer& colorizer);
+  void DrawAnimationLine(ftxui::Element& visualizer, LineStyle style, const Colorizer& colorizer);
+  void DrawAnimationRadial(ftxui::Element& visualizer, const Colorizer& colorizer);
+  void DrawAnimationWaterfall(ftxui::Element& visualizer, const Colorizer& colorizer);
 
   //! Helpers to draw spectrum as a line on canvas (for each LineStyle)
   //! Vertical run of dots in a canvas column
   struct VerticalRun {
-    int x;     //!< Column
-    int from;  //!< First row
-    int to;    //!< Last row (may be lower than first row)
+    int x;         //!< Column
+    int from;      //!< First row
+    int to;        //!< Last row (may be lower than first row)
+    double level;  //!< Spectrum value in this column, from 0.0 to 1.0
   };
 
   //! Reference used to color dots based on their distance to it
@@ -165,33 +202,46 @@ class SpectrumVisualizer : public TabItem {
     int range;  //!< Distance from baseline where gradient ends
   };
 
-  static void DrawRun(ftxui::Canvas& canvas, const VerticalRun& run, const Baseline& baseline);
-  static void DrawLine(ftxui::Canvas& canvas, const std::vector<double>& data);
+  static void DrawRun(ftxui::Canvas& canvas, const VerticalRun& run, const Baseline& baseline,
+                      const Colorizer& colorizer);
+  static void DrawLine(ftxui::Canvas& canvas, const std::vector<double>& data,
+                       const Colorizer& colorizer);
   static void DrawMirroredLines(ftxui::Canvas& canvas, const std::vector<double>& left,
-                                const std::vector<double>& right);
-  static void DrawFilledArea(ftxui::Canvas& canvas, const std::vector<double>& data);
+                                const std::vector<double>& right, const Colorizer& colorizer);
+  static void DrawFilledArea(ftxui::Canvas& canvas, const std::vector<double>& data,
+                             const Colorizer& colorizer);
   static void DrawMirroredFilledAreas(ftxui::Canvas& canvas, const std::vector<double>& left,
-                                      const std::vector<double>& right);
-  static void FillBlocks(ftxui::Canvas& canvas, const VerticalRun& run, const Baseline& baseline);
-
-  //! Get color from spectrum gradient
-  //! @param position Position in gradient, from 0.0 (lowest) to 1.0 (highest)
-  static ftxui::Color GetGradientColor(double position);
+                                      const std::vector<double>& right,
+                                      const Colorizer& colorizer);
+  static void FillBlocks(ftxui::Canvas& canvas, const VerticalRun& run, const Baseline& baseline,
+                         const Colorizer& colorizer);
+  static void DrawRays(ftxui::Canvas& canvas, const std::vector<double>& left,
+                       const std::vector<double>& right, const Colorizer& colorizer);
 
   /* ******************************************************************************************** */
   //! Variables
-  model::BarAnimation curr_anim_ =
-      model::BarAnimation::HorizontalMirror;  //!< Control which bar animation to draw
+  model::VisualizerOptions options_;   //!< Control which animation to draw and how it looks
   std::vector<double> spectrum_data_;  //!< Audio spectrum (each entry represents a frequency bar)
   int gauge_width_ = kGaugeDefaultWidth;  //!< Current audio bar width
   bool dimmed_ = false;                   //!< Dim is applied over visualizer when rendered
+
+  std::vector<Peak> peaks_;  //!< Peak cap for each bar from spectrum data
+
+  double hue_ = 0;             //!< Rotation applied to gradient colors (in degrees)
+  double flash_ = 0;           //!< Brightness added to colors by the last beat (from 0.0 to 1.0)
+  double bass_average_ = 0;    //!< Recent average from lowest frequencies (to detect beats)
+  int frames_since_beat_ = 0;  //!< Frames received since the last beat
+
+  //! Spectrum from each moment (average from both channels), from the newest to the oldest one
+  std::deque<std::vector<double>> waterfall_;
+  int waterfall_frames_ = 0;  //!< Frames received since the last row was added to waterfall
 
   FlashMessage message_;  //!< Brief feedback shown over visualizer (e.g. animation name)
 
   std::shared_ptr<util::FileHandler> file_handler_;  //!< Load/save visualizer settings
 
-  //! Animation picker (shown over visualizer, changing animation while selection moves)
-  AnimationPicker picker_;
+  //! Options picker (shown over visualizer, changing it while options change)
+  VisualizerPicker picker_;
 };
 
 }  // namespace interface

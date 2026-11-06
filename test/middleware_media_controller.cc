@@ -1556,10 +1556,11 @@ TEST_F(TerminalTest, NumberOfBarsDependsOnAnimation) {
   using ::testing::_;
 
   // Create terminal restoring animation from last run (which is kept by spectrum visualizer)
-  auto restore = [this](model::BarAnimation animation) {
+  auto restore = [this](model::BarAnimation animation, bool spacing = true) {
     ON_CALL(*file_handler, ParseSettings(_))
         .WillByDefault(::testing::DoAll(
-            ::testing::SetArgReferee<0>(model::Settings{.animation = animation}),
+            ::testing::SetArgReferee<0>(
+                model::Settings{.animation = animation, .bar_spacing = spacing}),
             ::testing::Return(true)));
     CreateTerminal();
   };
@@ -1568,7 +1569,7 @@ TEST_F(TerminalTest, NumberOfBarsDependsOnAnimation) {
   const int spaced = terminal->CalculateNumberBars();
 
   // Without space between bars, more of them fit in the same width
-  restore(model::BarAnimation::HorizontalMirrorNoSpace);
+  restore(model::BarAnimation::HorizontalMirror, false);
   const int not_spaced = terminal->CalculateNumberBars();
 
   EXPECT_GT(not_spaced, spaced);
@@ -1952,7 +1953,7 @@ TEST_F(TerminalTest, ClickOnAnotherBlockClosesAnimationPicker) {
   ASSERT_EQ(GetFocusedIndex(), kMainContent);
 
   EXPECT_TRUE(Send(interface::keybinding::Visualizer::ChangeAnimation));
-  ASSERT_THAT(Render(), ::testing::HasSubstr(" animation "));
+  ASSERT_THAT(Render(), ::testing::HasSubstr("Animation"));
 
   //! Create mouse event on the first rows from sidebar (which is the list of files)
   auto mouse_on_sidebar = [](ftxui::Mouse::Button button, ftxui::Mouse::Motion motion) {
@@ -1968,17 +1969,17 @@ TEST_F(TerminalTest, ClickOnAnotherBlockClosesAnimationPicker) {
   EXPECT_TRUE(Send(mouse_on_sidebar(ftxui::Mouse::Left, ftxui::Mouse::Released)));
   HandlePendingEvents();
 
-  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr(" animation ")));
+  EXPECT_THAT(Render(), ::testing::Not(::testing::HasSubstr("Animation")));
   EXPECT_EQ(GetFocusedIndex(), kMainContent);
 
   // Anything else is still handled by other blocks while picker is open, like mouse wheel
   EXPECT_TRUE(Send(interface::keybinding::Visualizer::ChangeAnimation));
-  ASSERT_THAT(Render(), ::testing::HasSubstr(" animation "));
+  ASSERT_THAT(Render(), ::testing::HasSubstr("Animation"));
 
   EXPECT_TRUE(Send(mouse_on_sidebar(ftxui::Mouse::WheelDown, ftxui::Mouse::Pressed)));
   HandlePendingEvents();
 
-  EXPECT_THAT(Render(), ::testing::HasSubstr(" animation "));
+  EXPECT_THAT(Render(), ::testing::HasSubstr("Animation"));
   EXPECT_EQ(GetFocusedIndex(), kSidebar);
 }
 

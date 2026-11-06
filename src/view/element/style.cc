@@ -226,6 +226,7 @@ Theme MakeTheme(const Palette& p) {
 
   theme.visualizer.text = p.text;
   theme.visualizer.solid = p.solid;
+  theme.visualizer.zones = {p.green, p.yellow, p.red};
 
   for (size_t i = 0; i < theme.visualizer.gradient.size(); i++) {
     const Rgb& color = p.gradient.at(i);

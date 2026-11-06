@@ -209,6 +209,13 @@ model::BarAnimation MainContent::GetAnimation() {
 
 /* ********************************************************************************************** */
 
+bool MainContent::IsBarSpaced() {
+  auto visualizer = static_cast<SpectrumVisualizer*>(tab_elem_[View::Visualizer].get());
+  return visualizer->IsBarSpaced();
+}
+
+/* ********************************************************************************************** */
+
 bool MainContent::OnPickerMouseEvent(ftxui::Event event) {
   // Picker is the only thing from visualizer that handles mouse
   return tab_elem_.active() == View::Visualizer && visualizer_->OnMouseEvent(event);

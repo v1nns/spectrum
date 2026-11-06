@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <exception>
 #include <fstream>
 #include <iomanip>
@@ -123,6 +124,63 @@ static void BackupFile(const std::string& filepath) {
   }
 
   LOG("Created backup file=", std::quoted(backup));
+}
+
+/**
+ * @brief Fill animation from its identifier. Older versions had animations without space between
+ * bars, which are now the same animation with spacing disabled
+ * @param id Animation identifier
+ * @param settings Settings to fill (unchanged when identifier is unknown)
+ */
+static void ParseAnimation(const std::string& id, model::Settings& settings) {
+  static constexpr std::string_view kNoSpaceSuffix = "-no-space";
+
+  if (auto animation = model::GetAnimationFromId(id); animation) {
+    settings.animation = animation;
+    return;
+  }
+
+  if (id.size() > kNoSpaceSuffix.size() && id.substr(id.size() - kNoSpaceSuffix.size()) ==
+                                               kNoSpaceSuffix) {
+    if (auto animation = model::GetAnimationFromId(id.substr(0, id.size() - kNoSpaceSuffix.size()));
+        animation && model::IsBarAnimation(*animation)) {
+      settings.animation = animation;
+      settings.bar_spacing = false;
+    }
+  }
+}
+
+/**
+ * @brief Fill animation from the number saved by older versions (whose animations were in another
+ * order, including the ones without space between bars)
+ * @param value Animation number
+ * @param settings Settings to fill (unchanged when number is unknown)
+ */
+static void ParseLegacyAnimation(int value, model::Settings& settings) {
+  struct Legacy {
+    model::BarAnimation animation = model::BarAnimation::HorizontalMirror;
+    bool spacing = true;
+  };
+
+  static constexpr int kFirst = 11000;
+  static constexpr std::array<Legacy, 10> kLegacy{{
+      {model::BarAnimation::HorizontalMirror, true},
+      {model::BarAnimation::VerticalMirror, true},
+      {model::BarAnimation::Mono, true},
+      {model::BarAnimation::HorizontalMirror, false},
+      {model::BarAnimation::VerticalMirror, false},
+      {model::BarAnimation::Mono, false},
+      {model::BarAnimation::SpectrumLine, true},
+      {model::BarAnimation::SpectrumLineMirror, true},
+      {model::BarAnimation::SpectrumLineFilled, true},
+      {model::BarAnimation::SpectrumLineFilledMirror, true},
+  }};
+
+  if (value < kFirst || value >= kFirst + static_cast<int>(kLegacy.size())) return;
+
+  const auto& legacy = kLegacy.at(static_cast<size_t>(value - kFirst));
+  settings.animation = legacy.animation;
+  if (!legacy.spacing) settings.bar_spacing = false;
 }
 
 }  // namespace internal
@@ -409,18 +467,40 @@ bool FileHandler::ParseSettings(model::Settings& settings) {
     // Animation is saved by its identifier, so check it is a known one
     if (auto animation = visualizer->find("animation");
         animation != visualizer->end() && animation->is_string()) {
-      settings.animation = model::GetAnimationFromId(animation->get<std::string>());
+      internal::ParseAnimation(animation->get<std::string>(), settings);
     } else if (animation != visualizer->end() && animation->is_number_integer()) {
       // It was saved as a number by older versions
-      if (int value = animation->get<int>();
-          value >= model::BarAnimation::HorizontalMirror && value < model::BarAnimation::LAST) {
-        settings.animation = static_cast<model::BarAnimation>(value);
-      }
+      internal::ParseLegacyAnimation(animation->get<int>(), settings);
     }
 
     if (auto bar_width = visualizer->find("bar_width");
         bar_width != visualizer->end() && bar_width->is_number_integer()) {
       settings.bar_width = bar_width->get<int>();
+    }
+
+    // Options are saved by their identifiers, so check they are known ones
+    if (auto style = visualizer->find("bar_style");
+        style != visualizer->end() && style->is_string()) {
+      settings.bar_style = model::GetBarStyleFromId(style->get<std::string>());
+    }
+
+    // Spacing chosen explicitly wins over the one from a legacy animation identifier
+    if (auto spacing = visualizer->find("bar_spacing");
+        spacing != visualizer->end() && spacing->is_boolean()) {
+      settings.bar_spacing = spacing->get<bool>();
+    }
+
+    if (auto colors = visualizer->find("bar_colors");
+        colors != visualizer->end() && colors->is_string()) {
+      settings.bar_colors = model::GetBarColorsFromId(colors->get<std::string>());
+    }
+
+    if (auto peaks = visualizer->find("peaks"); peaks != visualizer->end() && peaks->is_boolean()) {
+      settings.peaks = peaks->get<bool>();
+    }
+
+    if (auto hue = visualizer->find("hue_cycle"); hue != visualizer->end() && hue->is_string()) {
+      settings.hue_cycle = model::GetHueCycleFromId(hue->get<std::string>());
     }
   }
 
@@ -512,6 +592,11 @@ bool FileHandler::SaveSettings(const model::Settings& settings) {
   if (settings.animation)
     section("visualizer")["animation"] = model::GetAnimationId(*settings.animation);
   if (settings.bar_width) section("visualizer")["bar_width"] = *settings.bar_width;
+  if (settings.bar_style) section("visualizer")["bar_style"] = model::GetId(*settings.bar_style);
+  if (settings.bar_spacing) section("visualizer")["bar_spacing"] = *settings.bar_spacing;
+  if (settings.bar_colors) section("visualizer")["bar_colors"] = model::GetId(*settings.bar_colors);
+  if (settings.peaks) section("visualizer")["peaks"] = *settings.peaks;
+  if (settings.hue_cycle) section("visualizer")["hue_cycle"] = model::GetId(*settings.hue_cycle);
   if (settings.volume) section("player")["volume"] = *settings.volume;
   if (settings.device) section("player")["device"] = *settings.device;
   if (settings.repeat) section("player")["repeat"] = model::GetRepeatModeName(*settings.repeat);

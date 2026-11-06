@@ -20,7 +20,7 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Seek time position in the song;
 - Display technical information about the current song;
 - Choose audio output device, playing each song with its own sample rate when device supports it (not converting it);
-- Audio spectrum visualizer;
+- Audio spectrum visualizer (bars, lines, radial and waterfall animations, with bar styles, color modes, peak caps and hue cycle);
 - Audio equalizer;
 - Fetch song lyrics;
 - Listening stats (time listened, songs played, data streamed, top artists and songs, listening hours by weekday and days in a row);
@@ -84,7 +84,7 @@ Cookies are read by yt-dlp (never by spectrum), and only after a request is refu
 | <kbd>f</kbd> / <kbd>b</kbd> | Seek forward / backward |
 | <kbd>+</kbd> / <kbd>-</kbd> / <kbd>m</kbd> | Volume up / down / mute |
 | <kbd>R</kbd> / <kbd>x</kbd> | Change repeat mode (off, all, one) / toggle shuffle |
-| <kbd>a</kbd> / <kbd>z</kbd> | Choose visualizer animation / toggle fullscreen |
+| <kbd>a</kbd> / <kbd>z</kbd> | Choose visualizer animation and style / toggle fullscreen |
 | <kbd>t</kbd> | Choose theme |
 | <kbd>O</kbd> | Choose audio output device |
 | <kbd>q</kbd> | Quit |
@@ -157,7 +157,12 @@ Almost everything in `settings.json` is saved by spectrum itself, right when it 
   },
   "visualizer": {
     "animation": "horizontal-mirror",
-    "bar_width": 2
+    "bar_width": 2,
+    "bar_style": "led",
+    "bar_spacing": true,
+    "bar_colors": "vertical",
+    "peaks": true,
+    "hue_cycle": "off"
   },
   "stream": {
     "cookies_from_browser": "firefox"
@@ -174,8 +179,13 @@ Almost everything in `settings.json` is saved by spectrum itself, right when it 
 | `player.shuffle` | `true` or `false` | `false` | <kbd>x</kbd>, or `-r shuffle` |
 | `equalizer.preset` | Preset in use: `Custom`, `Flat`, `Acoustic`, `Bass Boost`, `Classical`, `Dance`, `Electronic`, `Hip-Hop`, `Jazz`, `Loudness`, `Pop`, `Rock`, `Treble Boost` or `Vocal` | `Custom` | <kbd>a</kbd> (apply) on equalizer |
 | `equalizer.custom` | Gains (in dB, from `-12` to `12`) from preset `Custom`, one for each of its ten frequencies (32, 64, 125, 250, 500, 1k, 2k, 4k, 8k and 16k Hz) | all `0` | <kbd>a</kbd> (apply) or <kbd>r</kbd> (reset) on equalizer |
-| `visualizer.animation` | `horizontal-mirror`, `vertical-mirror`, `mono`, `horizontal-mirror-no-space`, `vertical-mirror-no-space`, `mono-no-space`, `line`, `line-mirror`, `line-filled` or `line-filled-mirror` (a number saved by older versions is still accepted) | `horizontal-mirror` | <kbd>a</kbd> on visualizer |
+| `visualizer.animation` | `horizontal-mirror`, `vertical-mirror`, `mono`, `line`, `line-mirror`, `line-filled`, `line-filled-mirror`, `radial` or `waterfall` (values saved by older versions, like `mono-no-space` or a number, are still accepted) | `horizontal-mirror` | <kbd>a</kbd> on visualizer |
 | `visualizer.bar_width` | Columns used by each bar, from `1` to `4` | `2` | <kbd>,</kbd> / <kbd>.</kbd> |
+| `visualizer.bar_style` | `solid`, `led` (separate segments) or `braille` (only for bar animations) | `solid` | <kbd>a</kbd> on visualizer |
+| `visualizer.bar_spacing` | `true` or `false`, for an empty column between bars (only for bar animations) | `true` | <kbd>a</kbd> on visualizer |
+| `visualizer.bar_colors` | `vertical` (gradient from bottom to top), `level` (one color for each bar, by its height), `level-stretched` (gradient squeezed into each bar), `horizontal` (gradient across bars) or `zones` (green, yellow and red) | `vertical` | <kbd>a</kbd> on visualizer |
+| `visualizer.peaks` | `true` or `false`, for a cap on each bar's recent maximum, which falls after a moment (only for bar animations) | `false` | <kbd>a</kbd> on visualizer |
+| `visualizer.hue_cycle` | `off`, `on` (colors slowly rotate their hue) or `flash` (same, also flashing on each beat) | `off` | <kbd>a</kbd> on visualizer |
 | `stream.cookies_from_browser` | Browser that yt-dlp reads cookies from (see [When YouTube refuses to answer](#when-youtube-refuses-to-answer)) | not set | only by editing this file |
 
 Any setting may be missing, and a value that is not valid is ignored (default is used instead). Settings are read only when spectrum starts, so edit this file while it is not running. When the file itself cannot be read as JSON, it is copied to `settings.json.bak` before spectrum saves a new one.

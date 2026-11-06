@@ -106,6 +106,13 @@ class MainContent : public Block {
   model::BarAnimation GetAnimation();
 
   /**
+   * @brief Check if there is an empty column between bars from spectrum visualizer (used for
+   * Terminal calculation)
+   * @return true if bars are spaced, otherwise false
+   */
+  bool IsBarSpaced();
+
+  /**
    * @brief Handle mouse event on animation picker (while it is open), which must be done before
    * any other block, as a click anywhere outside of picker closes it
    * @param event Received event from screen

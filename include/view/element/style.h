@@ -137,6 +137,9 @@ struct Theme {
 
     //! Single color to use instead of gradient (for themes limited to colors from terminal)
     std::optional<Color> solid;
+
+    //! Colors for zones, from the lowest to the highest part of bars (like a hardware equalizer)
+    std::array<Color, 3> zones{};
   };
 
   Visualizer visualizer;  //!< Colors for spectrum visualizer

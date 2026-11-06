@@ -34,6 +34,7 @@ class Picker : public Element {
   struct Entry {
     std::string name;         //!< Text to identify entry
     std::string description;  //!< Text to describe entry (optional, shown beside its name)
+    bool disabled = false;    //!< Entry is shown dimmed and cannot be selected
   };
 
   /**
@@ -103,6 +104,9 @@ class Picker : public Element {
   //! Picker was closed without choosing any entry
   virtual void OnCancel() { /* optional */ }
 
+  //! Handle a key not used by picker itself while it is open (returning true if it was used)
+  virtual bool OnKey(const ftxui::Event& /*event*/) { return false; }
+
   //! Modal picker is shown over all blocks, so it does not let them handle anything while it is
   //! open (otherwise, events not used by picker are still handled by others)
   virtual bool IsModal() const { return true; }
@@ -116,7 +120,7 @@ class Picker : public Element {
   //! Change selected entry, notifying about it
   void Select(size_t index);
 
-  //! Select next/previous entry (if any)
+  //! Select next/previous entry (if any), skipping disabled ones
   void Move(bool next);
 
   //! Close picker, choosing selected entry
@@ -128,8 +132,11 @@ class Picker : public Element {
   /* ******************************************************************************************** */
   //! Mouse handling (called by Element, only when mouse cursor is over picker)
 
-  //! Move selection
+  //! Move selection (protected, so derived class may use wheel for something else)
+ protected:
   void HandleWheel(const ftxui::Mouse::Button& button) override;
+
+ private:
 
   //! Select entry under mouse cursor
   void HandleClick(ftxui::Event& event) override;
