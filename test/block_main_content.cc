@@ -3449,14 +3449,96 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   EXPECT_EQ(stats_file, GetStats());
 
   block->OnEvent(ftxui::Event::Character('9'));
-  const std::string rendered = RenderScreen();
+  std::string rendered = RenderScreen();
 
   EXPECT_THAT(rendered, HasSubstr("Time listened   1 s"));
-  EXPECT_THAT(rendered, HasSubstr("Songs           1 played · 1 finished · 1 skipped (50%)"));
+  EXPECT_THAT(rendered, HasSubstr("Songs played    1"));
+  EXPECT_THAT(rendered, HasSubstr("Songs skipped   1 (50%)"));
   EXPECT_THAT(rendered, HasSubstr("Audio streamed  4.1 KB"));
+  EXPECT_THAT(rendered, HasSubstr("Streak  1 day · longest 1"));
+
+  // Top lists do not fit below everything else, so tab is scrolled to show them
+  EXPECT_THAT(rendered, Not(HasSubstr("1. Artist")));
+
+  while (block->OnEvent(ftxui::Event::Character('j'))) {
+    rendered = RenderScreen();
+  }
+
   EXPECT_THAT(rendered, HasSubstr("1. Artist"));
   EXPECT_THAT(rendered, HasSubstr("1. Song · Artist"));
-  EXPECT_THAT(rendered, HasSubstr("2. Mix"));
+  EXPECT_THAT(rendered, Not(HasSubstr("all time")));
+
+  // Scrolled until last row from content, right above block border
+  EXPECT_THAT(rendered, HasSubstr(RenderedRowWith(rendered, "2. Mix") + "\n╰"));
+
+  // And back to the top
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::ArrowUp));
+  while (block->OnEvent(ftxui::Event::Character('k'))) {
+    rendered = RenderScreen();
+  }
+
+  EXPECT_THAT(rendered, HasSubstr("all time"));
+
+  // Mouse wheel also scrolls it
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("Time listened", ftxui::Mouse::WheelDown)));
+  EXPECT_THAT(RenderScreen(), Not(HasSubstr("all time")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ShowListeningHoursAndStreak) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+
+  // Streak ended a long time ago, and the hour listened the most is on Friday at 22h
+  model::ListeningStats saved{
+      .since = 1792982772,
+      .listened_ms = 5000,
+      .local_ms = 5000,
+      .songs_played = 2,
+      .streak = {.day = 1, .current = 4, .longest = 9},
+  };
+
+  saved.hours[4][22] = 4000;
+  saved.hours[0][8] = 1000;
+
+  // Also parsed again when saving what is listened in this test
+  EXPECT_CALL(*file_handler, ParseStats(_))
+      .WillRepeatedly(DoAll(SetArgReferee<0>(saved), Return(true)));
+
+  block = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(true);
+
+  block->OnEvent(ftxui::Event::Character('9'));
+  std::string rendered = RenderScreen();
+
+  auto dots = [](int count) {
+    std::string text;
+    for (int i = 0; i < count; i++) text += "·";
+    return text;
+  };
+
+  // Shade is relative to the hour listened the most
+  EXPECT_THAT(rendered, HasSubstr("Listening hours"));
+  EXPECT_THAT(rendered, HasSubstr("Mon " + dots(8) + "░" + dots(15)));
+  EXPECT_THAT(rendered, HasSubstr("Tue " + dots(24)));
+  EXPECT_THAT(rendered, HasSubstr("Fri " + dots(22) + "█" + dots(1)));
+  EXPECT_THAT(rendered, HasSubstr("    0     6     12    18"));
+
+  // Streak is broken, but the longest one is kept
+  EXPECT_THAT(rendered, HasSubstr("Streak  0 days · longest 9"));
+
+  // Session shows only hours listened in it, and no streak
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/song.mp3", .artist = "Artist", .title = "Song", .duration = 120}));
+  ListenToSong(0, 1000);
+
+  block->OnEvent(ftxui::Event::Character('a'));
+  rendered = RenderScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("Time listened   1 s"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Streak")));
+  EXPECT_THAT(rendered, Not(HasSubstr("░")));
+  EXPECT_THAT(rendered, HasSubstr("█"));
 }
 
 /* ********************************************************************************************** */
@@ -3518,7 +3600,7 @@ TEST_F(MainContentTest, KeepListeningStatsSavedByAnotherInstance) {
   // Stats saved when this instance started
   model::ListeningStats started;
   started.AddListened("/music/old.mp3", "Old", "Song", false, 60000, 1000);
-  started.AddPlayed("/music/old.mp3");
+  started.AddPlayed("/music/old.mp3", 1000);
   stats_file = started;
 
   block = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
@@ -3527,7 +3609,7 @@ TEST_F(MainContentTest, KeepListeningStatsSavedByAnotherInstance) {
   // In the meantime, another instance saved what it played
   model::ListeningStats other = started;
   other.AddListened("https://site/mix", "", "Mix", true, 120000, 2000);
-  other.AddPlayed("https://site/mix");
+  other.AddPlayed("https://site/mix", 2000);
   stats_file = other;
 
   // So this instance only adds what it played when saving
@@ -3576,7 +3658,12 @@ TEST_F(MainContentTest, ToggleListeningStatsScope) {
   std::static_pointer_cast<interface::Block>(block)->SetFocused(true);
 
   block->OnEvent(ftxui::Event::Character('9'));
-  EXPECT_THAT(RenderScreen(), HasSubstr("Time listened   2 h"));
+  std::string rendered = RenderScreen();
+  EXPECT_THAT(rendered, HasSubstr("Time listened   2 h"));
+
+  // Saved before hours and streak were counted
+  EXPECT_THAT(rendered, HasSubstr("Counted from now on"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Streak")));
 
   // Nothing was listened to in this session
   block->OnEvent(ftxui::Event::Character('a'));

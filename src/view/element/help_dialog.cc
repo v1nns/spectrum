@@ -178,6 +178,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
        "stats",
        {
            {ToString(keybinding::MainContent::FocusStats), "Show listening stats"},
+           {up_down + " " + jk, "Scroll stats"},
            {ToString(keybinding::Stats::ToggleScope), "Show stats from all time/this session"},
        }},
       {Section::Player,

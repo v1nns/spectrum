@@ -1,9 +1,36 @@
 #include "model/listening_stats.h"
 
 #include <algorithm>
+#include <ctime>
 #include <tuple>
 
 namespace model {
+
+namespace {
+
+//! Convert moment (seconds since epoch) to local time
+std::tm ToLocalTime(int64_t seconds) {
+  const auto moment = static_cast<std::time_t>(seconds);
+  std::tm local{};
+  localtime_r(&moment, &local);
+  return local;
+}
+
+//! Get day from moment in local time (days since epoch)
+int64_t ToLocalDay(int64_t seconds) {
+  constexpr int64_t kDaySeconds = 24 * 60 * 60;
+  return (seconds + ToLocalTime(seconds).tm_gmtoff) / kDaySeconds;
+}
+
+}  // namespace
+
+/* ********************************************************************************************** */
+
+bool ListeningStats::Streak::operator==(const Streak& other) const {
+  return std::tie(day, current, longest) == std::tie(other.day, other.current, other.longest);
+}
+
+/* ********************************************************************************************** */
 
 bool ListeningStats::Song::operator==(const Song& other) const {
   return std::tie(artist, title, listened_ms, plays) ==
@@ -20,6 +47,11 @@ void ListeningStats::AddListened(const std::string& key, const std::string& arti
   listened_ms += ms;
   (from_url ? stream_ms : local_ms) += ms;
 
+  // Weekday from std::tm starts on Sunday, but here it starts on Monday
+  const std::tm local = ToLocalTime(now);
+  const auto weekday = static_cast<std::size_t>(local.tm_wday + kWeekdays - 1) % kWeekdays;
+  hours[weekday][static_cast<std::size_t>(local.tm_hour)] += ms;
+
   // Least listened song gives room to the new one (it would be the first one removed anyway)
   if (songs.find(key) == songs.end() && songs.size() >= kMaxSongs) RemoveLeastListened();
 
@@ -32,9 +64,24 @@ void ListeningStats::AddListened(const std::string& key, const std::string& arti
 
 /* ********************************************************************************************** */
 
-void ListeningStats::AddPlayed(const std::string& key) {
+void ListeningStats::AddPlayed(const std::string& key, int64_t now) {
   songs_played++;
   if (auto song = songs.find(key); song != songs.end()) song->second.plays++;
+
+  // Day already counted (or earlier than it, when clock goes back) does not change streak
+  const int64_t today = ToLocalDay(now);
+  if (streak.current > 0 && today <= streak.day) return;
+
+  streak.current = streak.current > 0 && today == streak.day + 1 ? streak.current + 1 : 1;
+  streak.day = today;
+  streak.longest = std::max(streak.longest, streak.current);
+}
+
+/* ********************************************************************************************** */
+
+uint32_t ListeningStats::GetCurrentStreak(int64_t now) const {
+  // Streak is only broken after a whole day without songs played
+  return ToLocalDay(now) <= streak.day + 1 ? streak.current : 0;
 }
 
 /* ********************************************************************************************** */
@@ -52,7 +99,15 @@ ListeningStats ListeningStats::Difference(const ListeningStats& before) const {
       .songs_finished = minus(songs_finished, before.songs_finished),
       .songs_skipped = minus(songs_skipped, before.songs_skipped),
       .stream_bytes = minus(stream_bytes, before.stream_bytes),
+      // Streak is not a total, so it is carried as it is (only when it changed)
+      .streak = streak != before.streak ? streak : Streak{},
   };
+
+  for (std::size_t day = 0; day < kWeekdays; day++) {
+    for (std::size_t hour = 0; hour < kDayHours; hour++) {
+      diff.hours[day][hour] = minus(hours[day][hour], before.hours[day][hour]);
+    }
+  }
 
   for (const auto& [key, song] : songs) {
     auto earlier = before.songs.find(key);
@@ -84,6 +139,21 @@ void ListeningStats::Add(const ListeningStats& other) {
   songs_finished += other.songs_finished;
   songs_skipped += other.songs_skipped;
   stream_bytes += other.stream_bytes;
+
+  for (std::size_t day = 0; day < kWeekdays; day++) {
+    for (std::size_t hour = 0; hour < kDayHours; hour++) hours[day][hour] += other.hours[day][hour];
+  }
+
+  // Streak with the latest day with a song played is the current one (both may have played songs
+  // on the same day, then the one with more days in a row is kept)
+  if (other.streak.day > streak.day) {
+    streak.day = other.streak.day;
+    streak.current = other.streak.current;
+  } else if (other.streak.day == streak.day) {
+    streak.current = std::max(streak.current, other.streak.current);
+  }
+
+  streak.longest = std::max(streak.longest, other.streak.longest);
 
   for (const auto& [key, song] : other.songs) {
     Song& total = songs[key];
@@ -151,10 +221,10 @@ std::vector<ListeningStats::Artist> ListeningStats::GetTopArtists(std::size_t co
 
 bool ListeningStats::operator==(const ListeningStats& other) const {
   return std::tie(since, listened_ms, local_ms, stream_ms, songs_played, songs_finished,
-                  songs_skipped, stream_bytes,
-                  songs) == std::tie(other.since, other.listened_ms, other.local_ms,
-                                     other.stream_ms, other.songs_played, other.songs_finished,
-                                     other.songs_skipped, other.stream_bytes, other.songs);
+                  songs_skipped, stream_bytes, songs, hours, streak) ==
+         std::tie(other.since, other.listened_ms, other.local_ms, other.stream_ms,
+                  other.songs_played, other.songs_finished, other.songs_skipped, other.stream_bytes,
+                  other.songs, other.hours, other.streak);
 }
 
 }  // namespace model

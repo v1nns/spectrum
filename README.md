@@ -23,7 +23,7 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Audio spectrum visualizer;
 - Audio equalizer;
 - Fetch song lyrics;
-- Listening stats (time listened, songs played, data streamed, top artists and songs);
+- Listening stats (time listened, songs played, data streamed, top artists and songs, listening hours by weekday and days in a row);
 - Playlists with local files and songs from YouTube (including whole YouTube playlists);
 - Repeat and shuffle modes;
 - Color themes (Tokyo Night, Catppuccin Mocha and Latte, Gruvbox Dark, Nord, Dracula, or the colors from your terminal);
