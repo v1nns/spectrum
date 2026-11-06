@@ -23,6 +23,7 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Audio spectrum visualizer;
 - Audio equalizer;
 - Fetch song lyrics;
+- Listening stats (time listened, songs played, data streamed, top artists and songs);
 - Playlists with local files and songs from YouTube (including whole YouTube playlists);
 - Repeat and shuffle modes;
 - Color themes (Tokyo Night, Catppuccin Mocha and Latte, Gruvbox Dark, Nord, Dracula, or the colors from your terminal);
@@ -76,7 +77,7 @@ Cookies are read by yt-dlp (never by spectrum), and only after a request is refu
 | --- | --- |
 | <kbd>F12</kbd> | Show help with all keybindings |
 | <kbd>F1</kbd> / <kbd>F2</kbd> | Show files / playlists |
-| <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> | Show visualizer / equalizer / lyrics |
+| <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>9</kbd> | Show visualizer / equalizer / lyrics / stats |
 | <kbd>/</kbd> | Search in the focused list |
 | <kbd>p</kbd> / <kbd>s</kbd> | Pause or resume / stop |
 | <kbd>&lt;</kbd> / <kbd>&gt;</kbd> | Skip to previous / next song |

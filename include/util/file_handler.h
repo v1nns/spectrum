@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "model/listening_stats.h"
 #include "model/playlist.h"
 #include "model/settings.h"
 
@@ -74,6 +75,13 @@ class FileHandler {
   std::string GetLogPath() const;
 
   /**
+   * @brief Get full path for listening stats file, which is kept in "$XDG_STATE_HOME/spectrum" or,
+   * when that is not set, "~/.local/state/spectrum" (as it is not something chosen by user)
+   * @return Filepath
+   */
+  std::string GetStatsPath() const;
+
+  /**
    * @brief Move playlists and settings saved by older versions (in "~/.cache/spectrum") to
    * directory from GetConfigDirectory. A file already existing in the new directory is never
    * replaced
@@ -115,6 +123,20 @@ class FileHandler {
    * @return true if file was saved, otherwise false
    */
   virtual bool SaveSettings(const model::Settings& settings);
+
+  /**
+   * @brief Parse listening stats from file (invalid values are not filled)
+   * @param stats Listening stats parsed from file
+   * @return true if file was parsed, otherwise false
+   */
+  virtual bool ParseStats(model::ListeningStats& stats);
+
+  /**
+   * @brief Save listening stats to file (replacing everything saved before)
+   * @param stats Listening stats to save
+   * @return true if file was saved, otherwise false
+   */
+  virtual bool SaveStats(const model::ListeningStats& stats);
 
   /* ******************************************************************************************** */
   //! Internal operations

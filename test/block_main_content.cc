@@ -7,6 +7,7 @@
 #include <chrono>
 #include <future>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -25,6 +26,7 @@
 #include "util/formatter.h"
 #include "view/block/main_content.h"
 #include "view/block/main_content/audio_equalizer.h"
+#include "view/block/main_content/listening_statistics.h"
 #include "view/block/main_content/song_lyric.h"
 #include "view/element/flash_message.h"
 
@@ -199,6 +201,57 @@ class MainContentTest : public ::BlockTest {
   //! Getter for offset (in milliseconds) applied on synced song lyrics
   int32_t GetLyricOffset() { return GetSongLyric()->offset_ms_; }
 
+  //! Getter for listening stats from all time (and from this session, if asked)
+  const model::ListeningStats& GetStats(bool session = false) {
+    auto main_tab = static_cast<interface::MainContent*>(block.get());
+    auto stats = static_cast<interface::ListeningStatistics*>(
+        main_tab->tab_elem_[interface::MainContent::View::Stats].get());
+
+    return session ? stats->session_ : stats->all_time_;
+  }
+
+  //! Keep stats saved by file handler mock, so they are read back as from a real file
+  void UseStatsFile() {
+    ON_CALL(*file_handler, ParseStats(_))
+        .WillByDefault(Invoke([this](model::ListeningStats& stats) {
+          if (!stats_file.has_value()) return false;
+          stats = *stats_file;
+          return true;
+        }));
+
+    ON_CALL(*file_handler, SaveStats(_))
+        .WillByDefault(Invoke([this](const model::ListeningStats& stats) {
+          stats_file = stats;
+          return true;
+        }));
+  }
+
+  //! Send events for song playing from the given position until the other one (in milliseconds)
+  void ListenToSong(uint32_t from_ms, uint32_t until_ms) {
+    constexpr uint32_t kStep = 100;
+    for (uint32_t position = from_ms; position <= until_ms; position += kStep) {
+      UpdateSongState(model::Song::MediaState::Play, position);
+    }
+  }
+
+  //! Getter for active tab
+  int GetActiveTab() {
+    return static_cast<interface::MainContent*>(block.get())->tab_elem_.active();
+  }
+
+  //! Send event with song state and position (in milliseconds)
+  void UpdateSongState(model::Song::MediaState state, uint32_t position_ms) {
+    Process(interface::CustomEvent::UpdateSongState(model::Song::CurrentInformation{
+        .state = state, .position = position_ms / 1000, .position_ms = position_ms}));
+  }
+
+  //! Render block and return screen content (without ANSI commands)
+  std::string RenderScreen() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  }
+
   //! Hide message from song lyric tab, as if it expired
   void HideLyricMessage() { GetSongLyric()->message_.Hide(); }
 
@@ -255,6 +308,9 @@ class MainContentTest : public ::BlockTest {
 
   static constexpr int kNumberBars = 30;  //!< Number of bars for visualizer tab view
 
+  //! Stats saved by file handler mock (only when UseStatsFile is called)
+  std::optional<model::ListeningStats> stats_file;
+
   //! Load/save settings (by default, there are no settings saved)
   std::shared_ptr<NiceMock<FileHandlerMock>> file_handler =
       std::make_shared<NiceMock<FileHandlerMock>>();
@@ -272,7 +328,7 @@ TEST_F(MainContentTest, InitialRender) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -307,7 +363,7 @@ TEST_F(MainContentTest, AnimationHorizontalMirror) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                            ▇▇ ▇▇                                            │
 │                                         ▆▆ ██ ██ ▆▆                                         │
 │                                      ▅▅ ██ ██ ██ ██ ▅▅                                      │
@@ -380,7 +436,7 @@ TEST_F(MainContentTest, AnimationSpectrumLine) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -421,7 +477,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineMirror) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                   ⣀⣀                                                                        │
 │               ⣀⡤⠖⠋⠁⠈⠙⠲⢤⣀                                                                    │
 │            ⢀⡤⠞⠁        ⠈⠳⢤⡀                                 ⢀⣀⣀⣀⣀                           │
@@ -462,7 +518,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilled) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -494,7 +550,7 @@ TEST_F(MainContentTest, PickAnimationWithPreview) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │╭ animation ─────────────────────╮                                                           │
 ││▶ Horizontal mirror             │                                                           │
 ││  Vertical mirror               │                                                           │
@@ -878,7 +934,7 @@ TEST_F(MainContentTest, AnimationSpectrumLineFilledMirror) {
   const std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   const std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                   ▄▖                                                                        │
 │               ▄▄█████▙▄▖                                                                    │
 │            ▗▄███████████▙▄                                  ▗▄▄▄▖                           │
@@ -928,7 +984,7 @@ TEST_F(MainContentTest, AnimationVerticalMirror) {
   // Bottom half is filled from top to bottom, so the last cell of each bar uses inverted colors
   // (in text, it shows the complementary block from the one shown on screen)
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                           ▁▁ ▄▄ ▆▆ ▄▄ ▁▁                    │
 │                                                  ▂▂ ▄▄ ▇▇ ██ ██ ██ ██ ██ ▇▇ ▄▄ ▂▂           │
@@ -1030,7 +1086,7 @@ TEST_F(MainContentTest, AnimationMono) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                 ▆▆                          │
 │                                                              ▄▄ ██ ▄▄                       │
@@ -1065,7 +1121,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1108,7 +1164,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1148,7 +1204,7 @@ TEST_F(MainContentTest, IncreaseAndDecreaseBarWidth) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -1277,7 +1333,7 @@ TEST_F(MainContentTest, RenderEqualizer) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1543,7 +1599,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1577,7 +1633,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1615,7 +1671,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -1649,7 +1705,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset ↓ Custom                                                           [Apply] [Reset]  │
 │  ╭───────────────╮                                                                          │
@@ -1688,7 +1744,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Electronic                                                       [Apply] [Reset]  │
 │                                                                                             │
@@ -1944,7 +2000,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Pop                                                              [Apply] [Reset]  │
 │                                                                                             │
@@ -1980,7 +2036,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Pop                                                              [Apply] [Reset]  │
 │                                                                                             │
@@ -2025,7 +2081,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Rock                                                             [Apply] [Reset]  │
 │                                                                                             │
@@ -2060,7 +2116,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Rock                                                             [Apply] [Reset]  │
 │                                                                                             │
@@ -2161,7 +2217,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -2201,7 +2257,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Electronic                                                       [Apply] [Reset]  │
 │                                                                                             │
@@ -2237,7 +2293,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │  preset → Custom                                                           [Apply] [Reset]  │
 │                                                                                             │
@@ -2267,7 +2323,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2325,7 +2381,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2353,7 +2409,7 @@ TEST_F(MainContentTest, FetchSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2412,7 +2468,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2440,7 +2496,7 @@ TEST_F(MainContentTest, FetchSongLyricsFailed) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2502,7 +2558,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2530,7 +2586,7 @@ TEST_F(MainContentTest, FetchSongLyricsWithoutMetadata) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2732,7 +2788,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2762,7 +2818,7 @@ TEST_F(MainContentTest, FetchSongLyricsAndClear) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -2917,7 +2973,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -2958,7 +3014,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                 So free my mind                                             │
 │                                 All the talking                                             │
 │                                 Wasting all your time                                       │
@@ -2986,7 +3042,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                 If you want me                                              │
 │                                 If you need me                                              │
@@ -3014,7 +3070,7 @@ TEST_F(MainContentTest, FetchScrollableSongLyrics) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                 Feels like I'm waiting                                     ┃│
 │                                 Like I'm watching                                          ┃│
 │                                 Watching you for love                                      ┃│
@@ -3144,7 +3200,7 @@ TEST_F(MainContentTest, FetchSongLyricsOnBackground) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │
@@ -3318,6 +3374,225 @@ TEST_F(MainContentTest, SyncedSongLyricsOnBackground) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, ShowListeningStatsOnTheRight) {
+  // Stats tab is always the last one, right before the general buttons
+  std::string title = RenderedRowWith(RenderScreen(), "1:visualizer");
+  EXPECT_THAT(title, HasSubstr("3:lyric ───"));
+  EXPECT_THAT(title, HasSubstr("─ 9:stats ─── F12:help ─── X"));
+
+  block->OnEvent(ftxui::Event::Character('9'));
+
+  EXPECT_EQ(GetActiveTab(), interface::MainContent::View::Stats);
+
+  // Nothing listened to yet
+  const std::string rendered = RenderScreen();
+  EXPECT_THAT(rendered, HasSubstr("all time  this session"));
+  EXPECT_THAT(rendered, HasSubstr("Nothing listened to yet"));
+
+  // Clicking on its button also shows it
+  block->OnEvent(ftxui::Event::Character('1'));
+  RenderScreen();
+  block->OnEvent(MouseEventAt("9:stats", ftxui::Mouse::Left));
+  EXPECT_EQ(GetActiveTab(), interface::MainContent::View::Stats);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
+  using State = model::Song::MediaState;
+  UseStatsFile();
+
+  // Song lyrics are also searched for each song
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+
+  // Song from file played until its end
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/song.mp3", .artist = "Artist", .title = "Song", .duration = 120}));
+  ListenToSong(0, 1000);
+
+  // Seek and pause are not listened to
+  UpdateSongState(State::Play, 61000);
+  UpdateSongState(State::Play, 61100);
+  UpdateSongState(State::Pause, 61100);
+  UpdateSongState(State::Play, 61100);
+  UpdateSongState(State::Play, 30000);
+  UpdateSongState(State::Finished, 0);
+
+  // Stats are saved whenever a song stops
+  EXPECT_CALL(*file_handler, SaveStats(AllOf(Field(&model::ListeningStats::songs_played, 1),
+                                             Field(&model::ListeningStats::songs_finished, 1),
+                                             Field(&model::ListeningStats::listened_ms, 1100))));
+  Process(interface::CustomEvent::ClearSongInfo());
+
+  // Song from URL stopped right after starting (so it is not counted as played)
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .title = "Mix",
+      .duration = 3600,
+      .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=id"}}));
+  ListenToSong(0, 500);
+  Process(interface::CustomEvent::UpdateStreamUsage(4096));
+
+  EXPECT_CALL(*file_handler, SaveStats(Field(&model::ListeningStats::songs_skipped, 1)));
+  Process(interface::CustomEvent::ClearSongInfo());
+
+  for (bool session : {false, true}) {
+    const model::ListeningStats& stats = GetStats(session);
+    EXPECT_EQ(stats.songs_played, 1);
+    EXPECT_EQ(stats.songs_finished, 1);
+    EXPECT_EQ(stats.songs_skipped, 1);
+    EXPECT_EQ(stats.listened_ms, 1600);
+    EXPECT_EQ(stats.local_ms, 1100);
+    EXPECT_EQ(stats.stream_ms, 500);
+    EXPECT_EQ(stats.stream_bytes, 4096);
+  }
+
+  EXPECT_EQ(stats_file, GetStats());
+
+  block->OnEvent(ftxui::Event::Character('9'));
+  const std::string rendered = RenderScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("Time listened   1 s"));
+  EXPECT_THAT(rendered, HasSubstr("Songs           1 played · 1 finished · 1 skipped (50%)"));
+  EXPECT_THAT(rendered, HasSubstr("Audio streamed  4.1 KB"));
+  EXPECT_THAT(rendered, HasSubstr("1. Artist"));
+  EXPECT_THAT(rendered, HasSubstr("1. Song · Artist"));
+  EXPECT_THAT(rendered, HasSubstr("2. Mix"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, CountSongAsPlayedAfterListeningForAWhile) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/long.mp3", .artist = "Artist", .title = "Long", .duration = 600}));
+
+  // Not yet
+  ListenToSong(0, 29900);
+  EXPECT_EQ(GetStats().songs_played, 0);
+  EXPECT_EQ(GetStats().listened_ms, 29900);
+
+  // Only once, no matter how long it is listened to
+  ListenToSong(30000, 45000);
+  EXPECT_EQ(GetStats().songs_played, 1);
+  EXPECT_EQ(GetStats().songs.at("/music/long.mp3").plays, 1);
+
+  // And it may still be skipped afterwards
+  Process(interface::CustomEvent::ClearSongInfo());
+  EXPECT_EQ(GetStats().songs_played, 1);
+  EXPECT_EQ(GetStats().songs_skipped, 1);
+  EXPECT_EQ(GetStats().songs_finished, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, SaveListeningStatsWhileSongIsPlaying) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+  UseStatsFile();
+
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/mix.mp3", .artist = "Artist", .title = "Mix", .duration = 3600}));
+
+  // Long song is saved every few minutes (not only when it stops)
+  EXPECT_CALL(*file_handler, SaveStats(_)).Times(0);
+  ListenToSong(0, 299900);
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  UseStatsFile();
+
+  EXPECT_CALL(*file_handler, SaveStats(Field(&model::ListeningStats::listened_ms, 300000)));
+  ListenToSong(300000, 300000);
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+  UseStatsFile();
+
+  EXPECT_CALL(*file_handler, SaveStats(_)).Times(0);
+  ListenToSong(300100, 400000);
+  ::testing::Mock::VerifyAndClearExpectations(file_handler.get());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, KeepListeningStatsSavedByAnotherInstance) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+  UseStatsFile();
+
+  // Stats saved when this instance started
+  model::ListeningStats started;
+  started.AddListened("/music/old.mp3", "Old", "Song", false, 60000, 1000);
+  started.AddPlayed("/music/old.mp3");
+  stats_file = started;
+
+  block = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(true);
+
+  // In the meantime, another instance saved what it played
+  model::ListeningStats other = started;
+  other.AddListened("https://site/mix", "", "Mix", true, 120000, 2000);
+  other.AddPlayed("https://site/mix");
+  stats_file = other;
+
+  // So this instance only adds what it played when saving
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/new.mp3", .artist = "New", .title = "Song", .duration = 120}));
+  ListenToSong(0, 1000);
+  UpdateSongState(model::Song::MediaState::Finished, 0);
+  Process(interface::CustomEvent::ClearSongInfo());
+
+  ASSERT_TRUE(stats_file.has_value());
+  EXPECT_EQ(stats_file->songs_played, 3);
+  EXPECT_EQ(stats_file->listened_ms, 181000);
+  EXPECT_EQ(stats_file->since, 1000);
+  EXPECT_EQ(stats_file->songs.size(), 3);
+  EXPECT_EQ(GetStats(), *stats_file);
+
+  // File removed by user means that only what is counted from now on is kept
+  stats_file.reset();
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
+      .filepath = "/music/new.mp3", .artist = "New", .title = "Song", .duration = 120}));
+  ListenToSong(0, 500);
+  Process(interface::CustomEvent::ClearSongInfo());
+
+  ASSERT_TRUE(stats_file.has_value());
+  EXPECT_EQ(stats_file->listened_ms, 500);
+  EXPECT_EQ(stats_file->songs_skipped, 1);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ToggleListeningStatsScope) {
+  // Stats from all time are restored when block is created
+  const model::ListeningStats saved{
+      .since = 1792982772,
+      .listened_ms = 7200000,
+      .local_ms = 7200000,
+      .songs_played = 7,
+      .songs_finished = 7,
+      .songs = {{"/song.mp3",
+                 {.artist = "Artist", .title = "Song", .listened_ms = 7200000, .plays = 7}}},
+  };
+
+  EXPECT_CALL(*file_handler, ParseStats(_)).WillOnce(DoAll(SetArgReferee<0>(saved), Return(true)));
+
+  block = ftxui::Make<interface::MainContent>(dispatcher, file_handler);
+  std::static_pointer_cast<interface::Block>(block)->SetFocused(true);
+
+  block->OnEvent(ftxui::Event::Character('9'));
+  EXPECT_THAT(RenderScreen(), HasSubstr("Time listened   2 h"));
+
+  // Nothing was listened to in this session
+  block->OnEvent(ftxui::Event::Character('a'));
+  EXPECT_THAT(RenderScreen(), HasSubstr("Nothing listened to yet"));
+
+  // Clicking on scope shows it
+  block->OnEvent(MouseEventAt("all time", ftxui::Mouse::Left));
+  EXPECT_THAT(RenderScreen(), HasSubstr("Time listened   2 h"));
+
+  // Nothing changed, so nothing is saved
+  EXPECT_CALL(*file_handler, SaveStats(_)).Times(0);
+  block.reset();
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with MainContent mock class (just to test focus)
  */
@@ -3383,7 +3658,7 @@ TEST_F(MockMainContentTest, CheckFocus) {
   std::string rendered = utils::FilterAnsiCommands(screen->ToString());
 
   std::string expected = R"(
-╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────────────────── F12:help ─── X ╮
+╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
 │                                                                                             │
 │                                                                                             │

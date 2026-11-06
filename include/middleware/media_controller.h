@@ -284,6 +284,12 @@ class MediaController : public audio::Notifier, public interface::Notifier {
    */
   void NotifyAudioOutput(const model::AudioOutput& output) override;
 
+  /**
+   * @brief Notify UI with audio data read from song played from URL
+   * @param bytes Number of bytes read
+   */
+  void NotifyStreamUsage(uint64_t bytes) override;
+
   /* ******************************************************************************************** */
   //! Audio analysis
  private:

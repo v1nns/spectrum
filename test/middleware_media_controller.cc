@@ -429,6 +429,14 @@ TEST_F(MediaControllerTest, ExecuteAllMethodsFromInterfaceNotifier) {
   notifier->NotifyAudioOutput(output);
   EXPECT_EQ(controller->GetStatus().output, output);
 
+  // Audio data read from URL is sent to UI (for listening stats)
+  EXPECT_CALL(
+      *dispatcher,
+      SendEvent(AllOf(
+          Field(&interface::CustomEvent::id, interface::CustomEvent::Identifier::UpdateStreamUsage),
+          Field(&interface::CustomEvent::content, VariantWith<uint64_t>(4096)))));
+  notifier->NotifyStreamUsage(4096);
+
   EXPECT_CALL(*dispatcher, SendEvent(Field(&interface::CustomEvent::id,
                                            interface::CustomEvent::Identifier::ClearSongInfo)));
   notifier->ClearSongInformation(playing);

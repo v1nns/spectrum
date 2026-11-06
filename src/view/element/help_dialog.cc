@@ -174,6 +174,12 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
             "Show synced lyrics earlier/later"},
            {ToString(keybinding::Lyric::OffsetReset), "Reset synced lyrics offset"},
        }},
+      {Section::Stats,
+       "stats",
+       {
+           {ToString(keybinding::MainContent::FocusStats), "Show listening stats"},
+           {ToString(keybinding::Stats::ToggleScope), "Show stats from all time/this session"},
+       }},
       {Section::Player,
        "player",
        {

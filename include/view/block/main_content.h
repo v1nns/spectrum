@@ -89,6 +89,7 @@ class MainContent : public Block {
     Visualizer,  //!< Display spectrum visualizer (default)
     Equalizer,   //!< Display audio equalizer
     Lyric,       //!< Display song lyric
+    Stats,       //!< Display listening stats (always the last one, on the right)
     LAST,
   };
 

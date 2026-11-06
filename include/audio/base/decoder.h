@@ -6,6 +6,7 @@
 #ifndef INCLUDE_AUDIO_BASE_DECODER_H_
 #define INCLUDE_AUDIO_BASE_DECODER_H_
 
+#include <cstdint>
 #include <functional>
 
 #include "model/application_error.h"
@@ -73,6 +74,12 @@ class Decoder {
    * @brief After file is opened and decoded, or when some error occurs, always clear internal cache
    */
   virtual void ClearCache() = 0;
+
+  /**
+   * @brief Get how much data was read from the song opened (before clearing internal cache)
+   * @return Number of bytes read (zero when nothing is opened)
+   */
+  virtual uint64_t GetBytesRead() const = 0;
 
   /* ******************************************************************************************** */
   //! Public API for audio processing (volume and equalizer)

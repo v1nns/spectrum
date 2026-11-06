@@ -539,7 +539,6 @@ void Player::AudioHandler() {
     // Update internal media state and initialize current song
     media_control_.state = State::Play;
     curr_song_ = std::make_unique<model::Song>(std::move(*song));
-    error::Code result = error::kSuccess;
     // Song information is only filled after opening it, so just let user know where it comes from
     LOG("Audio handler received new song to play from ", curr_song_->stream_info
                                                              ? curr_song_->stream_info->base_url
@@ -547,7 +546,7 @@ void Player::AudioHandler() {
 
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
     bool interrupted = false;
-    result = OpenSong(interrupted);
+    error::Code result = OpenSong(interrupted);
 
     // Streaming information may be the one kept from the last time that this song was played, and
     // its URL may not be accepted anymore, so fetch it again (only once)
@@ -614,6 +613,13 @@ void Player::AudioHandler() {
 
       // Decoding stops without error when playback fails, so report it from here
       if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
+
+      // Let UI know how much was read from URL (before stream is closed, or opened again)
+      if (uint64_t bytes = decoder_->GetBytesRead(); bytes > 0 && curr_song_->stream_info) {
+        if (auto media_notifier = notifier_.lock(); media_notifier) {
+          media_notifier->NotifyStreamUsage(bytes);
+        }
+      }
 
       // Song keeps playing, but its stream must be opened again (decoding was stopped on resume or
       // seek, as streaming URL has expired)

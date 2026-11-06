@@ -22,6 +22,7 @@ class InterfaceNotifierMock final : public interface::Notifier {
   MOCK_METHOD(void, SendAudioRaw, (const int16_t*, int), (override));
   MOCK_METHOD(void, NotifyError, (error::Code, const std::string&), (override));
   MOCK_METHOD(void, NotifyAudioOutput, (const model::AudioOutput&), (override));
+  MOCK_METHOD(void, NotifyStreamUsage, (uint64_t), (override));
 };
 
 }  // namespace

@@ -83,6 +83,12 @@ class Notifier {
    * @param output Output device in use and format of audio samples sent to it
    */
   virtual void NotifyAudioOutput(const model::AudioOutput& output) = 0;
+
+  /**
+   * @brief Notify UI with audio data read from song played from URL (after it stops reading it)
+   * @param bytes Number of bytes read
+   */
+  virtual void NotifyStreamUsage(uint64_t bytes) = 0;
 };
 
 }  // namespace interface

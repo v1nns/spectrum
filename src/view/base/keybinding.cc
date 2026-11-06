@@ -71,6 +71,7 @@ Key General::FocusPlayer = Key::Character('$');       //! Shift + 4
 Key MainContent::FocusVisualizer = Key::Character('1');
 Key MainContent::FocusEqualizer = Key::Character('2');
 Key MainContent::FocusLyric = Key::Character('3');
+Key MainContent::FocusStats = Key::Character('9');
 
 /* ------------------------------------------ Sidebar ------------------------------------------- */
 
@@ -114,6 +115,10 @@ Key Lyric::Follow = Key::Character('c');
 Key Lyric::OffsetEarlier = Key::Character('[');
 Key Lyric::OffsetLater = Key::Character(']');
 Key Lyric::OffsetReset = Key::Character('0');
+
+/* ------------------------------------------- Stats -------------------------------------------- */
+
+Key Stats::ToggleScope = Key::Character('a');
 
 /* ------------------------------------------- Files -------------------------------------------- */
 

@@ -14,6 +14,7 @@
 #include <ftxui/screen/string.hpp>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -66,6 +67,49 @@ inline std::string ellipsize(const std::string& text, int max_columns) {
   }
 
   return result + std::string(kEllipsis);
+}
+
+/**
+ * @brief Text in a single line, ending with an ellipsis when there is not enough space for it
+ */
+class EllipsizedText : public ftxui::Node {
+ public:
+  EllipsizedText(std::string text, std::optional<int> min_columns)
+      : text_{std::move(text)}, min_columns_{min_columns} {}
+
+  void ComputeRequirement() override {
+    requirement_.min_x = min_columns_.value_or(ftxui::string_width(text_));
+    requirement_.min_y = 1;
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    if (box_.y_min > box_.y_max) return;
+
+    const int width = box_.x_max - box_.x_min + 1;
+    int x = box_.x_min;
+
+    // A glyph using more than one column is followed by empty cells, one for each extra column
+    for (const auto& cell : ftxui::Utf8ToGlyphs(ellipsize(text_, width))) {
+      if (x > box_.x_max) return;
+      screen.PixelAt(x++, box_.y_min).character = cell;
+    }
+  }
+
+ private:
+  std::string text_;                //!< Whole text
+  std::optional<int> min_columns_;  //!< Columns asked for at least (whole text, if not set)
+};
+
+/**
+ * @brief Create a text that is cut (ending with an ellipsis) when it gets less space than it needs
+ * @param text Whole text
+ * @param min_columns Columns asked for at least (whole text, if not set), so elements placed side
+ * by side get the same share of space no matter how long their texts are
+ * @return UI element
+ */
+inline ftxui::Element ellipsized_text(const std::string& text,
+                                      std::optional<int> min_columns = std::nullopt) {
+  return std::make_shared<EllipsizedText>(text, min_columns);
 }
 
 /**

@@ -19,6 +19,8 @@ class FileHandlerMock : public util::FileHandler {
   MOCK_METHOD(bool, SavePlaylists, (const model::Playlists& playlists), (override));
   MOCK_METHOD(bool, ParseSettings, (model::Settings & settings), (override));
   MOCK_METHOD(bool, SaveSettings, (const model::Settings& settings), (override));
+  MOCK_METHOD(bool, ParseStats, (model::ListeningStats & stats), (override));
+  MOCK_METHOD(bool, SaveStats, (const model::ListeningStats& stats), (override));
 };
 
 }  // namespace

@@ -20,6 +20,7 @@ class DecoderMock final : public audio::Decoder {
   MOCK_METHOD(error::Code, SetOutputFormat, (const model::AudioFormat&), (override));
   MOCK_METHOD(error::Code, Decode, (int, AudioCallback), (override));
   MOCK_METHOD(void, ClearCache, (), (override));
+  MOCK_METHOD(uint64_t, GetBytesRead, (), (const, override));
   MOCK_METHOD(error::Code, SetVolume, (model::Volume), (override));
   MOCK_METHOD(model::Volume, GetVolume, (), (const, override));
   MOCK_METHOD(error::Code, UpdateFilters, (const model::EqualizerPreset&), (override));

@@ -132,6 +132,12 @@ class FFmpeg final : public audio::Decoder {
   void ClearCache() override;
 
   /**
+   * @brief Get how much data was read from the song opened (before clearing internal cache)
+   * @return Number of bytes read (zero when nothing is opened)
+   */
+  uint64_t GetBytesRead() const override;
+
+  /**
    * @brief Set volume on playback stream
    *
    * @param value Desired volume (in a range between 0.f and 1.f)

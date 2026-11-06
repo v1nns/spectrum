@@ -83,6 +83,7 @@ struct MainContent {
   static Key FocusVisualizer;
   static Key FocusEqualizer;
   static Key FocusLyric;
+  static Key FocusStats;
 };
 
 /* ********************************************************************************************** */
@@ -144,6 +145,13 @@ struct Lyric {
   static Key OffsetEarlier;  //!< Show synced lyrics earlier
   static Key OffsetLater;    //!< Show synced lyrics later
   static Key OffsetReset;    //!< Show synced lyrics without offset
+};
+
+/* ********************************************************************************************** */
+
+//! Listening stats keybindings
+struct Stats {
+  static Key ToggleScope;  //!< Show stats from all time or only from this session
 };
 
 /* ********************************************************************************************** */

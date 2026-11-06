@@ -580,6 +580,16 @@ void MediaController::NotifyAudioOutput(const model::AudioOutput& output) {
 
 /* ********************************************************************************************** */
 
+void MediaController::NotifyStreamUsage(uint64_t bytes) {
+  auto dispatcher = GetDispatcher();
+  if (!dispatcher) return;
+
+  // Notify all blocks with audio data read from URL (used for listening stats)
+  dispatcher->SendEvent(interface::CustomEvent::UpdateStreamUsage(bytes));
+}
+
+/* ********************************************************************************************** */
+
 void MediaController::ProcessClearAnimation(const std::vector<double>& data) {
   auto dispatcher = GetDispatcher();
   if (!dispatcher) return;
