@@ -127,6 +127,63 @@ class EqualHalves : public ftxui::Node {
   }
 };
 
+/**
+ * @brief Colors from a vertical gradient for each row of bars with the same height. FTXUI computes
+ * gradient color for every cell (with gamma correction, which is expensive), but all bars have the
+ * same height, so each row gets the same color on every bar. Colors are taken from FTXUI gradient
+ * itself, so they look exactly the same
+ */
+class GradientRows {
+ public:
+  explicit GradientRows(ftxui::LinearGradient gradient) : gradient_{std::move(gradient)} {}
+
+  //! Get color for each row of a bar with the given height (computed only when height changes)
+  const std::vector<ftxui::Color>& Get(int height) {
+    if (static_cast<int>(colors_.size()) != height) {
+      ftxui::Screen column(1, height);
+      ftxui::Render(column, ftxui::emptyElement() | ftxui::flex | ftxui::color(gradient_));
+
+      colors_.clear();
+      for (int y = 0; y < height; y++) colors_.push_back(column.CellAt(0, y).foreground_color);
+    }
+
+    return colors_;
+  }
+
+ private:
+  ftxui::LinearGradient gradient_;    //!< Gradient to take colors from
+  std::vector<ftxui::Color> colors_;  //!< Color for each row
+};
+
+/**
+ * @brief Node that sets foreground color from a vertical gradient on every cell from its child,
+ * same as ftxui::color with a ftxui::LinearGradient, but reusing colors computed for each row
+ */
+class GradientColor : public ftxui::Node {
+ public:
+  GradientColor(ftxui::Element child, std::shared_ptr<GradientRows> rows)
+      : ftxui::Node({std::move(child)}), rows_{std::move(rows)} {}
+
+  void SetBox(ftxui::Box box) override {
+    ftxui::Node::SetBox(box);
+    children_[0]->SetBox(box);
+  }
+
+  void Render(ftxui::Screen& screen) override {
+    const auto& colors = rows_->Get(box_.y_max - box_.y_min + 1);
+
+    for (int y = box_.y_min; y <= box_.y_max; ++y) {
+      const ftxui::Color& color = colors[static_cast<std::size_t>(y - box_.y_min)];
+      for (int x = box_.x_min; x <= box_.x_max; ++x) screen.CellAt(x, y).foreground_color = color;
+    }
+
+    ftxui::Node::Render(screen);
+  }
+
+ private:
+  std::shared_ptr<GradientRows> rows_;  //!< Colors for each row (shared by all bars)
+};
+
 }  // namespace
 
 SpectrumVisualizer::SpectrumVisualizer(const model::BlockIdentifier& id,
@@ -372,26 +429,34 @@ bool SpectrumVisualizer::OnCustomEvent(const CustomEvent& event) {
 
 /* ********************************************************************************************** */
 
-void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
-                                     ftxui::Elements& elements, bool space) const {
-  using ftxui::gaugeDirection;
-  constexpr auto color = [](const ftxui::Direction& dir) {
-    if (const auto& solid = GetTheme().visualizer.solid; solid) return ftxui::color(*solid);
+ftxui::Decorator SpectrumVisualizer::GetBarColor(ftxui::Direction direction) {
+  if (const auto& solid = GetTheme().visualizer.solid; solid) return ftxui::color(*solid);
 
-    auto gradient = ftxui::LinearGradient().Angle(dir == ftxui::Direction::Up ? 270 : 90);
-    for (const auto& stop : GetTheme().visualizer.gradient) {
-      gradient.Stop(ftxui::Color(stop.red, stop.green, stop.blue), stop.position);
-    }
+  auto gradient = ftxui::LinearGradient().Angle(direction == ftxui::Direction::Up ? 270 : 90);
+  for (const auto& stop : GetTheme().visualizer.gradient) {
+    gradient.Stop(ftxui::Color(stop.red, stop.green, stop.blue), stop.position);
+  }
 
-    return ftxui::color(gradient);
+  // Shared by all bars using this decorator, so colors are computed only once for each row
+  auto rows = std::make_shared<GradientRows>(std::move(gradient));
+  return [rows](ftxui::Element child) {
+    return std::make_shared<GradientColor>(std::move(child), rows);
   };
+}
+
+/* ********************************************************************************************** */
+
+void SpectrumVisualizer::CreateGauge(double value, ftxui::Direction direction,
+                                     const ftxui::Decorator& color, ftxui::Elements& elements,
+                                     bool space) const {
+  using ftxui::gaugeDirection;
 
   for (int i = 0; i < gauge_width_; i++) {
     ftxui::Element gauge = direction == ftxui::Direction::Down
                                ? std::make_shared<DownGauge>(static_cast<float>(value), dimmed_)
                                : gaugeDirection(static_cast<float>(value), direction);
 
-    elements.emplace_back(std::move(gauge) | color(direction));
+    elements.emplace_back(std::move(gauge) | color);
   }
 
   if (space) elements.emplace_back(ftxui::text(std::string(kGaugeSpacing, ' ')));
@@ -409,12 +474,14 @@ void SpectrumVisualizer::DrawAnimationHorizontalMirror(ftxui::Element& visualize
   int total_size = size * (gauge_width_ + (space ? kGaugeSpacing : 0));
   entries.reserve(total_size);
 
+  const ftxui::Decorator color = GetBarColor(ftxui::Direction::Up);
+
   for (int i = (size / 2) - 1; i >= 0; i--) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries, space);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, color, entries, space);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, entries, space);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, color, entries, space);
   }
 
   if (space) {
@@ -439,12 +506,15 @@ void SpectrumVisualizer::DrawAnimationVerticalMirror(ftxui::Element& visualizer,
   left.reserve(total_size);
   right.reserve(total_size);
 
+  const ftxui::Decorator color_up = GetBarColor(ftxui::Direction::Up);
+  const ftxui::Decorator color_down = GetBarColor(ftxui::Direction::Down);
+
   for (int i = 0; i < size / 2; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, left, space);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Up, color_up, left, space);
   }
 
   for (int i = size / 2; i < size; i++) {
-    CreateGauge(spectrum_data_[i], ftxui::Direction::Down, right, space);
+    CreateGauge(spectrum_data_[i], ftxui::Direction::Down, color_down, right, space);
   }
 
   if (space) {
@@ -488,8 +558,10 @@ void SpectrumVisualizer::DrawAnimationMono(ftxui::Element& visualizer, bool spac
   int total_size = size * (gauge_width_ + (space ? kGaugeSpacing : 0));
   entries.reserve(total_size);
 
+  const ftxui::Decorator color = GetBarColor(ftxui::Direction::Up);
+
   for (int i = 0; i < size; i++) {
-    CreateGauge(average.at(i), ftxui::Direction::Up, entries, space);
+    CreateGauge(average.at(i), ftxui::Direction::Up, color, entries, space);
   }
 
   if (space) {
