@@ -206,6 +206,10 @@ class FFmpeg final : public audio::Decoder {
   static constexpr int kAnalysisSampleRate = 44100;
   static constexpr AVSampleFormat kAnalysisSampleFormat = AV_SAMPLE_FMT_S16;
 
+  //! Bytes asked by each HTTP request when streaming (YouTube sends a larger range only as fast as
+  //! it is played, so nothing could be read ahead)
+  static constexpr char kStreamRequestSize[] = "10485760";
+
   //! All filters used from AVFilter library
   static constexpr char kFilterAbufferSrc[] = "abuffer";
   static constexpr char kFilterVolume[] = "volume";

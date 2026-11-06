@@ -139,6 +139,10 @@ error::Code FFmpeg::OpenInputStream(const model::Song& audio_info) {
     av_dict_set(&options, "reconnect_streamed", "1", 0);
     av_dict_set(&options, "reconnect_delay_max", "10", 0);
 
+    // Ask for the stream in parts, so it is read much faster than played (and playback does not
+    // stutter whenever reading takes a while)
+    av_dict_set(&options, "request_size", kStreamRequestSize, 0);
+
     // Read stream ahead on a background thread, so playback does not stutter while reconnecting
     LOG("Open input stream from url=", std::quoted(audio_info.stream_info->base_url));
     url = "async:" + audio_info.stream_info->streaming_url;
