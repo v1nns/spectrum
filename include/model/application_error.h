@@ -57,6 +57,7 @@ static constexpr Code kStreamUnavailable = 93;
 static constexpr Code kStreamTimedOut = 94;
 static constexpr Code kStreamBlockedWithCookies = 96;
 static constexpr Code kStreamCookiesFailed = 97;
+static constexpr Code kStreamInterrupted = 89;
 
 //! Web errors
 static constexpr Code kUrlNotFound = 95;
@@ -83,7 +84,7 @@ class ApplicationError {
   };
 
   //! Array similar to a map and contains all "mapped" errors (pun intended)
-  static constexpr std::array<Message, 26> kErrorMap{{
+  static constexpr std::array<Message, 27> kErrorMap{{
       {kTerminalInitialization, Level::Critical, "Cannot initialize screen"},
       {kTerminalColorsUnavailable, Level::Critical, "No support to change colors"},
       {kAccessDirFailed, Level::Warning, "Cannot access directory"},
@@ -113,6 +114,7 @@ class ApplicationError {
        "Cannot read cookies from browser, check cookies_from_browser in settings"},
       {kStreamUnavailable, Level::Warning, "Song from URL is not available anymore"},
       {kStreamTimedOut, Level::Warning, "Took too long to fetch song from URL"},
+      {kStreamInterrupted, Level::Warning, "Stream from URL ended before song did"},
       {kUrlNotFound, Level::Warning, "Content not found in URL"},
       {kUrlUnavailable, Level::Warning, "Server is busy or temporarily unavailable"},
       {kUnknownError, Level::Critical,

@@ -2653,6 +2653,406 @@ TEST_F(PlayerTest, FetchSongFromUrlAgainWhenInformationKeptIsNotAccepted) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, ResumeStreamThatEndedBeforeSong) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+  };
+
+  constexpr uint32_t kDuration = 300;
+  constexpr int64_t kEndedAt = 120;
+
+  auto open = [&](model::Song& song) {
+    song.duration = kDuration;
+    return error::kSuccess;
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(AnyNumber());
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(AnyNumber());
+
+    InSequence seq;
+
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+
+    // Interface is notified about song only once, as it keeps playing the same one
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Stream ends without any error, but long before song duration
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          for (int64_t position : {int64_t{0}, kEndedAt}) callback(0, 0, 0, 0, position);
+          return error::kSuccess;
+        }));
+
+    // So streaming information is fetched again (instead of using the one kept for song)
+    EXPECT_CALL(*fetcher, Forget(_)).WillOnce(Return(false));
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // And decoding seeks to where stream has ended, before playing anything
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
+          EXPECT_EQ(position, kEndedAt);
+
+          for (int64_t played : {kEndedAt, int64_t{kDuration}}) callback(0, 0, 0, 0, played);
+          return error::kSuccess;
+        }));
+
+    // Song finished, and there is no other song to play
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ErrorWhenResumedStreamEndsAgainAtSamePosition) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+  };
+
+  constexpr int64_t kEndedAt = 120;
+
+  auto open = [](model::Song& song) {
+    song.duration = 300;
+    return error::kSuccess;
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(AnyNumber());
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(AnyNumber());
+
+    InSequence seq;
+
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = kEndedAt;
+          callback(0, 0, 0, 0, position);
+          return error::kSuccess;
+        }));
+
+    EXPECT_CALL(*fetcher, Forget(_)).WillOnce(Return(false));
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    // Stream opened again ends right after seeking to the same position
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          callback(0, 0, 0, 0, position);
+          return error::kSuccess;
+        }));
+
+    // So it is not fetched again, and user is told about it
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).Times(0);
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true));
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kStreamInterrupted), _)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    syncer.WaitForStep(2);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, FetchStreamAgainWhenResumedAfterItsUrlExpired) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+  };
+
+  constexpr uint32_t kDuration = 300;
+  constexpr int64_t kPausedAt = 50;
+
+  // Streaming URL expires while song is paused (first one), and the next one is valid for a while
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
+  std::vector<std::chrono::seconds> expirations{now + std::chrono::seconds{1},
+                                                now + std::chrono::hours{6}};
+
+  auto extract = [&](model::Song& song) {
+    song.stream_info->expires_at = expirations.front();
+    expirations.erase(expirations.begin());
+    return error::kSuccess;
+  };
+
+  auto open = [&](model::Song& song) {
+    song.duration = kDuration;
+    return error::kSuccess;
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    using State = model::Song::MediaState;
+
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(AnyNumber());
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(AnyNumber());
+    EXPECT_CALL(*playback, Pause());
+
+    InSequence seq;
+
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke(extract));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+
+    // Interface is notified about song only once, as it keeps playing the same one
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = kPausedAt;
+          callback(0, 0, 0, 0, position);
+
+          // Notify other thread to ask for pause and wait for it (song is resumed once paused)
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Decoding stops right after resuming, without playing anything else from this stream
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    // Stream is fetched again (letting user know about it) and opened from where it was paused
+    EXPECT_CALL(*notifier, NotifyStreamWait(true));
+    EXPECT_CALL(*fetcher, Forget(_)).WillOnce(Return(false));
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke(extract));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+    EXPECT_CALL(*notifier, NotifyStreamWait(false));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
+          EXPECT_EQ(position, kPausedAt);
+
+          for (int64_t played : {kPausedAt, int64_t{kDuration}}) callback(0, 0, 0, 0, played);
+          return error::kSuccess;
+        }));
+
+    // Song finished, and there is no other song to play
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(5);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // Pause song, and resume it once paused
+    syncer.WaitForStep(2);
+    player_ctl->PauseOrResume();
+    syncer.NotifyStep(3);
+
+    syncer.WaitForStep(4);
+    player_ctl->PauseOrResume();
+
+    syncer.WaitForStep(5);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, FetchStreamAgainWhenSeekingAfterItsUrlExpired) {
+  model::Playlist playlist = model::Playlist{
+      .index = 0,
+      .name = "Streaming mix",
+      .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+  };
+
+  constexpr uint32_t kDuration = 300;
+  constexpr int64_t kPlayingAt = 50;
+  constexpr int kOffset = 20;
+
+  // Streaming URL expires while song is playing (first one), and the next one is valid for a while
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
+  std::vector<std::chrono::seconds> expirations{now + std::chrono::seconds{1},
+                                                now + std::chrono::hours{6}};
+
+  auto extract = [&](model::Song& song) {
+    song.stream_info->expires_at = expirations.front();
+    expirations.erase(expirations.begin());
+    return error::kSuccess;
+  };
+
+  auto open = [&](model::Song& song) {
+    song.duration = kDuration;
+    return error::kSuccess;
+  };
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    EXPECT_CALL(*notifier, NotifySongState(_)).Times(AnyNumber());
+    EXPECT_CALL(*notifier, NotifySongSeek());
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(AnyNumber());
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(AnyNumber());
+
+    InSequence seq;
+
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke(extract));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+
+    // Interface is notified about song only once, as it keeps playing the same one
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = kPlayingAt;
+          callback(0, 0, 0, 0, position);
+
+          // Notify other thread to ask for seek and wait for it
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Decoding stops right after seek, so this stream is not read from the new position
+          EXPECT_FALSE(callback(0, 0, 0, 0, position));
+          return error::kSuccess;
+        }));
+
+    // Stream is fetched again (letting user know about it) and opened from the new position
+    EXPECT_CALL(*notifier, NotifyStreamWait(true));
+    EXPECT_CALL(*fetcher, Forget(_)).WillOnce(Return(false));
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke(extract));
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke(open));
+    EXPECT_CALL(*notifier, NotifyStreamWait(false));
+    EXPECT_CALL(*playback, Prepare()).WillOnce(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          int64_t position = 0;
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
+          EXPECT_EQ(position, kPlayingAt + kOffset);
+
+          for (int64_t played : {kPlayingAt + kOffset, int64_t{kDuration}}) {
+            callback(0, 0, 0, 0, played);
+          }
+          return error::kSuccess;
+        }));
+
+    // Song finished, and there is no other song to play
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(4);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    // Ask Audio Player to play
+    player_ctl->Play(playlist);
+
+    // Seek forward while song is playing
+    syncer.WaitForStep(2);
+    player_ctl->SeekForwardPosition(kOffset);
+    syncer.NotifyStep(3);
+
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, WaitForStreamToBeAvailableBeforeOpeningIt) {
   model::Playlist playlist = model::Playlist{
       .index = 0,

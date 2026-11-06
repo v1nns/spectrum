@@ -32,6 +32,9 @@ struct StreamInfo {
   //! When site starts accepting requests for streaming URL (since epoch, zero if not informed)
   std::chrono::seconds available_at{0};
 
+  //! When streaming URL stops being accepted (since epoch, zero if not informed)
+  std::chrono::seconds expires_at{0};
+
   //! Overloaded operators
   friend std::ostream& operator<<(std::ostream& out, const StreamInfo& s);
   friend bool operator==(const StreamInfo& lhs, const StreamInfo& rhs);
