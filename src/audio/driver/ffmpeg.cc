@@ -640,16 +640,25 @@ void FFmpeg::FillAudioInformation(model::Song& audio_info) {
   //   const AVDictionaryEntry *tag = nullptr;
   //   while ((tag = av_dict_get(input_stream_->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
   //     LOG("key=", tag->key," value=", tag->value);
-  const AVDictionaryEntry* tag = nullptr;
+  // Most formats keep tags for the whole file (e.g. MP3), but some keep them in the audio stream
+  // instead (e.g. Ogg), so look for them in both places
+  // Note: each lookup must search the whole dictionary (prev=nullptr), as tags may be in any order
+  auto find_tag = [this](const char* key) -> const AVDictionaryEntry* {
+    for (const AVDictionary* metadata :
+         {input_stream_->metadata, input_stream_->streams[stream_index_]->metadata}) {
+      if (const AVDictionaryEntry* tag = av_dict_get(metadata, key, nullptr, AV_DICT_IGNORE_SUFFIX))
+        return tag;
+    }
+
+    return nullptr;
+  };
 
   // Get track name
-  // Note: each lookup must search the whole dictionary (prev=nullptr), as tags may be in any order
-  tag = av_dict_get(input_stream_->metadata, "title", nullptr, AV_DICT_IGNORE_SUFFIX);
-  if (tag) audio_info.title = std::string{tag->value};
+  if (const AVDictionaryEntry* tag = find_tag("title")) audio_info.title = std::string{tag->value};
 
   // Get artist name
-  tag = av_dict_get(input_stream_->metadata, "artist", nullptr, AV_DICT_IGNORE_SUFFIX);
-  if (tag) audio_info.artist = std::string{tag->value};
+  if (const AVDictionaryEntry* tag = find_tag("artist"))
+    audio_info.artist = std::string{tag->value};
 
   // Get cover art (an image kept in its own stream, already encoded as an image file)
   audio_info.cover.reset();

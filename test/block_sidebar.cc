@@ -65,8 +65,8 @@ using Filenames = std::vector<std::filesystem::path>;
 class SidebarTest : public ::BlockTest {
  protected:
   void SetUp() override {
-    // Create a custom screen with fixed size
-    screen = std::make_unique<ftxui::Screen>(38, 15);
+    // Create a custom screen with fixed size (tall enough to list every file from test directory)
+    screen = std::make_unique<ftxui::Screen>(38, 16);
 
     // Create mock for event dispatcher
     dispatcher = std::make_shared<EventDispatcherMock>();
@@ -199,6 +199,7 @@ TEST_F(SidebarTest, InitialRender) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -232,6 +233,7 @@ TEST_F(SidebarTest, NavigateOnMenu) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -324,6 +326,7 @@ TEST_F(SidebarTest, NavigateToMockDir) {
 │  playback_mock.h                   │
 │  stream_fetcher_mock.h             │
 │  url_fetcher_mock.h                │
+│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -355,6 +358,7 @@ TEST_F(SidebarTest, EnterOnSearchMode) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │Search:                             │
@@ -388,6 +392,7 @@ TEST_F(SidebarTest, SingleCharacterInSearchMode) {
 │  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -433,6 +438,7 @@ TEST_F(SidebarTest, TextAndNavigateInSearchMode) {
 │  playback_mock.h                   │
 │  stream_fetcher_mock.h             │
 │  url_fetcher_mock.h                │
+│                                    │
 ╰────────────────────────────────────╯)";
 
   EXPECT_THAT(rendered, StrEq(expected));
@@ -458,6 +464,7 @@ TEST_F(SidebarTest, NonExistentTextInSearchMode) {
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
 │  No matches                        │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -505,6 +512,7 @@ TEST_F(SidebarTest, EnterAndExitSearchMode) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -544,6 +552,7 @@ TEST_F(SidebarTest, EnterSearchModeTypeKeybindAndExit) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -823,6 +832,7 @@ TEST_F(SidebarTest, EnterSearchModeAndNotifyFileSelection) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -999,6 +1009,7 @@ TEST_F(SidebarTest, NotifyFileSelection) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -1061,6 +1072,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -1090,6 +1102,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -1170,6 +1183,7 @@ TEST_F(SidebarTest, TryToNavigateOnEmptySearch) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │Search:notsomethingthatexists       │
 ╰────────────────────────────────────╯)";
 
@@ -1215,6 +1229,7 @@ TEST_F(SidebarTest, NavigateAndEraseCharactersOnSearch) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │Search:lck                          │
 ╰────────────────────────────────────╯)";
 
@@ -1238,6 +1253,7 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
+│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -1471,6 +1487,7 @@ TEST_F(SidebarTest, EmptyPlaylist) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -1502,6 +1519,7 @@ TEST_F(SidebarTest, SinglePlaylist) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │▶ Chill mix [3]                     │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -1568,6 +1586,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -1591,6 +1610,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │    chilling 2.mp3                  │
 │▶   chilling 3.mp3                  │
 │  Lofi [3]                          │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -1623,6 +1643,7 @@ TEST_F(SidebarTest, NavigateOnPlaylist) {
 │    lofi 1.mp3                      │
 │▶   lofi 2.mp3                      │
 │    lofi 2.mp3                      │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -1687,6 +1708,7 @@ TEST_F(SidebarTest, SearchOnPlaylistAndNotify) {
 ╭ F1:files  F2:playlist ─────────────╮
 │  Lofi [1]                          │
 │▶   lofi 2.mp3                      │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -1811,6 +1833,7 @@ TEST_F(SidebarTest, NotifyLastPlaylist) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -1876,6 +1899,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -1905,6 +1929,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -1927,6 +1952,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistName) {
 │    chilling 3.mp3                  │
 │    chilling with a really long na… │
 │  Lofi [3]                          │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -1999,6 +2025,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2021,6 +2048,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │    chilling 3.mp3                  │
 │▶   ing with a really long name.mp3 │
 │  Lofi [3]                          │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2053,6 +2081,7 @@ TEST_F(SidebarTest, RunTextAnimationOnPlaylistSong) {
 │    lofi 1.mp3                      │
 │    lofi 2.mp3                      │
 │    lofi 3.mp3                      │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2118,6 +2147,7 @@ TEST_F(SidebarTest, ForceClickOnEmptyPlaylistWhileOnSearchMode) {
 ╭ F1:files  F2:playlist ─────────────╮
 │▶ Chill mix [3]                     │
 │  Lofi [0]                          │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2264,6 +2294,7 @@ TEST_F(SidebarTest, SaveNewPlaylistIntoFile) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2335,6 +2366,7 @@ TEST_F(SidebarTest, SaveExistentPlaylistIntoFile) {
 │    some of the coolest jpop 3.mp3  │
 │    some of the coolest jpop 55.mp3 │
 │▶ Lofi [0]                          │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2417,6 +2449,7 @@ TEST_F(SidebarTest, DeleteExistentPlaylist) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2444,6 +2477,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │  No playlists, press c to create   │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2490,6 +2524,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │▶ Coding session [2]                │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2554,6 +2589,7 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2602,6 +2638,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2619,6 +2656,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │▶ Chill mix [3]                     │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
@@ -2658,6 +2696,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2687,6 +2726,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
 │                                    │
 │                                    │
 │                                    │
+│                                    │
 │   c create · o modify · d delete   │
 ╰────────────────────────────────────╯)";
 
@@ -2704,6 +2744,7 @@ TEST_F(SidebarTest, CheckForToggleSupport) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │▶ Chill mix [3]                     │
+│                                    │
 │                                    │
 │                                    │
 │                                    │
