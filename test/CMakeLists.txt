@@ -32,6 +32,7 @@ target_sources(
           block_media_player.cc
           block_sidebar.cc
           dialog_playlist.cc
+          driver_ffmpeg.cc
           driver_fftw.cc
           driver_ytdlp.cc
           middleware_media_controller.cc
