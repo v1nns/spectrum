@@ -358,6 +358,15 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
 
       INFO("Audio handler received command to resume song");
       media_control_.state = State::Play;
+
+      // Site would refuse to read the rest of stream (e.g. when reconnecting), so stop decoding it
+      // to open it again from the same position (none of the samples in buffer are played)
+      if (IsStreamExpired()) {
+        INFO("Streaming URL expired while song was paused, fetch it again to resume playing");
+        reopen_stream_ = true;
+        return false;
+      }
+
       playback_->Prepare();
 
       // Samples in buffer are from the position where song was paused, so do not play them when
@@ -402,6 +411,16 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
 
         // Decoder may take a while to seek to the new position (e.g. on streams)
         if (media_notifier) media_notifier->NotifySongSeek();
+
+        // Seeking reads from stream again, which site would refuse once its URL has expired, so
+        // stop decoding it to open it again from the new position
+        if (IsStreamExpired()) {
+          INFO("Streaming URL expired, fetch it again to seek to position=", new_position);
+          last_position = static_cast<int>(new_position);
+          reopen_stream_ = true;
+          return false;
+        }
+
         return true;
       }
     } break;
@@ -526,14 +545,9 @@ void Player::AudioHandler() {
                                                              ? curr_song_->stream_info->base_url
                                                              : curr_song_->filepath.string());
 
-    // Get streaming information if song contains a valid URL
-    if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
-
-    // Stream may not be accepted yet, and user may ask for something else in the meantime
-    bool interrupted = result == error::kSuccess && !WaitStreamAvailable();
-
     // Attempt to parse song (file may not have a supported extension or failed to fetch URL)
-    if (result == error::kSuccess && !interrupted) result = decoder_->Open(*curr_song_);
+    bool interrupted = false;
+    result = OpenSong(interrupted);
 
     // Streaming information may be the one kept from the last time that this song was played, and
     // its URL may not be accepted anymore, so fetch it again (only once)
@@ -541,10 +555,7 @@ void Player::AudioHandler() {
         fetcher_->Forget(*curr_song_)) {
       LOG("Fetch streaming information again, as the one kept for song could not be used");
       decoder_->ClearCache();
-
-      result = fetcher_->ExtractInfo(*curr_song_);
-      interrupted = result == error::kSuccess && !WaitStreamAvailable();
-      if (result == error::kSuccess && !interrupted) result = decoder_->Open(*curr_song_);
+      result = OpenSong(interrupted);
     }
 
     // Song was stopped (or replaced) before it could be opened
@@ -577,21 +588,75 @@ void Player::AudioHandler() {
       }
     }
 
-    // Inform playback driver to be ready to play
-    playback_->Prepare();
-
     int position = -1;  // in seconds
     AnchorPosition(0);
 
-    // To keep decoding audio, return true in lambda function
-    result = decoder_->Decode(
-        period_size_ / 2, [this, &position](void* buffer, int size, void* analysis,
-                                            int analysis_size, int64_t& new_position) {
-          return HandleCommand(buffer, size, analysis, analysis_size, new_position, position);
-        });
+    // Position to resume decoding from (when stream is opened again), and the last one resumed
+    int64_t resume_at = 0;
+    int64_t last_resumed = -1;
 
-    // Decoding stops without error when playback fails, so report it from here
-    if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
+    while (true) {
+      // Inform playback driver to be ready to play
+      playback_->Prepare();
+
+      // To keep decoding audio, return true in lambda function
+      result = decoder_->Decode(
+          period_size_ / 2, [this, &position, &resume_at](void* buffer, int size, void* analysis,
+                                                          int analysis_size, int64_t& new_position) {
+            // Decoder always starts from the beginning, so seek before playing anything
+            if (resume_at > 0) {
+              new_position = std::exchange(resume_at, 0);
+              return true;
+            }
+
+            return HandleCommand(buffer, size, analysis, analysis_size, new_position, position);
+          });
+
+      // Decoding stops without error when playback fails, so report it from here
+      if (result == error::kSuccess) result = std::exchange(playback_error_, error::kSuccess);
+
+      // Song keeps playing, but its stream must be opened again (decoding was stopped on resume or
+      // seek, as streaming URL has expired)
+      const bool playing = result == error::kSuccess && media_control_.state == State::Play &&
+                           curr_song_->stream_info.has_value();
+      const bool reopen = std::exchange(reopen_stream_, false) && playing;
+
+      // Stream may also end before song does, without any error from decoder (e.g. connection was
+      // lost and its URL is not accepted anymore, so only the samples already read were played)
+      const bool ended_early =
+          !reopen && playing && position + kStreamEndTolerance < curr_song_->duration;
+      if (!reopen && !ended_early) break;
+
+      if (ended_early) {
+        // Opening it again would end at the same position (e.g. song is shorter than informed)
+        if (position <= last_resumed) {
+          WARN("Stream ended again at position=", position, " before song duration=",
+               curr_song_->duration);
+          result = error::kStreamInterrupted;
+          break;
+        }
+
+        INFO("Stream ended at position=", position, " before song duration=", curr_song_->duration,
+             ", fetch it again to resume playing");
+        last_resumed = position;
+      }
+
+      // Let user know why song does not play for a while (until stream is opened again)
+      auto media_notifier = notifier_.lock();
+      if (media_notifier) media_notifier->NotifyStreamWait(true);
+
+      fetcher_->Forget(*curr_song_);
+      decoder_->ClearCache();
+      result = OpenSong(interrupted);
+
+      // Song keeps the same information, so interface is not notified about it again
+      if (result == error::kSuccess && !interrupted) result = ConfigureOutput(*curr_song_);
+      if (media_notifier) media_notifier->NotifyStreamWait(false);
+      if (result != error::kSuccess || interrupted) break;
+
+      resume_at = std::max(position, 0);
+      AnchorPosition(resume_at);
+    }
 
     // Reached end of song, this may be originated from one of these situations:
     //  1. naturally;
@@ -769,6 +834,36 @@ bool Player::WaitStreamAvailable() {
 
   media_control_.state = State::Stop;
   return false;
+}
+
+/* ********************************************************************************************** */
+
+bool Player::IsStreamExpired() const {
+  if (!curr_song_->stream_info.has_value()) return false;
+
+  const std::chrono::seconds expires_at = curr_song_->stream_info->expires_at;
+  if (expires_at.count() == 0) return false;
+
+  const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::system_clock::now().time_since_epoch());
+
+  return now + kExpirationMargin >= expires_at;
+}
+
+/* ********************************************************************************************** */
+
+error::Code Player::OpenSong(bool& interrupted) {
+  error::Code result = error::kSuccess;
+
+  // Get streaming information if song contains a valid URL
+  if (curr_song_->stream_info.has_value()) result = fetcher_->ExtractInfo(*curr_song_);
+
+  // Stream may not be accepted yet, and user may ask for something else in the meantime
+  interrupted = result == error::kSuccess && !WaitStreamAvailable();
+
+  if (result == error::kSuccess && !interrupted) result = decoder_->Open(*curr_song_);
+
+  return result;
 }
 
 /* ********************************************************************************************** */

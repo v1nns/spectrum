@@ -183,6 +183,27 @@ TEST_F(YtDlpWrapperTest, FillStreamInfoWithAvailableTime) {
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpWrapperTest, FillStreamInfoWithExpirationTime) {
+  // Streaming URL informs when site stops accepting it (seconds since epoch)
+  auto entry = nlohmann::json::parse(R"({
+    "format_id": "251", "url": "https://stream/videoplayback?expire=1792982772&id=1",
+    "protocol": "https", "acodec": "opus"
+  })");
+
+  model::Song song{.stream_info = model::StreamInfo{.base_url = "https://youtu.be/dQw4w9WgXcQ"}};
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.stream_info->expires_at.count(), Eq(1792982772));
+
+  // Without it, it is not known when it expires
+  entry["url"] = "https://stream/videoplayback?id=1";
+  FillStreamInfo(entry, song);
+
+  EXPECT_THAT(song.stream_info->expires_at.count(), Eq(0));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(YtDlpWrapperTest, ArtistFromVideoTitle) {
   auto song =
       FillArtistAndTitle("Clipse - So Be It (Official Music Video)",

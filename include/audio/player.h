@@ -7,6 +7,7 @@
 #define INCLUDE_AUDIO_PLAYER_H_
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <filesystem>
@@ -87,6 +88,13 @@ class Player : public AudioControl {
   //! Difference allowed between position from decoder (truncated to seconds) and position from
   //! samples written to playback, before trusting decoder (e.g. it skipped part of the song)
   static constexpr double kPositionTolerance = 500.;
+
+  //! Stream ending this far (in seconds) before song duration did not reach the end of song (e.g.
+  //! its URL expired while paused), so it is fetched again to resume playing
+  static constexpr int64_t kStreamEndTolerance = 2;
+
+  //! Streaming URL this close to expire (or already expired) is fetched again when song is resumed
+  static constexpr std::chrono::seconds kExpirationMargin{60};
 
  private:
   /**
@@ -229,6 +237,21 @@ class Player : public AudioControl {
    * stopped, as the command that interrupted it was already handled)
    */
   bool WaitStreamAvailable();
+
+  /**
+   * @brief Fetch streaming information for current song (when it comes from URL), wait for stream
+   * to be available and open song on decoder
+   * @param interrupted Set to true when user asked to stop it while waiting for stream (out)
+   * @return error::Code Application error code
+   */
+  error::Code OpenSong(bool& interrupted);
+
+  /**
+   * @brief Check if streaming URL from current song has expired (or is about to), which means that
+   * site would refuse any new request to read from it
+   * @return True if current song comes from URL that has expired, False if not (or if unknown)
+   */
+  bool IsStreamExpired() const;
 
   /**
    * @brief Replace playback stream by a new one on the given output device, keeping the current one
@@ -561,6 +584,9 @@ class Player : public AudioControl {
   std::optional<Command> pending_skip_;
 
   std::atomic<int> failed_songs_ = 0;  //!< Songs from playlist that failed in a row
+
+  //! Decoding was stopped to open stream from current song again (as its URL has expired)
+  bool reopen_stream_ = false;
 
   std::weak_ptr<interface::Notifier> notifier_;  //!< Send notifications to interface
 
