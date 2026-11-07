@@ -655,6 +655,36 @@ TEST_F(MainContentTest, BarColorsHorizontal) {
 
 /* ********************************************************************************************** */
 
+TEST_F(MainContentTest, BarColorsDiagonal) {
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
+
+  ChangeOption(kOptionColors, static_cast<int>(model::BarColors::Diagonal));
+
+  Process(interface::CustomEvent::DrawAudioSpectrum(std::vector<double>(30, 1.0)));
+  ftxui::Render(*screen, block->Render());
+
+  const int bottom = screen->dimy() - 2;
+  int first = -1;
+  int last = -1;
+
+  for (int x = 1; x < screen->dimx() - 1; x++) {
+    if (screen->CellAt(x, bottom).character != "█") continue;
+    if (first < 0) first = x;
+    last = x;
+  }
+
+  // Gradient goes from the base of the first bar to the top of the last one
+  ASSERT_GE(first, 0);
+  EXPECT_EQ(screen->CellAt(first, bottom).foreground_color, StopColor(0));
+  EXPECT_EQ(screen->CellAt(last, 1).foreground_color, StopColor(3));
+
+  // Colors change both across bars and along each bar
+  EXPECT_NE(screen->CellAt(first, 1).foreground_color, StopColor(0));
+  EXPECT_NE(screen->CellAt(last, bottom).foreground_color, StopColor(3));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(MainContentTest, BarColorsByLevel) {
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
 

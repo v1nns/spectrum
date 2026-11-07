@@ -89,6 +89,7 @@ enum class BarColors : uint8_t {
   Level,           //!< Whole bar takes a single color, picked by its height
   LevelStretched,  //!< Gradient squeezed into each bar, so all of them end in the last color
   Horizontal,      //!< Gradient across bars, from the lowest frequency to the highest
+  Diagonal,        //!< Gradient from the base of the first bar to the top of the last one
   Zones,           //!< Green, yellow and red zones (fixed by height, like a hardware equalizer)
   LAST,
 };

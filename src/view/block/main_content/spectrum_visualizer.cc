@@ -571,6 +571,13 @@ struct SpectrumVisualizer::Colorizer {
     return {stop.red, stop.green, stop.blue};
   }
 
+  //! Get color from gradient going across both directions
+  //! @param position Distance from the base, from 0.0 to 1.0
+  //! @param column Horizontal position, from 0.0 (left) to 1.0 (right)
+  ftxui::Color Diagonal(double position, double column) const {
+    return Gradient((position + column) / 2);
+  }
+
   //! Get color for a zone
   //! @param position Distance from the base, from 0.0 to 1.0
   ftxui::Color Zone(double position) const {
@@ -594,6 +601,8 @@ struct SpectrumVisualizer::Colorizer {
         return Gradient(level > 0 ? position / level : 0);
       case model::BarColors::Horizontal:
         return Gradient(column);
+      case model::BarColors::Diagonal:
+        return Diagonal(position, column);
       case model::BarColors::Zones:
         return Zone(position);
       case model::BarColors::Vertical:
@@ -628,6 +637,15 @@ struct SpectrumVisualizer::Colorizer {
                 // Gradient goes from the base of bar to its last cell
                 const double filled = std::max(1.0, std::ceil(value * height) - 1);
                 return this_copy.Gradient(row / filled);
+              });
+        };
+
+      case model::BarColors::Diagonal:
+        return [this_copy = *this, column, direction](ftxui::Element child) -> ftxui::Element {
+          return std::make_shared<RowColor>(
+              std::move(child), direction, [this_copy, column](int row, int height) {
+                // Gradient goes from the base of area to its top
+                return this_copy.Diagonal(row / std::max(1.0, height - 1.0), column);
               });
         };
 

@@ -183,7 +183,7 @@ Almost everything in `settings.json` is saved by spectrum itself, right when it 
 | `visualizer.bar_width` | Columns used by each bar, from `1` to `4` | `2` | <kbd>,</kbd> / <kbd>.</kbd> |
 | `visualizer.bar_style` | `solid`, `led` (separate segments) or `braille` (only for bar animations) | `solid` | <kbd>a</kbd> on visualizer |
 | `visualizer.bar_spacing` | `true` or `false`, for an empty column between bars (only for bar animations) | `true` | <kbd>a</kbd> on visualizer |
-| `visualizer.bar_colors` | `vertical` (gradient from bottom to top), `level` (one color for each bar, by its height), `level-stretched` (gradient squeezed into each bar), `horizontal` (gradient across bars) or `zones` (green, yellow and red) | `vertical` | <kbd>a</kbd> on visualizer |
+| `visualizer.bar_colors` | `vertical` (gradient from bottom to top), `level` (one color for each bar, by its height), `level-stretched` (gradient squeezed into each bar), `horizontal` (gradient across bars), `diagonal` (gradient from bottom left to top right) or `zones` (green, yellow and red) | `vertical` | <kbd>a</kbd> on visualizer |
 | `visualizer.peaks` | `true` or `false`, for a cap on each bar's recent maximum, which falls after a moment (only for bar animations) | `false` | <kbd>a</kbd> on visualizer |
 | `visualizer.hue_cycle` | `off`, `on` (colors slowly rotate their hue) or `flash` (same, also flashing on each beat) | `off` | <kbd>a</kbd> on visualizer |
 | `stream.cookies_from_browser` | Browser that yt-dlp reads cookies from (see [When YouTube refuses to answer](#when-youtube-refuses-to-answer)) | not set | only by editing this file |

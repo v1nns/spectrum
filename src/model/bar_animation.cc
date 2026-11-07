@@ -39,6 +39,7 @@ constexpr std::array<Naming, static_cast<int>(BarColors::LAST)> kBarColors{{
     {"level", "By level"},
     {"level-stretched", "By level (stretched)"},
     {"horizontal", "Horizontal"},
+    {"diagonal", "Diagonal"},
     {"zones", "Zones"},
 }};
 
