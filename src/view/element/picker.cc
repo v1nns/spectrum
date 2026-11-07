@@ -40,9 +40,10 @@ ftxui::Element Picker::Render() {
     auto description =
         ftxui::text(entry.description.empty() ? "" : entry.description + " ") | ftxui::flex_shrink;
 
-    auto content = selected
-                       ? ftxui::hbox({name | ftxui::bold, description}) |
-                             ftxui::color(colors.entry_selected) | ftxui::focus
+    auto content = selected ? ftxui::hbox({name | ftxui::bold, description}) |
+                                  ftxui::color(colors.entry_selected) | ftxui::focus
+                   : entry.disabled
+                       ? ftxui::hbox({name, description}) | ftxui::dim | ftxui::color(colors.entry)
                        : ftxui::hbox({name, description | ftxui::dim}) | ftxui::color(colors.entry);
 
     entries.push_back(content | ftxui::reflect(boxes_[i]));
@@ -108,7 +109,7 @@ bool Picker::HandleEvent(const ftxui::Event& event) {
     return true;
   }
 
-  return false;
+  return OnKey(event);
 }
 
 /* ********************************************************************************************** */
@@ -123,8 +124,14 @@ void Picker::Select(size_t index) {
 /* ********************************************************************************************** */
 
 void Picker::Move(bool next) {
-  if (next && selected_ + 1 < entries_.size()) Select(selected_ + 1);
-  if (!next && selected_ > 0) Select(selected_ - 1);
+  for (size_t index = selected_; next ? index + 1 < entries_.size() : index > 0;) {
+    index = next ? index + 1 : index - 1;
+
+    if (!entries_[index].disabled) {
+      Select(index);
+      return;
+    }
+  }
 }
 
 /* ********************************************************************************************** */
@@ -161,14 +168,14 @@ void Picker::HandleWheel(const ftxui::Mouse::Button& button) {
 /* ********************************************************************************************** */
 
 void Picker::HandleClick(ftxui::Event& event) {
-  if (auto index = GetEntryAt(event.mouse()); index) Select(*index);
+  if (auto index = GetEntryAt(event.mouse()); index && !entries_[*index].disabled) Select(*index);
 }
 
 /* ********************************************************************************************** */
 
 void Picker::HandleDoubleClick(ftxui::Event& event) {
   auto index = GetEntryAt(event.mouse());
-  if (!index) return;
+  if (!index || entries_[*index].disabled) return;
 
   Select(*index);
   Choose();

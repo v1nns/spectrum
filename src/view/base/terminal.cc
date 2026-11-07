@@ -347,7 +347,7 @@ int Terminal::CalculateNumberBars() {
   model::BarAnimation animation = main_content->GetAnimation();
 
   const int bar_width = main_content->GetBarWidth();
-  const int bar_spacing = model::IsAnimationSpaced(animation) ? 1 : 0;
+  const int bar_spacing = main_content->IsBarSpaced() ? 1 : 0;
 
   // Maximum number of bars that fit (N bars need N * width + (N - 1) * spacing columns)
   int number_bars = (available + bar_spacing) / (bar_width + bar_spacing);

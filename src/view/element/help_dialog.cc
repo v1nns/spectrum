@@ -88,9 +88,10 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {ToString(Navigation::TabReverse), "Focus previous block"},
        }},
       {Section::Pickers,
-       "theme and animation pickers",
+       "theme and visualizer pickers",
        {
            {up_down + " " + jk, "Preview entry"},
+           {"←/→ " + Join(Navigation::Left, Navigation::Right), "Change value (visualizer)"},
            {ToString(Navigation::Return), "Keep entry"},
            {ToString(Navigation::Escape), "Cancel (keeping the previous one)"},
        }},
@@ -145,7 +146,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
        "visualizer",
        {
            {ToString(keybinding::MainContent::FocusVisualizer), "Show visualizer"},
-           {ToString(keybinding::Visualizer::ChangeAnimation), "Choose animation"},
+           {ToString(keybinding::Visualizer::ChangeAnimation), "Choose animation and style"},
            {ToString(keybinding::Visualizer::ToggleFullscreen), "Toggle fullscreen"},
            {Join(keybinding::Visualizer::DecreaseBarWidth,
                  keybinding::Visualizer::IncreaseBarWidth),

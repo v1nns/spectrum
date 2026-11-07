@@ -21,6 +21,11 @@ namespace model {
 struct Settings {
   std::optional<BarAnimation> animation;  //!< Spectrum visualizer animation
   std::optional<int> bar_width;           //!< Spectrum visualizer bar width
+  std::optional<BarStyle> bar_style;      //!< How each bar from spectrum visualizer is drawn
+  std::optional<bool> bar_spacing;        //!< Empty column between bars from spectrum visualizer
+  std::optional<BarColors> bar_colors;    //!< How gradient is spread over spectrum visualizer
+  std::optional<bool> peaks;              //!< Falling caps on recent maximum from each bar
+  std::optional<HueCycle> hue_cycle;      //!< Rotation of spectrum visualizer colors over time
   std::optional<int> volume;              //!< Player volume (percentage, from 0 to 100)
   std::optional<std::string> device;      //!< Audio output device (empty to not choose any)
   std::optional<RepeatMode> repeat;       //!< Repeat mode for songs from queue

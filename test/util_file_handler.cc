@@ -311,6 +311,119 @@ TEST_F(FileHandlerTest, SaveAnimationByItsIdentifier) {
 
 /* ********************************************************************************************** */
 
+TEST_F(FileHandlerTest, RestoreAnimationsWithoutSpaceFromOlderVersions) {
+  struct Legacy {
+    std::string json;                    //!< Animation as saved by older versions
+    model::BarAnimation animation;       //!< Animation restored
+    std::optional<bool> spacing;         //!< Spacing restored
+  };
+
+  const std::vector<Legacy> cases{
+      {R"("mono-no-space")", model::BarAnimation::Mono, false},
+      {R"("horizontal-mirror-no-space")", model::BarAnimation::HorizontalMirror, false},
+      {R"("vertical-mirror")", model::BarAnimation::VerticalMirror, std::nullopt},
+      {"11003", model::BarAnimation::HorizontalMirror, false},
+      {"11005", model::BarAnimation::Mono, false},
+      {"11006", model::BarAnimation::SpectrumLine, std::nullopt},
+      {"11009", model::BarAnimation::SpectrumLineFilledMirror, std::nullopt},
+  };
+
+  std::filesystem::create_directories(
+      std::filesystem::path{handler.GetSettingsPath()}.parent_path());
+
+  for (const auto& legacy : cases) {
+    std::ofstream(handler.GetSettingsPath())
+        << R"({"visualizer": {"animation": )" << legacy.json << "}}";
+
+    model::Settings settings;
+    ASSERT_TRUE(handler.ParseSettings(settings));
+    EXPECT_EQ(settings.animation, legacy.animation) << legacy.json;
+    EXPECT_EQ(settings.bar_spacing, legacy.spacing) << legacy.json;
+  }
+
+  // Only bar animations had a version without space
+  std::ofstream(handler.GetSettingsPath()) << R"({"visualizer": {"animation": "line-no-space"}})";
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_FALSE(settings.animation.has_value());
+
+  // Spacing saved explicitly wins over the one from animation
+  std::ofstream(handler.GetSettingsPath())
+      << R"({"visualizer": {"animation": "mono-no-space", "bar_spacing": true}})";
+
+  ASSERT_TRUE(handler.ParseSettings(settings));
+  EXPECT_EQ(settings.bar_spacing, true);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(FileHandlerTest, SaveAndParseVisualizerOptions) {
+  ASSERT_TRUE(handler.SaveSettings(model::Settings{
+      .animation = model::BarAnimation::Radial,
+      .bar_style = model::BarStyle::Led,
+      .bar_spacing = false,
+      .bar_colors = model::BarColors::LevelStretched,
+      .peaks = true,
+      .hue_cycle = model::HueCycle::Flash,
+  }));
+
+  // Options are saved by their identifiers
+  {
+    std::ifstream file(handler.GetSettingsPath());
+    const auto visualizer = nlohmann::json::parse(file)["visualizer"];
+
+    EXPECT_EQ(visualizer["animation"], "radial");
+    EXPECT_EQ(visualizer["bar_style"], "led");
+    EXPECT_EQ(visualizer["bar_spacing"], false);
+    EXPECT_EQ(visualizer["bar_colors"], "level-stretched");
+    EXPECT_EQ(visualizer["peaks"], true);
+    EXPECT_EQ(visualizer["hue_cycle"], "flash");
+  }
+
+  model::Settings settings;
+  ASSERT_TRUE(handler.ParseSettings(settings));
+
+  EXPECT_EQ(settings.animation, model::BarAnimation::Radial);
+  EXPECT_EQ(settings.bar_style, model::BarStyle::Led);
+  EXPECT_EQ(settings.bar_spacing, false);
+  EXPECT_EQ(settings.bar_colors, model::BarColors::LevelStretched);
+  EXPECT_EQ(settings.peaks, true);
+  EXPECT_EQ(settings.hue_cycle, model::HueCycle::Flash);
+
+  // Every value has its own identifier
+  for (int i = 0; i < static_cast<int>(model::BarStyle::LAST); i++) {
+    const auto style = static_cast<model::BarStyle>(i);
+    EXPECT_EQ(model::GetBarStyleFromId(model::GetId(style)), style);
+  }
+
+  for (int i = 0; i < static_cast<int>(model::BarColors::LAST); i++) {
+    const auto colors = static_cast<model::BarColors>(i);
+    EXPECT_EQ(model::GetBarColorsFromId(model::GetId(colors)), colors);
+  }
+
+  for (int i = 0; i < static_cast<int>(model::HueCycle::LAST); i++) {
+    const auto hue = static_cast<model::HueCycle>(i);
+    EXPECT_EQ(model::GetHueCycleFromId(model::GetId(hue)), hue);
+  }
+
+  // Unknown identifiers and values with unexpected type are not filled
+  std::ofstream(handler.GetSettingsPath())
+      << R"({"visualizer": {"bar_style": "neon", "bar_spacing": "yes", "bar_colors": 1,)"
+      << R"( "peaks": "on", "hue_cycle": "rainbow"}})";
+
+  settings = model::Settings{};
+  ASSERT_TRUE(handler.ParseSettings(settings));
+
+  EXPECT_FALSE(settings.bar_style.has_value());
+  EXPECT_FALSE(settings.bar_spacing.has_value());
+  EXPECT_FALSE(settings.bar_colors.has_value());
+  EXPECT_FALSE(settings.peaks.has_value());
+  EXPECT_FALSE(settings.hue_cycle.has_value());
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(FileHandlerTest, ParseInvalidSettings) {
   std::filesystem::create_directories(
       std::filesystem::path{handler.GetSettingsPath()}.parent_path());
