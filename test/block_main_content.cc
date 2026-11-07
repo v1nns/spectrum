@@ -725,6 +725,9 @@ TEST_F(MainContentTest, BarColorsZones) {
 /* ********************************************************************************************** */
 
 TEST_F(MainContentTest, HueCycleChangesColorsOverTime) {
+  // Without true colors, a small hue rotation may round to the same palette color
+  utils::ThemeGuard guard;
+
   EXPECT_CALL(*dispatcher, SendEvent(_)).Times(AnyNumber());
   EXPECT_CALL(*file_handler, SaveSettings(Field(&model::Settings::hue_cycle,
                                                 Optional(model::HueCycle::On))))
