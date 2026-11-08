@@ -162,10 +162,12 @@ void PlaylistDialog::Open(const model::PlaylistOperation& operation) {
 
   switch (curr_operation_.action) {
     case model::PlaylistOperation::Operation::None:
-    case model::PlaylistOperation::Operation::Create:
-      // Making sure that playlist is empty
-      curr_operation_.playlist = model::Playlist{.index = -1};
+    case model::PlaylistOperation::Operation::Create: {
+      // Making sure that playlist is empty, but keep index given by the playlist viewer
+      int index = curr_operation_.playlist ? curr_operation_.playlist->index : -1;
+      curr_operation_.playlist = model::Playlist{.index = index};
       break;
+    }
 
     case model::PlaylistOperation::Operation::Modify:
       if (int i = 0; !curr_operation_.playlist->IsEmpty()) {

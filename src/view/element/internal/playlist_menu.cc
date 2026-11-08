@@ -313,21 +313,16 @@ void PlaylistMenu::UpdateOrEmplaceImpl(const model::Playlist& entry) {
       LOG("Changing old playlist=", internal_entry.playlist, " to new playlist=", entry);
       internal_entry.playlist = WithSongPositions(entry);
       found = true;
+      break;
     }
   }
 
   // Otherwise, create a new entry for it
   if (!found) {
     LOG("Could not find a matching playlist, so create a new one");
-    model::Playlist new_entry{
-        .index = static_cast<int>(entries_.size()),
-        .name = entry.name,
-        .songs = entry.songs,
-    };
-
     entries_.emplace_back(InternalPlaylist{
         .collapsed = false,
-        .playlist = WithSongPositions(new_entry),
+        .playlist = WithSongPositions(entry),
     });
   }
 }
