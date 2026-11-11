@@ -466,10 +466,12 @@ class Player : public AudioControl {
         // Set state to idle
         state = State::Idle;
 
-        // Re-add to queue only new requests to play song or to change output device (as they do
-        // not depend on the song that was playing)
+        // Re-add to queue only new requests to play song or to change output device, volume or
+        // audio filters (as they do not depend on the song that was playing)
         std::copy_if(dummy.begin(), dummy.end(), std::back_inserter(queue), [](const Command& c) {
-          return c == Command::Identifier::Play || c == Command::Identifier::SetDevice;
+          return c == Command::Identifier::Play || c == Command::Identifier::SetDevice ||
+                 c == Command::Identifier::SetVolume ||
+                 c == Command::Identifier::UpdateAudioFilters;
         });
       }
     }

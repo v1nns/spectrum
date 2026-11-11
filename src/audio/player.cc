@@ -546,12 +546,33 @@ void Player::AudioHandler() {
 
   // Block this thread until UI informs us a song to play
   while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext,
-                                Cmd::SetDevice)) {
+                                Cmd::SetDevice, Cmd::SetVolume, Cmd::UpdateAudioFilters)) {
     auto command = media_control_.Pop();
 
     // Output device may be changed while there is no song playing
     if (command == Cmd::SetDevice) {
       ChangeDevice(command.GetContent<std::string>());
+      continue;
+    }
+
+    // Volume and audio filters as well (e.g. changed while song was opening, and then it failed)
+    if (command == Cmd::SetVolume) {
+      model::Volume value = command.GetContent<model::Volume>();
+      LOG("Audio handler changed volume while there is no song playing, value=", value);
+      decoder_->SetVolume(value);
+      continue;
+    }
+
+    if (command == Cmd::UpdateAudioFilters) {
+      LOG("Audio handler updated audio filters while there is no song playing");
+      auto value = command.GetContent<model::EqualizerPreset>();
+
+      if (auto result = decoder_->UpdateFilters(value); result != error::kSuccess) {
+        ERROR("Cannot update audio filters, error=", result);
+        if (auto media_notifier = notifier_.lock(); media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
+      }
       continue;
     }
 

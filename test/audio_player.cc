@@ -657,6 +657,57 @@ TEST_F(PlayerTest, ErrorOpeningFile) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, ChangeVolumeAndFiltersWhileOpeningSongThatFails) {
+  const model::Volume volume{0.3f};
+  const model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+
+    // Volume and audio filters are changed while song is being opened, and then it fails
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(2);
+      syncer.WaitForStep(3);
+      return error::kFileNotSupported;
+    }));
+
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifyError(Eq(error::kFileNotSupported), _));
+
+    // Both must still be applied, even with no song playing
+    EXPECT_CALL(*decoder, SetVolume(volume)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, UpdateFilters(preset)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(4);
+      return error::kSuccess;
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"Cannons - Round and Round"});
+
+    // Change volume and audio filters while Player is opening song
+    syncer.WaitForStep(2);
+    player_ctl->SetAudioVolume(volume);
+    player_ctl->ApplyAudioFilters(preset);
+    syncer.NotifyStep(3);
+
+    // Wait for Player to apply them before client asks to exit
+    syncer.WaitForStep(4);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, ErrorDecodingFile) {
   auto player = [&](TestSyncer& syncer) {
     auto playback = GetPlayback();
@@ -3404,6 +3455,67 @@ TEST_F(PlayerTest, StopWhileWaitingForStreamToBeAvailable) {
     syncer.WaitForStep(2);
     player_ctl->Stop();
 
+    syncer.WaitForStep(3);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, ChangeVolumeAndFiltersThenStopWhileWaitingForStream) {
+  const model::Volume volume{0.3f};
+  const model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
+
+  auto player = [&](TestSyncer& syncer) {
+    auto decoder = GetDecoder();
+    auto fetcher = GetStreamFetcher();
+
+    // Site would only accept requests for streaming URL much later
+    EXPECT_CALL(*fetcher, ExtractInfo(_)).WillOnce(Invoke([](model::Song& song) {
+      song.stream_info->available_at =
+          std::chrono::duration_cast<std::chrono::seconds>(
+              std::chrono::system_clock::now().time_since_epoch()) +
+          std::chrono::hours{1};
+      return error::kSuccess;
+    }));
+
+    EXPECT_CALL(*notifier, NotifyStreamWait(true)).WillOnce(Invoke([&] { syncer.NotifyStep(2); }));
+    EXPECT_CALL(*notifier, NotifyStreamWait(false));
+
+    // Song is stopped without being opened
+    EXPECT_CALL(*decoder, Open(_)).Times(0);
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, ClearSongInformation(false));
+
+    // Volume and audio filters changed in the meantime must still be applied
+    EXPECT_CALL(*decoder, SetVolume(volume)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*decoder, UpdateFilters(preset)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(3);
+      return error::kSuccess;
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(model::Playlist{
+        .songs = {model::Song{.stream_info = model::StreamInfo{.base_url = "https://site/first"}}},
+    });
+
+    // Change volume and audio filters, then stop while Player is waiting for stream
+    syncer.WaitForStep(2);
+    player_ctl->SetAudioVolume(volume);
+    player_ctl->ApplyAudioFilters(preset);
+    player_ctl->Stop();
+
+    // Wait for Player to apply them before client asks to exit
     syncer.WaitForStep(3);
     player_ctl->Exit();
   };
