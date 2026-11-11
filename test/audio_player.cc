@@ -1286,6 +1286,190 @@ TEST_F(PlayerTest, StartPlayingThenPauseAndChangeDevice) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlayerTest, StartPlayingThenPauseAndSetVolume) {
+  const model::Volume volume{0.3f};
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare is called again when song is resumed
+    EXPECT_CALL(*playback, Prepare()).Times(2).WillRepeatedly(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          // Starts playing
+          int64_t position = 0;
+          callback(0, 0, 0, 0, position);
+
+          // Notify other thread to ask for pause and wait for it
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Pause, set volume and wait to resume
+          position++;
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
+
+          return error::kSuccess;
+        }));
+
+    using State = model::Song::MediaState;
+
+    EXPECT_CALL(*playback, Pause());
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Play)))
+        .Times(2);
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+
+    // Volume is applied while song is paused (and it stays paused)
+    EXPECT_CALL(*decoder, SetVolume(volume)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(5);
+      return error::kSuccess;
+    }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(6);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait until Player starts decoding before client asks to pause
+    syncer.WaitForStep(2);
+    player_ctl->PauseOrResume();
+    syncer.NotifyStep(3);
+
+    // Set volume after player is paused
+    syncer.WaitForStep(4);
+    player_ctl->SetAudioVolume(volume);
+
+    // Resume after volume is applied
+    syncer.WaitForStep(5);
+    player_ctl->PauseOrResume();
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(6);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlayerTest, UpdateAudioFiltersWhilePaused) {
+  const model::EqualizerPreset preset = model::AudioFilter::CreatePresets()["Custom"];
+
+  auto player = [&](TestSyncer& syncer) {
+    auto playback = GetPlayback();
+    auto decoder = GetDecoder();
+
+    // Setup all expectations
+    EXPECT_CALL(*decoder, Open(_)).WillOnce(Return(error::kSuccess));
+    EXPECT_CALL(*notifier, NotifySongInformation(_));
+
+    // Prepare is called again when song is resumed
+    EXPECT_CALL(*playback, Prepare()).Times(2).WillRepeatedly(Return(error::kSuccess));
+
+    EXPECT_CALL(*decoder, Decode(_, _))
+        .WillOnce(Invoke([&](int dummy, audio::Decoder::AudioCallback callback) {
+          // Starts playing
+          int64_t position = 0;
+          callback(0, 0, 0, 0, position);
+
+          // Notify other thread to ask for pause and wait for it
+          syncer.NotifyStep(2);
+          syncer.WaitForStep(3);
+
+          // Pause, update audio filters and wait to resume
+          position++;
+          EXPECT_TRUE(callback(0, 0, 0, 0, position));
+
+          return error::kSuccess;
+        }));
+
+    using State = model::Song::MediaState;
+
+    EXPECT_CALL(*playback, Pause());
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Play)))
+        .Times(2);
+    EXPECT_CALL(*notifier,
+                NotifySongState(Field(&model::Song::CurrentInformation::state, State::Pause)))
+        .WillOnce(Invoke([&] { syncer.NotifyStep(4); }));
+
+    // Audio filters are updated while song is paused (and it stays paused)
+    EXPECT_CALL(*decoder, UpdateFilters(preset)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(5);
+      return error::kSuccess;
+    }));
+
+    EXPECT_CALL(*notifier, SendAudioRaw(_, _)).Times(2);
+    EXPECT_CALL(*playback, AudioCallback(_, _)).Times(2);
+
+    // These are called by Player::ResetMediaControl()
+    EXPECT_CALL(*decoder, ClearCache());
+    EXPECT_CALL(*notifier, NotifySongState(model::Song::CurrentInformation{
+                               .state = model::Song::MediaState::Finished}));
+    EXPECT_CALL(*notifier, ClearSongInformation(true)).WillOnce(Invoke([&] {
+      syncer.NotifyStep(6);
+    }));
+
+    // Notify that expectations are set, and run audio loop
+    syncer.NotifyStep(1);
+    RunAudioLoop();
+  };
+
+  auto client = [&](TestSyncer& syncer) {
+    auto player_ctl = GetAudioControl();
+    syncer.WaitForStep(1);
+
+    player_ctl->Play(std::string{"The Weeknd - Blinding Lights"});
+
+    // Wait until Player starts decoding before client asks to pause
+    syncer.WaitForStep(2);
+    player_ctl->PauseOrResume();
+    syncer.NotifyStep(3);
+
+    // Update audio filters after player is paused
+    syncer.WaitForStep(4);
+    player_ctl->ApplyAudioFilters(preset);
+
+    // Resume after audio filters are updated
+    syncer.WaitForStep(5);
+    player_ctl->PauseOrResume();
+
+    // Wait for Player to finish playing song before client asks to exit
+    syncer.WaitForStep(6);
+    player_ctl->Exit();
+  };
+
+  testing::RunAsyncTest({player, client});
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlayerTest, StartPlayingSeekForwardAndBackward) {
   const std::string song{"Mareux - Summertime"};
 
