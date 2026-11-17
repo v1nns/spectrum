@@ -1850,7 +1850,7 @@ TEST_F(MainContentTest, RenderEqualizer) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Custom                                                           [Apply] [Reset]  │
+│  preset → Custom                                              e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -1881,7 +1881,7 @@ TEST_F(MainContentTest, RenderEqualizerWithEnoughSpace) {
   // Units are shown only once, before the first frequency bar
   EXPECT_THAT(rendered, HasSubstr("│  Hz           32          64          125"));
   EXPECT_THAT(rendered, HasSubstr("│  dB            0           0           0"));
-  EXPECT_THAT(rendered, HasSubstr("[Apply] [Reset]  │"));
+  EXPECT_THAT(rendered, HasSubstr("e preset · a apply · r reset  │"));
 }
 
 /* ********************************************************************************************** */
@@ -2117,7 +2117,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndApply) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Custom                                                           [Apply] [Reset]  │
+│  preset → Custom                                              e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2151,7 +2151,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Custom                                                           [Apply] [Reset]  │
+│  preset → Custom                                              e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2189,7 +2189,7 @@ TEST_F(MainContentTest, ModifyEqualizerAndReset) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Custom                                                           [Apply] [Reset]  │
+│  preset → Custom                                              e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2223,7 +2223,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset ↓ Custom                                                           [Apply] [Reset]  │
+│  preset ↓ Custom                                              e preset · a apply · r reset  │
 │  ╭───────────────╮                                                                          │
 │  │○ Acoustic     │4      125     250     500     1k      2k      4k      8k      16k        │
 │  │○ Bass Boost  ┃│                                                                          │
@@ -2262,7 +2262,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Electronic                                                       [Apply] [Reset]  │
+│  preset → Electronic                                          e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2355,6 +2355,53 @@ TEST_F(MainContentTest, FocusPresetPickerWithUpOrDown) {
   block->OnEvent(ftxui::Event::Character('l'));
   EXPECT_FALSE(IsPresetPickerFocused());
   EXPECT_TRUE(IsFrequencyBarFocused(0));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, OpenPresetPickerWithKeyOrClick) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Set focus on tab item 2, with focus on a frequency bar
+  block->OnEvent(ftxui::Event::Character('2'));
+  block->OnEvent(ftxui::Event::Character('l'));
+  ASSERT_TRUE(IsFrequencyBarFocused(0));
+
+  // Key focuses preset picker and opens its list
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('e')));
+  EXPECT_TRUE(IsPresetPickerFocused());
+  EXPECT_FALSE(IsFrequencyBarFocused(0));
+  EXPECT_THAT(render(), HasSubstr("↓ Custom"));
+
+  // While list is opened, the same key works like Return: it chooses the preset highlighted and
+  // closes list, keeping focus on picker
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('e')));
+  EXPECT_TRUE(IsPresetPickerFocused());
+  EXPECT_THAT(render(), HasSubstr("→ Flat"));
+
+  // Without moving through list, it only closes list
+  block->OnEvent(ftxui::Event::Character('e'));
+  ASSERT_THAT(render(), HasSubstr("↓ Flat"));
+  block->OnEvent(ftxui::Event::Character('e'));
+  EXPECT_THAT(render(), HasSubstr("→ Flat"));
+
+  // Remove focus from picker
+  block->OnEvent(ftxui::Event::Escape);
+  ASSERT_FALSE(IsPresetPickerFocused());
+
+  // A click on its button also focuses picker and opens list
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("e preset", ftxui::Mouse::Left)));
+  EXPECT_TRUE(IsPresetPickerFocused());
+  EXPECT_THAT(render(), HasSubstr("↓ Flat"));
+
+  // But while list is opened, a click on it just closes list (like a click on anything else)
+  EXPECT_TRUE(block->OnEvent(MouseEventAt("e preset", ftxui::Mouse::Left)));
+  EXPECT_THAT(render(), HasSubstr("→ Flat"));
 }
 
 /* ********************************************************************************************** */
@@ -2554,7 +2601,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Pop                                                              [Apply] [Reset]  │
+│  preset → Pop                                                 e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2590,7 +2637,7 @@ TEST_F(MainContentTest, AttemptToModifyFixedPreset) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Pop                                                              [Apply] [Reset]  │
+│  preset → Pop                                                 e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2635,7 +2682,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Rock                                                             [Apply] [Reset]  │
+│  preset → Rock                                                e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2670,7 +2717,7 @@ TEST_F(MainContentTest, AttemptToResetFixedPreset) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Rock                                                             [Apply] [Reset]  │
+│  preset → Rock                                                e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2771,7 +2818,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   std::string expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Custom                                                           [Apply] [Reset]  │
+│  preset → Custom                                              e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2811,7 +2858,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Electronic                                                       [Apply] [Reset]  │
+│  preset → Electronic                                          e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │
@@ -2847,7 +2894,7 @@ TEST_F(MainContentTest, ModifyEqualizerChangePresetAndSwitchback) {
   expected = R"(
 ╭ 1:visualizer  2:equalizer  3:lyric ───────────────────────────── 9:stats ─── F12:help ─── X ╮
 │                                                                                             │
-│  preset → Custom                                                           [Apply] [Reset]  │
+│  preset → Custom                                              e preset · a apply · r reset  │
 │                                                                                             │
 │  Hz      32      64      125     250     500     1k      2k      4k      8k      16k        │
 │                                                                                             │

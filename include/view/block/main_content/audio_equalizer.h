@@ -132,6 +132,7 @@ class AudioEqualizer : public TabItem {
   //! Only preset modifiable
   static constexpr std::string_view kModifiablePreset = model::equalizer::kCustomPreset;
   static constexpr int kMarginColumns = 2;  //!< Empty columns on both sides of content
+  static constexpr std::string_view kSeparator = " · ";  //!< Text between buttons
 
  public:
   /**
@@ -199,6 +200,9 @@ class AudioEqualizer : public TabItem {
 
   //! Update current preset selected
   void UpdatePreset(const model::MusicGenre& preset);
+
+  //! Focus preset picker and open its list of presets
+  void OpenPresetPicker();
 
   //! Restore EQ settings applied on last run, and let audio player know about them
   void RestoreSettings();
@@ -487,6 +491,16 @@ class AudioEqualizer : public TabItem {
       return Element::OnMouseEvent(event);
     }
 
+    //! Open list of presets, with focus on the current one
+    void Open() {
+      auto it = std::find(presets.begin(), presets.end(), *preset_name);
+
+      // Note: +1 is used to ignore the title index
+      entry_focused = it != presets.end() ? static_cast<int>(it - presets.begin()) + 1 : 0;
+      entry_centered = -1;
+      opened = true;
+    }
+
     /**
      * @brief Close list of presets when mouse is clicked on anything else
      * @param event Received event from screen
@@ -507,16 +521,6 @@ class AudioEqualizer : public TabItem {
     }
 
    private:
-    //! Open list of presets, with focus on the current one
-    void Open() {
-      auto it = std::find(presets.begin(), presets.end(), *preset_name);
-
-      // Note: +1 is used to ignore the title index
-      entry_focused = it != presets.end() ? static_cast<int>(it - presets.begin()) + 1 : 0;
-      entry_centered = -1;
-      opened = true;
-    }
-
     //! Close list of presets, with focus back on title
     void Close() {
       entry_focused = 0;
@@ -760,8 +764,9 @@ class AudioEqualizer : public TabItem {
   using FrequencyBars = std::array<FrequencyBar, model::equalizer::kFiltersPerPreset>;
   FrequencyBars bars_;  //!< Array of gauges for EQ settings
 
-  GenericButton btn_apply_;  //!< Buttons to apply equalization
-  GenericButton btn_reset_;  //!< Buttons to reset equalization
+  GenericButton btn_preset_;  //!< Button to open list of presets
+  GenericButton btn_apply_;   //!< Buttons to apply equalization
+  GenericButton btn_reset_;   //!< Buttons to reset equalization
 
   /* ******************************************************************************************** */
   //! Internal focus handling

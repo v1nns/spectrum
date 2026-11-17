@@ -129,6 +129,7 @@ struct Visualizer {
 
 //! Equalizer keybindings
 struct Equalizer {
+  static Key OpenPresets;
   static Key ApplyFilters;
   static Key ResetFilters;
 
