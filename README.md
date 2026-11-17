@@ -177,7 +177,7 @@ Almost everything in `settings.json` is saved by spectrum itself, right when it 
 | `player.device` | Name of an audio output device from ALSA, or an empty text to let spectrum choose (default device from system, or the first one available) | empty | <kbd>O</kbd> |
 | `player.repeat` | `off`, `all` or `one` | `off` | <kbd>R</kbd>, or `-r repeat` |
 | `player.shuffle` | `true` or `false` | `false` | <kbd>x</kbd>, or `-r shuffle` |
-| `equalizer.preset` | Preset in use: `Custom`, `Flat`, `Acoustic`, `Bass Boost`, `Classical`, `Dance`, `Electronic`, `Hip-Hop`, `Jazz`, `Loudness`, `Pop`, `Rock`, `Treble Boost` or `Vocal` | `Custom` | <kbd>a</kbd> (apply) on equalizer |
+| `equalizer.preset` | Preset in use: `Custom`, `Flat`, `Acoustic`, `Bass Boost`, `Classical`, `Dance`, `Electronic`, `Hip-Hop`, `Jazz`, `Loudness`, `Pop`, `Rock`, `Trap`, `Treble Boost` or `Vocal` | `Custom` | <kbd>a</kbd> (apply) on equalizer |
 | `equalizer.custom` | Gains (in dB, from `-12` to `12`) from preset `Custom`, one for each of its ten frequencies (32, 64, 125, 250, 500, 1k, 2k, 4k, 8k and 16k Hz) | all `0` | <kbd>a</kbd> (apply) or <kbd>r</kbd> (reset) on equalizer |
 | `visualizer.animation` | `horizontal-mirror`, `vertical-mirror`, `mono`, `line`, `line-mirror`, `line-filled`, `line-filled-mirror`, `radial` or `waterfall` (values saved by older versions, like `mono-no-space` or a number, are still accepted) | `horizontal-mirror` | <kbd>a</kbd> on visualizer |
 | `visualizer.bar_width` | Columns used by each bar, from `1` to `4` | `2` | <kbd>,</kbd> / <kbd>.</kbd> |

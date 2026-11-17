@@ -1925,8 +1925,9 @@ TEST(EqualizerPresetTest, PresetsForAnyMusicComeFirst) {
 
   // Preset modified by user and the one without any gain, then all the others ordered by name
   const std::vector<std::string> expected{
-      "Custom",  "Flat", "Acoustic", "Bass Boost", "Classical", "Dance",        "Electronic",
-      "Hip-Hop", "Jazz", "Loudness", "Pop",        "Rock",      "Treble Boost", "Vocal",
+      "Custom", "Flat",       "Acoustic", "Bass Boost",   "Classical",
+      "Dance",  "Electronic", "Hip-Hop",  "Jazz",         "Loudness",
+      "Pop",    "Rock",       "Trap",     "Treble Boost", "Vocal",
   };
 
   EXPECT_EQ(names, expected);
@@ -2230,7 +2231,7 @@ TEST_F(MainContentTest, SelectOtherPresetAndApply) {
 │  │○ Dance       ┃││       │       │       │       │       │       │       │       │         │
 │  │○ Electronic  ┃│██     ███     ███     ███     ███     ███     ███     ███     ███        │
 │  │○ Hip-Hop     ┃││       │       │       │       │       │       │       │       │         │
-│  │○ Jazz        ┃││       │       │       │       │       │       │       │       │         │
+│  │○ Jazz        ╹││       │       │       │       │       │       │       │       │         │
 │  │○ Loudness     │                                                                          │
 │  │○ Pop          │0       0       0       0       0       0       0       0       0         │
 │  ╰───────────────╯                                                                          │
