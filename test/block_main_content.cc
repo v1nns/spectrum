@@ -168,6 +168,9 @@ class MainContentTest : public ::BlockTest {
   //! Check if frequency bar (from AudioEqualizer) is focused
   bool IsFrequencyBarFocused(int index) { return GetEqualizer()->bars_[index].IsFocused(); }
 
+  //! Check if preset picker (from AudioEqualizer) is focused
+  bool IsPresetPickerFocused() { return GetEqualizer()->picker_.IsFocused(); }
+
   //! Getter for frequency bar gain (from AudioEqualizer)
   double GetFrequencyBarGain(int index) { return GetEqualizer()->bars_[index].filter->gain; }
 
@@ -2315,6 +2318,42 @@ TEST_F(MainContentTest, CyclePresetsWithClosedPicker) {
   rendered = utils::FilterAnsiCommands(screen->ToString());
 
   EXPECT_THAT(rendered, HasSubstr("→ Vocal"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, FocusPresetPickerWithUpOrDown) {
+  auto render = [this]() {
+    screen->Clear();
+    ftxui::Render(*screen, block->Render());
+    return utils::FilterAnsiCommands(screen->ToString());
+  };
+
+  // Set focus on tab item 2
+  block->OnEvent(ftxui::Event::Character('2'));
+
+  // While nothing is focused, down starts from preset picker, without changing preset
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::Character('j')));
+  EXPECT_TRUE(IsPresetPickerFocused());
+  EXPECT_THAT(render(), HasSubstr("→ Custom"));
+
+  // Then, the same key changes preset (like it changes gain from a frequency bar)
+  block->OnEvent(ftxui::Event::Character('j'));
+  EXPECT_THAT(render(), HasSubstr("→ Flat"));
+
+  // Up also starts from preset picker
+  block->OnEvent(ftxui::Event::Escape);
+  EXPECT_FALSE(IsPresetPickerFocused());
+
+  EXPECT_TRUE(block->OnEvent(ftxui::Event::ArrowUp));
+  EXPECT_TRUE(IsPresetPickerFocused());
+  EXPECT_THAT(render(), HasSubstr("→ Flat"));
+
+  // Right still starts from the first frequency bar
+  block->OnEvent(ftxui::Event::Escape);
+  block->OnEvent(ftxui::Event::Character('l'));
+  EXPECT_FALSE(IsPresetPickerFocused());
+  EXPECT_TRUE(IsFrequencyBarFocused(0));
 }
 
 /* ********************************************************************************************** */

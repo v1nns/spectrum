@@ -127,6 +127,8 @@ bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
     return true;
   }
 
+  if (OnNavigationEvent(event)) return true;
+
   // Pass event to focus controller to handle and pass it along to focused element
   if (focus_ctl_.OnEvent(event)) {
     UpdateButtonState();
@@ -161,6 +163,25 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
+
+/* ********************************************************************************************** */
+
+bool AudioEqualizer::OnNavigationEvent(const ftxui::Event& event) {
+  using keybinding::Navigation;
+
+  const bool vertical = event == Navigation::ArrowUp || event == Navigation::Up ||
+                        event == Navigation::ArrowDown || event == Navigation::Down;
+
+  const bool bar_focused = std::any_of(bars_.begin(), bars_.end(),
+                                       [](const FrequencyBar& bar) { return bar.IsFocused(); });
+
+  // While nothing is focused, up/down start from preset picker (as it is above frequency bars)
+  if (!vertical || picker_.IsFocused() || bar_focused) return false;
+
+  LOG("Handle navigation key=", util::EventToString(event));
+  focus_ctl_.SetFocus(picker_);
+  return true;
+}
 
 /* ********************************************************************************************** */
 
