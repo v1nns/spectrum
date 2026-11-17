@@ -426,6 +426,22 @@ TEST_F(YtDlpWrapperTest, IdentifyPlaylistUrl) {
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpWrapperTest, IdentifyMixUrl) {
+  EXPECT_TRUE(util::IsYoutubeMixUrl(
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ&start_radio=1"));
+  EXPECT_TRUE(util::IsYoutubeMixUrl("https://youtu.be/dQw4w9WgXcQ?list=RDdQw4w9WgXcQ"));
+
+  // Playlist created by someone, album, or a single video
+  EXPECT_FALSE(util::IsYoutubeMixUrl("https://www.youtube.com/playlist?list=PLabc-123_x"));
+  EXPECT_FALSE(util::IsYoutubeMixUrl("https://www.youtube.com/playlist?list=OLAK5uy_abc"));
+  EXPECT_FALSE(util::IsYoutubeMixUrl("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+
+  // Not from YouTube
+  EXPECT_FALSE(util::IsYoutubeMixUrl("https://example.com/watch?v=dQw4w9WgXcQ&list=RDabc"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(YtDlpWrapperTest, ParsePlaylistFromYtDlp) {
   // Based on output from "yt-dlp --flat-playlist --dump-single-json" (only relevant fields)
   const std::string info = R"json({
@@ -791,6 +807,22 @@ printf '%s' '{
   EXPECT_THAT(songs[1].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=84vL55y8fog"));
   EXPECT_THAT(songs[1].artist, StrEq("vecher 1998"));
   EXPECT_THAT(songs[1].title, StrEq("меланхолия"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ExtractPlaylistLimitsOnlyMix) {
+  InstallProgram("echo \"$*\" >> " + (dir / "calls").string() +
+                 R"sh(; printf '%s' '{"title": "Mix", "entries": []}')sh");
+
+  const std::string mix_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ";
+  std::vector<model::Song> songs;
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs), error::kSuccess);
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractPlaylist(mix_url, songs), error::kSuccess);
+
+  // Mix never ends, so only its first songs are listed
+  EXPECT_THAT(GetCalls(), ElementsAre(HasSubstr("--no-warnings -- " + std::string{kPlaylistUrl}),
+                                      HasSubstr("--no-warnings --playlist-end 50 -- " + mix_url)));
 }
 
 /* ********************************************************************************************** */

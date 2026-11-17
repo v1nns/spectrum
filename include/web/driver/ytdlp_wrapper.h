@@ -43,6 +43,10 @@ class YtDlpWrapper : public web::StreamFetcher {
   //! Option for program to read cookies from a browser and send them to site
   static constexpr std::string_view kOptionCookies = "--cookies-from-browser";
 
+  //! Maximum songs imported from a YouTube mix (it never ends, so program would list hundreds of
+  //! them, while YouTube itself shows only a few dozen)
+  static constexpr int kMixMaxSongs = 50;
+
  public:
   /**
    * @brief Construct a new YtDlpWrapper object
