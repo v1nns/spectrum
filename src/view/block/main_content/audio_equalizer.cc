@@ -45,6 +45,10 @@ AudioEqualizer::AudioEqualizer(const model::BlockIdentifier& id,
 ftxui::Element AudioEqualizer::Render() {
   ftxui::Element margin = ftxui::text(std::string(kMarginColumns, ' '));
 
+  auto separator = [] {
+    return ftxui::text(std::string{kSeparator}) | ftxui::color(GetTheme().equalizer.label);
+  };
+
   // Frequency bars, all of them with the same space in between
   ftxui::Elements bars;
   bars.reserve(bars_.size());
@@ -57,8 +61,10 @@ ftxui::Element AudioEqualizer::Render() {
           margin,
           picker_.Render(),
           ftxui::filler(),
+          btn_preset_->Render(),
+          separator(),
           btn_apply_->Render(),
-          ftxui::text(" "),
+          separator(),
           btn_reset_->Render(),
           margin,
       }),
@@ -113,6 +119,21 @@ ftxui::Element AudioEqualizer::RenderScale() const {
 /* ********************************************************************************************** */
 
 bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
+  // Focus and open preset picker
+  if (event == keybinding::Equalizer::OpenPresets) {
+    LOG("Handle key to open preset picker");
+
+    // While list is opened, same key works like Return (as in any other picker), choosing the
+    // preset highlighted and closing list
+    if (picker_.opened) {
+      focus_ctl_.SetFocus(picker_);
+      return OnEvent(keybinding::Navigation::Return);
+    }
+
+    btn_preset_->OnClick();
+    return true;
+  }
+
   // Apply audio filters
   if (btn_apply_->IsActive() && event == keybinding::Equalizer::ApplyFilters) {
     LOG("Handle key to apply audio filters");
@@ -126,6 +147,8 @@ bool AudioEqualizer::OnEvent(const ftxui::Event& event) {
     btn_reset_->OnClick();
     return true;
   }
+
+  if (OnNavigationEvent(event)) return true;
 
   // Pass event to focus controller to handle and pass it along to focused element
   if (focus_ctl_.OnEvent(event)) {
@@ -142,6 +165,10 @@ bool AudioEqualizer::OnMouseEvent(ftxui::Event& event) {
   // List of presets is closed by a click on anything else (which is not handled by what is
   // behind it, except for buttons)
   const bool list_closed = picker_.CloseOnClickOutside(event);
+
+  // Its button only opens list (a click on it while list is opened just closes it, like a click
+  // on anything else)
+  if (!list_closed && btn_preset_->OnMouseEvent(event)) return true;
 
   if (btn_apply_->OnMouseEvent(event)) return true;
 
@@ -164,14 +191,41 @@ bool AudioEqualizer::OnCustomEvent(const CustomEvent& event) { return false; }
 
 /* ********************************************************************************************** */
 
+bool AudioEqualizer::OnNavigationEvent(const ftxui::Event& event) {
+  using keybinding::Navigation;
+
+  const bool vertical = event == Navigation::ArrowUp || event == Navigation::Up ||
+                        event == Navigation::ArrowDown || event == Navigation::Down;
+
+  const bool bar_focused = std::any_of(bars_.begin(), bars_.end(),
+                                       [](const FrequencyBar& bar) { return bar.IsFocused(); });
+
+  // While nothing is focused, up/down start from preset picker (as it is above frequency bars)
+  if (!vertical || picker_.IsFocused() || bar_focused) return false;
+
+  LOG("Handle navigation key=", util::EventToString(event));
+  focus_ctl_.SetFocus(picker_);
+  return true;
+}
+
+/* ********************************************************************************************** */
+
 void AudioEqualizer::CreateButtons() {
   auto style = Button::Style{
       .colors = [] { return GetTheme().equalizer.button; },
-      .delimiters = Button::Delimiters{"[", "]"},
   };
 
-  btn_apply_ = Button::make_button(
-      "Apply",
+  btn_preset_ = Button::make_button_hint(
+      "e", "preset",
+      [this]() {
+        LOG("Handle callback for Equalizer preset button");
+        OpenPresetPicker();
+        return true;
+      },
+      style);
+
+  btn_apply_ = Button::make_button_hint(
+      "a", "apply",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -196,10 +250,10 @@ void AudioEqualizer::CreateButtons() {
 
         return true;
       },
-      style, "A", false);
+      style);
 
-  btn_reset_ = Button::make_button(
-      "Reset",
+  btn_reset_ = Button::make_button_hint(
+      "r", "reset",
       [this]() {
         auto disp = dispatcher_.lock();
         if (!disp) return false;
@@ -255,7 +309,11 @@ void AudioEqualizer::CreateButtons() {
 
         return true;
       },
-      style, "R", false);
+      style);
+
+  // Nothing to apply or reset until something is changed
+  btn_apply_->Disable();
+  btn_reset_->Disable();
 }
 
 /* ********************************************************************************************** */
@@ -340,6 +398,16 @@ void AudioEqualizer::LinkPresetToInterface(model::EqualizerPreset& preset) {
   for (int i = 0; i < model::equalizer::kFiltersPerPreset; i++) {
     bars_[i].filter = &preset[i];
   }
+}
+
+/* ********************************************************************************************** */
+
+void AudioEqualizer::OpenPresetPicker() {
+  focus_ctl_.SetFocus(picker_);
+  if (!picker_.opened) picker_.Open();
+
+  // Set this block as active (focused)
+  if (on_focus_) on_focus_();
 }
 
 /* ********************************************************************************************** */

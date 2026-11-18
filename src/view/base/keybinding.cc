@@ -105,6 +105,7 @@ Key Visualizer::DecreaseBarWidth = Key::Character(',');
 
 /* ----------------------------------------- Equalizer ------------------------------------------ */
 
+Key Equalizer::OpenPresets = Key::Character('e');
 Key Equalizer::ApplyFilters = Key::Character('a');
 Key Equalizer::ResetFilters = Key::Character('r');
 

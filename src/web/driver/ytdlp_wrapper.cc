@@ -18,6 +18,7 @@
 #include "nlohmann/json.hpp"
 #include "util/formatter.h"
 #include "util/process.h"
+#include "util/url.h"
 
 namespace driver {
 
@@ -135,10 +136,13 @@ error::Code YtDlpWrapper::ExtractPlaylist(const std::string& url, std::vector<mo
   // Only list entries from playlist (much faster than extracting information from every song)
   INFO("Extract songs from playlist URL=", url);
   std::string output;
+  std::vector<std::string> options{"--flat-playlist", "--dump-single-json", "--no-warnings"};
 
-  if (error::Code result =
-          Run(program->string(), {"--flat-playlist", "--dump-single-json", "--no-warnings"}, url,
-              output, cancel);
+  if (util::IsYoutubeMixUrl(url)) {
+    options.insert(options.end(), {"--playlist-end", std::to_string(kMixMaxSongs)});
+  }
+
+  if (error::Code result = Run(program->string(), options, url, output, cancel);
       result != error::kSuccess) {
     return result;
   }

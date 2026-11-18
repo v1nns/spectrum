@@ -158,6 +158,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {ToString(keybinding::MainContent::FocusEqualizer), "Show equalizer"},
            {arrows + " " + hjkl, "Navigate and change frequency gain"},
            {Join(Navigation::Space, Navigation::Return), "Open/close preset picker"},
+           {ToString(keybinding::Equalizer::OpenPresets), "Open preset picker or choose preset"},
            {jk, "Cycle presets (picker closed)"},
            {ToString(keybinding::Equalizer::ApplyFilters), "Apply equalizer settings"},
            {ToString(keybinding::Equalizer::ResetFilters), "Reset equalizer settings"},

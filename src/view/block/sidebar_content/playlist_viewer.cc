@@ -1,5 +1,6 @@
 #include "view/block/sidebar_content/playlist_viewer.h"
 
+#include <algorithm>
 #include <functional>
 #include <iomanip>
 #include <string>
@@ -228,9 +229,15 @@ void PlaylistViewer::CreateButtons() {
         // Set this block as active (focused)
         on_focus_();
 
+        // Index is chosen here, so the dialog can save the new playlist more than once
+        int next_index = 0;
+        for (const auto& playlist : menu_->actual().GetEntries()) {
+          next_index = std::max(next_index, playlist.index + 1);
+        }
+
         model::PlaylistOperation operation{
             .action = model::PlaylistOperation::Operation::Create,
-            .playlist = model::Playlist{},
+            .playlist = model::Playlist{.index = next_index},
             .other_names = GetPlaylistNames(),
         };
 

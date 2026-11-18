@@ -297,10 +297,13 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
       do {
         keep_executing = media_control_.WaitFor(
             Cmd::Play, Cmd::PauseOrResume, Cmd::Stop, Cmd::SkipToNext, Cmd::SkipToPrevious,
-            Cmd::SetDevice, Cmd::SeekForward, Cmd::SeekBackward);
+            Cmd::SetDevice, Cmd::SeekForward, Cmd::SeekBackward, Cmd::SetVolume,
+            Cmd::UpdateAudioFilters);
         command_after_wait = media_control_.Pop();
 
         bool change_device = keep_executing && command_after_wait == Cmd::SetDevice;
+        bool set_volume = keep_executing && command_after_wait == Cmd::SetVolume;
+        bool update_filters = keep_executing && command_after_wait == Cmd::UpdateAudioFilters;
         bool skip =
             command_after_wait == Cmd::SkipToNext || command_after_wait == Cmd::SkipToPrevious;
         bool seek = keep_executing && (command_after_wait == Cmd::SeekForward ||
@@ -308,6 +311,24 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
 
         // Output device may be changed while song is paused
         if (change_device) ChangeDevice(command_after_wait.GetContent<std::string>());
+
+        // Volume may also be changed while song is paused
+        if (set_volume) {
+          model::Volume value = command_after_wait.GetContent<model::Volume>();
+          LOG("Audio handler changed volume while song is paused, value=", value);
+          decoder_->SetVolume(value);
+        }
+
+        // Audio filters as well (song resumes with previous filters on error, but let user know)
+        if (update_filters) {
+          LOG("Audio handler updated audio filters while song is paused");
+          auto value = command_after_wait.GetContent<model::EqualizerPreset>();
+
+          if (auto result = decoder_->UpdateFilters(value); result != error::kSuccess) {
+            ERROR("Cannot update audio filters, error=", result);
+            if (media_notifier) media_notifier->NotifyError(result, "");
+          }
+        }
 
         // Song position may also be changed while song is paused (decoder only seeks to it when
         // song is resumed), so let interface know about it right away
@@ -327,7 +348,9 @@ bool Player::HandleCommand(void* buffer, int size, void* analysis, int analysis_
         }
 
         keep_waiting =
-            keep_executing && (change_device || seek || (skip && !CanSkip(command_after_wait)));
+            keep_executing &&
+            (change_device || set_volume || update_filters || seek ||
+             (skip && !CanSkip(command_after_wait)));
       } while (keep_waiting);
 
       // Received command different from PauseOrResume
@@ -523,12 +546,33 @@ void Player::AudioHandler() {
 
   // Block this thread until UI informs us a song to play
   while (media_control_.WaitFor(Cmd::Play, Cmd::SkipToNext, Cmd::SkipToPrevious, Cmd::PlayNext,
-                                Cmd::SetDevice)) {
+                                Cmd::SetDevice, Cmd::SetVolume, Cmd::UpdateAudioFilters)) {
     auto command = media_control_.Pop();
 
     // Output device may be changed while there is no song playing
     if (command == Cmd::SetDevice) {
       ChangeDevice(command.GetContent<std::string>());
+      continue;
+    }
+
+    // Volume and audio filters as well (e.g. changed while song was opening, and then it failed)
+    if (command == Cmd::SetVolume) {
+      model::Volume value = command.GetContent<model::Volume>();
+      LOG("Audio handler changed volume while there is no song playing, value=", value);
+      decoder_->SetVolume(value);
+      continue;
+    }
+
+    if (command == Cmd::UpdateAudioFilters) {
+      LOG("Audio handler updated audio filters while there is no song playing");
+      auto value = command.GetContent<model::EqualizerPreset>();
+
+      if (auto result = decoder_->UpdateFilters(value); result != error::kSuccess) {
+        ERROR("Cannot update audio filters, error=", result);
+        if (auto media_notifier = notifier_.lock(); media_notifier) {
+          media_notifier->NotifyError(result, "");
+        }
+      }
       continue;
     }
 

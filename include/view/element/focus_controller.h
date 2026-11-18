@@ -69,6 +69,12 @@ class FocusController final {
   void SetFocus(int index);
 
   /**
+   * @brief Change focused element
+   * @param element Element already appended to this controller
+   */
+  void SetFocus(const Element& element);
+
+  /**
    * @brief Move focus to next element, wrapping around to the first one after the last
    */
   void FocusNext();

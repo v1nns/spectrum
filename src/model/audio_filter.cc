@@ -59,6 +59,7 @@ EqualizerPresets AudioFilter::CreatePresets() {
       {"Loudness", create({4, 3, 0, 0, -1, 0, -1, -2, 3, 1})},
       {"Pop", create({-1, -1, 0, 1, 2, 2, 1, 0, -1, -1})},
       {"Rock", create({1, 2, 1, -1, -3, -1, 0, 1, 2, 3})},
+      {"Trap", create({5, 4, 1, -2, -2, 0, 1, 2, 3, 2})},
       {"Treble Boost", create({0, 0, 0, 0, 0, 0, 1, 2, 3, 4})},
       {"Vocal", create({-2, -2, -1, 1, 2, 2, 2, 1, 0, -1})},
   };

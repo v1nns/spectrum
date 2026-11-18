@@ -2191,7 +2191,7 @@ TEST_F(SidebarTest, ShowPlaylistManagerWithKeybindings) {
   // Setup expectation for playlist operation
   model::PlaylistOperation expected_operation{
       .action = model::PlaylistOperation::Operation::Create,
-      .playlist = model::Playlist{},
+      .playlist = model::Playlist{.index = 2},
       .other_names = {"Chill mix", "Lofi"},
   };
 
@@ -2254,7 +2254,7 @@ TEST_F(SidebarTest, SaveNewPlaylistIntoFile) {
 
   block->OnEvent(ftxui::Event::F2);
 
-  model::Playlist playlist{.index = -1,
+  model::Playlist playlist{.index = 0,
                            .name = "JPop",
                            .songs = {
                                model::Song{.filepath = "some of the coolest jpop 1.mp3"},
@@ -2265,7 +2265,6 @@ TEST_F(SidebarTest, SaveNewPlaylistIntoFile) {
   interface::CustomEvent save_playlist = interface::CustomEvent::SavePlaylistsToFile(playlist);
 
   // Setup expectation for saving playlist
-  playlist.index = 0;  // index will get fixed at this point
   model::Playlists expected_playlists{playlist};
 
   EXPECT_CALL(*file_handler_mock_, SavePlaylists(expected_playlists)).WillOnce(Return(true));
@@ -2598,6 +2597,136 @@ TEST_F(SidebarTest, StartEmptyAddNewPlaylistAndCheckButtonState) {
   // Check for buttons state
   EXPECT_FALSE(IsModifyButtonActive());
   EXPECT_FALSE(IsDeleteButtonActive());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, SaveNewPlaylistTwiceWithoutClosingDialog) {
+  model::Playlists data{{model::Playlist{
+                             .index = 0,
+                             .name = "Chill mix",
+                             .songs = {model::Song{.filepath = "chilling 1.mp3"}},
+                         },
+                         model::Playlist{
+                             .index = 1,
+                             .name = "Lofi",
+                             .songs = {model::Song{.filepath = "lofi 1.mp3"}},
+                         }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // New playlist must already have the index it will get in the list
+  model::PlaylistOperation expected_operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{.index = 2},
+      .other_names = {"Chill mix", "Lofi"},
+  };
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ShowPlaylistManager),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::PlaylistOperation>(expected_operation)))));
+
+  block->OnEvent(ftxui::Event::Character('c'));
+
+  // Save new playlist (in real life, it would be the playlist dialog sending it)
+  model::Playlist playlist{.index = 2,
+                           .name = "JPop",
+                           .songs = {
+                               model::Song{.filepath = "some of the coolest jpop 1.mp3"},
+                               model::Song{.filepath = "some of the coolest jpop 2.mp3"},
+                               model::Song{.filepath = "some of the coolest jpop 3.mp3"},
+                           }};
+
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(model::Playlists{data[0], data[1], playlist}))
+      .WillOnce(Return(true));
+
+  GetPlaylistViewer()->OnCustomEvent(interface::CustomEvent::SavePlaylistsToFile(playlist));
+
+  // With dialog still open, remove two songs and save again, it must update the same playlist
+  playlist.songs.pop_back();
+  playlist.songs.pop_back();
+
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(model::Playlists{data[0], data[1], playlist}))
+      .WillOnce(Return(true));
+
+  GetPlaylistViewer()->OnCustomEvent(interface::CustomEvent::SavePlaylistsToFile(playlist));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(SidebarTest, CreatePlaylistAfterDeletingAnother) {
+  model::Playlists data{{model::Playlist{
+                             .index = 0,
+                             .name = "Chill mix",
+                             .songs = {model::Song{.filepath = "chilling 1.mp3"}},
+                         },
+                         model::Playlist{
+                             .index = 1,
+                             .name = "Lofi",
+                             .songs = {model::Song{.filepath = "lofi 1.mp3"}},
+                         }}};
+
+  EXPECT_CALL(*file_handler_mock_, ParsePlaylists(_))
+      .WillOnce(DoAll(SetArgReferee<0>(data), Return(true)));
+
+  block->OnEvent(ftxui::Event::F2);
+
+  // Delete first playlist
+  model::QuestionData question;
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::ShowQuestionDialog)))
+      .WillOnce(Invoke([&question](const interface::CustomEvent& event) {
+        question = event.GetContent<model::QuestionData>();
+      }));
+
+  block->OnEvent(ftxui::Event::Character('d'));
+
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(model::Playlists{data[1]}))
+      .WillOnce(Return(true));
+
+  ASSERT_TRUE(question.cb_yes);
+  question.cb_yes();
+
+  // New playlist must not reuse the index from the remaining one
+  model::PlaylistOperation expected_operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{.index = 2},
+      .other_names = {"Lofi"},
+  };
+
+  EXPECT_CALL(*dispatcher,
+              SendEvent(AllOf(Field(&interface::CustomEvent::id,
+                                    interface::CustomEvent::Identifier::ShowPlaylistManager),
+                              Field(&interface::CustomEvent::content,
+                                    VariantWith<model::PlaylistOperation>(expected_operation)))));
+
+  block->OnEvent(ftxui::Event::Character('c'));
+
+  // Save new playlist and then modify it, remaining playlist must be kept untouched
+  model::Playlist playlist{.index = 2,
+                           .name = "JPop",
+                           .songs = {
+                               model::Song{.filepath = "some of the coolest jpop 1.mp3"},
+                               model::Song{.filepath = "some of the coolest jpop 2.mp3"},
+                           }};
+
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(model::Playlists{data[1], playlist}))
+      .WillOnce(Return(true));
+
+  GetPlaylistViewer()->OnCustomEvent(interface::CustomEvent::SavePlaylistsToFile(playlist));
+
+  playlist.songs.pop_back();
+
+  EXPECT_CALL(*file_handler_mock_, SavePlaylists(model::Playlists{data[1], playlist}))
+      .WillOnce(Return(true));
+
+  GetPlaylistViewer()->OnCustomEvent(interface::CustomEvent::SavePlaylistsToFile(playlist));
 }
 
 /* ********************************************************************************************** */

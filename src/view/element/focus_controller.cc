@@ -86,6 +86,19 @@ void FocusController::SetFocus(int index) {
 
 /* ********************************************************************************************** */
 
+void FocusController::SetFocus(const Element& element) {
+  auto it = std::find(elements_.begin(), elements_.end(), &element);
+
+  if (it == elements_.end()) {
+    ERROR("Cannot set focus on element not appended to controller");
+    return;
+  }
+
+  UpdateFocus(focus_index_, static_cast<int>(it - elements_.begin()));
+}
+
+/* ********************************************************************************************** */
+
 void FocusController::FocusNext() {
   if (elements_.empty()) return;
 

@@ -243,11 +243,11 @@ Theme MakeTheme(const Palette& p) {
       .bar_focused = State{.foreground = p.red, .background = p.muted},
       .button =
           ButtonStates{
-              .normal = State{.foreground = p.text, .border = p.text},
-              .focused = State{.foreground = p.accent, .border = p.accent},
-              .pressed = State{.foreground = p.accent, .background = p.surface, .border = p.accent},
-              .disabled = State{.foreground = p.muted, .border = p.muted},
-              .highlight = State{.foreground = p.red},
+              .normal = State{.foreground = p.text},
+              .focused = State{.foreground = p.accent},
+              .pressed = State{.foreground = p.accent},
+              .disabled = State{.foreground = p.muted},
+              .highlight = State{.foreground = p.accent_alt},
           },
   };
 

@@ -899,6 +899,47 @@ TEST_F(PlaylistDialogTest, ShowMessageAfterSave) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, SaveNewPlaylistTwiceWithSameIndex) {
+  model::PlaylistOperation operation{
+      .action = model::PlaylistOperation::Operation::Create,
+      .playlist = model::Playlist{.index = 2},
+  };
+
+  GetPlaylistDialog()->Open(operation);
+
+  // Setup expectation for checking audio stream on selected files
+  EXPECT_CALL(contains_audio_cb, Call).Times(2).WillRepeatedly(Return(true));
+
+  // Add two songs and rename playlist
+  std::string typed{"jjjjj j rmix"};
+  utils::QueueCharacterEvents(*dialog, typed);
+  dialog->OnEvent(ftxui::Event::Return);
+
+  // Both saves must carry the index given on Create, so the same playlist is updated
+  std::vector<model::Playlist> saved;
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .Times(2)
+      .WillRepeatedly(Invoke([&saved](const interface::CustomEvent& event) {
+        saved.push_back(event.GetContent<model::Playlist>());
+      }));
+
+  dialog->OnEvent(interface::keybinding::Playlist::Save);
+
+  // With dialog still open, remove one song and save again (playlist menu is focused by rename)
+  dialog->OnEvent(interface::keybinding::Playlist::RemoveSong);
+  dialog->OnEvent(interface::keybinding::Playlist::Save);
+
+  ASSERT_EQ(saved.size(), 2);
+  EXPECT_EQ(saved[0].index, 2);
+  EXPECT_EQ(saved[0].songs.size(), 2);
+  EXPECT_EQ(saved[1].index, 2);
+  EXPECT_EQ(saved[1].songs.size(), 1);
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, AddYoutubeUrlAndSave) {
   model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
 
