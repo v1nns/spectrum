@@ -6,8 +6,10 @@
 #ifndef INCLUDE_UTIL_URL_H_
 #define INCLUDE_UTIL_URL_H_
 
+#include <cctype>
 #include <regex>
 #include <string>
+#include <string_view>
 
 namespace util {
 
@@ -58,6 +60,35 @@ inline std::string ShortenYoutubeUrl(const std::string& url) {
   }
 
   return std::regex_replace(url, prefix, "");
+}
+
+/**
+ * @brief Encode text to be used as a value in URL query (e.g. "sigur rós" turns into
+ * "sigur%20r%C3%B3s"), keeping only unreserved characters as they are
+ * @param text Text to encode
+ * @return Encoded text
+ */
+inline std::string EncodeUrlQuery(const std::string& text) {
+  static constexpr std::string_view kHex = "0123456789ABCDEF";
+  static constexpr int kHighNibble = 4;
+  static constexpr unsigned char kLowNibble = 0x0F;
+
+  std::string encoded;
+
+  for (char c : text) {
+    const auto byte = static_cast<unsigned char>(c);
+
+    if (std::isalnum(byte) || c == '-' || c == '_' || c == '.' || c == '~') {
+      encoded += c;
+      continue;
+    }
+
+    encoded += '%';
+    encoded += kHex[byte >> kHighNibble];
+    encoded += kHex[byte & kLowNibble];
+  }
+
+  return encoded;
 }
 
 }  // namespace util

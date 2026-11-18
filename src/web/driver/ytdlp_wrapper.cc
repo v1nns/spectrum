@@ -126,20 +126,84 @@ bool YtDlpWrapper::IsAvailable() { return util::FindExecutable(std::string{kProg
 
 error::Code YtDlpWrapper::ExtractPlaylist(const std::string& url, std::vector<model::Song>& songs,
                                           const std::atomic<bool>* cancel) {
+  INFO("Extract songs from playlist URL=", url);
+  const int max_entries = util::IsYoutubeMixUrl(url) ? kMixMaxSongs : 0;
+
+  return ListEntries(
+      url, max_entries, [&songs](const nlohmann::json& info) { return ParsePlaylist(info, songs); },
+      cancel);
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::SearchArtists(const std::string& query,
+                                        std::vector<model::YoutubeChannel>& channels,
+                                        const std::atomic<bool>* cancel) {
+  INFO("Search channels from artist=", std::quoted(query));
+  const std::string url =
+      std::string{kSearchUrl} + util::EncodeUrlQuery(query) + std::string{kChannelsFilter};
+
+  return ListEntries(
+      url, kSearchMaxChannels,
+      [&channels](const nlohmann::json& info) { return ParseChannels(info, channels); }, cancel);
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::ExtractReleases(const std::string& channel_id,
+                                          std::vector<model::YoutubeRelease>& releases,
+                                          const std::atomic<bool>* cancel) {
+  INFO("Extract releases from channel=", channel_id);
+  const std::string url = "https://www.youtube.com/channel/" + channel_id + "/releases";
+
+  error::Code result = ListEntries(
+      url, 0, [&releases](const nlohmann::json& info) { return ParseReleases(info, releases); },
+      cancel);
+
+  // Channel without any release does not even have the tab listing them
+  if (result == error::kStreamUnavailable) {
+    releases.clear();
+    return error::kSuccess;
+  }
+
+  return result;
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::SearchPlaylists(const std::string& query,
+                                          std::vector<model::YoutubeRelease>& playlists,
+                                          const std::atomic<bool>* cancel) {
+  INFO("Search playlists from artist=", std::quoted(query));
+
+  // Most playlists found with only the artist name are compilations, instead of albums
+  const std::string url = std::string{kSearchUrl} + util::EncodeUrlQuery(query + " album") +
+                          std::string{kPlaylistsFilter};
+
+  return ListEntries(
+      url, kSearchMaxPlaylists,
+      [&playlists](const nlohmann::json& info) { return ParseReleases(info, playlists); }, cancel);
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::ListEntries(
+    const std::string& url, int max_entries,
+    const std::function<error::Code(const nlohmann::json&)>& parse,
+    const std::atomic<bool>* cancel) {
   auto program = util::FindExecutable(std::string{kProgram});
 
   if (!program) {
-    WARN("Cannot find ", kProgram, " in PATH to extract playlist from URL=", url);
+    WARN("Cannot find ", kProgram, " in PATH to list entries from URL=", url);
     return error::kStreamFetcherNotFound;
   }
 
-  // Only list entries from playlist (much faster than extracting information from every song)
-  INFO("Extract songs from playlist URL=", url);
+  // Only list entries (much faster than extracting information from every one of them)
   std::string output;
   std::vector<std::string> options{"--flat-playlist", "--dump-single-json", "--no-warnings"};
 
-  if (util::IsYoutubeMixUrl(url)) {
-    options.insert(options.end(), {"--playlist-end", std::to_string(kMixMaxSongs)});
+  if (max_entries > 0) {
+    options.insert(options.end(), {"--playlist-end", std::to_string(max_entries)});
   }
 
   if (error::Code result = Run(program->string(), options, url, output, cancel);
@@ -147,8 +211,7 @@ error::Code YtDlpWrapper::ExtractPlaylist(const std::string& url, std::vector<mo
     return result;
   }
 
-  nlohmann::json info = nlohmann::json::parse(output, nullptr, /*allow_exceptions=*/false);
-  return ParsePlaylist(info, songs);
+  return parse(nlohmann::json::parse(output, nullptr, /*allow_exceptions=*/false));
 }
 
 /* ********************************************************************************************** */
@@ -179,6 +242,9 @@ error::Code YtDlpWrapper::ParsePlaylist(const nlohmann::json& info,
                          model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=" + id}};
     FillArtistAndTitle(title, entry, song);
 
+    // Duration may be a floating point number (in seconds)
+    song.duration = static_cast<uint32_t>(GetOr<double>(entry, "duration", 0));
+
     parsed.push_back(std::move(song));
   }
 
@@ -186,6 +252,87 @@ error::Code YtDlpWrapper::ParsePlaylist(const nlohmann::json& info,
        " with songs=", parsed.size(), " skipped=", skipped);
 
   songs = std::move(parsed);
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::ParseChannels(const nlohmann::json& info,
+                                        std::vector<model::YoutubeChannel>& channels) {
+  static const std::regex kTopic(R"(\s+-\s+Topic$)");
+
+  auto entries = info.is_object() ? info.find("entries") : info.end();
+
+  if (entries == info.end() || !entries->is_array()) {
+    ERROR("Could not parse channels extracted from search");
+    return error::kStreamFetchFailed;
+  }
+
+  std::vector<model::YoutubeChannel> parsed;
+
+  for (const auto& entry : *entries) {
+    if (!entry.is_object()) continue;
+
+    const std::string id = GetOr<std::string>(entry, "channel_id", "");
+    const std::string name = GetOr<std::string>(entry, "title", "");
+
+    // Topic channel is created by YouTube for each artist, but it does not list any release
+    if (id.empty() || name.empty() || std::regex_search(name, kTopic)) continue;
+
+    auto followers = GetOr<double>(entry, "channel_follower_count", -1);
+
+    parsed.push_back(model::YoutubeChannel{
+        .id = id,
+        .name = name,
+        .followers =
+            followers >= 0 ? std::optional{static_cast<uint64_t>(followers)} : std::nullopt,
+        .verified = GetOr<bool>(entry, "channel_is_verified", false),
+    });
+  }
+
+  // Official channel from artist is verified, so it is the one that user is looking for
+  std::stable_partition(parsed.begin(), parsed.end(),
+                        [](const model::YoutubeChannel& channel) { return channel.verified; });
+
+  INFO("Parsed channels from search, found=", parsed.size());
+
+  channels = std::move(parsed);
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::ParseReleases(const nlohmann::json& info,
+                                        std::vector<model::YoutubeRelease>& releases) {
+  auto entries = info.is_object() ? info.find("entries") : info.end();
+
+  if (entries == info.end() || !entries->is_array()) {
+    ERROR("Could not parse releases extracted from URL");
+    return error::kStreamFetchFailed;
+  }
+
+  std::vector<model::YoutubeRelease> parsed;
+
+  for (const auto& entry : *entries) {
+    if (!entry.is_object()) continue;
+
+    const std::string id = GetOr<std::string>(entry, "id", "");
+    const std::string title = GetOr<std::string>(entry, "title", "");
+    const std::string url = GetOr<std::string>(entry, "url", "");
+
+    // Search may also find channels, which are not a playlist
+    if (id.empty() || title.empty() || url.find("list=") == std::string::npos) continue;
+
+    parsed.push_back(model::YoutubeRelease{
+        .id = id,
+        .title = title,
+        .uploader = GetOr<std::string>(entry, "uploader", GetOr<std::string>(entry, "channel", "")),
+    });
+  }
+
+  INFO("Parsed releases from URL, found=", parsed.size());
+
+  releases = std::move(parsed);
   return error::kSuccess;
 }
 
@@ -261,10 +408,11 @@ error::Code YtDlpWrapper::GetFailureReason(const std::string& error) {
   //! request does not come from a bot, which happens after too many requests)
   static constexpr std::array kBlocked{"Sign in to confirm"sv, "HTTP Error 429"sv};
 
-  //! Texts printed by program when video cannot be watched by anyone (or only by its owner)
+  //! Texts printed by program when video cannot be watched by anyone (or only by its owner), or
+  //! when channel does not have the tab asked for (e.g. "does not have a releases tab")
   static constexpr std::array kUnavailable{"Video unavailable"sv, "Private video"sv,
-                                           "has been removed"sv, "is not available"sv,
-                                           "does not exist"sv};
+                                           "has been removed"sv,  "is not available"sv,
+                                           "does not exist"sv,    "does not have a"sv};
 
   //! Texts printed by program when it cannot read cookies from browser (e.g. browser or profile
   //! does not exist, or it is not a browser known by program)

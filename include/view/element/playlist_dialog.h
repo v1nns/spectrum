@@ -8,13 +8,11 @@
 
 #include <atomic>
 #include <chrono>
-#include <condition_variable>
 #include <ftxui/component/component_base.hpp>
 #include <functional>
-#include <mutex>
+#include <memory>
 #include <optional>
 #include <string_view>
-#include <thread>
 #include <utility>
 #include <vector>
 
@@ -25,6 +23,8 @@
 #include "util/file_handler.h"
 #include "view/base/dialog.h"
 #include "view/base/event_dispatcher.h"
+#include "view/element/artist_browser.h"
+#include "view/element/background_job.h"
 #include "view/element/button.h"
 #include "view/element/flash_message.h"
 #include "view/element/focus_controller.h"
@@ -43,10 +43,10 @@ class PlaylistDialog : public Dialog {
 
   static constexpr std::chrono::milliseconds kMessageDuration{2000};  //!< Time to show message
 
-  //! Interval to refresh UI while playlist is being imported (to animate its spinner)
-  static constexpr std::chrono::milliseconds kImportRefreshInterval{80};
-
   static constexpr std::string_view kUrlLabel = "Paste a YouTube URL:";  //!< Label for URL input
+
+  //! Label for input when artist can also be searched (besides a URL)
+  static constexpr std::string_view kSearchLabel = "URL or artist name:";
   static constexpr std::string_view kNoUrlLabel =
       "yt-dlp not installed";  //!< Label when URL cannot be added
 
@@ -79,12 +79,15 @@ class PlaylistDialog : public Dialog {
    * informed, it is always possible)
    * @param fetch_playlist_cb Callback function to extract songs from a playlist URL (if not
    * informed, playlist URL cannot be imported)
+   * @param search_cbs Callback functions to search an artist and list its releases (if not
+   * informed, artist cannot be searched). Songs from releases are listed by fetch_playlist_cb
    */
   PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatcher,
                  const std::function<bool(const util::File& file)>& contains_audio_cb,
                  const std::string& optional_path = "",
                  const std::function<bool()>& stream_available_cb = nullptr,
-                 const PlaylistFetchCallback& fetch_playlist_cb = nullptr);
+                 const PlaylistFetchCallback& fetch_playlist_cb = nullptr,
+                 const ArtistBrowser::FetchCallbacks& search_cbs = {});
 
   /**
    * @brief Destroy PlaylistDialog object
@@ -188,12 +191,16 @@ class PlaylistDialog : public Dialog {
   //! Check if songs can be added from URL
   bool IsStreamAvailable() const { return !stream_available_cb_ || stream_available_cb_(); }
 
+  //! Check if artist can be searched (besides adding songs from URL)
+  bool IsSearchAvailable() const { return static_cast<bool>(search_cbs_.search_artists); }
+
   /**
-   * @brief Handle URL submitted by user: add a single song, or start importing songs from playlist
-   * @param url YouTube URL
-   * @return Result from URL (pending while playlist is being imported)
+   * @brief Handle text submitted by user: add a single song, start importing songs from playlist
+   * (both from URL), or search for an artist (any other text)
+   * @param text YouTube URL or artist name
+   * @return Result from text (pending while playlist is being imported or artist is searched)
    */
-  UrlInput::Result SubmitUrl(const std::string& url);
+  UrlInput::Result SubmitUrl(const std::string& text);
 
   /**
    * @brief Start importing songs from playlist URL in another thread (as it may take a while)
@@ -202,17 +209,37 @@ class PlaylistDialog : public Dialog {
   void StartImport(const std::string& url);
 
   /**
-   * @brief Add songs imported from playlist to modified playlist (if import has finished)
+   * @brief Add songs imported from playlist to modified playlist (called once import finishes)
+   * @param code Error code from import
+   * @param songs Songs imported
    */
-  void FinishImport();
+  void FinishImport(error::Code code, std::vector<model::Song> songs);
 
   /**
-   * @brief Cancel playlist import (if running) and discard its result
+   * @brief Add songs to modified playlist (skipping those already in it)
+   * @param songs Songs to add
+   * @return Number of songs added
    */
-  void StopImport();
+  int AddSongs(std::vector<model::Song> songs);
 
-  //! Stop refreshing UI for playlist import (and wait for its thread)
-  void StopImportRefresh();
+  /**
+   * @brief Remove songs from modified playlist
+   * @param songs Songs to remove
+   */
+  void RemoveSongs(const std::vector<model::Song>& songs);
+
+  /**
+   * @brief Check if song is in modified playlist
+   * @param song Song to look for
+   * @return true if found, otherwise false
+   */
+  bool ContainsSong(const model::Song& song) const;
+
+  /**
+   * @brief Show artist browser (or URL input) on the left pane, when showing songs from YouTube
+   * @param show Show browser instead of URL input
+   */
+  void ShowBrowser(bool show);
 
   /* ******************************************************************************************** */
   //! Variables
@@ -221,20 +248,9 @@ class PlaylistDialog : public Dialog {
 
   std::function<bool()> stream_available_cb_;  //!< Check if songs can be added from URL
   PlaylistFetchCallback fetch_playlist_cb_;    //!< Extract songs from playlist URL
+  ArtistBrowser::FetchCallbacks search_cbs_;   //!< Search artist and list its releases
 
-  //! State for importing songs from playlist URL (running in another thread)
-  struct Import {
-    std::thread thread;                //!< Thread running extraction
-    std::atomic<bool> cancel = false;  //!< Flag to cancel extraction
-    std::mutex mutex;                  //!< Control access to result
-    std::optional<std::pair<error::Code, std::vector<model::Song>>> result;  //!< Extracted songs
-
-    std::thread refresher;             //!< Thread refreshing UI while extraction is running
-    std::condition_variable notifier;  //!< Wake up refresher when extraction is over
-    bool running = false;              //!< Flag to keep refresher running (protected by mutex)
-  };
-
-  Import import_;  //!< Playlist import state
+  BackgroundJob import_;  //!< Import songs from playlist URL (running in another thread)
 
   //!< Operation to execute + playlist to be modified
   model::PlaylistOperation curr_operation_ =
@@ -247,6 +263,9 @@ class PlaylistDialog : public Dialog {
   FileMenu menu_files_;  //!< Menu containing all files from a given directory
 
   std::unique_ptr<UrlInput> url_input_;  //!< Text input to add songs from YouTube URL
+
+  std::unique_ptr<ArtistBrowser> browser_;  //!< Browse releases from artist searched on YouTube
+  bool browsing_ = false;  //!< Show browser (instead of URL input) when showing songs from YouTube
 
   Source source_ = Source::Files;  //!< Source of songs currently shown on the left pane
   WindowButton btn_files_;         //!< Tab button to show files on the left pane

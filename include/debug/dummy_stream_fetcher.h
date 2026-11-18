@@ -12,6 +12,7 @@
 
 #include "model/application_error.h"
 #include "model/song.h"
+#include "model/youtube_search.h"
 #include "web/base/stream_fetcher.h"
 
 namespace driver {
@@ -68,6 +69,33 @@ class DummyStreamFetcher : public web::StreamFetcher {
    * @return Always an error, as there is nothing to extract
    */
   static error::Code ExtractPlaylist(const std::string&, std::vector<model::Song>&,
+                                     const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Search channels from the given artist
+   * @return Always an error, as there is nothing to search
+   */
+  static error::Code SearchArtists(const std::string&, std::vector<model::YoutubeChannel>&,
+                                   const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Extract releases from the given channel
+   * @return Always an error, as there is nothing to extract
+   */
+  static error::Code ExtractReleases(const std::string&, std::vector<model::YoutubeRelease>&,
+                                     const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Search playlists from the given artist
+   * @return Always an error, as there is nothing to search
+   */
+  static error::Code SearchPlaylists(const std::string&, std::vector<model::YoutubeRelease>&,
                                      const std::atomic<bool>* = nullptr) {
     return error::kStreamFetchFailed;
   }

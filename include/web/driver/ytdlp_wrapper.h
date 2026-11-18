@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -17,6 +18,7 @@
 
 #include "model/application_error.h"
 #include "model/song.h"
+#include "model/youtube_search.h"
 #include "nlohmann/json_fwd.hpp"
 #include "util/logger.h"
 #include "web/base/stream_fetcher.h"
@@ -46,6 +48,19 @@ class YtDlpWrapper : public web::StreamFetcher {
   //! Maximum songs imported from a YouTube mix (it never ends, so program would list hundreds of
   //! them, while YouTube itself shows only a few dozen)
   static constexpr int kMixMaxSongs = 50;
+
+  //! Maximum channels listed when searching for an artist (the first ones are the most relevant)
+  static constexpr int kSearchMaxChannels = 8;
+
+  //! Maximum playlists listed when searching for albums from an artist
+  static constexpr int kSearchMaxPlaylists = 15;
+
+  //! Base URL to search YouTube (followed by the text to search)
+  static constexpr std::string_view kSearchUrl = "https://www.youtube.com/results?search_query=";
+
+  //! Filters added to search URL, to find only channels or only playlists
+  static constexpr std::string_view kChannelsFilter = "&sp=EgIQAg%3D%3D";
+  static constexpr std::string_view kPlaylistsFilter = "&sp=EgIQAw%3D%3D";
 
  public:
   /**
@@ -102,6 +117,41 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @return Error code from operation
    */
   static error::Code ExtractPlaylist(const std::string& url, std::vector<model::Song>& songs,
+                                     const std::atomic<bool>* cancel = nullptr);
+
+  /**
+   * @brief Search YouTube for channels from the given artist. Topic channels (e.g. "Artist -
+   * Topic") are skipped, as they do not list any release, and verified channels come first
+   * @param query Artist name
+   * @param channels List of channels found (out)
+   * @param cancel Flag to cancel search while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code SearchArtists(const std::string& query,
+                                   std::vector<model::YoutubeChannel>& channels,
+                                   const std::atomic<bool>* cancel = nullptr);
+
+  /**
+   * @brief Extract releases (albums, EPs and singles) from the given channel, as listed by YouTube
+   * @param channel_id Channel identifier
+   * @param releases List of releases (out), empty when channel does not have any
+   * @param cancel Flag to cancel extraction while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code ExtractReleases(const std::string& channel_id,
+                                     std::vector<model::YoutubeRelease>& releases,
+                                     const std::atomic<bool>* cancel = nullptr);
+
+  /**
+   * @brief Search YouTube for playlists with albums from the given artist (created by anyone, used
+   * when artist has no channel with releases)
+   * @param query Artist name
+   * @param playlists List of playlists found (out)
+   * @param cancel Flag to cancel search while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code SearchPlaylists(const std::string& query,
+                                     std::vector<model::YoutubeRelease>& playlists,
                                      const std::atomic<bool>* cancel = nullptr);
 
   /**
@@ -192,6 +242,39 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @return Error code from operation (when output does not contain a playlist, for example)
    */
   static error::Code ParsePlaylist(const nlohmann::json& info, std::vector<model::Song>& songs);
+
+  /**
+   * @brief Fill list of channels with entries from search extracted by yt-dlp (skipping Topic
+   * channels and anything else that is not a channel), placing verified ones first
+   * @param info JSON parsed output from yt-dlp (using flat playlist)
+   * @param channels List of channels (out)
+   * @return Error code from operation (when output does not contain a list, for example)
+   */
+  static error::Code ParseChannels(const nlohmann::json& info,
+                                   std::vector<model::YoutubeChannel>& channels);
+
+  /**
+   * @brief Fill list of releases with playlists extracted by yt-dlp (skipping anything else that
+   * is not a playlist, like a channel found by search)
+   * @param info JSON parsed output from yt-dlp (using flat playlist)
+   * @param releases List of releases (out)
+   * @return Error code from operation (when output does not contain a list, for example)
+   */
+  static error::Code ParseReleases(const nlohmann::json& info,
+                                   std::vector<model::YoutubeRelease>& releases);
+
+  /**
+   * @brief Run program to list entries from the given URL (without extracting information from
+   * each one of them) and parse its output
+   * @param url URL to list entries from
+   * @param max_entries Maximum number of entries listed (0 for no limit)
+   * @param parse Function to parse program output
+   * @param cancel Flag to cancel program while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code ListEntries(const std::string& url, int max_entries,
+                                 const std::function<error::Code(const nlohmann::json&)>& parse,
+                                 const std::atomic<bool>* cancel);
 
   /**
    * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title

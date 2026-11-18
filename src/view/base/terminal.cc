@@ -96,6 +96,19 @@ void Terminal::Init(const std::string& initial_path,
       driver::DummyStreamFetcher::ExtractPlaylist;
 #endif
 
+  // Callbacks to search an artist and list its releases (they also depend on an external program)
+  const ArtistBrowser::FetchCallbacks search_cbs{
+#ifndef SPECTRUM_DEBUG
+      .search_artists = driver::YtDlpWrapper::SearchArtists,
+      .fetch_releases = driver::YtDlpWrapper::ExtractReleases,
+      .search_playlists = driver::YtDlpWrapper::SearchPlaylists,
+#else
+      .search_artists = driver::DummyStreamFetcher::SearchArtists,
+      .fetch_releases = driver::DummyStreamFetcher::ExtractReleases,
+      .search_playlists = driver::DummyStreamFetcher::SearchPlaylists,
+#endif
+  };
+
   // Create blocks
   auto sidebar =
       std::make_shared<Sidebar>(dispatcher, initial_path, file_handler, contains_audio_cb);
@@ -116,8 +129,9 @@ void Terminal::Init(const std::string& initial_path,
   // Create dialogs
   error_dialog_ = std::make_unique<ErrorDialog>(dispatcher);
   help_dialog_ = std::make_unique<HelpDialog>(dispatcher);
-  playlist_dialog_ = std::make_unique<PlaylistDialog>(dispatcher, contains_audio_cb, initial_path,
-                                                      stream_available_cb, fetch_playlist_cb);
+  playlist_dialog_ =
+      std::make_unique<PlaylistDialog>(dispatcher, contains_audio_cb, initial_path,
+                                       stream_available_cb, fetch_playlist_cb, search_cbs);
   question_dialog_ = std::make_unique<QuestionDialog>(dispatcher);
 
   // Pickers save what is chosen in settings

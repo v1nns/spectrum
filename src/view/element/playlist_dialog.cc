@@ -40,7 +40,8 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
                                const std::function<bool(const util::File& file)>& contains_audio_cb,
                                const std::string& optional_path,
                                const std::function<bool()>& stream_available_cb,
-                               const PlaylistFetchCallback& fetch_playlist_cb)
+                               const PlaylistFetchCallback& fetch_playlist_cb,
+                               const ArtistBrowser::FetchCallbacks& search_cbs)
     : Dialog(dispatcher,
              Size{.width = 0.6f, .height = 0.8f, .min_column = kMinColumns, .min_line = kMinLines},
              Style{.background = &Theme::Dialog::background,
@@ -49,6 +50,14 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
       base_path_(),
       stream_available_cb_(stream_available_cb),
       fetch_playlist_cb_(fetch_playlist_cb),
+      search_cbs_(search_cbs),
+      import_{[this] {
+                // Spinner is animated while importing, and result is applied once it finishes
+                if (auto dispatcher = GetDispatcher(); dispatcher) {
+                  dispatcher->SendEvent(interface::CustomEvent::Refresh());
+                }
+              },
+              "import"},
       menu_files_(menu::CreateFileMenu(
           dispatcher, std::make_shared<util::FileHandler>(),
 
@@ -137,6 +146,18 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
       std::make_unique<UrlInput>(std::string{kUrlLabel}, "Added to playlist",
                                  [this](const std::string& url) { return SubmitUrl(url); });
 
+  // Songs from releases are listed just like those from any other playlist
+  if (!search_cbs_.fetch_tracks) search_cbs_.fetch_tracks = fetch_playlist_cb_;
+
+  browser_ = std::make_unique<ArtistBrowser>(
+      dispatcher, search_cbs_,
+      ArtistBrowser::PlaylistCallbacks{
+          .contains = [this](const model::Song& song) { return ContainsSong(song); },
+          .add = [this](const std::vector<model::Song>& songs) { AddSongs(songs); },
+          .remove = [this](const std::vector<model::Song>& songs) { RemoveSongs(songs); },
+          .back = [this] { ShowBrowser(false); },
+      });
+
   CreateButtons();
 
   // Append all inner elements to have focus controlled by wrapper
@@ -149,7 +170,10 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
 
 /* ********************************************************************************************** */
 
-PlaylistDialog::~PlaylistDialog() { StopImport(); }
+PlaylistDialog::~PlaylistDialog() {
+  import_.Stop();
+  browser_->Reset();
+}
 
 /* ********************************************************************************************** */
 
@@ -233,12 +257,16 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
   auto size_decorator = ftxui::size(ftxui::WIDTH, ftxui::EQUAL, max_columns_per_menu) |
                         ftxui::size(ftxui::HEIGHT, ftxui::EQUAL, max_lines_menu);
 
-  // Left pane shows songs to add from the active source (files or YouTube URL)
-  bool source_focused = menu_files_->IsFocused() || url_input_->IsFocused();
+  // Left pane shows songs to add from the active source (files, YouTube URL or artist searched)
+  bool source_focused =
+      menu_files_->IsFocused() || url_input_->IsFocused() || browser_->IsFocused();
   url_input_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);
+  browser_->SetMaxColumns(max_columns_per_menu - kPrefixOffset);
+  browser_->SetMaxLines(max_lines_menu - kBorderSize);
 
-  ftxui::Element source_view =
-      source_ == Source::Files ? menu_files_->Render() : url_input_->Render();
+  ftxui::Element source_view = source_ == Source::Files ? menu_files_->Render()
+                               : browsing_              ? browser_->Render()
+                                                        : url_input_->Render();
 
   // Tab buttons are rendered in bold while pane is focused
   btn_files_->UpdateParentFocus(source_focused);
@@ -301,11 +329,15 @@ ftxui::Element PlaylistDialog::RenderImpl(const ftxui::Dimensions& curr_size) co
 /* ********************************************************************************************** */
 
 bool PlaylistDialog::OnEventImpl(const ftxui::Event& event) {
-  // Playlist import finishes in another thread, which asks for a refresh (received as an event)
-  FinishImport();
+  // Playlist import (or artist search) finishes in another thread, which asks for a refresh
+  // (received as an event)
+  import_.Finish();
+  browser_->Update();
 
   // Text input should handle first, as it takes all characters
   if (url_input_->IsFocused() && url_input_->OnEvent(event)) return true;
+
+  if (browser_->IsFocused() && browser_->OnEvent(event)) return true;
 
   // Menu should handle first
   if (menu_files_->IsFocused()) {
@@ -455,7 +487,9 @@ void PlaylistDialog::OnOpen() {
 /* ********************************************************************************************** */
 
 void PlaylistDialog::OnClose() {
-  StopImport();
+  import_.Stop();
+  browser_->Reset();
+  ShowBrowser(false);
   modified_playlist_.reset();
   rename_.editing = false;
   rename_.error.reset();
@@ -708,6 +742,7 @@ std::pair<std::string, ftxui::Decorator> PlaylistDialog::GetSaveMessage() const 
 void PlaylistDialog::ShowSource(Source source) {
   auto get_view = [this](Source s) -> Element& {
     if (s == Source::Files) return *menu_files_;
+    if (browsing_) return *browser_;
     return *url_input_;
   };
 
@@ -719,7 +754,9 @@ void PlaylistDialog::ShowSource(Source source) {
 
   // Let user know when songs cannot be added from URL (before typing anything)
   if (source == Source::Youtube) {
-    url_input_->SetLabel(IsStreamAvailable() ? std::string{kUrlLabel} : std::string{kNoUrlLabel});
+    const auto label = IsSearchAvailable() ? kSearchLabel : kUrlLabel;
+    url_input_->SetLabel(IsStreamAvailable() ? std::string{label} : std::string{kNoUrlLabel});
+    url_input_->SetAction(IsSearchAvailable() ? "add/search" : "add");
   }
 
   // Update tab buttons
@@ -773,8 +810,22 @@ void PlaylistDialog::UpdateButtonState() {
 
 /* ********************************************************************************************** */
 
-UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& url) {
+UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& text) {
   using Status = UrlInput::Result::Status;
+
+  // Anything that does not look like a URL is the name of an artist to search
+  const std::string url = Trim(text);
+  const bool is_url =
+      url.find("://") != std::string::npos || url.rfind("www.", 0) == 0 || util::IsYoutubeUrl(url);
+
+  if (!is_url && IsSearchAvailable()) {
+    if (url.empty()) return {Status::Rejected, "Type a URL or an artist"};
+    if (!IsStreamAvailable()) return {Status::Rejected, "yt-dlp not found"};
+
+    browser_->Search(url);
+    ShowBrowser(true);
+    return {Status::Pending, "Searching artist"};
+  }
 
   if (!util::IsYoutubePlaylistUrl(url)) {
     auto error = AddUrl(url);
@@ -786,7 +837,7 @@ UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& url) {
   if (!fetch_playlist_cb_) return {Status::Rejected, "Cannot import playlist"};
   if (!IsStreamAvailable()) return {Status::Rejected, "yt-dlp not found"};
 
-  if (import_.thread.joinable()) return {Status::Rejected, "Already importing"};
+  if (import_.IsRunning()) return {Status::Rejected, "Already importing"};
 
   StartImport(url);
   return {Status::Pending, "Importing playlist"};
@@ -796,60 +847,19 @@ UrlInput::Result PlaylistDialog::SubmitUrl(const std::string& url) {
 
 void PlaylistDialog::StartImport(const std::string& url) {
   LOG("Start importing songs from playlist URL=", std::quoted(url));
-  import_.cancel = false;
-  import_.running = true;
 
-  // Spinner is animated while songs are extracted, so UI must be refreshed in the meantime
-  import_.refresher = std::thread([this] {
-    util::Logger::SetThreadName("import");
-    std::unique_lock lock{import_.mutex};
-
-    while (!import_.notifier.wait_for(lock, kImportRefreshInterval,
-                                      [this] { return !import_.running; })) {
-      lock.unlock();
-      if (auto dispatcher = GetDispatcher(); dispatcher) {
-        dispatcher->SendEvent(interface::CustomEvent::Refresh());
-      }
-      lock.lock();
-    }
-  });
-
-  import_.thread = std::thread([this, url] {
-    util::Logger::SetThreadName("import");
-
+  import_.Start([this, fetch = fetch_playlist_cb_,
+                 url](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
     std::vector<model::Song> songs;
-    error::Code result = fetch_playlist_cb_(url, songs, &import_.cancel);
+    error::Code code = fetch(url, songs, cancel);
 
-    if (import_.cancel) return;
-
-    {
-      std::scoped_lock lock{import_.mutex};
-      import_.result = std::make_pair(result, std::move(songs));
-    }
-
-    // Ask for a refresh, so result is added to playlist right away
-    if (auto dispatcher = GetDispatcher(); dispatcher) {
-      dispatcher->SendEvent(interface::CustomEvent::Refresh());
-    }
+    return [this, code, songs = std::move(songs)] { FinishImport(code, songs); };
   });
 }
 
 /* ********************************************************************************************** */
 
-void PlaylistDialog::FinishImport() {
-  std::optional<std::pair<error::Code, std::vector<model::Song>>> result;
-
-  {
-    std::scoped_lock lock{import_.mutex};
-    if (!import_.result.has_value()) return;
-    result.swap(import_.result);
-  }
-
-  // Thread has already finished its job
-  if (import_.thread.joinable()) import_.thread.join();
-  StopImportRefresh();
-
-  auto& [code, songs] = *result;
+void PlaylistDialog::FinishImport(error::Code code, std::vector<model::Song> songs) {
   using Status = UrlInput::Result::Status;
 
   if (code != error::kSuccess || !modified_playlist_.has_value()) {
@@ -876,27 +886,11 @@ void PlaylistDialog::FinishImport() {
     return;
   }
 
-  int added = 0;
-  int skipped = 0;
-
-  for (auto& song : songs) {
-    bool duplicated =
-        std::any_of(modified_playlist_->songs.begin(), modified_playlist_->songs.end(),
-                    [&song](const model::Song& other) { return other.Compare(song); });
-
-    if (duplicated) {
-      skipped++;
-      continue;
-    }
-
-    song.index = static_cast<int>(modified_playlist_->songs.size());
-    modified_playlist_->songs.emplace_back(song);
-    menu_playlist_->Emplace(song);
-    added++;
-  }
+  const int total = static_cast<int>(songs.size());
+  const int added = AddSongs(std::move(songs));
+  const int skipped = total - added;
 
   LOG("Imported songs from playlist, added=", added, " skipped=", skipped);
-  UpdateButtonState();
 
   std::string message = "Added " + std::to_string(added) + (added == 1 ? " song" : " songs");
   if (skipped > 0) message += ", " + std::to_string(skipped) + " skipped";
@@ -907,30 +901,71 @@ void PlaylistDialog::FinishImport() {
 
 /* ********************************************************************************************** */
 
-void PlaylistDialog::StopImport() {
-  if (!import_.thread.joinable()) return;
+int PlaylistDialog::AddSongs(std::vector<model::Song> songs) {
+  if (!modified_playlist_.has_value()) return 0;
 
-  LOG("Stop importing songs from playlist");
-  import_.cancel = true;
-  import_.thread.join();
-  StopImportRefresh();
+  int added = 0;
 
-  std::scoped_lock lock{import_.mutex};
-  import_.result.reset();
+  for (auto& song : songs) {
+    if (ContainsSong(song)) continue;
+
+    song.index = static_cast<int>(modified_playlist_->songs.size());
+    modified_playlist_->songs.emplace_back(song);
+    menu_playlist_->Emplace(song);
+    added++;
+  }
+
+  UpdateButtonState();
+  return added;
 }
 
 /* ********************************************************************************************** */
 
-void PlaylistDialog::StopImportRefresh() {
-  if (!import_.refresher.joinable()) return;
+void PlaylistDialog::RemoveSongs(const std::vector<model::Song>& songs) {
+  if (!modified_playlist_.has_value()) return;
 
-  {
-    std::scoped_lock lock{import_.mutex};
-    import_.running = false;
+  auto& entries = modified_playlist_->songs;
+
+  for (const auto& song : songs) {
+    auto it = std::find_if(entries.begin(), entries.end(),
+                           [&song](const model::Song& other) { return other.Compare(song); });
+    if (it == entries.end()) continue;
+
+    menu_playlist_->Erase(*it);
+    entries.erase(it);
   }
 
-  import_.notifier.notify_one();
-  import_.refresher.join();
+  UpdateButtonState();
+}
+
+/* ********************************************************************************************** */
+
+bool PlaylistDialog::ContainsSong(const model::Song& song) const {
+  if (!modified_playlist_.has_value()) return false;
+
+  const auto& entries = modified_playlist_->songs;
+  return std::any_of(entries.begin(), entries.end(),
+                     [&song](const model::Song& other) { return other.Compare(song); });
+}
+
+/* ********************************************************************************************** */
+
+void PlaylistDialog::ShowBrowser(bool show) {
+  if (browsing_ == show) return;
+
+  // Replace view on the left pane (only when it is the one shown) and focus it
+  if (source_ == Source::Youtube) {
+    Element& current = browsing_ ? static_cast<Element&>(*browser_) : *url_input_;
+    Element& next = show ? static_cast<Element&>(*browser_) : *url_input_;
+
+    focus_ctl_.Replace(current, next);
+    focus_ctl_.SetFocus(kSourcePane);
+  }
+
+  browsing_ = show;
+
+  // Typed text is kept, so it can be changed to search again
+  if (!show) url_input_->ClearFeedback();
 }
 
 }  // namespace interface

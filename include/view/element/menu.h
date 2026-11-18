@@ -10,6 +10,7 @@
 #include "view/element/internal/file_menu.h"
 #include "view/element/internal/playlist_menu.h"
 #include "view/element/internal/song_menu.h"
+#include "view/element/internal/youtube_menu.h"
 
 namespace interface {
 
@@ -17,6 +18,7 @@ namespace interface {
 using FileMenu = std::unique_ptr<internal::BaseMenu<internal::FileMenu>>;
 using PlaylistMenu = std::unique_ptr<internal::BaseMenu<internal::PlaylistMenu>>;
 using SongMenu = std::unique_ptr<internal::BaseMenu<internal::SongMenu>>;
+using YoutubeMenu = std::unique_ptr<internal::BaseMenu<internal::YoutubeMenu>>;
 
 /* --------------------------------------- Menu creation ---------------------------------------- */
 
@@ -56,6 +58,18 @@ PlaylistMenu CreatePlaylistMenu(const std::shared_ptr<EventDispatcher>& dispatch
 SongMenu CreateSongMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
                         const TextAnimation::Callback& force_refresh,
                         const internal::SongMenu::Callback& on_click);
+
+/**
+ * @brief Construct a new YoutubeMenu object
+ * @param dispatcher Event dispatcher
+ * @param force_refresh Callback function to update UI
+ * @param on_click Callback function for click event on active entry
+ * @param get_state Callback function to get current state from entry
+ */
+YoutubeMenu CreateYoutubeMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                              const TextAnimation::Callback& force_refresh,
+                              const internal::YoutubeMenu::Callback& on_click,
+                              const internal::YoutubeMenu::StateCallback& get_state);
 
 }  // namespace menu
 }  // namespace interface

@@ -6,13 +6,11 @@
 #ifndef INCLUDE_VIEW_ELEMENT_URL_INPUT_H_
 #define INCLUDE_VIEW_ELEMENT_URL_INPUT_H_
 
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
-#include <string_view>
 
 #include "ftxui/component/event.hpp"
 #include "ftxui/dom/elements.hpp"
@@ -26,13 +24,6 @@ namespace interface {
  */
 class UrlInput : public Element {
   static constexpr int kPadding = 1;  //!< Columns left empty on each side of content
-
-  //! Frames from spinner shown while URL is pending
-  static constexpr std::array<std::string_view, 10> kSpinnerFrames{"⠋", "⠙", "⠹", "⠸", "⠼",
-                                                                   "⠴", "⠦", "⠧", "⠇", "⠏"};
-
-  //! Time that each frame from spinner stays visible
-  static constexpr std::chrono::milliseconds kSpinnerInterval{80};
 
  public:
   //! Result from submitted URL
@@ -97,6 +88,17 @@ class UrlInput : public Element {
   void SetLabel(const std::string& label) { label_ = label; }
 
   /**
+   * @brief Set action done when text is submitted, displayed as hint for its key (e.g. "add")
+   * @param action Action text
+   */
+  void SetAction(const std::string& action) { action_ = action; }
+
+  /**
+   * @brief Clear only feedback message, keeping typed text
+   */
+  void ClearFeedback() { feedback_.reset(); }
+
+  /**
    * @brief Clear typed text and feedback message
    */
   void Clear();
@@ -113,13 +115,6 @@ class UrlInput : public Element {
   //! Submit typed text to owner
   void Submit();
 
-  /**
-   * @brief Get frame from spinner shown while URL is pending (owner must refresh UI to animate it)
-   * @param elapsed Time since URL is pending
-   * @return Frame to render
-   */
-  static std::string_view GetSpinnerFrame(std::chrono::steady_clock::duration elapsed);
-
   //! Place cursor on the character clicked
   void HandleClick(ftxui::Event& event) override;
 
@@ -130,6 +125,7 @@ class UrlInput : public Element {
   //! Variables
 
   std::string label_;    //!< Text displayed above input
+  std::string action_ = "add";  //!< Action done when text is submitted (shown as hint)
   std::string success_;  //!< Message displayed after URL is accepted
   Callback on_submit_;   //!< Callback triggered when URL is submitted
 

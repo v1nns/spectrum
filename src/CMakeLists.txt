@@ -119,6 +119,8 @@ target_sources(
           view/block/main_content/song_lyric.cc
           view/block/sidebar_content/list_directory.cc
           view/block/sidebar_content/playlist_viewer.cc
+          view/element/artist_browser.cc
+          view/element/background_job.cc
           view/element/button.cc
           view/element/flash_message.cc
           view/element/focus_controller.cc
@@ -139,6 +141,7 @@ target_sources(
           view/element/internal/file_menu.cc
           view/element/internal/playlist_menu.cc
           view/element/internal/song_menu.cc
+          view/element/internal/youtube_menu.cc
           # logger
           util/arg_parser.cc
           util/file_handler.cc

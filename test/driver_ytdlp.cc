@@ -13,6 +13,7 @@
 #include "model/application_error.h"
 #include "model/song.h"
 #include "model/stream_info.h"
+#include "model/youtube_search.h"
 #include "nlohmann/json.hpp"
 #include "util/url.h"
 #include "web/driver/ytdlp_wrapper.h"
@@ -55,6 +56,20 @@ class YtDlpWrapperTest : public ::testing::Test {
   static error::Code ParsePlaylist(const std::string& info, std::vector<model::Song>& songs) {
     return driver::YtDlpWrapper::ParsePlaylist(
         nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false), songs);
+  }
+
+  //! Parse channels found by search (as JSON) into list of channels
+  static error::Code ParseChannels(const std::string& info,
+                                   std::vector<model::YoutubeChannel>& channels) {
+    return driver::YtDlpWrapper::ParseChannels(
+        nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false), channels);
+  }
+
+  //! Parse releases (or playlists found by search) as JSON into list of releases
+  static error::Code ParseReleases(const std::string& info,
+                                   std::vector<model::YoutubeRelease>& releases) {
+    return driver::YtDlpWrapper::ParseReleases(
+        nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false), releases);
   }
 
   //! Fill song with streaming information from the given entry
@@ -448,7 +463,7 @@ TEST_F(YtDlpWrapperTest, ParsePlaylistFromYtDlp) {
     "_type": "playlist", "title": "Worship",
     "entries": [
       {"id": "edZVnKxKEUU", "title": "SO BE IT | Elevation Worship", "channel": "Elevation Worship"},
-      {"id": "URlPXepBZdo", "title": "Clipse - So Be It (Official Music Video)"},
+      {"id": "URlPXepBZdo", "title": "Clipse - So Be It (Official Music Video)", "duration": 212.0},
       {"id": "xxxxxxxxxxx", "title": "[Deleted video]"},
       {"id": "yyyyyyyyyyy", "title": "[Private video]"},
       {"title": "No identifier"}
@@ -468,8 +483,106 @@ TEST_F(YtDlpWrapperTest, ParsePlaylistFromYtDlp) {
   EXPECT_THAT(songs[1].artist, StrEq("Clipse"));
   EXPECT_THAT(songs[1].title, StrEq("So Be It (Official Music Video)"));
 
+  // Duration is shown before song is played (when it is informed)
+  EXPECT_THAT(songs[0].duration, Eq(0));
+  EXPECT_THAT(songs[1].duration, Eq(212));
+
   // Output that does not contain a playlist
   EXPECT_EQ(ParsePlaylist(R"({"title": "Single video"})", songs), error::kStreamFetchFailed);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, EncodeTextForUrlQuery) {
+  EXPECT_THAT(util::EncodeUrlQuery("radiohead"), StrEq("radiohead"));
+  EXPECT_THAT(util::EncodeUrlQuery("boards of canada"), StrEq("boards%20of%20canada"));
+  EXPECT_THAT(util::EncodeUrlQuery("sigur rós"), StrEq("sigur%20r%C3%B3s"));
+  EXPECT_THAT(util::EncodeUrlQuery("AC/DC & co?"), StrEq("AC%2FDC%20%26%20co%3F"));
+  EXPECT_THAT(util::EncodeUrlQuery("a-b_c.d~e"), StrEq("a-b_c.d~e"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ParseChannelsFromSearch) {
+  // Based on output from yt-dlp searching only channels (only relevant fields)
+  const std::string info = R"json({
+    "_type": "playlist", "title": "radiohead",
+    "entries": [
+      {"id": "UCYW", "channel_id": "UCYW", "title": "Radiohead Concerts",
+       "channel_follower_count": 37300, "channel_is_verified": null},
+      {"id": "UCr_", "channel_id": "UCr_", "title": "Radiohead - Topic",
+       "channel_follower_count": null, "channel_is_verified": null},
+      {"id": "UCq1", "channel_id": "UCq1", "title": "Radiohead",
+       "channel_follower_count": 5470000, "channel_is_verified": true},
+      {"id": "UCgM", "channel_id": "UCgM", "title": "The Radiohead Project"},
+      {"id": "dQw4w9WgXcQ", "title": "Not a channel"}
+    ]
+  })json";
+
+  std::vector<model::YoutubeChannel> channels;
+  ASSERT_EQ(ParseChannels(info, channels), error::kSuccess);
+
+  // Topic channel never lists any release, and verified channel comes first
+  EXPECT_THAT(
+      channels,
+      ElementsAre(
+          model::YoutubeChannel{
+              .id = "UCq1", .name = "Radiohead", .followers = 5470000, .verified = true},
+          model::YoutubeChannel{.id = "UCYW", .name = "Radiohead Concerts", .followers = 37300},
+          model::YoutubeChannel{.id = "UCgM", .name = "The Radiohead Project"}));
+
+  // Nothing found
+  ASSERT_EQ(ParseChannels(R"({"entries": []})", channels), error::kSuccess);
+  EXPECT_THAT(channels, IsEmpty());
+
+  // Output that does not contain a list
+  EXPECT_EQ(ParseChannels("unexpected", channels), error::kStreamFetchFailed);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, ParseReleasesAndPlaylists) {
+  // Releases from channel contain only identifier, title and URL
+  const std::string releases_info = R"json({
+    "_type": "playlist", "title": "Radiohead - Releases",
+    "entries": [
+      {"id": "OLAK5uy_1", "title": "KID A MNESIA",
+       "url": "https://www.youtube.com/playlist?list=OLAK5uy_1"},
+      {"id": "OLAK5uy_2", "title": "In Rainbows",
+       "url": "https://www.youtube.com/playlist?list=OLAK5uy_2"},
+      {"id": "OLAK5uy_3", "url": "https://www.youtube.com/playlist?list=OLAK5uy_3"}
+    ]
+  })json";
+
+  std::vector<model::YoutubeRelease> releases;
+  ASSERT_EQ(ParseReleases(releases_info, releases), error::kSuccess);
+  EXPECT_THAT(releases,
+              ElementsAre(model::YoutubeRelease{.id = "OLAK5uy_1", .title = "KID A MNESIA"},
+                          model::YoutubeRelease{.id = "OLAK5uy_2", .title = "In Rainbows"}));
+
+  // Search for playlists may also find a channel, and each playlist tells who created it
+  const std::string search_info = R"json({
+    "_type": "playlist", "title": "nujabes album",
+    "entries": [
+      {"id": "UCO5", "title": "Nujabes", "url": "https://www.youtube.com/channel/UCO5"},
+      {"id": "PLfF", "title": "Modal Soul [Official Audio]", "uploader": "Nujabes",
+       "url": "https://www.youtube.com/playlist?list=PLfF"},
+      {"id": "PLrU", "title": "NUJABES - METAPHORICAL MUSIC (FULL ALBUM)", "uploader": null,
+       "channel": "DIVAZ", "url": "https://www.youtube.com/playlist?list=PLrU"}
+    ]
+  })json";
+
+  ASSERT_EQ(ParseReleases(search_info, releases), error::kSuccess);
+  EXPECT_THAT(releases,
+              ElementsAre(
+                  model::YoutubeRelease{
+                      .id = "PLfF", .title = "Modal Soul [Official Audio]", .uploader = "Nujabes"},
+                  model::YoutubeRelease{.id = "PLrU",
+                                        .title = "NUJABES - METAPHORICAL MUSIC (FULL ALBUM)",
+                                        .uploader = "DIVAZ"}));
+
+  // Output that does not contain a list
+  EXPECT_EQ(ParseReleases(R"({"title": "Single video"})", releases), error::kStreamFetchFailed);
 }
 
 /* ********************************************************************************************** */
@@ -570,6 +683,11 @@ TEST_F(YtDlpProgramTest, ProgramNotFound) {
   EXPECT_EQ(driver::YtDlpWrapper::ExtractPlaylist(kPlaylistUrl, songs),
             error::kStreamFetcherNotFound);
   EXPECT_THAT(songs, IsEmpty());
+
+  std::vector<model::YoutubeChannel> channels;
+  EXPECT_EQ(driver::YtDlpWrapper::SearchArtists("radiohead", channels),
+            error::kStreamFetcherNotFound);
+  EXPECT_THAT(channels, IsEmpty());
 
   // File that cannot be executed is not used
   std::ofstream(dir / "yt-dlp") << "#!/bin/sh\n";
@@ -858,6 +976,65 @@ TEST_F(YtDlpProgramTest, ExtractPlaylistFails) {
 
   // List of songs is not changed by any of them
   EXPECT_THAT(songs.size(), Eq(1));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, SearchArtistsAndPlaylists) {
+  InstallProgram("echo \"$*\" >> " + (dir / "calls").string() + R"sh(
+case "$*" in
+  *EgIQAg*) printf '%s' '{"entries": [
+    {"channel_id": "UCr_", "title": "Sigur Rós - Topic"},
+    {"channel_id": "UCs1", "title": "Sigur Rós", "channel_follower_count": 1200000,
+     "channel_is_verified": true}]}' ;;
+  *) printf '%s' '{"entries": [
+    {"id": "PL67", "title": "Átta (Full Album)", "uploader": "Someone",
+     "url": "https://www.youtube.com/playlist?list=PL67"}]}' ;;
+esac)sh");
+
+  std::vector<model::YoutubeChannel> channels;
+  ASSERT_EQ(driver::YtDlpWrapper::SearchArtists("sigur rós", channels), error::kSuccess);
+  EXPECT_THAT(channels,
+              ElementsAre(model::YoutubeChannel{
+                  .id = "UCs1", .name = "Sigur Rós", .followers = 1200000, .verified = true}));
+
+  std::vector<model::YoutubeRelease> playlists;
+  ASSERT_EQ(driver::YtDlpWrapper::SearchPlaylists("sigur rós", playlists), error::kSuccess);
+  EXPECT_THAT(playlists, ElementsAre(model::YoutubeRelease{
+                             .id = "PL67", .title = "Átta (Full Album)", .uploader = "Someone"}));
+
+  // Text is encoded in URL, and only the first results are listed
+  const std::string search = "https://www.youtube.com/results?search_query=";
+  EXPECT_THAT(GetCalls(), ElementsAre(HasSubstr("--playlist-end 8 -- " + search +
+                                                "sigur%20r%C3%B3s&sp=EgIQAg%3D%3D"),
+                                      HasSubstr("--playlist-end 15 -- " + search +
+                                                "sigur%20r%C3%B3s%20album&sp=EgIQAw%3D%3D")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, ExtractReleasesFromChannel) {
+  InstallProgram(R"sh(
+[ "$5" = "https://www.youtube.com/channel/UCq1/releases" ] || exit 3
+printf '%s' '{"entries": [
+  {"id": "OLAK5uy_2", "title": "In Rainbows", "url": "https://www.youtube.com/playlist?list=OLAK5uy_2"}
+]}')sh");
+
+  std::vector<model::YoutubeRelease> releases;
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractReleases("UCq1", releases), error::kSuccess);
+  EXPECT_THAT(releases,
+              ElementsAre(model::YoutubeRelease{.id = "OLAK5uy_2", .title = "In Rainbows"}));
+
+  // Channel without releases does not even have a tab for them, which is not an error
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube:tab] UCae: This channel does not have a releases tab" >&2; exit 1)sh");
+  ASSERT_EQ(driver::YtDlpWrapper::ExtractReleases("UCae", releases), error::kSuccess);
+  EXPECT_THAT(releases, IsEmpty());
+
+  // But site refusing requests is
+  InstallProgram(
+      R"sh(echo "ERROR: [youtube:tab] Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
+  EXPECT_EQ(driver::YtDlpWrapper::ExtractReleases("UCq1", releases), error::kStreamBlocked);
 }
 
 /* ********************************************************************************************** */
