@@ -21,8 +21,8 @@
 namespace interface::internal {
 
 /**
- * @brief Menu with channels found for an artist, or with releases (each one followed by its tracks,
- * when expanded)
+ * @brief Menu with artists or channels found for an artist, or with releases (each one followed by
+ * its tracks, when expanded)
  */
 class YoutubeMenu : public BaseMenu<YoutubeMenu> {
   friend class BaseMenu;
@@ -30,6 +30,7 @@ class YoutubeMenu : public BaseMenu<YoutubeMenu> {
   //! Put together all possible styles for an entry in this component
   struct Style {
     ftxui::Decorator mark;
+    ftxui::Decorator missing;
     ftxui::Decorator detail;
     ftxui::Decorator fallback;
     MenuEntryOption entry;
@@ -49,21 +50,28 @@ class YoutubeMenu : public BaseMenu<YoutubeMenu> {
   struct Row {
     //! Possible types of entry
     enum class Kind : std::uint8_t {
-      Channel,   //!< Channel found for artist
-      Fallback,  //!< Search playlists instead of channels
-      Release,   //!< Release (or playlist), which may be expanded to show its tracks
-      Track,     //!< Track from release
+      Artist,           //!< Artist found on MusicBrainz
+      Channel,          //!< Channel found for artist on YouTube
+      SearchChannels,   //!< Search channels on YouTube instead of artists on MusicBrainz
+      SearchPlaylists,  //!< Search playlists on YouTube instead
+      Release,          //!< Release (or playlist), which may be expanded to show its tracks
+      Track,            //!< Track from release
     };
 
     Kind kind;           //!< Entry type
-    int index = 0;       //!< Index of channel or release
+    int index = 0;       //!< Index of artist, channel or release
     int track = 0;       //!< Index of track inside release (only for tracks)
     std::string text;    //!< Main text (cut with an ellipsis when there is not enough space)
     std::string detail;  //!< Text aligned to the right (e.g. track duration)
   };
 
   //! How many songs from a release (or track) are in the playlist being edited
-  enum class Mark : std::uint8_t { None, Some, All };
+  enum class Mark : std::uint8_t {
+    None,     //!< None of them
+    Some,     //!< Some of them
+    All,      //!< All of them (that can be added)
+    Missing,  //!< Track was not found on YouTube, so it cannot be added
+  };
 
   //! State from entry that may change at any time (e.g. songs removed from playlist)
   struct RowState {

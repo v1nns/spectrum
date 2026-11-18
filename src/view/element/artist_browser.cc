@@ -17,8 +17,12 @@ namespace interface {
 
 namespace {
 
-//! Maximum columns for who created playlist (shown on the right, so title gets most of the space)
-constexpr int kMaxUploaderColumns = 12;
+//! Maximum columns for detail from artist or playlist, shown on the right (so name or title gets
+//! most of the space)
+constexpr int kMaxDetailColumns = 12;
+
+//! Columns for year in release date (e.g. "2005" from "2005-09-12")
+constexpr size_t kYearColumns = 4;
 
 //! Format number of followers as shown by YouTube (e.g. "5.5M", "37K" or "126")
 std::string FormatFollowers(uint64_t followers) {
@@ -76,6 +80,8 @@ std::string GetFailureReason(error::Code code, const std::string& fallback) {
       return "Cannot read cookies";
     case error::kStreamTimedOut:
       return "Took too long to answer";
+    case error::kUrlUnavailable:
+      return "MusicBrainz is busy";
     default:
       return fallback;
   }
@@ -84,6 +90,42 @@ std::string GetFailureReason(error::Code code, const std::string& fallback) {
 //! Get URL from YouTube playlist (releases are also playlists)
 std::string GetPlaylistUrl(const std::string& id) {
   return "https://www.youtube.com/playlist?list=" + id;
+}
+
+//! Get text for release type shown before its year (albums have none), and whether it is only
+//! shown when all types are (e.g. live or compilation)
+std::pair<std::string, bool> GetReleaseType(const model::ReleaseGroup& release) {
+  if (!release.secondary_types.empty()) {
+    const std::string& type = release.secondary_types.front();
+
+    // Shorter names, as there is not much space
+    if (type == "Compilation") return {"Comp", true};
+    if (type == "Soundtrack") return {"OST", true};
+
+    return {type, true};
+  }
+
+  if (release.primary_type == "Album") return {"", false};
+  if (release.primary_type == "EP" || release.primary_type == "Single") {
+    return {release.primary_type, false};
+  }
+
+  return {release.primary_type.empty() ? "Other" : release.primary_type, true};
+}
+
+//! Find release from official channel of artist with the same title (ignoring typographic
+//! punctuation, and then text in brackets from only one of them, like "(Remastered)")
+std::optional<model::YoutubeRelease> FindOfficialRelease(
+    const std::vector<model::YoutubeRelease>& official, const std::string& title) {
+  for (bool relaxed : {false, true}) {
+    auto it = std::find_if(official.begin(), official.end(), [&](const auto& release) {
+      return util::same_title(release.title, title, relaxed);
+    });
+
+    if (it != official.end()) return *it;
+  }
+
+  return std::nullopt;
 }
 
 }  // namespace
@@ -109,7 +151,8 @@ ArtistBrowser::ArtistBrowser(const std::shared_ptr<EventDispatcher>& dispatcher,
 
           // Callback to get state from entry, which may change at any time
           [this](const Row& row) { return GetRowState(row); })},
-      job_{[this] { Refresh(); }, "search"} {}
+      job_{[this] { Refresh(); }, "search"},
+      official_job_{[this] { Refresh(); }, "official"} {}
 
 /* ********************************************************************************************** */
 
@@ -140,7 +183,15 @@ ftxui::Element ArtistBrowser::Render() {
                              util::EventToString(Keybind::Escape) + ": back";
 
     ftxui::Elements hints;
-    if (level_ == Level::Releases) hints.push_back(ftxui::text("Space: add/remove"));
+    if (level_ == Level::Releases) {
+      hints.push_back(ftxui::text(util::EventToString(Keybind::Space) + ": add/remove"));
+    }
+
+    if (level_ == Level::Releases && source_ == Source::Artist) {
+      hints.push_back(ftxui::text(util::EventToString(keybinding::Playlist::ShowAllReleases) +
+                                  (show_all_ ? ": main types only" : ": all types")));
+    }
+
     hints.push_back(ftxui::text(open));
 
     content.push_back(ftxui::text(""));
@@ -160,6 +211,15 @@ bool ArtistBrowser::OnEvent(const ftxui::Event& event) {
 
   if (event == Keybind::Escape || event == Keybind::Backspace) {
     Back();
+    return true;
+  }
+
+  // Show or hide releases that are not the main ones from artist (e.g. live or compilation)
+  if (event == keybinding::Playlist::ShowAllReleases) {
+    if (level_ == Level::Releases && source_ == Source::Artist) {
+      show_all_ = !show_all_;
+      UpdateRows();
+    }
     return true;
   }
 
@@ -203,25 +263,25 @@ void ArtistBrowser::Search(const std::string& query) {
   Reset();
   query_ = query;
 
-  LOG("Search channels from artist=", std::quoted(query));
+  LOG("Search artist=", std::quoted(query));
 
   StartJob("Searching artists",
            [this, search = fetch_.search_artists,
             query](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
-             std::vector<model::YoutubeChannel> channels;
-             error::Code code =
-                 search ? search(query, channels, cancel) : error::kStreamFetchFailed;
+             std::vector<model::Artist> artists;
+             error::Code code = search ? search(query, artists, cancel) : error::kUnknownError;
 
-             return [this, code, channels = std::move(channels)] {
+             return [this, code, artists = std::move(artists)] {
                status_.reset();
+               searched_ = true;
 
                if (code != error::kSuccess) {
-                 error_ = GetFailureReason(code, "Cannot search artists");
-               } else if (channels.empty()) {
+                 error_ = GetFailureReason(code, "Cannot reach MusicBrainz");
+               } else if (artists.empty()) {
                  error_ = "No artists found";
                }
 
-               channels_ = channels;
+               artists_ = artists;
                UpdateRows();
                menu_->ResetState();
              };
@@ -234,17 +294,24 @@ void ArtistBrowser::Search(const std::string& query) {
 
 void ArtistBrowser::Reset() {
   job_.Stop();
+  official_job_.Stop();
 
-  level_ = Level::Channels;
+  level_ = Level::Artists;
+  source_ = Source::Artist;
   query_.clear();
+  searched_ = false;
+  artists_.clear();
   channels_.clear();
-  channel_.reset();
+  owner_.reset();
   releases_.clear();
+  show_all_ = false;
+  official_.reset();
 
   status_.reset();
   loading_.reset();
   error_.reset();
 
+  artist_selected_ = 0;
   channel_selected_ = 0;
   UpdateRows();
 }
@@ -264,50 +331,25 @@ bool ArtistBrowser::Open(const Row& row) {
   if (job_.IsRunning() && row.kind != Kind::Track) return true;
 
   switch (row.kind) {
-    case Kind::Channel:
-    case Kind::Fallback: {
-      const bool fallback = row.kind == Kind::Fallback;
-      channel_selected_ = fallback ? static_cast<int>(channels_.size()) : row.index;
-
-      std::optional<int> channel = fallback ? std::nullopt : std::optional{row.index};
-      const std::string source = fallback ? query_ : channels_.at(row.index).id;
-      auto fetch = fallback ? fetch_.search_playlists : fetch_.fetch_releases;
-
-      LOG("Open releases from=", std::quoted(source), " fallback=", fallback);
-
-      StartJob(
-          fallback ? "Searching playlists" : "Loading albums",
-          [this, fetch, source, channel](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
-            std::vector<model::YoutubeRelease> releases;
-            error::Code code = fetch ? fetch(source, releases, cancel) : error::kStreamFetchFailed;
-
-            return [this, code, channel, releases = std::move(releases)] {
-              status_.reset();
-
-              if (code != error::kSuccess) {
-                error_ = GetFailureReason(
-                    code, channel ? "Cannot load albums" : "Cannot search playlists");
-                return;
-              }
-
-              // Stay on channels, so user can pick another one
-              if (releases.empty()) {
-                error_ = channel ? "No albums on this channel" : "No playlists found";
-                return;
-              }
-
-              level_ = Level::Releases;
-              channel_ = channel;
-              releases_.clear();
-
-              for (const auto& release : releases) releases_.push_back(Release{.info = release});
-
-              UpdateRows();
-              menu_->ResetState();
-            };
-          });
+    case Kind::Artist:
+      artist_selected_ = row.index;
+      OpenArtist(row.index);
       return true;
-    }
+
+    case Kind::SearchChannels:
+      artist_selected_ = row.index;
+      OpenChannels();
+      return true;
+
+    case Kind::SearchPlaylists:
+      (level_ == Level::Artists ? artist_selected_ : channel_selected_) = row.index;
+      OpenYoutubeReleases(std::nullopt);
+      return true;
+
+    case Kind::Channel:
+      channel_selected_ = row.index;
+      OpenYoutubeReleases(row.index);
+      return true;
 
     case Kind::Release: {
       auto& release = releases_.at(row.index);
@@ -331,24 +373,358 @@ bool ArtistBrowser::Open(const Row& row) {
 
 /* ********************************************************************************************** */
 
+void ArtistBrowser::OpenArtist(int index) {
+  const model::Artist artist = artists_.at(index);
+  LOG("Open releases from artist=", std::quoted(artist.name), " id=", artist.id);
+
+  StartJob("Loading releases",
+           [this, fetch = fetch_.fetch_releases, index,
+            artist](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
+             std::vector<model::ReleaseGroup> groups;
+             error::Code code = fetch ? fetch(artist.id, groups, cancel) : error::kUnknownError;
+
+             return [this, code, index, groups = std::move(groups)] {
+               status_.reset();
+
+               if (code != error::kSuccess) {
+                 error_ = GetFailureReason(code, "Cannot reach MusicBrainz");
+                 official_job_.Stop();
+                 return;
+               }
+
+               // Stay on artists, so user can pick another one
+               if (groups.empty()) {
+                 error_ = "No releases from this artist";
+                 official_job_.Stop();
+                 return;
+               }
+
+               level_ = Level::Releases;
+               source_ = Source::Artist;
+               owner_ = index;
+               releases_.clear();
+
+               for (const auto& group : groups) {
+                 auto [type, extra] = GetReleaseType(group);
+                 releases_.push_back(Release{
+                     .id = group.id,
+                     .title = group.title,
+                     .date = group.date,
+                     .type = type,
+                     .extra = extra,
+                 });
+               }
+
+               // Newest first (releases without a date are the last ones)
+               std::stable_sort(releases_.begin(), releases_.end(),
+                                [](const auto& lhs, const auto& rhs) {
+                                  if (lhs.date.empty() || rhs.date.empty())
+                                    return !lhs.date.empty() && rhs.date.empty();
+                                  return lhs.date > rhs.date;
+                                });
+
+               // Artist with only other types of release (e.g. live albums) shows them right away
+               show_all_ = std::all_of(releases_.begin(), releases_.end(),
+                                       [](const Release& release) { return release.extra; });
+
+               UpdateRows();
+               menu_->ResetState();
+             };
+           });
+
+  // Meanwhile, find official channel of artist on YouTube, whose releases are whole albums (much
+  // faster than searching each song)
+  official_.reset();
+
+  official_job_.Start([this, search = fetch_.search_channels, fetch = fetch_.fetch_channel_releases,
+                       name = artist.name](const std::atomic<bool>* cancel) {
+    std::vector<model::YoutubeRelease> releases;
+    std::vector<model::YoutubeChannel> channels;
+
+    if (search && fetch && search(name, channels, cancel) == error::kSuccess) {
+      auto it = std::find_if(channels.begin(), channels.end(), [&name](const auto& channel) {
+        return channel.verified && util::same_title(channel.name, name);
+      });
+
+      if (it != channels.end() && fetch(it->id, releases, cancel) != error::kSuccess) {
+        releases.clear();
+      }
+    }
+
+    LOG("Found official releases on YouTube=", releases.size(), " for artist=", std::quoted(name));
+    return [this, releases = std::move(releases)] { official_ = releases; };
+  });
+}
+
+/* ********************************************************************************************** */
+
+void ArtistBrowser::OpenChannels() {
+  LOG("Search channels on YouTube for artist=", std::quoted(query_));
+
+  StartJob("Searching channels",
+           [this, search = fetch_.search_channels,
+            query = query_](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
+             std::vector<model::YoutubeChannel> channels;
+             error::Code code =
+                 search ? search(query, channels, cancel) : error::kStreamFetchFailed;
+
+             return [this, code, channels = std::move(channels)] {
+               status_.reset();
+
+               if (code != error::kSuccess) {
+                 error_ = GetFailureReason(code, "Cannot search channels");
+                 return;
+               }
+
+               // Stay on artists, so user can search playlists instead
+               if (channels.empty()) {
+                 error_ = "No channels found";
+                 return;
+               }
+
+               level_ = Level::Channels;
+               channels_ = channels;
+               channel_selected_ = 0;
+
+               UpdateRows();
+               menu_->ResetState();
+             };
+           });
+}
+
+/* ********************************************************************************************** */
+
+void ArtistBrowser::OpenYoutubeReleases(std::optional<int> channel) {
+  const std::string source = channel ? channels_.at(*channel).id : query_;
+  auto fetch = channel ? fetch_.fetch_channel_releases : fetch_.search_playlists;
+
+  LOG("Open releases from=", std::quoted(source), " channel=", channel.has_value());
+
+  StartJob(
+      channel ? "Loading albums" : "Searching playlists",
+      [this, fetch, source, channel](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
+        std::vector<model::YoutubeRelease> releases;
+        error::Code code = fetch ? fetch(source, releases, cancel) : error::kStreamFetchFailed;
+
+        return [this, code, channel, releases = std::move(releases)] {
+          status_.reset();
+
+          if (code != error::kSuccess) {
+            error_ =
+                GetFailureReason(code, channel ? "Cannot load albums" : "Cannot search playlists");
+            return;
+          }
+
+          // Stay where it was, so user can pick something else
+          if (releases.empty()) {
+            error_ = channel ? "No albums on this channel" : "No playlists found";
+            return;
+          }
+
+          level_ = Level::Releases;
+          source_ = channel ? Source::Channel : Source::Playlists;
+          owner_ = channel;
+          releases_.clear();
+
+          for (const auto& release : releases) {
+            releases_.push_back(Release{
+                .id = release.id,
+                .title = release.title,
+                .uploader = channel ? "" : release.uploader,
+            });
+          }
+
+          UpdateRows();
+          menu_->ResetState();
+        };
+      });
+}
+
+/* ********************************************************************************************** */
+
 void ArtistBrowser::Toggle(const Row& row) {
   if (row.kind != Row::Kind::Release && row.kind != Row::Kind::Track) return;
 
+  // Only one thing is fetched at a time
+  if (job_.IsRunning()) return;
+
   const auto& release = releases_.at(row.index);
+  const std::optional<int> track =
+      row.kind == Row::Kind::Track ? std::optional{row.track} : std::nullopt;
 
   // Tracks are fetched first, then all of them are added
   if (!release.tracks.has_value()) {
-    LoadTracks(row.index, true);
+    source_ == Source::Artist ? MatchAndAdd(row.index, std::nullopt) : LoadTracks(row.index, true);
     return;
   }
 
   std::vector<model::Song> songs = *release.tracks;
-  if (row.kind == Row::Kind::Track) songs = {release.tracks->at(row.track)};
+  if (track.has_value()) songs = {release.tracks->at(*track)};
+
+  // Tracks not found on YouTube cannot be added (nor removed)
+  if (source_ == Source::Artist) {
+    std::vector<model::Song> found;
+
+    for (int i = 0; i < static_cast<int>(release.tracks->size()); ++i) {
+      if (track.has_value() && i != *track) continue;
+      if (!release.missing.at(i)) found.push_back(release.tracks->at(i));
+    }
+
+    if (found.empty()) return;
+    songs = std::move(found);
+  }
 
   const bool all = std::all_of(songs.begin(), songs.end(), playlist_.contains);
+  if (all) {
+    LOG("Remove songs from playlist=", songs.size());
+    playlist_.remove(songs);
+    return;
+  }
 
-  LOG("Toggle songs in playlist, songs=", songs.size(), " remove=", all);
-  all ? playlist_.remove(songs) : playlist_.add(songs);
+  // Songs from artist are only added once all of them are found on YouTube
+  const bool found = std::all_of(songs.begin(), songs.end(),
+                                 [](const model::Song& song) { return song.stream_info; });
+
+  if (!found) {
+    MatchAndAdd(row.index, track);
+    return;
+  }
+
+  LOG("Add songs to playlist=", songs.size());
+  playlist_.add(songs);
+}
+
+/* ********************************************************************************************** */
+
+void ArtistBrowser::MatchAndAdd(int index, std::optional<int> track) {
+  const Release& release = releases_.at(index);
+  const std::string artist = artists_.at(*owner_).name;
+
+  LOG("Find songs on YouTube from release=", std::quoted(release.title),
+      " track=", track.value_or(-1));
+
+  // Whole release may be found on official channel of artist (once it is known)
+  std::optional<std::string> playlist;
+
+  if (!release.official_checked && official_.has_value()) {
+    if (auto found = FindOfficialRelease(*official_, release.title); found.has_value()) {
+      playlist = GetPlaylistUrl(found->id);
+    }
+  }
+
+  // Number of songs to find, for progress shown while finding them
+  progress_ = 0;
+  progress_total_ = 0;
+
+  if (release.tracks.has_value()) {
+    for (int i = 0; i < static_cast<int>(release.tracks->size()); ++i) {
+      const bool wanted = !track.has_value() || i == *track;
+      if (wanted && !release.tracks->at(i).stream_info && !release.missing.at(i)) progress_total_++;
+    }
+  }
+
+  BackgroundJob::Task task = [this, fetch = fetch_, id = release.id, tracks = release.tracks,
+                              missing = release.missing, artist, playlist, index,
+                              track](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
+    std::vector<model::Song> songs;
+    std::vector<bool> not_found = missing;
+
+    // Tracks from release are known only from MusicBrainz
+    if (tracks.has_value()) {
+      songs = *tracks;
+    } else {
+      error::Code code =
+          fetch.fetch_tracks ? fetch.fetch_tracks(id, songs, cancel) : error::kUnknownError;
+
+      if (code != error::kSuccess || songs.empty()) {
+        return [this, code] {
+          loading_.reset();
+          error_ = code != error::kSuccess ? GetFailureReason(code, "Cannot reach MusicBrainz")
+                                           : "No songs in this release";
+        };
+      }
+
+      for (auto& song : songs) song.artist = artist;
+      not_found.assign(songs.size(), false);
+      progress_total_ = static_cast<int>(track.has_value() ? 1 : songs.size());
+    }
+
+    // Whole release from official channel, but only when it has the same tracks
+    if (playlist.has_value() && fetch.fetch_playlist) {
+      std::vector<model::Song> official;
+
+      if (fetch.fetch_playlist(*playlist, official, cancel) == error::kSuccess &&
+          official.size() == songs.size()) {
+        for (size_t i = 0; i < songs.size(); ++i) {
+          if (songs[i].stream_info.has_value()) continue;
+
+          songs[i].stream_info = official[i].stream_info;
+          if (songs[i].duration == 0) songs[i].duration = official[i].duration;
+          not_found[i] = false;
+          ++progress_;
+        }
+      }
+    }
+
+    // Otherwise, find each song (only the ones wanted, which were not searched before)
+    std::vector<size_t> pending;
+    std::vector<model::Song> search;
+
+    for (size_t i = 0; i < songs.size(); ++i) {
+      const bool wanted = !track.has_value() || static_cast<int>(i) == *track;
+      if (!wanted || songs[i].stream_info.has_value() || not_found[i]) continue;
+
+      pending.push_back(i);
+      search.push_back(songs[i]);
+    }
+
+    error::Code code = error::kSuccess;
+
+    if (!search.empty()) {
+      code = fetch.match_songs ? fetch.match_songs(search, &progress_, cancel)
+                               : error::kStreamFetcherNotFound;
+
+      for (size_t i = 0; i < pending.size(); ++i) {
+        songs[pending[i]].stream_info = search[i].stream_info;
+
+        // Song was searched but not found (search was not refused or stopped before it)
+        if (code == error::kSuccess && !search[i].stream_info) not_found[pending[i]] = true;
+      }
+    }
+
+    return [this, index, track, code, checked = playlist.has_value(), songs = std::move(songs),
+            not_found = std::move(not_found)] {
+      loading_.reset();
+      progress_total_ = 0;
+
+      auto& release = releases_.at(index);
+      release.tracks = songs;
+      release.missing = not_found;
+      release.official_checked = release.official_checked || checked;
+
+      if (code != error::kSuccess) error_ = GetFailureReason(code, "Cannot search YouTube");
+
+      // Add songs found, keeping their order from release
+      std::vector<model::Song> found;
+
+      for (size_t i = 0; i < songs.size(); ++i) {
+        const bool wanted = !track.has_value() || static_cast<int>(i) == *track;
+        if (wanted && songs[i].stream_info.has_value()) found.push_back(songs[i]);
+      }
+
+      if (found.empty() && !error_.has_value()) error_ = "Not found on YouTube";
+
+      LOG("Add songs found on YouTube=", found.size(), " total=", songs.size());
+      if (!found.empty()) playlist_.add(found);
+
+      UpdateRows();
+    };
+  };
+
+  loading_ = index;
+  error_.reset();
+  status_.reset();
+  job_.Start(task);
 }
 
 /* ********************************************************************************************** */
@@ -361,9 +737,10 @@ void ArtistBrowser::Back() {
 
     status_.reset();
     loading_.reset();
+    progress_total_ = 0;
 
     // Search itself was stopped, so there is nothing to show
-    if (level_ == Level::Channels && channels_.empty()) playlist_.back();
+    if (level_ == Level::Artists && !searched_) playlist_.back();
 
     UpdateRows();
     return;
@@ -371,17 +748,37 @@ void ArtistBrowser::Back() {
 
   error_.reset();
 
-  if (level_ == Level::Channels) {
-    playlist_.back();
-    return;
+  switch (level_) {
+    case Level::Artists:
+      playlist_.back();
+      return;
+
+    case Level::Channels:
+      level_ = Level::Artists;
+      channels_.clear();
+
+      UpdateRows();
+      menu_->ResetState(artist_selected_);
+      return;
+
+    case Level::Releases: {
+      // Releases from channel go back to channels, everything else goes back to artists
+      const bool channel =
+          source_ == Source::Channel || (source_ == Source::Playlists && !channels_.empty());
+
+      level_ = channel ? Level::Channels : Level::Artists;
+      owner_.reset();
+      releases_.clear();
+      show_all_ = false;
+
+      official_job_.Stop();
+      official_.reset();
+
+      UpdateRows();
+      menu_->ResetState(channel ? channel_selected_ : artist_selected_);
+      return;
+    }
   }
-
-  level_ = Level::Channels;
-  channel_.reset();
-  releases_.clear();
-
-  UpdateRows();
-  menu_->ResetState(channel_selected_);
 }
 
 /* ********************************************************************************************** */
@@ -390,27 +787,40 @@ void ArtistBrowser::LoadTracks(int index, bool add) {
   // Only one thing is fetched at a time
   if (job_.IsRunning()) return;
 
-  const std::string url = GetPlaylistUrl(releases_.at(index).info.id);
-  LOG("Load tracks from release=", std::quoted(url), " add=", add);
+  const bool from_artist = source_ == Source::Artist;
+  const auto& release = releases_.at(index);
+
+  // Release from artist is listed by MusicBrainz, otherwise it is a playlist on YouTube
+  const std::string id = from_artist ? release.id : GetPlaylistUrl(release.id);
+  auto fetch = from_artist ? fetch_.fetch_tracks : fetch_.fetch_playlist;
+  const std::string artist = from_artist ? artists_.at(*owner_).name : "";
+
+  LOG("Load tracks from release=", std::quoted(id), " add=", add);
 
   loading_ = index;
 
-  BackgroundJob::Task task = [this, fetch = fetch_.fetch_tracks, url, index,
-                              add](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
+  BackgroundJob::Task task = [this, fetch, id, index, add, artist, from_artist](
+                                 const std::atomic<bool>* cancel) -> BackgroundJob::Result {
     std::vector<model::Song> songs;
-    error::Code code = fetch ? fetch(url, songs, cancel) : error::kStreamFetchFailed;
+    error::Code code = fetch ? fetch(id, songs, cancel) : error::kStreamFetchFailed;
 
-    return [this, code, index, add, songs = std::move(songs)] {
+    return [this, code, index, add, artist, from_artist, songs = std::move(songs)]() mutable {
       loading_.reset();
 
       if (code != error::kSuccess || songs.empty()) {
-        error_ = code != error::kSuccess ? GetFailureReason(code, "Cannot load album")
-                                         : "No songs in this album";
+        const std::string fallback = from_artist ? "Cannot reach MusicBrainz" : "Cannot load album";
+        error_ =
+            code != error::kSuccess ? GetFailureReason(code, fallback) : "No songs in this album";
         return;
+      }
+
+      if (from_artist) {
+        for (auto& song : songs) song.artist = artist;
       }
 
       auto& release = releases_.at(index);
       release.tracks = songs;
+      release.missing.assign(songs.size(), false);
 
       if (add) {
         playlist_.add(songs);
@@ -443,53 +853,108 @@ void ArtistBrowser::UpdateRows() {
   auto active = menu_->GetActiveEntry();
   std::vector<Row> rows;
 
-  if (level_ == Level::Channels) {
-    for (int i = 0; i < static_cast<int>(channels_.size()); ++i) {
-      const auto& channel = channels_.at(i);
-      rows.push_back(Row{
-          .kind = Kind::Channel,
-          .index = i,
-          .text = channel.name + (channel.verified ? " ✓" : ""),
-          .detail = channel.followers ? FormatFollowers(*channel.followers) : "",
-      });
+  // Options to search YouTube instead (e.g. artist unknown by MusicBrainz)
+  auto add_fallbacks = [this, &rows](bool channels) {
+    if (query_.empty() || status_.has_value()) return;
+
+    if (channels) {
+      rows.push_back(Row{.kind = Kind::SearchChannels,
+                         .index = static_cast<int>(rows.size()),
+                         .text = "Search YouTube channels"});
     }
 
-    // Playlists may also be searched after channels were searched
-    if (!query_.empty() && !status_.has_value()) {
-      rows.push_back(Row{.kind = Kind::Fallback,
-                         .index = static_cast<int>(channels_.size()),
-                         .text = "Search playlists for \"" + query_ + "\""});
-    }
-  } else {
-    for (int i = 0; i < static_cast<int>(releases_.size()); ++i) {
-      const auto& release = releases_.at(i);
+    rows.push_back(Row{.kind = Kind::SearchPlaylists,
+                       .index = static_cast<int>(rows.size()),
+                       .text = "Search playlists for \"" + query_ + "\""});
+  };
 
-      // Playlist created by anyone tells who did it, as it may not be from the artist
-      std::string detail =
-          channel_.has_value() ? "" : ellipsize(release.info.uploader, kMaxUploaderColumns);
-      if (channel_.has_value() && release.tracks.has_value()) {
-        detail = std::to_string(release.tracks->size());
-      }
+  switch (level_) {
+    case Level::Artists:
+      for (int i = 0; i < static_cast<int>(artists_.size()); ++i) {
+        const auto& artist = artists_.at(i);
 
-      rows.push_back(
-          Row{.kind = Kind::Release, .index = i, .text = release.info.title, .detail = detail});
+        // Artists with the same name are told apart by a comment, otherwise it is better to show
+        // what they are and where they come from (comments are too long for the space available)
+        const bool homonym =
+            std::any_of(artists_.begin(), artists_.end(), [&artist](const auto& other) {
+              return &other != &artist && util::same_title(other.name, artist.name);
+            });
 
-      if (!release.expanded || !release.tracks.has_value()) continue;
+        std::string detail = homonym ? artist.disambiguation : "";
+        if (detail.empty()) {
+          detail = artist.type;
+          if (!detail.empty() && !artist.country.empty()) detail += " · ";
+          detail += artist.country;
+        }
 
-      for (int t = 0; t < static_cast<int>(release.tracks->size()); ++t) {
-        const auto& song = release.tracks->at(t);
-
-        // Tracks from a release are all from the same artist (unlike any other playlist)
-        const std::string title =
-            channel_.has_value() && !song.title.empty() ? song.title : song.GetTitle();
-
-        rows.push_back(Row{.kind = Kind::Track,
+        rows.push_back(Row{.kind = Kind::Artist,
                            .index = i,
-                           .track = t,
-                           .text = title,
-                           .detail = FormatDuration(song.duration)});
+                           .text = artist.name,
+                           .detail = ellipsize(detail, kMaxDetailColumns)});
       }
-    }
+
+      // Searching artists may fail (e.g. without network), but YouTube may still be searched
+      if (searched_) add_fallbacks(true);
+      break;
+
+    case Level::Channels:
+      for (int i = 0; i < static_cast<int>(channels_.size()); ++i) {
+        const auto& channel = channels_.at(i);
+        rows.push_back(Row{
+            .kind = Kind::Channel,
+            .index = i,
+            .text = channel.name + (channel.verified ? " ✓" : ""),
+            .detail = channel.followers ? FormatFollowers(*channel.followers) : "",
+        });
+      }
+
+      add_fallbacks(false);
+      break;
+
+    case Level::Releases:
+      for (int i = 0; i < static_cast<int>(releases_.size()); ++i) {
+        const auto& release = releases_.at(i);
+        if (release.extra && !show_all_) continue;
+
+        std::string detail;
+
+        switch (source_) {
+          case Source::Artist:
+            // Type is shown for anything that is not an album (e.g. "EP 2025")
+            detail = release.date.substr(0, kYearColumns);
+            if (!release.type.empty()) detail = release.type + (detail.empty() ? "" : " ") + detail;
+            break;
+
+          case Source::Channel:
+            if (release.tracks.has_value()) detail = std::to_string(release.tracks->size());
+            break;
+
+          case Source::Playlists:
+            // Playlist created by anyone tells who did it, as it may not be from the artist
+            detail = ellipsize(release.uploader, kMaxDetailColumns);
+            break;
+        }
+
+        rows.push_back(
+            Row{.kind = Kind::Release, .index = i, .text = release.title, .detail = detail});
+
+        if (!release.expanded || !release.tracks.has_value()) continue;
+
+        for (int t = 0; t < static_cast<int>(release.tracks->size()); ++t) {
+          const auto& song = release.tracks->at(t);
+
+          // Tracks from a release are all from the same artist (unlike any other playlist)
+          const std::string title =
+              source_ != Source::Playlists && !song.title.empty() ? song.title : song.GetTitle();
+
+          rows.push_back(Row{.kind = Kind::Track,
+                             .index = i,
+                             .track = t,
+                             .text = title,
+                             .detail = FormatDuration(song.duration)});
+        }
+      }
+      break;
   }
 
   menu_->SetEntries(rows);
@@ -521,38 +986,72 @@ ArtistBrowser::RowState ArtistBrowser::GetRowState(const Row& row) const {
   const auto& release = releases_.at(row.index);
   RowState state{.mark = Mark::None, .expanded = release.expanded};
 
+  // Release being loaded shows a spinner (and how many songs were found, while finding them)
   if (row.kind == Kind::Release && loading_ == row.index) {
-    state.detail = std::string{spinner_frame(job_.GetElapsed())};
+    std::string detail{spinner_frame(job_.GetElapsed())};
+    if (progress_total_ > 0) {
+      detail += " " + std::to_string(progress_) + "/" + std::to_string(progress_total_);
+    }
+
+    state.detail = detail;
   }
 
   if (!release.tracks.has_value() || !playlist_.contains) return state;
 
+  const auto& tracks = *release.tracks;
+  auto is_missing = [&release](size_t i) {
+    return i < release.missing.size() && release.missing[i];
+  };
+
   if (row.kind == Kind::Track) {
-    state.mark = playlist_.contains(release.tracks->at(row.track)) ? Mark::All : Mark::None;
+    const auto index = static_cast<size_t>(row.track);
+
+    if (is_missing(index)) {
+      state.mark = Mark::Missing;
+    } else if (playlist_.contains(tracks.at(index))) {
+      state.mark = Mark::All;
+    }
+
     return state;
   }
 
-  const auto& tracks = *release.tracks;
-  const auto added = std::count_if(tracks.begin(), tracks.end(), playlist_.contains);
+  // Tracks not found on YouTube cannot be added, so they are not counted
+  std::ptrdiff_t added = 0;
+  std::ptrdiff_t available = 0;
 
-  if (added > 0) {
-    state.mark = added == static_cast<std::ptrdiff_t>(tracks.size()) ? Mark::All : Mark::Some;
+  for (size_t i = 0; i < tracks.size(); ++i) {
+    if (is_missing(i)) continue;
+
+    available++;
+    if (playlist_.contains(tracks[i])) added++;
   }
+
+  if (added > 0) state.mark = added == available ? Mark::All : Mark::Some;
   return state;
 }
 
 /* ********************************************************************************************** */
 
 std::string ArtistBrowser::GetHeader() const {
-  if (level_ == Level::Releases && channel_.has_value()) {
-    const size_t count = releases_.size();
-    return channels_.at(*channel_).name + " · " + std::to_string(count) +
-           (count == 1 ? " release" : " releases");
+  if (level_ == Level::Releases && source_ != Source::Playlists && owner_.has_value()) {
+    const std::string& name =
+        source_ == Source::Artist ? artists_.at(*owner_).name : channels_.at(*owner_).name;
+    const int count = CountVisibleReleases();
+
+    return name + " · " + std::to_string(count) + (count == 1 ? " release" : " releases");
   }
 
   if (level_ == Level::Releases) return "Playlists for \"" + query_ + "\"";
+  if (level_ == Level::Channels) return "Channels for \"" + query_ + "\"";
 
   return "Artists for \"" + query_ + "\"";
+}
+
+/* ********************************************************************************************** */
+
+int ArtistBrowser::CountVisibleReleases() const {
+  return static_cast<int>(std::count_if(releases_.begin(), releases_.end(),
+                                        [this](const auto& r) { return show_all_ || !r.extra; }));
 }
 
 /* ********************************************************************************************** */

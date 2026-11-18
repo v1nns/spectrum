@@ -37,6 +37,7 @@
 #include "view/block/media_player.h"
 #include "view/block/sidebar.h"
 #include "view/element/style.h"
+#include "web/musicbrainz.h"
 
 namespace interface {
 
@@ -96,18 +97,39 @@ void Terminal::Init(const std::string& initial_path,
       driver::DummyStreamFetcher::ExtractPlaylist;
 #endif
 
-  // Callbacks to search an artist and list its releases (they also depend on an external program)
-  const ArtistBrowser::FetchCallbacks search_cbs{
-#ifndef SPECTRUM_DEBUG
-      .search_artists = driver::YtDlpWrapper::SearchArtists,
-      .fetch_releases = driver::YtDlpWrapper::ExtractReleases,
-      .search_playlists = driver::YtDlpWrapper::SearchPlaylists,
-#else
-      .search_artists = driver::DummyStreamFetcher::SearchArtists,
-      .fetch_releases = driver::DummyStreamFetcher::ExtractReleases,
-      .search_playlists = driver::DummyStreamFetcher::SearchPlaylists,
-#endif
+  // Callbacks to search an artist and list its releases on MusicBrainz, finding their songs on
+  // YouTube (or searching YouTube directly, which also depends on an external program)
+  std::shared_ptr<web::MusicBrainz> musicbrainz = web::MusicBrainz::Create();
+
+  ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [musicbrainz](const std::string& query, std::vector<model::Artist>& artists,
+                        const std::atomic<bool>* cancel) {
+            return musicbrainz->SearchArtists(query, artists, cancel);
+          },
+      .fetch_releases =
+          [musicbrainz](const std::string& id, std::vector<model::ReleaseGroup>& releases,
+                        const std::atomic<bool>* cancel) {
+            return musicbrainz->FetchReleases(id, releases, cancel);
+          },
+      .fetch_tracks =
+          [musicbrainz](const std::string& id, std::vector<model::Song>& tracks,
+                        const std::atomic<bool>* cancel) {
+            return musicbrainz->FetchTracks(id, tracks, cancel);
+          },
   };
+
+#ifndef SPECTRUM_DEBUG
+  search_cbs.match_songs = driver::YtDlpWrapper::MatchSongs;
+  search_cbs.search_channels = driver::YtDlpWrapper::SearchArtists;
+  search_cbs.fetch_channel_releases = driver::YtDlpWrapper::ExtractReleases;
+  search_cbs.search_playlists = driver::YtDlpWrapper::SearchPlaylists;
+#else
+  search_cbs.match_songs = driver::DummyStreamFetcher::MatchSongs;
+  search_cbs.search_channels = driver::DummyStreamFetcher::SearchArtists;
+  search_cbs.fetch_channel_releases = driver::DummyStreamFetcher::ExtractReleases;
+  search_cbs.search_playlists = driver::DummyStreamFetcher::SearchPlaylists;
+#endif
 
   // Create blocks
   auto sidebar =

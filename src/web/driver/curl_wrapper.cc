@@ -35,7 +35,7 @@ error::Code CURLWrapper::Fetch(const std::string &url, std::string &output) {
   // Set header configuration for accept type and user agent
   CURLHeaderGuard headers(curl_slist_append(nullptr, kAcceptType.data()), &curl_slist_free_all);
   curl_easy_setopt(curl.get(), CURLOPT_HTTPHEADER, headers.get());
-  curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, kUserAgent.data());
+  curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, user_agent_.c_str());
 
   // Configure buffer to write error message
   std::vector<char> err_buffer(CURL_ERROR_SIZE);

@@ -305,6 +305,7 @@ TEST_F(SidebarTest, NavigateToMockDir) {
   block->OnEvent(ftxui::Event::End);
   block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::ArrowUp);
+  block->OnEvent(ftxui::Event::ArrowUp);
   block->OnEvent(ftxui::Event::Return);
 
   ftxui::Render(*screen, block->Render());
@@ -1068,7 +1069,6 @@ TEST_F(SidebarTest, RunTextAnimation) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
@@ -1080,6 +1080,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
+│  web_musicbrainz.cc                │
 │▶ this_is_a_really_long_pathname_to_│
 ╰────────────────────────────────────╯)";
 
@@ -1098,7 +1099,6 @@ TEST_F(SidebarTest, RunTextAnimation) {
   expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  block_media_player.cc             │
 │  block_sidebar.cc                  │
 │  CMakeLists.txt                    │
 │  dialog_playlist.cc                │
@@ -1110,6 +1110,7 @@ TEST_F(SidebarTest, RunTextAnimation) {
 │  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
+│  web_musicbrainz.cc                │
 │▶ is_a_really_long_pathname_to_test.│
 ╰────────────────────────────────────╯)";
 
@@ -1253,7 +1254,6 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
   std::string expected = R"(
 ╭ F1:files  F2:playlist ─────────────╮
 │test                                │
-│  driver_ffmpeg.cc                  │
 │  driver_fftw.cc                    │
 │  driver_ytdlp.cc                   │
 │  general/                          │
@@ -1261,6 +1261,7 @@ TEST_F(SidebarTest, ScrollMenuOnBigList) {
 │  mock/                             │
 │  util_argparser.cc                 │
 │  util_file_handler.cc              │
+│  web_musicbrainz.cc                │
 │  some_music_0.mp3                  │
 │  some_music_1.mp3                  │
 │  some_music_2.mp3                  │

@@ -1,6 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
@@ -11,10 +12,11 @@
 #include <vector>
 
 #include "model/application_error.h"
+#include "model/artist_search.h"
 #include "model/song.h"
 #include "model/stream_info.h"
-#include "model/youtube_search.h"
 #include "nlohmann/json.hpp"
+#include "util/formatter.h"
 #include "util/url.h"
 #include "web/driver/ytdlp_wrapper.h"
 
@@ -70,6 +72,18 @@ class YtDlpWrapperTest : public ::testing::Test {
                                    std::vector<model::YoutubeRelease>& releases) {
     return driver::YtDlpWrapper::ParseReleases(
         nlohmann::json::parse(info, nullptr, /*allow_exceptions=*/false), releases);
+  }
+
+  //! Pick result from song search with the same title
+  static std::optional<std::string> PickByTitle(const std::string& entries,
+                                                const std::string& title) {
+    return driver::YtDlpWrapper::PickByTitle(nlohmann::json::parse(entries), title);
+  }
+
+  //! Pick result from song search with the closest duration
+  static std::optional<std::string> PickByDuration(const std::string& entries,
+                                                   const std::string& title, uint32_t duration) {
+    return driver::YtDlpWrapper::PickByDuration(nlohmann::json::parse(entries), title, duration);
   }
 
   //! Fill song with streaming information from the given entry
@@ -587,6 +601,67 @@ TEST_F(YtDlpWrapperTest, ParseReleasesAndPlaylists) {
 
 /* ********************************************************************************************** */
 
+TEST_F(YtDlpWrapperTest, CompareTitlesFromDifferentSources) {
+  // Typographic punctuation, case and spaces do not matter
+  EXPECT_TRUE(util::same_title("Takk…", "Takk..."));
+  EXPECT_TRUE(util::same_title("Svefn‐g‐englar", "svefn-g-englar"));
+  EXPECT_TRUE(util::same_title("Odin’s  Raven Magic", "Odin's Raven Magic"));
+  EXPECT_FALSE(util::same_title("Ágætis byrjun", "Agaetis byrjun"));
+
+  // Text in brackets only matters when it is not relaxed
+  EXPECT_FALSE(util::same_title("Refur (2025 remaster)", "Refur"));
+  EXPECT_TRUE(util::same_title("Refur (2025 remaster)", "Refur", /*relaxed=*/true));
+  EXPECT_TRUE(util::same_title("Refur", "Refur [Official Audio]", /*relaxed=*/true));
+
+  // But it does when both have it, as it tells apart different songs
+  EXPECT_FALSE(util::same_title("Song (Part 1)", "Song (Part 2)", /*relaxed=*/true));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, PickSongByTitle) {
+  // Based on output from yt-dlp searching songs on YouTube Music (only title, no duration)
+  const std::string entries = R"json([
+    {"id": "KuZtccJTNlM", "title": "Hoppípolla (Live)"},
+    {"id": "L2eURgrgtiY", "title": "Hoppípolla"},
+    {"id": "PwfYZgEhxgY", "title": "Brennisteinn"},
+    {"title": "Glósóli"}
+  ])json";
+
+  // Exact title is preferred over any other version
+  EXPECT_THAT(PickByTitle(entries, "Hoppípolla"), Eq("L2eURgrgtiY"));
+  EXPECT_THAT(PickByTitle(entries, "Brennisteinn (2013 remaster)"), Eq("PwfYZgEhxgY"));
+
+  // Song search always lists something, even when it is not the song searched
+  EXPECT_THAT(PickByTitle(entries, "Sæglópur"), Eq(std::nullopt));
+  EXPECT_THAT(PickByTitle(entries, "Glósóli"), Eq(std::nullopt));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpWrapperTest, PickSongByDuration) {
+  // Based on output from yt-dlp searching videos on YouTube (only relevant fields)
+  const std::string entries = R"json([
+    {"id": "video", "title": "Sigur Rós - Glósóli [Official Music Video]", "duration": 374},
+    {"id": "live", "title": "Sigur Rós - Glósóli (Live in Ólafsvík)", "duration": 368},
+    {"id": "fan", "title": "Glósóli", "duration": 380.0},
+    {"id": "unknown", "title": "Glósóli"}
+  ])json";
+
+  // Closest duration, skipping live versions
+  EXPECT_THAT(PickByDuration(entries, "Glósóli", 370), Eq("video"));
+  EXPECT_THAT(PickByDuration(entries, "Glósóli", 381), Eq("fan"));
+
+  // Unless song is also live
+  EXPECT_THAT(PickByDuration(entries, "Glósóli (live)", 368), Eq("live"));
+
+  // Too far from expected duration (or duration is unknown)
+  EXPECT_THAT(PickByDuration(entries, "Glósóli", 300), Eq(std::nullopt));
+  EXPECT_THAT(PickByDuration(entries, "Glósóli", 0), Eq(std::nullopt));
+}
+
+/* ********************************************************************************************** */
+
 /**
  * @brief Tests with YtDlpWrapper class running an external program: a script named as yt-dlp,
  * which is the only program found in PATH (so nothing is fetched from network)
@@ -688,6 +763,10 @@ TEST_F(YtDlpProgramTest, ProgramNotFound) {
   EXPECT_EQ(driver::YtDlpWrapper::SearchArtists("radiohead", channels),
             error::kStreamFetcherNotFound);
   EXPECT_THAT(channels, IsEmpty());
+
+  std::vector<model::Song> tracks{model::Song{.artist = "Sigur Rós", .title = "Glósóli"}};
+  EXPECT_EQ(driver::YtDlpWrapper::MatchSongs(tracks), error::kStreamFetcherNotFound);
+  EXPECT_FALSE(tracks[0].stream_info.has_value());
 
   // File that cannot be executed is not used
   std::ofstream(dir / "yt-dlp") << "#!/bin/sh\n";
@@ -1035,6 +1114,113 @@ printf '%s' '{"entries": [
   InstallProgram(
       R"sh(echo "ERROR: [youtube:tab] Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
   EXPECT_EQ(driver::YtDlpWrapper::ExtractReleases("UCq1", releases), error::kStreamBlocked);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, MatchSongs) {
+  // Script prints one line for each search, telling what was searched (only a few results)
+  InstallProgram("echo \"$*\" >> " + (dir / "calls").string() + R"sh(
+case "$*" in *"--playlist-end 3 --"*) ;; *) exit 2 ;; esac
+found=0
+for arg in "$@"; do
+  if [ "$found" = 1 ]; then
+    case "$arg" in
+      *music.youtube.com*Hopp*) entries='{"id": "hop", "title": "Hoppípolla"}' ;;
+      *music.youtube.com*) entries='{"id": "other", "title": "Something else"}' ;;
+      ytsearch3:*Gl*) entries='{"id": "glo", "title": "Glósóli (Official)", "duration": 374}' ;;
+      *) entries='{"id": "far", "title": "Far away", "duration": 10}' ;;
+    esac
+    printf '{"original_url": "%s", "entries": [%s]}
+' "$arg" "$entries"
+  fi
+  [ "$arg" = "--" ] && found=1
+done
+exit 0)sh");
+
+  std::vector<model::Song> songs{
+      model::Song{.artist = "Sigur Rós", .title = "Hoppípolla", .duration = 268},
+      model::Song{.artist = "Sigur Rós", .title = "Glósóli", .duration = 370},
+      model::Song{.artist = "Sigur Rós", .title = "Sæglópur", .duration = 466},
+      model::Song{.artist = "Sigur Rós",
+                  .title = "Found before",
+                  .stream_info = model::StreamInfo{.base_url = "https://youtu.be/before"}},
+  };
+
+  std::atomic<int> progress = 0;
+  ASSERT_EQ(driver::YtDlpWrapper::MatchSongs(songs, &progress), error::kSuccess);
+
+  // First song is found on YouTube Music, second on YouTube itself and third is not found at all
+  ASSERT_TRUE(songs[0].stream_info.has_value());
+  EXPECT_THAT(songs[0].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=hop"));
+
+  ASSERT_TRUE(songs[1].stream_info.has_value());
+  EXPECT_THAT(songs[1].stream_info->base_url, StrEq("https://www.youtube.com/watch?v=glo"));
+
+  EXPECT_FALSE(songs[2].stream_info.has_value());
+
+  // Song found before is not searched again
+  EXPECT_THAT(songs[3].stream_info->base_url, StrEq("https://youtu.be/before"));
+  EXPECT_EQ(progress, 3);
+
+  // Each program searches its share of songs (one for each), first on YouTube Music and then on
+  // YouTube for songs that were not found there
+  auto calls = GetCalls();
+  std::sort(calls.begin(), calls.end());
+
+  const std::string music = "https://music.youtube.com/search?q=Sigur%20R%C3%B3s%20";
+  EXPECT_THAT(calls, ElementsAre(HasSubstr("-- " + music + "Gl%C3%B3s%C3%B3li#songs"),
+                                 HasSubstr("-- " + music + "Hopp%C3%ADpolla#songs"),
+                                 HasSubstr("-- " + music + "S%C3%A6gl%C3%B3pur#songs"),
+                                 HasSubstr("-- ytsearch3:Sigur Rós Glósóli"),
+                                 HasSubstr("-- ytsearch3:Sigur Rós Sæglópur")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, MatchSongsInFewPrograms) {
+  // Every program prints how many songs it searched
+  InstallProgram("echo \"$*\" >> " + (dir / "calls").string());
+
+  std::vector<model::Song> songs;
+  for (int i = 0; i < 7; ++i) {
+    songs.push_back(model::Song{.artist = "Artist", .title = "Song " + std::to_string(i)});
+  }
+
+  ASSERT_EQ(driver::YtDlpWrapper::MatchSongs(songs), error::kSuccess);
+
+  // Only a few programs run at the same time (each one with more than one song)
+  auto calls = GetCalls();
+  EXPECT_EQ(calls.size(), 6);  // Three on YouTube Music, then three on YouTube
+
+  auto count = [](const std::string& call, const std::string& text) {
+    size_t found = 0;
+    for (size_t pos = call.find(text); pos != std::string::npos; pos = call.find(text, pos + 1)) {
+      found++;
+    }
+    return found;
+  };
+
+  size_t searched = 0;
+  for (const auto& call : calls) searched += count(call, "music.youtube.com");
+  EXPECT_EQ(searched, songs.size());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(YtDlpProgramTest, MatchSongsStopsWhenRefused) {
+  InstallProgram("echo \"$*\" >> " + (dir / "calls").string() + R"sh(
+echo "ERROR: [youtube] Sign in to confirm you’re not a bot. Use" >&2; exit 1)sh");
+
+  std::vector<model::Song> songs{model::Song{.artist = "Artist", .title = "First"},
+                                 model::Song{.artist = "Artist", .title = "Second"}};
+
+  // Nobody keeps searching after a request is refused (it would be refused again)
+  EXPECT_EQ(driver::YtDlpWrapper::MatchSongs(songs), error::kStreamBlocked);
+  EXPECT_FALSE(songs[0].stream_info.has_value());
+  EXPECT_FALSE(songs[1].stream_info.has_value());
+
+  for (const auto& call : GetCalls()) EXPECT_THAT(call, Not(HasSubstr("ytsearch3:")));
 }
 
 /* ********************************************************************************************** */

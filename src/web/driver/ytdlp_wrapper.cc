@@ -9,8 +9,10 @@
 #include <iterator>
 #include <optional>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -187,6 +189,214 @@ error::Code YtDlpWrapper::SearchPlaylists(const std::string& query,
 
 /* ********************************************************************************************** */
 
+error::Code YtDlpWrapper::MatchSongs(std::vector<model::Song>& songs, std::atomic<int>* progress,
+                                     const std::atomic<bool>* cancel) {
+  // Songs found before are not searched again
+  std::vector<size_t> pending;
+  for (size_t i = 0; i < songs.size(); ++i) {
+    if (!songs[i].stream_info.has_value()) pending.push_back(i);
+  }
+
+  INFO("Match songs on YouTube, pending=", pending.size(), " total=", songs.size());
+  if (pending.empty()) return error::kSuccess;
+
+  auto program = util::FindExecutable(std::string{kProgram});
+
+  if (!program) {
+    WARN("Cannot find ", kProgram, " in PATH to match songs");
+    return error::kStreamFetcherNotFound;
+  }
+
+  // Programs stop as soon as one of them is refused (or user cancels it)
+  std::atomic<bool> stop = false;
+  std::atomic<error::Code> failure = error::kSuccess;
+
+  auto set_url = [&songs](size_t index, const std::string& id) {
+    songs[index].stream_info =
+        model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=" + id};
+  };
+
+  // Each worker searches its own share of songs (and only writes to them)
+  auto worker = [&](const std::vector<size_t>& share) {
+    auto search = [&](const std::vector<size_t>& indexes, auto make_url) {
+      std::vector<std::string> urls;
+      for (size_t index : indexes) urls.push_back(make_url(songs[index]));
+
+      std::map<std::string, nlohmann::json> results;
+      error::Code result = Search(program->string(), urls, results, &stop);
+
+      // Refused requests would only be refused again, so everybody stops
+      if (result == error::kStreamBlocked || result == error::kStreamBlockedWithCookies ||
+          result == error::kStreamCookiesFailed) {
+        failure = result;
+        stop = true;
+      }
+
+      return results;
+    };
+
+    // First, on YouTube Music (audio only, without any intro from music video)
+    auto music_url = [](const model::Song& song) {
+      return std::string{kMusicSearchUrl} + util::EncodeUrlQuery(song.artist + " " + song.title) +
+             std::string{kMusicSongsSection};
+    };
+
+    auto results = search(share, music_url);
+    std::vector<size_t> missing;
+
+    for (size_t index : share) {
+      auto it = results.find(music_url(songs[index]));
+      auto id = it != results.end() ? PickByTitle(it->second, songs[index].title) : std::nullopt;
+
+      if (!id) {
+        missing.push_back(index);
+        continue;
+      }
+
+      set_url(index, *id);
+      if (progress != nullptr) ++*progress;
+    }
+
+    if (missing.empty() || stop) return;
+
+    // Then, on YouTube itself
+    auto video_url = [](const model::Song& song) {
+      return std::string{kVideoSearchPrefix} + song.artist + " " + song.title;
+    };
+
+    results = search(missing, video_url);
+
+    for (size_t index : missing) {
+      auto it = results.find(video_url(songs[index]));
+      if (auto id = it != results.end()
+                        ? PickByDuration(it->second, songs[index].title, songs[index].duration)
+                        : std::nullopt;
+          id) {
+        set_url(index, *id);
+      }
+
+      if (progress != nullptr) ++*progress;
+    }
+  };
+
+  // Split songs between workers, so each one runs a single program for all of its songs
+  const size_t num_workers = std::min(pending.size(), static_cast<size_t>(kMaxParallelSearches));
+  std::vector<std::vector<size_t>> shares(num_workers);
+
+  for (size_t i = 0; i < pending.size(); ++i) shares[i % num_workers].push_back(pending[i]);
+
+  std::vector<std::thread> workers;
+  for (const auto& share : shares) workers.emplace_back(worker, share);
+
+  // Keep watching if user has canceled it
+  std::thread watcher([&stop, cancel] {
+    while (!stop) {
+      if (cancel != nullptr && *cancel) stop = true;
+      std::this_thread::sleep_for(kCancelCheckInterval);
+    }
+  });
+
+  for (auto& thread : workers) thread.join();
+
+  const bool canceled = cancel != nullptr && *cancel;
+  stop = true;
+  watcher.join();
+
+  const auto found = std::count_if(songs.begin(), songs.end(),
+                                   [](const model::Song& song) { return song.stream_info; });
+  INFO("Matched songs on YouTube, found=", found, " total=", songs.size(), " canceled=", canceled,
+       " failure=", failure.load());
+
+  if (canceled) return error::kStreamFetchFailed;
+  return failure;
+}
+
+/* ********************************************************************************************** */
+
+error::Code YtDlpWrapper::Search(const std::string& program,
+                                 const std::vector<std::string>& searches,
+                                 std::map<std::string, nlohmann::json>& results,
+                                 const std::atomic<bool>* cancel) {
+  std::string output;
+  std::vector<std::string> options{"--flat-playlist", "--dump-single-json", "--no-warnings",
+                                   "--playlist-end", std::to_string(kSongMaxResults)};
+
+  if (error::Code result = Run(program, options, searches, output, cancel);
+      result != error::kSuccess) {
+    return result;
+  }
+
+  // Each search is printed in its own line, which tells what was searched
+  std::istringstream lines{output};
+
+  for (std::string line; std::getline(lines, line);) {
+    auto info = nlohmann::json::parse(line, nullptr, /*allow_exceptions=*/false);
+    auto entries = info.is_object() ? info.find("entries") : info.end();
+
+    if (entries == info.end() || !entries->is_array()) continue;
+
+    results[GetOr<std::string>(info, "original_url", "")] = *entries;
+  }
+
+  return error::kSuccess;
+}
+
+/* ********************************************************************************************** */
+
+std::optional<std::string> YtDlpWrapper::PickByTitle(const nlohmann::json& entries,
+                                                     const std::string& title) {
+  if (!entries.is_array()) return std::nullopt;
+
+  // Try exact title first, as text in brackets may tell apart another version of the same song
+  for (bool relaxed : {false, true}) {
+    for (const auto& entry : entries) {
+      const std::string id = GetOr<std::string>(entry, "id", "");
+      const std::string found = GetOr<std::string>(entry, "title", "");
+
+      if (!id.empty() && util::same_title(found, title, relaxed)) return id;
+    }
+  }
+
+  return std::nullopt;
+}
+
+/* ********************************************************************************************** */
+
+std::optional<std::string> YtDlpWrapper::PickByDuration(const nlohmann::json& entries,
+                                                        const std::string& title,
+                                                        uint32_t duration) {
+  if (!entries.is_array() || duration == 0) return std::nullopt;
+
+  auto is_live = [](const std::string& text) {
+    static const std::regex kLive(R"(\blive\b)", std::regex::icase);
+    return std::regex_search(text, kLive);
+  };
+
+  const bool live = is_live(title);
+
+  std::optional<std::string> picked;
+  uint32_t smallest = kMaxDurationDifference + 1;
+
+  for (const auto& entry : entries) {
+    const std::string id = GetOr<std::string>(entry, "id", "");
+    const auto found = static_cast<uint32_t>(GetOr<double>(entry, "duration", 0));
+
+    if (id.empty() || found == 0) continue;
+    if (!live && is_live(GetOr<std::string>(entry, "title", ""))) continue;
+
+    const uint32_t difference = found > duration ? found - duration : duration - found;
+
+    if (difference < smallest) {
+      smallest = difference;
+      picked = id;
+    }
+  }
+
+  return picked;
+}
+
+/* ********************************************************************************************** */
+
 error::Code YtDlpWrapper::ListEntries(
     const std::string& url, int max_entries,
     const std::function<error::Code(const nlohmann::json&)>& parse,
@@ -206,7 +416,7 @@ error::Code YtDlpWrapper::ListEntries(
     options.insert(options.end(), {"--playlist-end", std::to_string(max_entries)});
   }
 
-  if (error::Code result = Run(program->string(), options, url, output, cancel);
+  if (error::Code result = Run(program->string(), options, {url}, output, cancel);
       result != error::kSuccess) {
     return result;
   }
@@ -348,8 +558,12 @@ void YtDlpWrapper::SetCookiesFromBrowser(const std::string& browser) {
 /* ********************************************************************************************** */
 
 error::Code YtDlpWrapper::Run(const std::string& program, const std::vector<std::string>& options,
-                              const std::string& url, std::string& output,
+                              const std::vector<std::string>& urls, std::string& output,
                               const std::atomic<bool>* cancel) {
+  // Only used for logging
+  std::string url;
+  for (const auto& entry : urls) url += (url.empty() ? "" : " ") + entry;
+
   auto execute = [&](bool with_cookies) {
     std::vector<std::string> args{program};
     args.insert(args.end(), options.begin(), options.end());
@@ -357,7 +571,9 @@ error::Code YtDlpWrapper::Run(const std::string& program, const std::vector<std:
     // Browser is a single argument, so program is the only one to make sense of its content
     if (with_cookies) args.insert(args.end(), {std::string{kOptionCookies}, cookies_browser_});
 
-    args.insert(args.end(), {"--", url});
+    args.emplace_back("--");
+    args.insert(args.end(), urls.begin(), urls.end());
+
     auto result = util::RunProcess(args, kTimeout, cancel);
 
     if (result && result->exit_code == 0) {
@@ -465,8 +681,9 @@ error::Code YtDlpWrapper::ExtractInfo(model::Song& song) {
   const std::string& url = song.stream_info->base_url;
   std::string output;
 
-  if (error::Code result = Run(
-          program->string(), {"--dump-single-json", "--no-playlist", "--no-warnings"}, url, output);
+  if (error::Code result =
+          Run(program->string(), {"--dump-single-json", "--no-playlist", "--no-warnings"}, {url},
+              output);
       result != error::kSuccess) {
     return result;
   }

@@ -37,7 +37,8 @@ target_sources(
           driver_ytdlp.cc
           middleware_media_controller.cc
           util_argparser.cc
-          util_file_handler.cc)
+          util_file_handler.cc
+          web_musicbrainz.cc)
 
 target_link_libraries(test PRIVATE GTest::gtest GTest::gmock GTest::gtest_main
                                    spectrum_lib nlohmann_json::nlohmann_json)

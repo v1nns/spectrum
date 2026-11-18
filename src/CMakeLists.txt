@@ -149,7 +149,9 @@ target_sources(
           util/loop_waker.cc
           util/process.cc
           util/remote.cc
-          util/sink.cc)
+          util/sink.cc
+          # web
+          web/musicbrainz.cc)
 
 target_include_directories(
   spectrum_lib

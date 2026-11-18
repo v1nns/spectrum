@@ -174,6 +174,7 @@ struct Playlist {
 
   static Key ShowFiles;
   static Key ShowYoutube;
+  static Key ShowAllReleases;  //!< Show every release type from artist (e.g. live, compilation)
 
   static Key PreviousPlaylist;
   static Key NextPlaylist;

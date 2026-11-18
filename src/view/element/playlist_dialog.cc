@@ -147,7 +147,7 @@ PlaylistDialog::PlaylistDialog(const std::shared_ptr<EventDispatcher>& dispatche
                                  [this](const std::string& url) { return SubmitUrl(url); });
 
   // Songs from releases are listed just like those from any other playlist
-  if (!search_cbs_.fetch_tracks) search_cbs_.fetch_tracks = fetch_playlist_cb_;
+  if (!search_cbs_.fetch_playlist) search_cbs_.fetch_playlist = fetch_playlist_cb_;
 
   browser_ = std::make_unique<ArtistBrowser>(
       dispatcher, search_cbs_,

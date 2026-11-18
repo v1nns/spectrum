@@ -17,8 +17,8 @@
 #include <vector>
 
 #include "model/application_error.h"
+#include "model/artist_search.h"
 #include "model/song.h"
-#include "model/youtube_search.h"
 #include "nlohmann/json_fwd.hpp"
 #include "util/logger.h"
 #include "web/base/stream_fetcher.h"
@@ -61,6 +61,26 @@ class YtDlpWrapper : public web::StreamFetcher {
   //! Filters added to search URL, to find only channels or only playlists
   static constexpr std::string_view kChannelsFilter = "&sp=EgIQAg%3D%3D";
   static constexpr std::string_view kPlaylistsFilter = "&sp=EgIQAw%3D%3D";
+
+  //! Maximum programs running at the same time to find songs (more of them would make YouTube
+  //! refuse requests sooner, taking them as coming from a bot)
+  static constexpr int kMaxParallelSearches = 3;
+
+  //! Maximum results listed when searching for a single song
+  static constexpr int kSongMaxResults = 3;
+
+  //! Maximum difference from expected duration for a video to be taken as the song searched
+  static constexpr uint32_t kMaxDurationDifference = 10;
+
+  //! Base URL to search songs on YouTube Music (followed by the text to search and section)
+  static constexpr std::string_view kMusicSearchUrl = "https://music.youtube.com/search?q=";
+  static constexpr std::string_view kMusicSongsSection = "#songs";
+
+  //! Prefix to search videos on YouTube, listing a few results (followed by the text to search)
+  static constexpr std::string_view kVideoSearchPrefix = "ytsearch3:";
+
+  //! Interval to check if searching songs must be canceled
+  static constexpr std::chrono::milliseconds kCancelCheckInterval{50};
 
  public:
   /**
@@ -155,6 +175,21 @@ class YtDlpWrapper : public web::StreamFetcher {
                                      const std::atomic<bool>* cancel = nullptr);
 
   /**
+   * @brief Find each song on YouTube, from its artist, title and duration (e.g. songs from an album
+   * listed by MusicBrainz). Song is first searched on YouTube Music (whose results are audio only,
+   * matched by title), then on YouTube itself (matched by duration). Searches are split between a
+   * few programs running at the same time, and all of them stop on the first refused request
+   * @param songs Songs to find (out), whose streaming URL is filled when found (songs that already
+   * have one are skipped)
+   * @param progress Number of songs already searched (out, optional)
+   * @param cancel Flag to cancel search while it is running (optional)
+   * @return Error code from operation (success even when some songs are not found)
+   */
+  static error::Code MatchSongs(std::vector<model::Song>& songs,
+                                std::atomic<int>* progress = nullptr,
+                                const std::atomic<bool>* cancel = nullptr);
+
+  /**
    * @brief Set browser whose cookies are sent to site when it refuses requests (asking for a login
    * to prove that they do not come from a bot). Cookies are read by yt-dlp itself, and only after a
    * request is refused; from then on, they are sent by every request. It must be set before any
@@ -208,14 +243,14 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @brief Run program to extract information from URL. When site refuses the request and there is
    * a browser to read cookies from, program is executed once more to send them
    * @param program Full path to program
-   * @param options Options for program (URL is always the last argument)
-   * @param url URL to extract information from
+   * @param options Options for program (URLs are always the last arguments)
+   * @param urls URLs to extract information from (each one printed in a line, when it is JSON)
    * @param output Content written by program to standard output (out)
    * @param cancel Flag to cancel program while it is running (optional)
    * @return Error code from operation (with the reason for program to fail, when it is known)
    */
   static error::Code Run(const std::string& program, const std::vector<std::string>& options,
-                         const std::string& url, std::string& output,
+                         const std::vector<std::string>& urls, std::string& output,
                          const std::atomic<bool>* cancel = nullptr);
 
   /**
@@ -275,6 +310,41 @@ class YtDlpWrapper : public web::StreamFetcher {
   static error::Code ListEntries(const std::string& url, int max_entries,
                                  const std::function<error::Code(const nlohmann::json&)>& parse,
                                  const std::atomic<bool>* cancel);
+
+  /**
+   * @brief Run program once to search all the given texts (or URLs from a search), listing a few
+   * results for each one of them
+   * @param program Full path to program
+   * @param searches URLs (or prefixed texts) to search
+   * @param results Results for each search, by its URL (out)
+   * @param cancel Flag to cancel program while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code Search(const std::string& program, const std::vector<std::string>& searches,
+                            std::map<std::string, nlohmann::json>& results,
+                            const std::atomic<bool>* cancel);
+
+  /**
+   * @brief Pick the result whose title is the same as the song title (ignoring case and
+   * typographic punctuation, and then also text in brackets from only one of them, like
+   * "(Remastered)")
+   * @param entries Results from search
+   * @param title Song title
+   * @return Identifier of the video picked (or nothing, if none of them has the same title)
+   */
+  static std::optional<std::string> PickByTitle(const nlohmann::json& entries,
+                                                const std::string& title);
+
+  /**
+   * @brief Pick the result whose duration is the closest to song duration (up to a few seconds of
+   * difference), skipping live versions when song is not one
+   * @param entries Results from search
+   * @param title Song title
+   * @param duration Song duration (in seconds)
+   * @return Identifier of the video picked (or nothing, if none of them is close enough)
+   */
+  static std::optional<std::string> PickByDuration(const nlohmann::json& entries,
+                                                   const std::string& title, uint32_t duration);
 
   /**
    * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title

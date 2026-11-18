@@ -16,6 +16,7 @@ void YoutubeMenu::UpdateStyleImpl() {
 
   style_ = Style{
       .mark = ftxui::color(theme.dialog.menu_tag) | ftxui::bold,
+      .missing = ftxui::color(theme.dialog.error) | ftxui::bold,
       .detail = ftxui::color(theme.dialog.hint),
       .fallback = ftxui::color(theme.dialog.hint),
       .entry = Colored(theme.dialog.menu_song),
@@ -48,7 +49,8 @@ ftxui::Element YoutubeMenu::RenderImpl() {
     ftxui::Decorator style = is_selected ? (is_focused ? type.selected_focused : type.selected)
                                          : (is_focused ? type.focused : type.normal);
 
-    if (entry.kind == Kind::Fallback && !is_selected && !is_focused) style = style_.fallback;
+    const bool fallback = entry.kind == Kind::SearchChannels || entry.kind == Kind::SearchPlaylists;
+    if (fallback && !is_selected && !is_focused) style = style_.fallback;
 
     // Release has an arrow telling whether it is expanded, and its tracks are indented below it
     std::string lead;
@@ -57,20 +59,33 @@ ftxui::Element YoutubeMenu::RenderImpl() {
 
     std::string mark;
     if (state.mark.has_value()) {
-      mark = *state.mark == Mark::All ? "[x] " : *state.mark == Mark::Some ? "[~] " : "[ ] ";
+      switch (*state.mark) {
+        case Mark::None:
+          mark = "[ ] ";
+          break;
+        case Mark::Some:
+          mark = "[~] ";
+          break;
+        case Mark::All:
+          mark = "[x] ";
+          break;
+        case Mark::Missing:
+          mark = "[!] ";
+          break;
+      }
     }
 
     const std::string detail = state.detail.value_or(entry.detail);
 
-    menu_entries.push_back(ftxui::hbox({
-                               RenderPrefix(is_selected),
-                               ftxui::text(lead) | style_.detail,
-                               ftxui::text(mark) | style_.mark,
-                               ellipsized_text(entry.text, 1) | style | ftxui::xflex,
-                               ftxui::text(detail.empty() ? "" : " " + detail) | style_.detail,
-                           }) |
-                           max_size | (is_focused ? ftxui::select : ftxui::nothing) |
-                           ftxui::reflect(boxes[i]));
+    menu_entries.push_back(
+        ftxui::hbox({
+            RenderPrefix(is_selected),
+            ftxui::text(lead) | style_.detail,
+            ftxui::text(mark) | (state.mark == Mark::Missing ? style_.missing : style_.mark),
+            ellipsized_text(entry.text, 1) | style | ftxui::xflex,
+            ftxui::text(detail.empty() ? "" : " " + detail) | style_.detail,
+        }) |
+        max_size | (is_focused ? ftxui::select : ftxui::nothing) | ftxui::reflect(boxes[i]));
   }
 
   // Box is the whole space for entries (even when empty), so mouse wheel works anywhere on it
