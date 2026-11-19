@@ -43,6 +43,7 @@ class ListeningStatistics : public TabItem {
   static constexpr uint64_t kSaveInterval = 300000;
 
   static constexpr int kFieldColumns = 16;  //!< Columns for the name of each stat
+  static constexpr int kPlaysColumns = 5;   //!< Columns for times played on top lists
   static constexpr int kTimeColumns = 11;   //!< Columns for time listened on top lists
   static constexpr int kColumnGap = 3;      //!< Columns between both top lists (and other columns)
   static constexpr int kHourLabelStep = 6;  //!< Hours between each label below hours listened
@@ -148,7 +149,7 @@ class ListeningStatistics : public TabItem {
   ftxui::Element DrawHours(const model::ListeningStats& stats) const;
 
   /**
-   * @brief Renders lists with artists and songs listened to the most
+   * @brief Renders lists with artists, songs and playlists listened to the most
    * @param stats Stats to show
    * @return UI element
    */
@@ -162,6 +163,7 @@ class ListeningStatistics : public TabItem {
     std::string key;           //!< Song identifier (filepath or URL)
     std::string artist;        //!< Song artist
     std::string title;         //!< Song title (or filename/URL, when it has no title)
+    std::string playlist;      //!< Name of playlist that song is played from (empty if none)
     bool from_url = false;     //!< Song is played from URL
     uint64_t listened_ms = 0;  //!< Time listened to it (in milliseconds)
     bool played = false;       //!< Song was already counted as played

@@ -684,6 +684,20 @@ bool FileHandler::ParseStats(model::ListeningStats& stats) {
     }
   }
 
+  if (auto playlists = parsed.find("playlists");
+      playlists != parsed.end() && playlists->is_array()) {
+    for (const auto& playlist : *playlists) {
+      if (!playlist.is_object() || !playlist.contains("name") || !playlist["name"].is_string()) {
+        continue;
+      }
+
+      model::ListeningStats::Counts entry;
+      internal::ReadUnsigned(playlist, "listened_ms", entry.listened_ms);
+      internal::ReadUnsigned(playlist, "plays", entry.plays);
+      tmp.playlists[playlist["name"].get<std::string>()] = entry;
+    }
+  }
+
   // Hours are only filled when there is one list for each weekday with a value for each hour
   auto is_list = [](const nlohmann::json& value, std::size_t size) {
     return value.is_array() && value.size() == size;
@@ -727,6 +741,13 @@ bool FileHandler::SaveStats(const model::ListeningStats& stats) {
                           {"plays", song.plays}});
   }
 
+  nlohmann::json json_playlists = nlohmann::json::array();
+
+  for (const auto& [name, playlist] : stats.playlists) {
+    json_playlists.push_back(
+        {{"name", name}, {"listened_ms", playlist.listened_ms}, {"plays", playlist.plays}});
+  }
+
   nlohmann::json json_data{{"since", stats.since},
                            {"listened_ms", stats.listened_ms},
                            {"local_ms", stats.local_ms},
@@ -736,6 +757,7 @@ bool FileHandler::SaveStats(const model::ListeningStats& stats) {
                            {"songs_skipped", stats.songs_skipped},
                            {"stream_bytes", stats.stream_bytes},
                            {"songs", json_songs},
+                           {"playlists", json_playlists},
                            {"hours", stats.hours},
                            {"streak",
                             {{"day", stats.streak.day},

@@ -4004,9 +4004,12 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   // Song lyrics are also searched for each song
   EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
 
-  // Song from file played until its end
-  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
-      .filepath = "/music/song.mp3", .artist = "Artist", .title = "Song", .duration = 120}));
+  // Song from file (and from a playlist) played until its end
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = "/music/song.mp3",
+                                                             .artist = "Artist",
+                                                             .title = "Song",
+                                                             .playlist = "Chill",
+                                                             .duration = 120}));
   ListenToSong(0, 1000);
 
   // Seek and pause are not listened to
@@ -4043,6 +4046,10 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
     EXPECT_EQ(stats.local_ms, 1100);
     EXPECT_EQ(stats.stream_ms, 500);
     EXPECT_EQ(stats.stream_bytes, 4096);
+
+    // Song from URL is not from any playlist
+    EXPECT_EQ(stats.playlists, (std::map<std::string, model::ListeningStats::Counts>{
+                                   {"Chill", {.listened_ms = 1100, .plays = 1}}}));
   }
 
   EXPECT_EQ(stats_file, GetStats());
@@ -4063,12 +4070,16 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
     rendered = RenderScreen();
   }
 
-  EXPECT_THAT(rendered, HasSubstr("1. Artist"));
-  EXPECT_THAT(rendered, HasSubstr("1. Song · Artist"));
+  // Each entry shows times played and time listened
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Artist"), HasSubstr("1×        1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Song · Artist"), HasSubstr("1×        1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "2. Mix"), HasSubstr("0×        0 s"));
   EXPECT_THAT(rendered, Not(HasSubstr("all time")));
 
-  // Scrolled until last row from content, right above block border
-  EXPECT_THAT(rendered, HasSubstr(RenderedRowWith(rendered, "2. Mix") + "\n╰"));
+  // Scrolled until last row from content (playlists, below artists), right above block border
+  EXPECT_THAT(rendered, HasSubstr("Top playlists"));
+  EXPECT_THAT(rendered, HasSubstr(RenderedRowWith(rendered, "1. Chill") + "\n╰"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Chill"), HasSubstr("1×        1 s"));
 
   // And back to the top
   EXPECT_TRUE(block->OnEvent(ftxui::Event::ArrowUp));
@@ -4260,9 +4271,16 @@ TEST_F(MainContentTest, ToggleListeningStatsScope) {
   std::string rendered = RenderScreen();
   EXPECT_THAT(rendered, HasSubstr("Time listened   2 h"));
 
-  // Saved before hours and streak were counted
+  // Saved before hours, streak and playlists were counted
   EXPECT_THAT(rendered, HasSubstr("Counted from now on"));
   EXPECT_THAT(rendered, Not(HasSubstr("Streak")));
+
+  while (block->OnEvent(ftxui::Event::Character('j'))) {
+    rendered = RenderScreen();
+  }
+
+  EXPECT_THAT(rendered, HasSubstr("No playlist counted yet"));
+  while (block->OnEvent(ftxui::Event::Character('k'))) RenderScreen();
 
   // Nothing was listened to in this session
   block->OnEvent(ftxui::Event::Character('a'));

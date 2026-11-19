@@ -41,10 +41,21 @@ struct ListeningStats {
     bool operator!=(const Song& other) const { return !operator==(other); }
   };
 
-  //! Totals from a single artist (sum of their songs)
-  struct Artist {
-    std::string name;          //!< Artist name
+  //! Time listened and songs played (from a playlist, or summed for an artist)
+  struct Counts {
     uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds)
+    uint32_t plays = 0;        //!< Songs counted as played
+
+    //! Overloaded operators
+    bool operator==(const Counts& other) const;
+    bool operator!=(const Counts& other) const { return !operator==(other); }
+  };
+
+  //! Entry from a top list (artist or playlist)
+  struct Total {
+    std::string name;          //!< Artist or playlist name
+    uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds)
+    uint32_t plays = 0;        //!< Songs counted as played
   };
 
   //! Days in a row with songs played (there is no history of which days had songs played)
@@ -73,6 +84,9 @@ struct ListeningStats {
   //! Totals from each song, identified by its filepath (or URL)
   std::map<std::string, Song> songs;
 
+  //! Totals from each playlist, identified by its name (a renamed playlist starts from zero)
+  std::map<std::string, Counts> playlists;
+
   Hours hours{};  //!< Time listened by weekday and hour (in local time)
   Streak streak;  //!< Days in a row with songs played
 
@@ -87,16 +101,18 @@ struct ListeningStats {
    * @param from_url Song is played from URL
    * @param ms Time listened to (in milliseconds)
    * @param now Current moment (seconds since epoch), which also tells weekday and hour
+   * @param playlist Name of playlist that song is played from (empty if none)
    */
   void AddListened(const std::string& key, const std::string& artist, const std::string& title,
-                   bool from_url, uint64_t ms, int64_t now);
+                   bool from_url, uint64_t ms, int64_t now, const std::string& playlist = "");
 
   /**
    * @brief Count song as played (once it was listened to for a while, or until its end)
    * @param key Song identifier (filepath or URL)
    * @param now Current moment (seconds since epoch), which also counts day for streak
+   * @param playlist Name of playlist that song is played from (empty if none)
    */
-  void AddPlayed(const std::string& key, int64_t now);
+  void AddPlayed(const std::string& key, int64_t now, const std::string& playlist = "");
 
   /**
    * @brief Get what was counted since the given stats, which were taken from these ones earlier
@@ -136,7 +152,14 @@ struct ListeningStats {
    * @param count Maximum number of artists
    * @return Artists sorted from the most listened one
    */
-  std::vector<Artist> GetTopArtists(std::size_t count) const;
+  std::vector<Total> GetTopArtists(std::size_t count) const;
+
+  /**
+   * @brief Get playlists listened to the most (by time)
+   * @param count Maximum number of playlists
+   * @return Playlists sorted from the most listened one
+   */
+  std::vector<Total> GetTopPlaylists(std::size_t count) const;
 
   //! Overloaded operators
   bool operator==(const ListeningStats& other) const;
@@ -145,6 +168,15 @@ struct ListeningStats {
  private:
   //! Remove song listened to the least (there must be at least one)
   void RemoveLeastListened();
+
+  /**
+   * @brief Sort totals from the most listened one (by time), leaving out those not listened to
+   * @param totals Totals identified by name
+   * @param count Maximum number of entries
+   * @return Sorted entries
+   */
+  static std::vector<Total> SortTotals(const std::map<std::string, Counts>& totals,
+                                       std::size_t count);
 };
 
 }  // namespace model

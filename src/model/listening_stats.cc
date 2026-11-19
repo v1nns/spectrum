@@ -32,6 +32,12 @@ bool ListeningStats::Streak::operator==(const Streak& other) const {
 
 /* ********************************************************************************************** */
 
+bool ListeningStats::Counts::operator==(const Counts& other) const {
+  return std::tie(listened_ms, plays) == std::tie(other.listened_ms, other.plays);
+}
+
+/* ********************************************************************************************** */
+
 bool ListeningStats::Song::operator==(const Song& other) const {
   return std::tie(artist, title, listened_ms, plays) ==
          std::tie(other.artist, other.title, other.listened_ms, other.plays);
@@ -41,7 +47,7 @@ bool ListeningStats::Song::operator==(const Song& other) const {
 
 void ListeningStats::AddListened(const std::string& key, const std::string& artist,
                                  const std::string& title, bool from_url, uint64_t ms,
-                                 int64_t now) {
+                                 int64_t now, const std::string& playlist) {
   if (since == 0) since = now;
 
   listened_ms += ms;
@@ -60,13 +66,16 @@ void ListeningStats::AddListened(const std::string& key, const std::string& arti
   song.artist = artist;
   song.title = title;
   song.listened_ms += ms;
+
+  if (!playlist.empty()) playlists[playlist].listened_ms += ms;
 }
 
 /* ********************************************************************************************** */
 
-void ListeningStats::AddPlayed(const std::string& key, int64_t now) {
+void ListeningStats::AddPlayed(const std::string& key, int64_t now, const std::string& playlist) {
   songs_played++;
   if (auto song = songs.find(key); song != songs.end()) song->second.plays++;
+  if (!playlist.empty()) playlists[playlist].plays++;
 
   // Day already counted (or earlier than it, when clock goes back) does not change streak
   const int64_t today = ToLocalDay(now);
@@ -124,6 +133,19 @@ ListeningStats ListeningStats::Difference(const ListeningStats& before) const {
     if (changed.listened_ms > 0 || changed.plays > 0) diff.songs[key] = std::move(changed);
   }
 
+  for (const auto& [name, playlist] : playlists) {
+    auto earlier = before.playlists.find(name);
+    const bool existed = earlier != before.playlists.end();
+
+    Counts changed{
+        .listened_ms = existed ? minus(playlist.listened_ms, earlier->second.listened_ms)
+                               : playlist.listened_ms,
+        .plays = existed ? minus(playlist.plays, earlier->second.plays) : playlist.plays,
+    };
+
+    if (changed.listened_ms > 0 || changed.plays > 0) diff.playlists[name] = changed;
+  }
+
   return diff;
 }
 
@@ -163,6 +185,12 @@ void ListeningStats::Add(const ListeningStats& other) {
     total.plays += song.plays;
   }
 
+  for (const auto& [name, playlist] : other.playlists) {
+    Counts& total = playlists[name];
+    total.listened_ms += playlist.listened_ms;
+    total.plays += playlist.plays;
+  }
+
   while (songs.size() > kMaxSongs) RemoveLeastListened();
 }
 
@@ -195,21 +223,41 @@ std::vector<ListeningStats::Song> ListeningStats::GetTopSongs(std::size_t count)
 
 /* ********************************************************************************************** */
 
-std::vector<ListeningStats::Artist> ListeningStats::GetTopArtists(std::size_t count) const {
-  std::map<std::string, uint64_t> artists;
+std::vector<ListeningStats::Total> ListeningStats::GetTopArtists(std::size_t count) const {
+  std::map<std::string, Counts> artists;
 
   for (const auto& [key, song] : songs) {
-    if (!song.artist.empty() && song.listened_ms > 0) artists[song.artist] += song.listened_ms;
+    if (song.artist.empty() || song.listened_ms == 0) continue;
+
+    Counts& artist = artists[song.artist];
+    artist.listened_ms += song.listened_ms;
+    artist.plays += song.plays;
   }
 
-  std::vector<Artist> top;
-  top.reserve(artists.size());
+  return SortTotals(artists, count);
+}
 
-  for (const auto& [name, listened_ms] : artists) {
-    top.push_back(Artist{.name = name, .listened_ms = listened_ms});
+/* ********************************************************************************************** */
+
+std::vector<ListeningStats::Total> ListeningStats::GetTopPlaylists(std::size_t count) const {
+  return SortTotals(playlists, count);
+}
+
+/* ********************************************************************************************** */
+
+std::vector<ListeningStats::Total> ListeningStats::SortTotals(
+    const std::map<std::string, Counts>& totals, std::size_t count) {
+  std::vector<Total> top;
+  top.reserve(totals.size());
+
+  for (const auto& [name, total] : totals) {
+    if (total.listened_ms > 0) {
+      top.push_back(Total{.name = name, .listened_ms = total.listened_ms, .plays = total.plays});
+    }
   }
 
-  std::stable_sort(top.begin(), top.end(), [](const Artist& lhs, const Artist& rhs) {
+  // Stable, so entries listened to for the same time keep the same order every time
+  std::stable_sort(top.begin(), top.end(), [](const Total& lhs, const Total& rhs) {
     return lhs.listened_ms > rhs.listened_ms;
   });
 
@@ -221,10 +269,10 @@ std::vector<ListeningStats::Artist> ListeningStats::GetTopArtists(std::size_t co
 
 bool ListeningStats::operator==(const ListeningStats& other) const {
   return std::tie(since, listened_ms, local_ms, stream_ms, songs_played, songs_finished,
-                  songs_skipped, stream_bytes, songs, hours, streak) ==
+                  songs_skipped, stream_bytes, songs, playlists, hours, streak) ==
          std::tie(other.since, other.listened_ms, other.local_ms, other.stream_ms,
                   other.songs_played, other.songs_finished, other.songs_skipped, other.stream_bytes,
-                  other.songs, other.hours, other.streak);
+                  other.songs, other.playlists, other.hours, other.streak);
 }
 
 }  // namespace model

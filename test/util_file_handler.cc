@@ -552,6 +552,8 @@ TEST_F(FileHandlerTest, SaveAndParseStats) {
                  {.artist = "Artist", .title = "Song", .listened_ms = 120000, .plays = 1}},
                 {"https://www.youtube.com/watch?v=id",
                  {.title = "Mix", .listened_ms = 180000, .plays = 3}}},
+      .playlists = {{"Chill", {.listened_ms = 120000, .plays = 1}},
+                    {"Gym", {.listened_ms = 180000, .plays = 3}}},
       .streak = {.day = 20759, .current = 3, .longest = 12},
   };
 
@@ -574,6 +576,7 @@ TEST_F(FileHandlerTest, SaveAndParseStats) {
 
   // Saving again replaces everything saved before
   stats.songs.erase("/music/song.mp3");
+  stats.playlists.erase("Gym");
   ASSERT_TRUE(handler.SaveStats(stats));
   ASSERT_TRUE(handler.ParseStats(parsed));
   EXPECT_EQ(parsed, stats);
@@ -599,7 +602,8 @@ TEST_F(FileHandlerTest, ParseInvalidStats) {
   // Values with unexpected type are not filled, and songs without identifier are skipped
   std::ofstream(handler.GetStatsPath()) << R"({
     "listened_ms": "a lot", "songs_played": 3, "stream_bytes": -1,
-    "songs": [{"title": "No key"}, {"key": "/song.mp3", "plays": "2", "listened_ms": 5}, 42]
+    "songs": [{"title": "No key"}, {"key": "/song.mp3", "plays": "2", "listened_ms": 5}, 42],
+    "playlists": [{"plays": 1}, {"name": "Chill", "plays": 4, "listened_ms": "5"}, "Gym"]
   })";
 
   model::ListeningStats stats;
@@ -610,6 +614,9 @@ TEST_F(FileHandlerTest, ParseInvalidStats) {
   ASSERT_THAT(stats.songs, SizeIs(1));
   EXPECT_EQ(stats.songs["/song.mp3"].plays, 0);
   EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 5);
+  ASSERT_THAT(stats.playlists, SizeIs(1));
+  EXPECT_EQ(stats.playlists["Chill"].plays, 4);
+  EXPECT_EQ(stats.playlists["Chill"].listened_ms, 0);
 
   // Hours without a list for each weekday, with a value for each hour, are not filled at all
   std::ofstream(handler.GetStatsPath()) << R"({"hours": [[1, 2, 3]], "streak": [1, 2]})";
@@ -663,9 +670,17 @@ TEST(ListeningStatsTest, CountListenedAndPlayed) {
   EXPECT_EQ(stats.songs_played, 1);
   EXPECT_EQ(stats.songs["/song.mp3"].plays, 1);
 
+  // Song from a playlist also counts for it (while songs without one count for none)
+  stats.AddListened("/song.mp3", "Artist", "Song", false, 1000, 2500, "Chill");
+  stats.AddPlayed("/song.mp3", 2500, "Chill");
+  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 2500);
+  EXPECT_EQ(stats.songs["/song.mp3"].plays, 2);
+  EXPECT_EQ(stats.playlists, (std::map<std::string, model::ListeningStats::Counts>{
+                                 {"Chill", {.listened_ms = 1000, .plays = 1}}}));
+
   // Listening to the same song again keeps its totals (with its latest information)
   stats.AddListened("/song.mp3", "Artist", "Song (Remastered)", false, 500, 3000);
-  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 2000);
+  EXPECT_EQ(stats.songs["/song.mp3"].listened_ms, 3000);
   EXPECT_EQ(stats.songs["/song.mp3"].title, "Song (Remastered)");
   EXPECT_EQ(stats.since, 1000);
 }
@@ -698,31 +713,47 @@ TEST(ListeningStatsTest, KeepOnlyMostListenedSongs) {
 
 /* ********************************************************************************************** */
 
-TEST(ListeningStatsTest, GetTopArtistsAndSongs) {
+TEST(ListeningStatsTest, GetTopArtistsSongsAndPlaylists) {
   model::ListeningStats stats;
 
-  auto listen = [&stats](const std::string& key, const std::string& artist, uint64_t ms) {
-    stats.AddListened(key, artist, key, false, ms, 1);
+  auto listen = [&stats](const std::string& key, const std::string& artist, uint64_t ms,
+                         const std::string& playlist = "") {
+    stats.AddListened(key, artist, key, false, ms, 1, playlist);
+    if (ms > 0) stats.AddPlayed(key, 1, playlist);
   };
 
-  listen("a1", "First", 100);
-  listen("a2", "First", 250);
+  listen("a1", "First", 100, "Gym");
+  listen("a2", "First", 250, "Chill");
+  listen("a2", "First", 50, "Chill");
   listen("b1", "Second", 300);
-  listen("c1", "", 1000);
-  listen("d1", "Third", 0);
+  listen("c1", "", 1000, "Chill");
+  listen("d1", "Third", 0, "Empty");
 
   // Artists sum their songs, and songs without artist or not listened to are not included
   const auto artists = stats.GetTopArtists(5);
   ASSERT_THAT(artists, SizeIs(2));
   EXPECT_EQ(artists[0].name, "First");
-  EXPECT_EQ(artists[0].listened_ms, 350);
+  EXPECT_EQ(artists[0].listened_ms, 400);
+  EXPECT_EQ(artists[0].plays, 3);
   EXPECT_EQ(artists[1].name, "Second");
+  EXPECT_EQ(artists[1].plays, 1);
+
+  // Playlists not listened to are not included either
+  const auto playlists = stats.GetTopPlaylists(5);
+  ASSERT_THAT(playlists, SizeIs(2));
+  EXPECT_EQ(playlists[0].name, "Chill");
+  EXPECT_EQ(playlists[0].listened_ms, 1300);
+  EXPECT_EQ(playlists[0].plays, 3);
+  EXPECT_EQ(playlists[1].name, "Gym");
+  EXPECT_EQ(playlists[1].plays, 1);
+  EXPECT_THAT(stats.GetTopPlaylists(1), SizeIs(1));
 
   const auto songs = stats.GetTopSongs(5);
   ASSERT_THAT(songs, SizeIs(4));
   EXPECT_EQ(songs[0].title, "c1");
-  EXPECT_EQ(songs[1].title, "b1");
-  EXPECT_EQ(songs[2].title, "a2");
+  EXPECT_EQ(songs[1].title, "a2");
+  EXPECT_EQ(songs[1].plays, 2);
+  EXPECT_EQ(songs[2].title, "b1");
   EXPECT_EQ(songs[3].title, "a1");
 
   // Only asked number of entries
@@ -741,8 +772,8 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   // Then this instance counts a bit more
   model::ListeningStats current = saved;
   current.AddListened("/song.mp3", "Artist", "Song", false, 500, 3000);
-  current.AddListened("/other.mp3", "", "Other", false, 200, 3000);
-  current.AddPlayed("/other.mp3", 3000);
+  current.AddListened("/other.mp3", "", "Other", false, 200, 3000, "Chill");
+  current.AddPlayed("/other.mp3", 3000, "Chill");
   current.songs_skipped++;
 
   const model::ListeningStats diff = current.Difference(saved);
@@ -754,22 +785,28 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   EXPECT_EQ(diff.songs.at("/song.mp3").listened_ms, 500);
   EXPECT_EQ(diff.songs.at("/song.mp3").plays, 0);
   EXPECT_EQ(diff.songs.at("/other.mp3").plays, 1);
+  EXPECT_EQ(diff.playlists, (std::map<std::string, model::ListeningStats::Counts>{
+                                {"Chill", {.listened_ms = 200, .plays = 1}}}));
 
   // While another instance saved stats from an earlier moment, with another song
   model::ListeningStats latest;
   latest.AddListened("/song.mp3", "Artist", "Song", false, 4000, 1000);
   latest.AddListened("https://site/mix", "", "Mix", true, 3000, 1000);
   latest.AddPlayed("https://site/mix", 1000);
+  latest.AddListened("/song.mp3", "Artist", "Song", false, 100, 1000, "Chill");
+  latest.AddPlayed("/song.mp3", 1000, "Chill");
 
   // So only what was counted by this instance is added to them
   latest.Add(diff);
   EXPECT_EQ(latest.since, 1000);
-  EXPECT_EQ(latest.listened_ms, 7700);
-  EXPECT_EQ(latest.local_ms, 4700);
+  EXPECT_EQ(latest.listened_ms, 7800);
+  EXPECT_EQ(latest.local_ms, 4800);
   EXPECT_EQ(latest.stream_ms, 3000);
-  EXPECT_EQ(latest.songs_played, 2);
+  EXPECT_EQ(latest.songs_played, 3);
   EXPECT_EQ(latest.songs_skipped, 1);
-  EXPECT_EQ(latest.songs.at("/song.mp3").listened_ms, 4500);
+  EXPECT_EQ(latest.songs.at("/song.mp3").listened_ms, 4600);
+  EXPECT_EQ(latest.playlists.at("Chill").listened_ms, 300);
+  EXPECT_EQ(latest.playlists.at("Chill").plays, 2);
   EXPECT_EQ(latest.songs.at("/other.mp3").listened_ms, 200);
   EXPECT_EQ(latest.songs.at("https://site/mix").plays, 1);
 
