@@ -54,15 +54,18 @@ class YoutubeMenu : public BaseMenu<YoutubeMenu> {
       Channel,          //!< Channel found for artist on YouTube
       SearchChannels,   //!< Search channels on YouTube instead of artists on MusicBrainz
       SearchPlaylists,  //!< Search playlists on YouTube instead
+      Group,            //!< Group of releases (e.g. albums), which may be expanded to show them
       Release,          //!< Release (or playlist), which may be expanded to show its tracks
       Track,            //!< Track from release
     };
 
     Kind kind;           //!< Entry type
-    int index = 0;       //!< Index of artist, channel or release
+    int index = 0;       //!< Index of artist, channel, group or release
     int track = 0;       //!< Index of track inside release (only for tracks)
     std::string text;    //!< Main text (cut with an ellipsis when there is not enough space)
     std::string detail;  //!< Text aligned to the right (e.g. track duration)
+    int depth = 0;       //!< Indentation level (e.g. release inside a group)
+    bool leaf = false;   //!< Release that is never expanded (e.g. a single), so it has no arrow
   };
 
   //! How many songs from a release (or track) are in the playlist being edited

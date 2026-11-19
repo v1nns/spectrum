@@ -52,10 +52,16 @@ ftxui::Element YoutubeMenu::RenderImpl() {
     const bool fallback = entry.kind == Kind::SearchChannels || entry.kind == Kind::SearchPlaylists;
     if (fallback && !is_selected && !is_focused) style = style_.fallback;
 
-    // Release has an arrow telling whether it is expanded, and its tracks are indented below it
-    std::string lead;
-    if (entry.kind == Kind::Release) lead = state.expanded ? "▾ " : "▸ ";
-    if (entry.kind == Kind::Track) lead = std::string(kArrowColumns + kIndentColumns, ' ');
+    // Group and release have an arrow telling whether they are expanded (except a release that is
+    // never expanded), and what they contain is indented below them
+    std::string lead(static_cast<std::size_t>(entry.depth * kIndentColumns), ' ');
+    const bool arrow = entry.kind == Kind::Group || (entry.kind == Kind::Release && !entry.leaf);
+
+    if (arrow) {
+      lead += state.expanded ? "▾ " : "▸ ";
+    } else if (entry.kind == Kind::Release || entry.kind == Kind::Track) {
+      lead += std::string(kArrowColumns, ' ');
+    }
 
     std::string mark;
     if (state.mark.has_value()) {
@@ -82,7 +88,8 @@ ftxui::Element YoutubeMenu::RenderImpl() {
             RenderPrefix(is_selected),
             ftxui::text(lead) | style_.detail,
             ftxui::text(mark) | (state.mark == Mark::Missing ? style_.missing : style_.mark),
-            ellipsized_text(entry.text, 1) | style | ftxui::xflex,
+            ellipsized_text(entry.text, 1) | style |
+                (entry.kind == Kind::Group ? ftxui::bold : ftxui::nothing) | ftxui::xflex,
             ftxui::text(detail.empty() ? "" : " " + detail) | style_.detail,
         }) |
         max_size | (is_focused ? ftxui::select : ftxui::nothing) | ftxui::reflect(boxes[i]));

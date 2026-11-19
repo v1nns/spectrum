@@ -137,7 +137,7 @@ std::vector<HelpDialog::Line> HelpDialog::CreateContent() {
            {Join(keybinding::Playlist::RemoveSong, Navigation::Delete),
             "Remove song from playlist"},
            {ToString(Navigation::Return), "Add YouTube URL or search artist"},
-           {"←/→ " + Join(Navigation::Left, Navigation::Right), "Close/open album"},
+           {"←/→ " + Join(Navigation::Left, Navigation::Right), "Close/open album or group"},
            {ToString(keybinding::Playlist::ShowAllReleases), "Show all types of album (e.g. live)"},
            {"Ctrl+W/Alt+Backspace", "Delete previous word (while typing)"},
            {ToString(keybinding::Playlist::Rename), "Rename playlist"},

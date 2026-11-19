@@ -1469,23 +1469,27 @@ TEST_F(PlaylistDialogTest, SearchArtistAndAddReleasesOrTracks) {
   EXPECT_THAT(rendered, HasSubstr("Sigur          Person · NO"));
   EXPECT_THAT(rendered, HasSubstr("Search playlists for \"sig…"));
 
-  // Open artist to list its releases, newest first (and only the main types)
+  // Open artist to list its releases grouped by type, newest first (and only the main types)
   dialog->OnEvent(ftxui::Event::Return);
   rendered = RenderUntil("Sigur Rós · 3 releases");
   Settle();
 
-  EXPECT_THAT(rendered, HasSubstr("▶ ▸ [ ] Blóðberg Single 2023"));
-  EXPECT_THAT(rendered, HasSubstr("▸ [ ] Takk…           2005"));
-  EXPECT_THAT(rendered, HasSubstr("▸ [ ] Ágætis byrjun   1999"));
+  EXPECT_THAT(rendered, HasSubstr("▶ ▾ Albums (2)"));
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Takk…         2005"));
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Ágætis byrjun 1999"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Singles (1)"));
+  EXPECT_THAT(rendered, HasSubstr("      [ ] Blóðberg      2023"));
   EXPECT_THAT(rendered, Not(HasSubstr("Inni")));
   EXPECT_THAT(rendered, HasSubstr("a: all types"));
   EXPECT_LT(rendered.find("Takk…"), rendered.find("Ágætis byrjun"));
+  EXPECT_LT(rendered.find("Ágætis byrjun"), rendered.find("Singles"));
 
-  // Show every type of release, then only the main ones again
+  // Show every type of release (in a group of its own), then only the main ones again
   dialog->OnEvent(ftxui::Event::Character('a'));
   rendered = Render();
   EXPECT_THAT(rendered, HasSubstr("Sigur Rós · 4 releases"));
-  EXPECT_THAT(rendered, HasSubstr("▸ [ ] Inni       Live 2011"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Other (1)"));
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Inni     Live 2011"));
   EXPECT_THAT(rendered, HasSubstr("a: main types only"));
 
   dialog->OnEvent(ftxui::Event::Character('a'));
@@ -1527,13 +1531,13 @@ TEST_F(PlaylistDialogTest, SearchArtistAndAddReleasesOrTracks) {
 ║      │                              ││▶ [yt] Sigur Rós - Svefn-g-en…│      ║
 ║      │ Sigur Rós · 3 releases       ││  [yt] Sigur Rós - Starálfur  │      ║
 ║      │                              ││  [yt] Sigur Rós - Glósóli    │      ║
-║      │   ▸ [ ] Blóðberg Single 2023 ││                              │      ║
-║      │   ▾ [x] Takk…           2005 ││                              │      ║
-║      │       [x] Glósóli       6:15 ││                              │      ║
-║      │ ▶     [!] Hoppípolla    4:28 ││                              │      ║
-║      │   ▸ [x] Ágætis byrjun   1999 ││                              │      ║
-║      │                              ││                              │      ║
-║      │                              ││                              │      ║
+║      │   ▾ Albums (2)               ││                              │      ║
+║      │     ▾ [x] Takk…         2005 ││                              │      ║
+║      │         [x] Glósóli     6:15 ││                              │      ║
+║      │ ▶       [!] Hoppípolla  4:28 ││                              │      ║
+║      │     ▸ [x] Ágætis byrjun 1999 ││                              │      ║
+║      │   ▾ Singles (1)              ││                              │      ║
+║      │       [ ] Blóðberg      2023 ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
@@ -1562,11 +1566,11 @@ TEST_F(PlaylistDialogTest, SearchArtistAndAddReleasesOrTracks) {
   dialog->OnEvent(ftxui::Event::Character(' '));
 
   rendered = Render();
-  EXPECT_THAT(rendered, HasSubstr("▶ ▸ [ ] Takk…"));
+  EXPECT_THAT(rendered, HasSubstr("▶   ▸ [ ] Takk…"));
   EXPECT_THAT(rendered, Not(HasSubstr("Glósóli")));
 
   dialog->OnEvent(ftxui::Event::Character(' '));
-  EXPECT_THAT(Render(), HasSubstr("▶ ▸ [x] Takk…"));
+  EXPECT_THAT(Render(), HasSubstr("▶   ▸ [x] Takk…"));
   EXPECT_THAT(found.size(), Eq(2));
   EXPECT_THAT(playlists.size(), Eq(1));
 
@@ -1597,6 +1601,132 @@ TEST_F(PlaylistDialogTest, SearchArtistAndAddReleasesOrTracks) {
   utils::QueueCharacterEvents(*dialog, "rsr");
   dialog->OnEvent(ftxui::Event::Return);
   dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, GroupReleasesAndAddSingleAsSong) {
+  std::vector<std::vector<std::string>> found;  // Songs searched on YouTube
+
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [](const std::string&, std::vector<model::Artist>& artists, const std::atomic<bool>*) {
+            artists = {model::Artist{.id = "mb1", .name = "Björk"}};
+            return error::kSuccess;
+          },
+      .fetch_releases =
+          [](const std::string&, std::vector<model::ReleaseGroup>& releases,
+             const std::atomic<bool>*) {
+            releases = {
+                model::ReleaseGroup{
+                    .id = "s1", .title = "Joga", .date = "1997-09-15", .primary_type = "Single"},
+                model::ReleaseGroup{
+                    .id = "e1", .title = "Cocoon", .date = "2002", .primary_type = "EP"},
+                model::ReleaseGroup{
+                    .id = "a1", .title = "Homogenic", .date = "1997", .primary_type = "Album"},
+                model::ReleaseGroup{.id = "s2",
+                                    .title = "Bachelorette",
+                                    .date = "1997-12-08",
+                                    .primary_type = "Single"},
+            };
+            return error::kSuccess;
+          },
+      .fetch_tracks =
+          [](const std::string& id, std::vector<model::Song>& songs, const std::atomic<bool>*) {
+            // Song from single is not always its first track
+            if (id == "s1") {
+              songs = {model::Song{.title = "Joga (Remix)"}, model::Song{.title = "Joga"}};
+            } else {
+              songs = {model::Song{.title = "Bachelorette"},
+                       model::Song{.title = "Bachelorette (Live)"}};
+            }
+            return error::kSuccess;
+          },
+      .match_songs =
+          [&found](std::vector<model::Song>& songs, std::atomic<int>*, const std::atomic<bool>*) {
+            std::vector<std::string> titles;
+
+            for (auto& song : songs) {
+              titles.push_back(song.title);
+              song.stream_info =
+                  model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=aaaaaaaaaaa"};
+            }
+
+            found.push_back(titles);
+            return error::kSuccess;
+          },
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, nullptr, search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "bjork");
+  dialog->OnEvent(ftxui::Event::Return);
+  RenderUntil("Search YouTube channels");
+
+  // Releases are grouped by type (albums, EPs, then singles), each group newest first
+  dialog->OnEvent(ftxui::Event::Return);
+  std::string rendered = RenderUntil("Björk · 4 releases");
+  Settle();
+
+  EXPECT_THAT(rendered, HasSubstr("▶ ▾ Albums (1)"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ EPs (1)"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Singles (2)"));
+  EXPECT_LT(rendered.find("Homogenic"), rendered.find("EPs"));
+  EXPECT_LT(rendered.find("Cocoon"), rendered.find("Singles"));
+  EXPECT_LT(rendered.find("Bachelorette"), rendered.find("Joga"));
+
+  // Single has no arrow, as it is added as a song
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Homogenic"));
+  EXPECT_THAT(rendered, HasSubstr("      [ ] Joga"));
+
+  // Group has nothing to add, but it can be closed and opened again
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶ ▸ Albums (1)"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Homogenic")));
+
+  dialog->OnEvent(ftxui::Event::Character('l'));
+  EXPECT_THAT(Render(), HasSubstr("▶ ▾ Albums (1)"));
+
+  // Closing a release that is not open closes its group instead
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('h'));
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶ ▸ Albums (1)"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Homogenic")));
+
+  // Single is not opened, and only its song is added (with the same title as the single)
+  for (int i = 0; i < 5; i++) dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('l'));
+  EXPECT_THAT(Render(), HasSubstr("▶     [ ] Joga"));
+
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("[x] Joga");
+  EXPECT_THAT(rendered, HasSubstr("[yt] Björk - Joga"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Remix")));
+  EXPECT_THAT(found, ElementsAre(ElementsAre("Joga")));
+
+  // And removed again (without searching it)
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶     [ ] Joga"));
+  EXPECT_THAT(rendered, Not(HasSubstr("[yt] Björk - Joga")));
+  EXPECT_THAT(found.size(), Eq(1));
+
+  // Space also adds it (here, the song is the first track)
+  dialog->OnEvent(ftxui::Event::Character('k'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  rendered = RenderUntil("[x] Bachelorette");
+  EXPECT_THAT(rendered, Not(HasSubstr("Live")));
+  EXPECT_THAT(found, ElementsAre(ElementsAre("Joga"), ElementsAre("Bachelorette")));
 }
 
 /* ********************************************************************************************** */
@@ -1651,16 +1781,19 @@ TEST_F(PlaylistDialogTest, ShowWhyReleaseCannotBeAdded) {
   std::string rendered = RenderUntil("Cartola · 1 release");
   EXPECT_THAT(rendered, Not(HasSubstr("Verde")));
 
+  dialog->OnEvent(ftxui::Event::Character('j'));
   dialog->OnEvent(ftxui::Event::Character(' '));
   rendered = RenderUntil("✗ MusicBrainz is busy");
-  EXPECT_THAT(rendered, HasSubstr("▶ ▸ [ ] Cartola"));
+  EXPECT_THAT(rendered, HasSubstr("▶   ▸ [ ] Cartola"));
 
   // Songs found before YouTube refuses requests are still added
   dialog->OnEvent(ftxui::Event::Character('a'));
   dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('j'));
   dialog->OnEvent(ftxui::Event::Character(' '));
   rendered = RenderUntil("✗ Refused by YouTube");
-  EXPECT_THAT(rendered, HasSubstr("▶ ▸ [~] Verde que te … Other"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Other (1)"));
+  EXPECT_THAT(rendered, HasSubstr("▶   ▸ [~] Verde que t… Other"));
   EXPECT_THAT(rendered, HasSubstr("[yt] Cartola - Autonomia"));
 
   // Song not searched is not taken as missing

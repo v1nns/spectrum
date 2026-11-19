@@ -1,9 +1,11 @@
 #include "view/element/artist_browser.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <iomanip>
 #include <sstream>
+#include <string_view>
 #include <utility>
 
 #include "util/formatter.h"
@@ -92,25 +94,17 @@ std::string GetPlaylistUrl(const std::string& id) {
   return "https://www.youtube.com/playlist?list=" + id;
 }
 
-//! Get text for release type shown before its year (albums have none), and whether it is only
-//! shown when all types are (e.g. live or compilation)
-std::pair<std::string, bool> GetReleaseType(const model::ReleaseGroup& release) {
-  if (!release.secondary_types.empty()) {
-    const std::string& type = release.secondary_types.front();
+//! Find track from single with the same title as it (or its first track, when there is none)
+int FindSingleTrack(const std::vector<model::Song>& tracks, const std::string& title) {
+  for (bool relaxed : {false, true}) {
+    auto it = std::find_if(tracks.begin(), tracks.end(), [&](const model::Song& song) {
+      return util::same_title(song.title, title, relaxed);
+    });
 
-    // Shorter names, as there is not much space
-    if (type == "Compilation") return {"Comp", true};
-    if (type == "Soundtrack") return {"OST", true};
-
-    return {type, true};
+    if (it != tracks.end()) return static_cast<int>(std::distance(tracks.begin(), it));
   }
 
-  if (release.primary_type == "Album") return {"", false};
-  if (release.primary_type == "EP" || release.primary_type == "Single") {
-    return {release.primary_type, false};
-  }
-
-  return {release.primary_type.empty() ? "Other" : release.primary_type, true};
+  return 0;
 }
 
 //! Find release from official channel of artist with the same title (ignoring typographic
@@ -129,6 +123,27 @@ std::optional<model::YoutubeRelease> FindOfficialRelease(
 }
 
 }  // namespace
+
+/* ********************************************************************************************** */
+
+std::pair<ArtistBrowser::Group, std::string> ArtistBrowser::GetReleaseGroup(
+    const model::ReleaseGroup& release) {
+  if (!release.secondary_types.empty()) {
+    const std::string& type = release.secondary_types.front();
+
+    // Shorter names, as there is not much space
+    if (type == "Compilation") return {Group::Other, "Comp"};
+    if (type == "Soundtrack") return {Group::Other, "OST"};
+
+    return {Group::Other, type};
+  }
+
+  if (release.primary_type == "Album") return {Group::Album, ""};
+  if (release.primary_type == "EP") return {Group::EP, ""};
+  if (release.primary_type == "Single") return {Group::Single, ""};
+
+  return {Group::Other, release.primary_type.empty() ? "Other" : release.primary_type};
+}
 
 /* ********************************************************************************************** */
 
@@ -234,19 +249,14 @@ bool ArtistBrowser::OnEvent(const ftxui::Event& event) {
     return true;
   }
 
-  // Only open release (as Return key would also close it, when it is already open)
+  // Only open group or release (as Return key would also close it, when it is already open)
   if (event == Keybind::Right || event == Keybind::ArrowRight) {
-    bool expanded = active->kind == Row::Kind::Release && releases_.at(active->index).expanded;
-    if (!expanded && active->kind != Row::Kind::Track) Open(*active);
+    if (!GetRowState(*active).expanded && active->kind != Row::Kind::Track) Open(*active);
     return true;
   }
 
-  // Close release (from any of its tracks too)
   if (event == Keybind::Left || event == Keybind::ArrowLeft) {
-    if (level_ == Level::Releases) {
-      releases_.at(active->index).expanded = false;
-      UpdateRows();
-    }
+    if (level_ == Level::Releases) Close(*active);
     return true;
   }
 
@@ -351,8 +361,18 @@ bool ArtistBrowser::Open(const Row& row) {
       OpenYoutubeReleases(row.index);
       return true;
 
+    case Kind::Group: {
+      auto& expanded = groups_expanded_.at(static_cast<std::size_t>(row.index));
+      expanded = !expanded;
+      UpdateRows();
+      return true;
+    }
+
     case Kind::Release: {
       auto& release = releases_.at(row.index);
+
+      // Single is added as a song instead
+      if (IsSingle(release)) return false;
 
       if (!release.tracks.has_value()) {
         LoadTracks(row.index, false);
@@ -369,6 +389,36 @@ bool ArtistBrowser::Open(const Row& row) {
   }
 
   return false;
+}
+
+/* ********************************************************************************************** */
+
+void ArtistBrowser::Close(const Row& row) {
+  switch (row.kind) {
+    case Row::Kind::Group:
+      groups_expanded_.at(static_cast<std::size_t>(row.index)) = false;
+      break;
+
+    case Row::Kind::Release: {
+      auto& release = releases_.at(row.index);
+
+      if (release.expanded) {
+        release.expanded = false;
+      } else if (source_ == Source::Artist) {
+        groups_expanded_.at(static_cast<std::size_t>(release.group)) = false;
+      }
+      break;
+    }
+
+    case Row::Kind::Track:
+      releases_.at(row.index).expanded = false;
+      break;
+
+    default:
+      return;
+  }
+
+  UpdateRows();
 }
 
 /* ********************************************************************************************** */
@@ -405,15 +455,17 @@ void ArtistBrowser::OpenArtist(int index) {
                releases_.clear();
 
                for (const auto& group : groups) {
-                 auto [type, extra] = GetReleaseType(group);
+                 auto [release_group, type] = GetReleaseGroup(group);
                  releases_.push_back(Release{
                      .id = group.id,
                      .title = group.title,
                      .date = group.date,
                      .type = type,
-                     .extra = extra,
+                     .group = release_group,
                  });
                }
+
+               groups_expanded_.fill(true);
 
                // Newest first (releases without a date are the last ones)
                std::stable_sort(releases_.begin(), releases_.end(),
@@ -425,7 +477,7 @@ void ArtistBrowser::OpenArtist(int index) {
 
                // Artist with only other types of release (e.g. live albums) shows them right away
                show_all_ = std::all_of(releases_.begin(), releases_.end(),
-                                       [](const Release& release) { return release.extra; });
+                                       [](const Release& r) { return r.group == Group::Other; });
 
                UpdateRows();
                menu_->ResetState();
@@ -549,10 +601,14 @@ void ArtistBrowser::Toggle(const Row& row) {
   if (job_.IsRunning()) return;
 
   const auto& release = releases_.at(row.index);
-  const std::optional<int> track =
-      row.kind == Row::Kind::Track ? std::optional{row.track} : std::nullopt;
+  std::optional<int> track = row.kind == Row::Kind::Track ? std::optional{row.track} : std::nullopt;
 
-  // Tracks are fetched first, then all of them are added
+  // Single is added as a song (found once its tracks are known)
+  if (IsSingle(release) && release.tracks.has_value()) {
+    track = FindSingleTrack(*release.tracks, release.title);
+  }
+
+  // Tracks are fetched first, then all of them are added (or only the song from a single)
   if (!release.tracks.has_value()) {
     source_ == Source::Artist ? MatchAndAdd(row.index, std::nullopt) : LoadTracks(row.index, true);
     return;
@@ -624,8 +680,10 @@ void ArtistBrowser::MatchAndAdd(int index, std::optional<int> track) {
   }
 
   BackgroundJob::Task task = [this, fetch = fetch_, id = release.id, tracks = release.tracks,
-                              missing = release.missing, artist, playlist, index,
-                              track](const std::atomic<bool>* cancel) -> BackgroundJob::Result {
+                              missing = release.missing, artist, playlist, index, track,
+                              single =
+                                  IsSingle(release) ? std::optional{release.title} : std::nullopt](
+                                 const std::atomic<bool>* cancel) mutable -> BackgroundJob::Result {
     std::vector<model::Song> songs;
     std::vector<bool> not_found = missing;
 
@@ -646,6 +704,9 @@ void ArtistBrowser::MatchAndAdd(int index, std::optional<int> track) {
 
       for (auto& song : songs) song.artist = artist;
       not_found.assign(songs.size(), false);
+
+      // Only the song from a single is wanted
+      if (single.has_value()) track = FindSingleTrack(songs, *single);
       progress_total_ = static_cast<int>(track.has_value() ? 1 : songs.size());
     }
 
@@ -911,16 +972,15 @@ void ArtistBrowser::UpdateRows() {
       add_fallbacks(false);
       break;
 
-    case Level::Releases:
-      for (int i = 0; i < static_cast<int>(releases_.size()); ++i) {
+    case Level::Releases: {
+      // Add release (and its tracks below it, when expanded) at the given indentation level
+      auto add_release = [this, &rows](int i, int depth) {
         const auto& release = releases_.at(i);
-        if (release.extra && !show_all_) continue;
-
         std::string detail;
 
         switch (source_) {
           case Source::Artist:
-            // Type is shown for anything that is not an album (e.g. "EP 2025")
+            // Type is shown only for other types (e.g. "Live 2011"), as group tells the others
             detail = release.date.substr(0, kYearColumns);
             if (!release.type.empty()) detail = release.type + (detail.empty() ? "" : " ") + detail;
             break;
@@ -935,10 +995,16 @@ void ArtistBrowser::UpdateRows() {
             break;
         }
 
-        rows.push_back(
-            Row{.kind = Kind::Release, .index = i, .text = release.title, .detail = detail});
+        const bool single = IsSingle(release);
 
-        if (!release.expanded || !release.tracks.has_value()) continue;
+        rows.push_back(Row{.kind = Kind::Release,
+                           .index = i,
+                           .text = release.title,
+                           .detail = detail,
+                           .depth = depth,
+                           .leaf = single});
+
+        if (single || !release.expanded || !release.tracks.has_value()) return;
 
         for (int t = 0; t < static_cast<int>(release.tracks->size()); ++t) {
           const auto& song = release.tracks->at(t);
@@ -951,10 +1017,41 @@ void ArtistBrowser::UpdateRows() {
                              .index = i,
                              .track = t,
                              .text = title,
-                             .detail = FormatDuration(song.duration)});
+                             .detail = FormatDuration(song.duration),
+                             .depth = depth + 1});
         }
+      };
+
+      if (source_ != Source::Artist) {
+        for (int i = 0; i < static_cast<int>(releases_.size()); ++i) add_release(i, 0);
+        break;
+      }
+
+      // Releases from artist are grouped by type, in the same order as groups are declared
+      static constexpr std::array<std::string_view, kGroups> kGroupNames{"Albums", "EPs", "Singles",
+                                                                         "Other"};
+
+      for (std::size_t g = 0; g < kGroups; ++g) {
+        std::vector<int> members;
+
+        for (int i = 0; i < static_cast<int>(releases_.size()); ++i) {
+          const auto& release = releases_.at(i);
+          if (release.group == static_cast<Group>(g) && IsVisible(release)) members.push_back(i);
+        }
+
+        if (members.empty()) continue;
+
+        rows.push_back(Row{
+            .kind = Kind::Group,
+            .index = static_cast<int>(g),
+            .text = std::string{kGroupNames[g]} + " (" + std::to_string(members.size()) + ")",
+        });
+
+        if (!groups_expanded_[g]) continue;
+        for (int i : members) add_release(i, 1);
       }
       break;
+    }
   }
 
   menu_->SetEntries(rows);
@@ -972,6 +1069,18 @@ void ArtistBrowser::UpdateRows() {
     });
   }
 
+  // Or its group, when releases from it are not shown anymore
+  const bool in_group = (active->kind == Kind::Release || active->kind == Kind::Track) &&
+                        level_ == Level::Releases && source_ == Source::Artist &&
+                        active->index < static_cast<int>(releases_.size());
+
+  if (it == rows.end() && in_group) {
+    const auto group = static_cast<int>(releases_.at(active->index).group);
+    it = std::find_if(rows.begin(), rows.end(), [group](const Row& row) {
+      return row.kind == Kind::Group && row.index == group;
+    });
+  }
+
   if (it != rows.end()) menu_->ResetState(static_cast<int>(std::distance(rows.begin(), it)));
 }
 
@@ -980,6 +1089,10 @@ void ArtistBrowser::UpdateRows() {
 ArtistBrowser::RowState ArtistBrowser::GetRowState(const Row& row) const {
   using Kind = Row::Kind;
   using Mark = internal::YoutubeMenu::Mark;
+
+  if (row.kind == Kind::Group) {
+    return RowState{.expanded = groups_expanded_.at(static_cast<std::size_t>(row.index))};
+  }
 
   if (row.kind != Kind::Release && row.kind != Kind::Track) return RowState{};
 
@@ -1003,8 +1116,12 @@ ArtistBrowser::RowState ArtistBrowser::GetRowState(const Row& row) const {
     return i < release.missing.size() && release.missing[i];
   };
 
-  if (row.kind == Kind::Track) {
-    const auto index = static_cast<size_t>(row.track);
+  // Single is marked as the song added from it
+  const bool single = row.kind == Kind::Release && IsSingle(release);
+
+  if (row.kind == Kind::Track || single) {
+    const auto index =
+        static_cast<size_t>(single ? FindSingleTrack(tracks, release.title) : row.track);
 
     if (is_missing(index)) {
       state.mark = Mark::Missing;
@@ -1051,7 +1168,7 @@ std::string ArtistBrowser::GetHeader() const {
 
 int ArtistBrowser::CountVisibleReleases() const {
   return static_cast<int>(std::count_if(releases_.begin(), releases_.end(),
-                                        [this](const auto& r) { return show_all_ || !r.extra; }));
+                                        [this](const auto& r) { return IsVisible(r); }));
 }
 
 /* ********************************************************************************************** */

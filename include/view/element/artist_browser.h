@@ -6,12 +6,14 @@
 #ifndef INCLUDE_VIEW_ELEMENT_ARTIST_BROWSER_H_
 #define INCLUDE_VIEW_ELEMENT_ARTIST_BROWSER_H_
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "ftxui/component/event.hpp"
@@ -27,8 +29,9 @@
 namespace interface {
 
 /**
- * @brief Browse artists found on MusicBrainz, then releases from the chosen artist (newest first,
- * with release year), adding whole releases or single tracks to the playlist being edited. Each
+ * @brief Browse artists found on MusicBrainz, then releases from the chosen artist (grouped by
+ * type, newest first, with release year), adding whole releases or single tracks to the playlist
+ * being edited (a single is added as a song, without listing its tracks). Each
  * song is found on YouTube only when added (whole releases from the official channel of artist,
  * when it has the same release). Artists unknown by MusicBrainz may still be searched on YouTube:
  * channels found (with their releases) or playlists found. Everything is fetched in another
@@ -182,14 +185,25 @@ class ArtistBrowser : public Element {
     Playlists,  //!< Playlists found on YouTube
   };
 
+  //! Group of releases from artist on MusicBrainz, listed in this order
+  enum class Group : std::uint8_t {
+    Album,   //!< Albums
+    EP,      //!< EPs
+    Single,  //!< Singles (each one added as a song, without listing its tracks)
+    Other,   //!< Any other type, only shown when all types are (e.g. live or compilation)
+  };
+
+  //! Number of groups of releases
+  static constexpr std::size_t kGroups = static_cast<std::size_t>(Group::Other) + 1;
+
   //! Release (or playlist) and its tracks, once they are fetched
   struct Release {
     std::string id;        //!< Release identifier on MusicBrainz, or playlist identifier on YouTube
     std::string title;     //!< Release title
     std::string date;      //!< First release date (only from MusicBrainz)
-    std::string type;      //!< Release type shown before its year (empty for albums)
+    std::string type;      //!< Release type shown before its year (only for other types)
     std::string uploader;  //!< Who created playlist (only for playlists found)
-    bool extra = false;    //!< Release is only shown when all types are (e.g. live or compilation)
+    Group group = Group::Album;  //!< Group of release (only from MusicBrainz)
 
     std::optional<std::vector<model::Song>> tracks;  //!< Tracks (fetched when release is opened)
     std::vector<bool> missing;      //!< Track was not found on YouTube (only for artist releases)
@@ -197,8 +211,26 @@ class ArtistBrowser : public Element {
     bool expanded = false;          //!< Tracks are shown below release
   };
 
-  //! Open entry: artist or channel shows its releases, release shows its tracks (or hides them)
+  //! Open entry: artist or channel shows its releases, group shows its releases and release shows
+  //! its tracks (or hides them, when they are shown)
   bool Open(const Row& row);
+
+  //! Close entry: group hides its releases and release hides its tracks (from any of its tracks
+  //! too), and a release already closed (or a single) closes its group
+  void Close(const Row& row);
+
+  //! Get group of release from artist, and its type shown before its year (only for other types)
+  static std::pair<Group, std::string> GetReleaseGroup(const model::ReleaseGroup& release);
+
+  //! Check if release is a single from artist (added as a song, without listing its tracks)
+  bool IsSingle(const Release& release) const {
+    return source_ == Source::Artist && release.group == Group::Single;
+  }
+
+  //! Check if release is shown (other types are hidden unless all types are shown)
+  bool IsVisible(const Release& release) const {
+    return show_all_ || release.group != Group::Other;
+  }
 
   //! Show releases from artist on MusicBrainz (and find artist channel on YouTube meanwhile)
   void OpenArtist(int index);
@@ -260,6 +292,9 @@ class ArtistBrowser : public Element {
   std::optional<int> owner_;                     //!< Artist or channel whose releases are listed
   std::vector<Release> releases_;  //!< Releases from artist or channel (or playlists found)
   bool show_all_ = false;          //!< Show every release type (e.g. live or compilation)
+
+  //! Groups showing their releases (only for releases from artist on MusicBrainz)
+  std::array<bool, kGroups> groups_expanded_{};
 
   //! Releases from official channel of artist on YouTube (nothing while they are being fetched)
   std::optional<std::vector<model::YoutubeRelease>> official_;
