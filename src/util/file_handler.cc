@@ -677,6 +677,7 @@ bool FileHandler::ParseStats(model::ListeningStats& stats) {
       if (auto it = song.find("title"); it != song.end() && it->is_string()) entry.title = *it;
       internal::ReadUnsigned(song, "listened_ms", entry.listened_ms);
       internal::ReadUnsigned(song, "plays", entry.plays);
+      internal::ReadUnsigned(song, "skips", entry.skips);
 
       if (tmp.songs.size() < model::ListeningStats::kMaxSongs) {
         tmp.songs[song["key"].get<std::string>()] = std::move(entry);
@@ -738,7 +739,8 @@ bool FileHandler::SaveStats(const model::ListeningStats& stats) {
                           {"artist", song.artist},
                           {"title", song.title},
                           {"listened_ms", song.listened_ms},
-                          {"plays", song.plays}});
+                          {"plays", song.plays},
+                          {"skips", song.skips}});
   }
 
   nlohmann::json json_playlists = nlohmann::json::array();

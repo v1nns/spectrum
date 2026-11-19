@@ -551,7 +551,7 @@ TEST_F(FileHandlerTest, SaveAndParseStats) {
       .songs = {{"/music/song.mp3",
                  {.artist = "Artist", .title = "Song", .listened_ms = 120000, .plays = 1}},
                 {"https://www.youtube.com/watch?v=id",
-                 {.title = "Mix", .listened_ms = 180000, .plays = 3}}},
+                 {.title = "Mix", .listened_ms = 180000, .plays = 3, .skips = 2}}},
       .playlists = {{"Chill", {.listened_ms = 120000, .plays = 1}},
                     {"Gym", {.listened_ms = 180000, .plays = 3}}},
       .streak = {.day = 20759, .current = 3, .longest = 12},
@@ -713,6 +713,45 @@ TEST(ListeningStatsTest, KeepOnlyMostListenedSongs) {
 
 /* ********************************************************************************************** */
 
+TEST(ListeningStatsTest, CountSkippedAndKeepSkippedSongs) {
+  model::ListeningStats stats;
+
+  // Song may be skipped before anything was listened to
+  stats.AddSkipped("/skip.mp3", "Artist", "Skip");
+  stats.AddSkipped("/skip.mp3", "Artist", "Skip");
+  EXPECT_EQ(stats.songs["/skip.mp3"].skips, 2);
+  EXPECT_EQ(stats.songs["/skip.mp3"].listened_ms, 0);
+
+  // It is not listened to, so it is not among the most listened ones
+  EXPECT_THAT(stats.GetTopSongs(5), IsEmpty());
+
+  // Song barely listened to, but skipped, is kept over songs never skipped
+  for (std::size_t i = 1; i < model::ListeningStats::kMaxSongs; i++) {
+    const std::string key = "/song" + std::to_string(i);
+    stats.AddListened(key, "", key, false, i, 1);
+  }
+
+  stats.AddListened("/new", "", "/new", false, 1000, 1);
+  EXPECT_THAT(stats.songs, SizeIs(model::ListeningStats::kMaxSongs));
+  EXPECT_EQ(stats.songs.count("/skip.mp3"), 1);
+  EXPECT_EQ(stats.songs.count("/song1"), 0);
+
+  // Only songs skipped a few times are among the most skipped ones
+  stats.AddSkipped("/song2", "", "/song2");
+  stats.AddSkipped("/song3", "", "/song3");
+  stats.AddSkipped("/song3", "", "/song3");
+  stats.AddSkipped("/song3", "", "/song3");
+
+  const auto skipped = stats.GetTopSkipped(5);
+  ASSERT_THAT(skipped, SizeIs(2));
+  EXPECT_EQ(skipped[0].title, "/song3");
+  EXPECT_EQ(skipped[0].skips, 3);
+  EXPECT_EQ(skipped[1].title, "Skip");
+  EXPECT_THAT(stats.GetTopSkipped(1), SizeIs(1));
+}
+
+/* ********************************************************************************************** */
+
 TEST(ListeningStatsTest, GetTopArtistsSongsAndPlaylists) {
   model::ListeningStats stats;
 
@@ -774,6 +813,7 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   current.AddListened("/song.mp3", "Artist", "Song", false, 500, 3000);
   current.AddListened("/other.mp3", "", "Other", false, 200, 3000, "Chill");
   current.AddPlayed("/other.mp3", 3000, "Chill");
+  current.AddSkipped("/skipped.mp3", "", "Skipped");
   current.songs_skipped++;
 
   const model::ListeningStats diff = current.Difference(saved);
@@ -781,7 +821,8 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   EXPECT_EQ(diff.listened_ms, 700);
   EXPECT_EQ(diff.songs_played, 1);
   EXPECT_EQ(diff.songs_skipped, 1);
-  ASSERT_THAT(diff.songs, SizeIs(2));
+  ASSERT_THAT(diff.songs, SizeIs(3));
+  EXPECT_EQ(diff.songs.at("/skipped.mp3").skips, 1);
   EXPECT_EQ(diff.songs.at("/song.mp3").listened_ms, 500);
   EXPECT_EQ(diff.songs.at("/song.mp3").plays, 0);
   EXPECT_EQ(diff.songs.at("/other.mp3").plays, 1);
@@ -807,6 +848,7 @@ TEST(ListeningStatsTest, AddWhatWasCountedSomewhereElse) {
   EXPECT_EQ(latest.songs.at("/song.mp3").listened_ms, 4600);
   EXPECT_EQ(latest.playlists.at("Chill").listened_ms, 300);
   EXPECT_EQ(latest.playlists.at("Chill").plays, 2);
+  EXPECT_EQ(latest.songs.at("/skipped.mp3").skips, 1);
   EXPECT_EQ(latest.songs.at("/other.mp3").listened_ms, 200);
   EXPECT_EQ(latest.songs.at("https://site/mix").plays, 1);
 

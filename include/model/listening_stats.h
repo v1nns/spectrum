@@ -20,8 +20,12 @@ namespace model {
  * was played)
  */
 struct ListeningStats {
-  //! Maximum number of songs with totals kept (the least listened is removed to add another one)
+  //! Maximum number of songs with totals kept (the least listened is removed to add another one,
+  //! but songs skipped are kept over the others)
   static constexpr std::size_t kMaxSongs = 500;
+
+  //! Times that a song must be skipped to show up among the most skipped ones
+  static constexpr uint32_t kMinSkips = 2;
 
   static constexpr std::size_t kWeekdays = 7;   //!< Days in a week (Monday is the first one)
   static constexpr std::size_t kDayHours = 24;  //!< Hours in a day
@@ -35,6 +39,7 @@ struct ListeningStats {
     std::string title;         //!< Song title (or filename/URL, when it has no title)
     uint64_t listened_ms = 0;  //!< Time listened to (in milliseconds)
     uint32_t plays = 0;        //!< Times that it started playing
+    uint32_t skips = 0;        //!< Times that it was stopped before being counted as played
 
     //! Overloaded operators
     bool operator==(const Song& other) const;
@@ -115,6 +120,14 @@ struct ListeningStats {
   void AddPlayed(const std::string& key, int64_t now, const std::string& playlist = "");
 
   /**
+   * @brief Count song as skipped (stopped before being counted as played)
+   * @param key Song identifier (filepath or URL)
+   * @param artist Song artist
+   * @param title Song title
+   */
+  void AddSkipped(const std::string& key, const std::string& artist, const std::string& title);
+
+  /**
    * @brief Get what was counted since the given stats, which were taken from these ones earlier
    * @param before Stats taken earlier
    * @return Stats with only what was counted since then
@@ -148,6 +161,13 @@ struct ListeningStats {
   std::vector<Song> GetTopSongs(std::size_t count) const;
 
   /**
+   * @brief Get songs skipped the most, only the ones skipped at least kMinSkips times
+   * @param count Maximum number of songs
+   * @return Songs sorted from the most skipped one
+   */
+  std::vector<Song> GetTopSkipped(std::size_t count) const;
+
+  /**
    * @brief Get artists listened to the most (by time), songs without artist are not included
    * @param count Maximum number of artists
    * @return Artists sorted from the most listened one
@@ -166,8 +186,11 @@ struct ListeningStats {
   bool operator!=(const ListeningStats& other) const { return !operator==(other); }
 
  private:
-  //! Remove song listened to the least (there must be at least one)
+  //! Remove song listened to the least, preferring one never skipped (there must be at least one)
   void RemoveLeastListened();
+
+  //! Get song with totals, adding it when it is not there yet (removing another one, if needed)
+  Song& GetSong(const std::string& key);
 
   /**
    * @brief Sort totals from the most listened one (by time), leaving out those not listened to

@@ -4047,6 +4047,10 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
     EXPECT_EQ(stats.stream_ms, 500);
     EXPECT_EQ(stats.stream_bytes, 4096);
 
+    // Song from URL was skipped right after starting (unlike the one from file)
+    EXPECT_EQ(stats.songs.at("https://www.youtube.com/watch?v=id").skips, 1);
+    EXPECT_EQ(stats.songs.at("/music/song.mp3").skips, 0);
+
     // Song from URL is not from any playlist
     EXPECT_EQ(stats.playlists, (std::map<std::string, model::ListeningStats::Counts>{
                                    {"Chill", {.listened_ms = 1100, .plays = 1}}}));
@@ -4169,11 +4173,49 @@ TEST_F(MainContentTest, CountSongAsPlayedAfterListeningForAWhile) {
   EXPECT_EQ(GetStats().songs_played, 1);
   EXPECT_EQ(GetStats().songs.at("/music/long.mp3").plays, 1);
 
-  // And it may still be skipped afterwards
+  // And it may still be stopped afterwards (but it is not skipped for top lists, as it was
+  // listened to for a while)
   Process(interface::CustomEvent::ClearSongInfo());
   EXPECT_EQ(GetStats().songs_played, 1);
   EXPECT_EQ(GetStats().songs_skipped, 1);
   EXPECT_EQ(GetStats().songs_finished, 0);
+  EXPECT_EQ(GetStats().songs.at("/music/long.mp3").skips, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ShowTopSkippedSongs) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+
+  auto skip = [this](const std::string& title) {
+    const model::Song song{.filepath = "/music/" + title + ".mp3",
+                           .artist = "Artist",
+                           .title = title,
+                           .duration = 120};
+
+    Process(interface::CustomEvent::UpdateSongInfo(song));
+    ListenToSong(0, 500);
+    Process(interface::CustomEvent::ClearSongInfo());
+  };
+
+  // Song skipped only once is not shown yet
+  skip("Once");
+  skip("Often");
+
+  block->OnEvent(ftxui::Event::Character('9'));
+  std::string rendered = RenderScreen();
+  while (block->OnEvent(ftxui::Event::Character('j'))) rendered = RenderScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("Top skipped"));
+  EXPECT_THAT(rendered, HasSubstr("No song skipped 2 times yet"));
+
+  skip("Often");
+  rendered = RenderScreen();
+
+  // Only the song skipped often enough is shown (below top songs, where both are listed)
+  EXPECT_THAT(RenderedRowWith(rendered, "2×    skipped"), HasSubstr("1. Often · Artist"));
+  EXPECT_THAT(rendered, Not(HasSubstr("1×    skipped")));
+  EXPECT_THAT(rendered, Not(HasSubstr("No song skipped")));
 }
 
 /* ********************************************************************************************** */

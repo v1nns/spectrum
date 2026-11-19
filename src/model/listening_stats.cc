@@ -39,15 +39,15 @@ bool ListeningStats::Counts::operator==(const Counts& other) const {
 /* ********************************************************************************************** */
 
 bool ListeningStats::Song::operator==(const Song& other) const {
-  return std::tie(artist, title, listened_ms, plays) ==
-         std::tie(other.artist, other.title, other.listened_ms, other.plays);
+  return std::tie(artist, title, listened_ms, plays, skips) ==
+         std::tie(other.artist, other.title, other.listened_ms, other.plays, other.skips);
 }
 
 /* ********************************************************************************************** */
 
 void ListeningStats::AddListened(const std::string& key, const std::string& artist,
-                                 const std::string& title, bool from_url, uint64_t ms,
-                                 int64_t now, const std::string& playlist) {
+                                 const std::string& title, bool from_url, uint64_t ms, int64_t now,
+                                 const std::string& playlist) {
   if (since == 0) since = now;
 
   listened_ms += ms;
@@ -58,11 +58,8 @@ void ListeningStats::AddListened(const std::string& key, const std::string& arti
   const auto weekday = static_cast<std::size_t>(local.tm_wday + kWeekdays - 1) % kWeekdays;
   hours[weekday][static_cast<std::size_t>(local.tm_hour)] += ms;
 
-  // Least listened song gives room to the new one (it would be the first one removed anyway)
-  if (songs.find(key) == songs.end() && songs.size() >= kMaxSongs) RemoveLeastListened();
-
   // Song information may change (e.g. tags edited), so keep the latest one
-  Song& song = songs[key];
+  Song& song = GetSong(key);
   song.artist = artist;
   song.title = title;
   song.listened_ms += ms;
@@ -84,6 +81,26 @@ void ListeningStats::AddPlayed(const std::string& key, int64_t now, const std::s
   streak.current = streak.current > 0 && today == streak.day + 1 ? streak.current + 1 : 1;
   streak.day = today;
   streak.longest = std::max(streak.longest, streak.current);
+}
+
+/* ********************************************************************************************** */
+
+void ListeningStats::AddSkipped(const std::string& key, const std::string& artist,
+                                const std::string& title) {
+  // Song may be skipped before anything was listened to (so it may not be there yet)
+  Song& song = GetSong(key);
+  song.artist = artist;
+  song.title = title;
+  song.skips++;
+}
+
+/* ********************************************************************************************** */
+
+ListeningStats::Song& ListeningStats::GetSong(const std::string& key) {
+  // Least listened song gives room to the new one (it would be the first one removed anyway)
+  if (songs.find(key) == songs.end() && songs.size() >= kMaxSongs) RemoveLeastListened();
+
+  return songs[key];
 }
 
 /* ********************************************************************************************** */
@@ -128,9 +145,12 @@ ListeningStats ListeningStats::Difference(const ListeningStats& before) const {
         .listened_ms =
             existed ? minus(song.listened_ms, earlier->second.listened_ms) : song.listened_ms,
         .plays = existed ? minus(song.plays, earlier->second.plays) : song.plays,
+        .skips = existed ? minus(song.skips, earlier->second.skips) : song.skips,
     };
 
-    if (changed.listened_ms > 0 || changed.plays > 0) diff.songs[key] = std::move(changed);
+    if (changed.listened_ms > 0 || changed.plays > 0 || changed.skips > 0) {
+      diff.songs[key] = std::move(changed);
+    }
   }
 
   for (const auto& [name, playlist] : playlists) {
@@ -183,6 +203,7 @@ void ListeningStats::Add(const ListeningStats& other) {
     total.title = song.title;
     total.listened_ms += song.listened_ms;
     total.plays += song.plays;
+    total.skips += song.skips;
   }
 
   for (const auto& [name, playlist] : other.playlists) {
@@ -197,8 +218,10 @@ void ListeningStats::Add(const ListeningStats& other) {
 /* ********************************************************************************************** */
 
 void ListeningStats::RemoveLeastListened() {
+  // Song skipped is barely listened to, so it would always be the first one removed otherwise
   songs.erase(std::min_element(songs.begin(), songs.end(), [](const auto& lhs, const auto& rhs) {
-    return lhs.second.listened_ms < rhs.second.listened_ms;
+    return std::make_tuple(lhs.second.skips > 0, lhs.second.listened_ms) <
+           std::make_tuple(rhs.second.skips > 0, rhs.second.listened_ms);
   }));
 }
 
@@ -216,6 +239,22 @@ std::vector<ListeningStats::Song> ListeningStats::GetTopSongs(std::size_t count)
   std::stable_sort(top.begin(), top.end(), [](const Song& lhs, const Song& rhs) {
     return lhs.listened_ms > rhs.listened_ms;
   });
+
+  if (top.size() > count) top.resize(count);
+  return top;
+}
+
+/* ********************************************************************************************** */
+
+std::vector<ListeningStats::Song> ListeningStats::GetTopSkipped(std::size_t count) const {
+  std::vector<Song> top;
+
+  for (const auto& [key, song] : songs) {
+    if (song.skips >= kMinSkips) top.push_back(song);
+  }
+
+  std::stable_sort(top.begin(), top.end(),
+                   [](const Song& lhs, const Song& rhs) { return lhs.skips > rhs.skips; });
 
   if (top.size() > count) top.resize(count);
   return top;
