@@ -242,9 +242,8 @@ TEST_F(MusicBrainzTest, WaitBetweenRequests) {
       }));
 
   std::vector<model::Artist> artists;
-  ASSERT_EQ(musicbrainz->SearchArtists("cartola", artists), error::kSuccess);
-
   const auto start = std::chrono::steady_clock::now();
+  ASSERT_EQ(musicbrainz->SearchArtists("cartola", artists), error::kSuccess);
   ASSERT_EQ(musicbrainz->SearchArtists("cartola", artists), error::kSuccess);
 
   EXPECT_GE(std::chrono::steady_clock::now() - start, kInterval);
