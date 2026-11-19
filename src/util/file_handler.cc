@@ -677,10 +677,25 @@ bool FileHandler::ParseStats(model::ListeningStats& stats) {
       if (auto it = song.find("title"); it != song.end() && it->is_string()) entry.title = *it;
       internal::ReadUnsigned(song, "listened_ms", entry.listened_ms);
       internal::ReadUnsigned(song, "plays", entry.plays);
+      internal::ReadUnsigned(song, "skips", entry.skips);
 
       if (tmp.songs.size() < model::ListeningStats::kMaxSongs) {
         tmp.songs[song["key"].get<std::string>()] = std::move(entry);
       }
+    }
+  }
+
+  if (auto playlists = parsed.find("playlists");
+      playlists != parsed.end() && playlists->is_array()) {
+    for (const auto& playlist : *playlists) {
+      if (!playlist.is_object() || !playlist.contains("name") || !playlist["name"].is_string()) {
+        continue;
+      }
+
+      model::ListeningStats::Counts entry;
+      internal::ReadUnsigned(playlist, "listened_ms", entry.listened_ms);
+      internal::ReadUnsigned(playlist, "plays", entry.plays);
+      tmp.playlists[playlist["name"].get<std::string>()] = entry;
     }
   }
 
@@ -724,7 +739,15 @@ bool FileHandler::SaveStats(const model::ListeningStats& stats) {
                           {"artist", song.artist},
                           {"title", song.title},
                           {"listened_ms", song.listened_ms},
-                          {"plays", song.plays}});
+                          {"plays", song.plays},
+                          {"skips", song.skips}});
+  }
+
+  nlohmann::json json_playlists = nlohmann::json::array();
+
+  for (const auto& [name, playlist] : stats.playlists) {
+    json_playlists.push_back(
+        {{"name", name}, {"listened_ms", playlist.listened_ms}, {"plays", playlist.plays}});
   }
 
   nlohmann::json json_data{{"since", stats.since},
@@ -736,6 +759,7 @@ bool FileHandler::SaveStats(const model::ListeningStats& stats) {
                            {"songs_skipped", stats.songs_skipped},
                            {"stream_bytes", stats.stream_bytes},
                            {"songs", json_songs},
+                           {"playlists", json_playlists},
                            {"hours", stats.hours},
                            {"streak",
                             {{"day", stats.streak.day},

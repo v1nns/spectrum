@@ -9,6 +9,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -16,6 +17,7 @@
 #include <vector>
 
 #include "model/application_error.h"
+#include "model/artist_search.h"
 #include "model/song.h"
 #include "nlohmann/json_fwd.hpp"
 #include "util/logger.h"
@@ -46,6 +48,39 @@ class YtDlpWrapper : public web::StreamFetcher {
   //! Maximum songs imported from a YouTube mix (it never ends, so program would list hundreds of
   //! them, while YouTube itself shows only a few dozen)
   static constexpr int kMixMaxSongs = 50;
+
+  //! Maximum channels listed when searching for an artist (the first ones are the most relevant)
+  static constexpr int kSearchMaxChannels = 8;
+
+  //! Maximum playlists listed when searching for albums from an artist
+  static constexpr int kSearchMaxPlaylists = 15;
+
+  //! Base URL to search YouTube (followed by the text to search)
+  static constexpr std::string_view kSearchUrl = "https://www.youtube.com/results?search_query=";
+
+  //! Filters added to search URL, to find only channels or only playlists
+  static constexpr std::string_view kChannelsFilter = "&sp=EgIQAg%3D%3D";
+  static constexpr std::string_view kPlaylistsFilter = "&sp=EgIQAw%3D%3D";
+
+  //! Maximum programs running at the same time to find songs (more of them would make YouTube
+  //! refuse requests sooner, taking them as coming from a bot)
+  static constexpr int kMaxParallelSearches = 3;
+
+  //! Maximum results listed when searching for a single song
+  static constexpr int kSongMaxResults = 3;
+
+  //! Maximum difference from expected duration for a video to be taken as the song searched
+  static constexpr uint32_t kMaxDurationDifference = 10;
+
+  //! Base URL to search songs on YouTube Music (followed by the text to search and section)
+  static constexpr std::string_view kMusicSearchUrl = "https://music.youtube.com/search?q=";
+  static constexpr std::string_view kMusicSongsSection = "#songs";
+
+  //! Prefix to search videos on YouTube, listing a few results (followed by the text to search)
+  static constexpr std::string_view kVideoSearchPrefix = "ytsearch3:";
+
+  //! Interval to check if searching songs must be canceled
+  static constexpr std::chrono::milliseconds kCancelCheckInterval{50};
 
  public:
   /**
@@ -105,6 +140,56 @@ class YtDlpWrapper : public web::StreamFetcher {
                                      const std::atomic<bool>* cancel = nullptr);
 
   /**
+   * @brief Search YouTube for channels from the given artist. Topic channels (e.g. "Artist -
+   * Topic") are skipped, as they do not list any release, and verified channels come first
+   * @param query Artist name
+   * @param channels List of channels found (out)
+   * @param cancel Flag to cancel search while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code SearchArtists(const std::string& query,
+                                   std::vector<model::YoutubeChannel>& channels,
+                                   const std::atomic<bool>* cancel = nullptr);
+
+  /**
+   * @brief Extract releases (albums, EPs and singles) from the given channel, as listed by YouTube
+   * @param channel_id Channel identifier
+   * @param releases List of releases (out), empty when channel does not have any
+   * @param cancel Flag to cancel extraction while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code ExtractReleases(const std::string& channel_id,
+                                     std::vector<model::YoutubeRelease>& releases,
+                                     const std::atomic<bool>* cancel = nullptr);
+
+  /**
+   * @brief Search YouTube for playlists with albums from the given artist (created by anyone, used
+   * when artist has no channel with releases)
+   * @param query Artist name
+   * @param playlists List of playlists found (out)
+   * @param cancel Flag to cancel search while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code SearchPlaylists(const std::string& query,
+                                     std::vector<model::YoutubeRelease>& playlists,
+                                     const std::atomic<bool>* cancel = nullptr);
+
+  /**
+   * @brief Find each song on YouTube, from its artist, title and duration (e.g. songs from an album
+   * listed by MusicBrainz). Song is first searched on YouTube Music (whose results are audio only,
+   * matched by title), then on YouTube itself (matched by duration). Searches are split between a
+   * few programs running at the same time, and all of them stop on the first refused request
+   * @param songs Songs to find (out), whose streaming URL is filled when found (songs that already
+   * have one are skipped)
+   * @param progress Number of songs already searched (out, optional)
+   * @param cancel Flag to cancel search while it is running (optional)
+   * @return Error code from operation (success even when some songs are not found)
+   */
+  static error::Code MatchSongs(std::vector<model::Song>& songs,
+                                std::atomic<int>* progress = nullptr,
+                                const std::atomic<bool>* cancel = nullptr);
+
+  /**
    * @brief Set browser whose cookies are sent to site when it refuses requests (asking for a login
    * to prove that they do not come from a bot). Cookies are read by yt-dlp itself, and only after a
    * request is refused; from then on, they are sent by every request. It must be set before any
@@ -158,14 +243,14 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @brief Run program to extract information from URL. When site refuses the request and there is
    * a browser to read cookies from, program is executed once more to send them
    * @param program Full path to program
-   * @param options Options for program (URL is always the last argument)
-   * @param url URL to extract information from
+   * @param options Options for program (URLs are always the last arguments)
+   * @param urls URLs to extract information from (each one printed in a line, when it is JSON)
    * @param output Content written by program to standard output (out)
    * @param cancel Flag to cancel program while it is running (optional)
    * @return Error code from operation (with the reason for program to fail, when it is known)
    */
   static error::Code Run(const std::string& program, const std::vector<std::string>& options,
-                         const std::string& url, std::string& output,
+                         const std::vector<std::string>& urls, std::string& output,
                          const std::atomic<bool>* cancel = nullptr);
 
   /**
@@ -192,6 +277,74 @@ class YtDlpWrapper : public web::StreamFetcher {
    * @return Error code from operation (when output does not contain a playlist, for example)
    */
   static error::Code ParsePlaylist(const nlohmann::json& info, std::vector<model::Song>& songs);
+
+  /**
+   * @brief Fill list of channels with entries from search extracted by yt-dlp (skipping Topic
+   * channels and anything else that is not a channel), placing verified ones first
+   * @param info JSON parsed output from yt-dlp (using flat playlist)
+   * @param channels List of channels (out)
+   * @return Error code from operation (when output does not contain a list, for example)
+   */
+  static error::Code ParseChannels(const nlohmann::json& info,
+                                   std::vector<model::YoutubeChannel>& channels);
+
+  /**
+   * @brief Fill list of releases with playlists extracted by yt-dlp (skipping anything else that
+   * is not a playlist, like a channel found by search)
+   * @param info JSON parsed output from yt-dlp (using flat playlist)
+   * @param releases List of releases (out)
+   * @return Error code from operation (when output does not contain a list, for example)
+   */
+  static error::Code ParseReleases(const nlohmann::json& info,
+                                   std::vector<model::YoutubeRelease>& releases);
+
+  /**
+   * @brief Run program to list entries from the given URL (without extracting information from
+   * each one of them) and parse its output
+   * @param url URL to list entries from
+   * @param max_entries Maximum number of entries listed (0 for no limit)
+   * @param parse Function to parse program output
+   * @param cancel Flag to cancel program while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code ListEntries(const std::string& url, int max_entries,
+                                 const std::function<error::Code(const nlohmann::json&)>& parse,
+                                 const std::atomic<bool>* cancel);
+
+  /**
+   * @brief Run program once to search all the given texts (or URLs from a search), listing a few
+   * results for each one of them
+   * @param program Full path to program
+   * @param searches URLs (or prefixed texts) to search
+   * @param results Results for each search, by its URL (out)
+   * @param cancel Flag to cancel program while it is running (optional)
+   * @return Error code from operation
+   */
+  static error::Code Search(const std::string& program, const std::vector<std::string>& searches,
+                            std::map<std::string, nlohmann::json>& results,
+                            const std::atomic<bool>* cancel);
+
+  /**
+   * @brief Pick the result whose title is the same as the song title (ignoring case and
+   * typographic punctuation, and then also text in brackets from only one of them, like
+   * "(Remastered)")
+   * @param entries Results from search
+   * @param title Song title
+   * @return Identifier of the video picked (or nothing, if none of them has the same title)
+   */
+  static std::optional<std::string> PickByTitle(const nlohmann::json& entries,
+                                                const std::string& title);
+
+  /**
+   * @brief Pick the result whose duration is the closest to song duration (up to a few seconds of
+   * difference), skipping live versions when song is not one
+   * @param entries Results from search
+   * @param title Song title
+   * @param duration Song duration (in seconds)
+   * @return Identifier of the video picked (or nothing, if none of them is close enough)
+   */
+  static std::optional<std::string> PickByDuration(const nlohmann::json& entries,
+                                                   const std::string& title, uint32_t duration);
 
   /**
    * @brief Fill artist and title, parsed from video title (as "Artist - Title"). If video title

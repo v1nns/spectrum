@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "model/application_error.h"
+#include "model/artist_search.h"
 #include "model/song.h"
 #include "web/base/stream_fetcher.h"
 
@@ -68,6 +69,42 @@ class DummyStreamFetcher : public web::StreamFetcher {
    * @return Always an error, as there is nothing to extract
    */
   static error::Code ExtractPlaylist(const std::string&, std::vector<model::Song>&,
+                                     const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Find the given songs on YouTube
+   * @return Always an error, as there is nothing to search
+   */
+  static error::Code MatchSongs(std::vector<model::Song>&, std::atomic<int>* = nullptr,
+                                const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Search channels from the given artist
+   * @return Always an error, as there is nothing to search
+   */
+  static error::Code SearchArtists(const std::string&, std::vector<model::YoutubeChannel>&,
+                                   const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Extract releases from the given channel
+   * @return Always an error, as there is nothing to extract
+   */
+  static error::Code ExtractReleases(const std::string&, std::vector<model::YoutubeRelease>&,
+                                     const std::atomic<bool>* = nullptr) {
+    return error::kStreamFetchFailed;
+  }
+
+  /**
+   * @brief Search playlists from the given artist
+   * @return Always an error, as there is nothing to search
+   */
+  static error::Code SearchPlaylists(const std::string&, std::vector<model::YoutubeRelease>&,
                                      const std::atomic<bool>* = nullptr) {
     return error::kStreamFetchFailed;
   }

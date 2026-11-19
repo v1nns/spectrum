@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "ftxui/component/event.hpp"
 
@@ -155,6 +156,85 @@ inline bool compare(const char& a, const char& b) { return std::tolower(a) == st
 inline bool contains(std::string_view string, std::string_view substring) {
   auto it = std::search(string.begin(), string.end(), substring.begin(), substring.end(), compare);
   return it != string.end();
+}
+
+/**
+ * @brief Normalize a song or album title, so the same title written by different sources can be
+ * compared (e.g. "Takk…" from MusicBrainz and "Takk..." from YouTube): ASCII letters in lowercase,
+ * typographic punctuation replaced by the ASCII one and whitespace collapsed
+ * @param s Raw string (encoded as UTF-8)
+ * @param drop_brackets Also remove any text inside brackets or parentheses (e.g. "(Remastered)")
+ * @return Formatted string
+ */
+inline std::string normalize_title(const std::string& s, bool drop_brackets = false) {
+  //! Typographic punctuation and its ASCII replacement
+  static constexpr std::array<std::pair<std::string_view, std::string_view>, 9> kPunctuation{{
+      {"…", "..."},
+      {"‐", "-"},
+      {"‑", "-"},
+      {"–", "-"},
+      {"—", "-"},
+      {"’", "'"},
+      {"‘", "'"},
+      {"“", "\""},
+      {"”", "\""},
+  }};
+
+  std::string text;
+  text.reserve(s.size());
+
+  int depth = 0;  // Brackets may be nested
+
+  for (size_t i = 0; i < s.size();) {
+    const std::string_view rest = std::string_view{s}.substr(i);
+
+    auto it = std::find_if(kPunctuation.begin(), kPunctuation.end(),
+                           [&rest](const auto& pair) { return rest.rfind(pair.first, 0) == 0; });
+
+    if (it != kPunctuation.end()) {
+      if (depth == 0) text += it->second;
+      i += it->first.size();
+      continue;
+    }
+
+    char c = s[i++];
+
+    if (drop_brackets && (c == '(' || c == '[')) {
+      depth++;
+      continue;
+    }
+
+    if (drop_brackets && depth > 0) {
+      if (c == ')' || c == ']') depth--;
+      continue;
+    }
+
+    if (std::isspace(static_cast<unsigned char>(c))) c = ' ';
+    if (c == ' ' && (text.empty() || text.back() == ' ')) continue;
+
+    text += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  }
+
+  return rtrim(text);
+}
+
+/**
+ * @brief Compare two song or album titles (normalized, so typographic punctuation is the same)
+ * @param lhs Title from one source
+ * @param rhs Title from another source
+ * @param relaxed Also take them as the same when only one of them has text in brackets (e.g.
+ * "Refur (2025 remaster)" and "Refur"), but not when both of them have it (e.g. "Song (Part 1)" and
+ * "Song (Part 2)", which are different songs)
+ * @return true if titles are the same, otherwise false
+ */
+inline bool same_title(const std::string& lhs, const std::string& rhs, bool relaxed = false) {
+  const std::string left = normalize_title(lhs);
+  const std::string right = normalize_title(rhs);
+
+  if (left == right) return true;
+  if (!relaxed) return false;
+
+  return normalize_title(lhs, true) == right || left == normalize_title(rhs, true);
 }
 
 /**

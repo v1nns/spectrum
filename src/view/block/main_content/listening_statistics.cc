@@ -242,7 +242,11 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
                                                   : song.filepath.filename().string();
 
     // Song is only counted once it is listened to
-    current_ = Current{.key = key, .artist = song.artist, .title = title, .from_url = from_url};
+    current_ = Current{.key = key,
+                       .artist = song.artist,
+                       .title = title,
+                       .playlist = song.playlist.value_or(""),
+                       .from_url = from_url};
     last_position_.reset();
   }
 
@@ -259,7 +263,8 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
       const int64_t now = Now();
 
       Update([&](model::ListeningStats& stats) {
-        stats.AddListened(song.key, song.artist, song.title, song.from_url, listened, now);
+        stats.AddListened(song.key, song.artist, song.title, song.from_url, listened, now,
+                          song.playlist);
       });
 
       current_->listened_ms += listened;
@@ -272,7 +277,9 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
     if (!current_->played && (finished || current_->listened_ms >= kPlayedThreshold)) {
       current_->played = true;
       const int64_t now = Now();
-      Update([this, now](model::ListeningStats& stats) { stats.AddPlayed(current_->key, now); });
+      Update([this, now](model::ListeningStats& stats) {
+        stats.AddPlayed(current_->key, now, current_->playlist);
+      });
     }
 
     if (finished && !current_->finished) {
@@ -290,6 +297,14 @@ bool ListeningStatistics::OnCustomEvent(const CustomEvent& event) {
     // Song stopped before its end (skipped, stopped by user, another song chosen or some error)
     if (!current_->finished) {
       Update([](model::ListeningStats& stats) { stats.songs_skipped++; });
+    }
+
+    // But only a song stopped before being counted as played is skipped for top lists (otherwise,
+    // it was listened to for a while)
+    if (!current_->played) {
+      Update([song = *current_](model::ListeningStats& stats) {
+        stats.AddSkipped(song.key, song.artist, song.title);
+      });
     }
 
     current_.reset();
@@ -490,37 +505,91 @@ ftxui::Element ListeningStatistics::DrawTopLists(const model::ListeningStats& st
 
   const auto& theme = GetTheme().file_info;
 
-  // Name is cut when there is not enough space for it, so time listened is aligned on both lists
-  auto entry = [&theme](std::size_t index, const std::string& name, uint64_t listened_ms) {
+  // Name is cut when there is not enough space for it, so times counted (e.g. played) and what is
+  // after them (e.g. time listened) are aligned on all lists
+  auto row = [&theme](std::size_t index, const std::string& name, uint32_t times,
+                      const std::string& after) {
     return ftxui::hbox({
         ftxui::text(std::to_string(index + 1) + ". ") | ftxui::color(theme.field),
         ellipsized_text(name, 0) | ftxui::xflex | ftxui::color(theme.value),
-        ftxui::text(" "),
-        ftxui::text(FormatDuration(listened_ms)) | ftxui::align_right |
-            ftxui::size(WIDTH, EQUAL, kTimeColumns) | ftxui::color(theme.field),
+        ftxui::text(std::to_string(times) + "×") | ftxui::align_right |
+            ftxui::size(WIDTH, EQUAL, kPlaysColumns) | ftxui::color(theme.field),
+        ftxui::text(after) | ftxui::align_right | ftxui::size(WIDTH, EQUAL, kTimeColumns) |
+            ftxui::color(theme.field),
     });
   };
 
-  ftxui::Elements artists{ftxui::text("Top artists") | ftxui::bold | ftxui::color(theme.title)};
+  auto entry = [&row](std::size_t index, const std::string& name, uint32_t plays,
+                      uint64_t listened_ms) {
+    return row(index, name, plays, FormatDuration(listened_ms));
+  };
+
+  auto song_name = [](const model::ListeningStats::Song& song) {
+    return song.artist.empty() ? song.title : song.title + " · " + song.artist;
+  };
+
+  auto title = [&theme](const std::string& text) {
+    return ftxui::text(text) | ftxui::bold | ftxui::color(theme.title);
+  };
+
+  ftxui::Elements artists{title("Top artists")};
   const auto top_artists = stats.GetTopArtists(kTopCount);
 
   for (std::size_t i = 0; i < top_artists.size(); i++) {
-    artists.push_back(entry(i, top_artists[i].name, top_artists[i].listened_ms));
+    const auto& artist = top_artists[i];
+    artists.push_back(entry(i, artist.name, artist.plays, artist.listened_ms));
   }
 
-  ftxui::Elements songs{ftxui::text("Top songs") | ftxui::bold | ftxui::color(theme.title)};
+  ftxui::Elements songs{title("Top songs")};
   const auto top_songs = stats.GetTopSongs(kTopCount);
 
   for (std::size_t i = 0; i < top_songs.size(); i++) {
     const auto& song = top_songs[i];
-    songs.push_back(entry(i, song.artist.empty() ? song.title : song.title + " · " + song.artist,
-                          song.listened_ms));
+    songs.push_back(entry(i, song_name(song), song.plays, song.listened_ms));
+  }
+
+  // Older stats did not count songs skipped
+  ftxui::Elements skipped{title("Top skipped")};
+  const auto top_skipped = stats.GetTopSkipped(kTopCount);
+
+  if (top_skipped.empty()) {
+    skipped.push_back(ftxui::text("No song skipped " +
+                                std::to_string(model::ListeningStats::kMinSkips) + " times yet") |
+                    ftxui::color(theme.field));
+  }
+
+  for (std::size_t i = 0; i < top_skipped.size(); i++) {
+    skipped.push_back(row(i, song_name(top_skipped[i]), top_skipped[i].skips, "skipped"));
+  }
+
+  ftxui::Elements playlists{title("Top playlists")};
+  const auto top_playlists = stats.GetTopPlaylists(kTopCount);
+
+  // Songs played from files or a single URL have no playlist (and older stats did not count them)
+  if (top_playlists.empty()) {
+    playlists.push_back(ftxui::text("No playlist counted yet") | ftxui::color(theme.field));
+  }
+
+  for (std::size_t i = 0; i < top_playlists.size(); i++) {
+    const auto& playlist = top_playlists[i];
+    playlists.push_back(entry(i, playlist.name, playlist.plays, playlist.listened_ms));
   }
 
   // Both lists get the same width, as names do not ask for any space (they are cut to fit)
   auto column = [](ftxui::Elements entries) {
     return ftxui::vbox(std::move(entries)) | ftxui::xflex;
   };
+
+  // Playlists go below artists and songs skipped go below songs, in the same columns (so they have
+  // the same width), both starting on the same row
+  while (artists.size() < songs.size()) artists.push_back(ftxui::text(""));
+  while (songs.size() < artists.size()) songs.push_back(ftxui::text(""));
+
+  artists.push_back(ftxui::text(""));
+  artists.insert(artists.end(), playlists.begin(), playlists.end());
+
+  songs.push_back(ftxui::text(""));
+  songs.insert(songs.end(), skipped.begin(), skipped.end());
 
   return ftxui::hbox({
       column(std::move(artists)),

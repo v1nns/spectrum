@@ -7,6 +7,7 @@
 #include "util/logger.h"
 #include "view/base/keybinding.h"
 #include "view/element/style.h"
+#include "view/element/util.h"
 
 namespace interface {
 
@@ -15,8 +16,10 @@ UrlInput::UrlInput(const std::string& label, const std::string& success, const C
       success_{success},
       on_submit_{on_submit},
       input_{[](const std::string& character) {
-        // URLs contain only printable ASCII characters (without spaces)
-        return character.size() == 1 && std::isgraph(static_cast<unsigned char>(character.front()));
+        // Besides URLs, it also takes any other text to search (e.g. "Sigur Rós"), but no control
+        // characters
+        return character.size() > 1 ||
+               (!character.empty() && std::isprint(static_cast<unsigned char>(character[0])));
       }} {}
 
 /* ********************************************************************************************** */
@@ -26,7 +29,7 @@ ftxui::Element UrlInput::Render() {
 
   // Hints are split in multiple lines to fit even on smaller terminals
   auto hint = ftxui::vbox({
-                  ftxui::text(util::EventToString(Keybind::Return) + ": add"),
+                  ftxui::text(util::EventToString(Keybind::Return) + ": " + action_),
                   ftxui::text(util::EventToString(Keybind::Escape) + ": clear"),
               }) |
               ftxui::color(GetTheme().dialog.hint) | ftxui::dim;
@@ -44,7 +47,7 @@ ftxui::Element UrlInput::Render() {
                    ftxui::bold;
         break;
       case Result::Status::Pending: {
-        const auto spinner = GetSpinnerFrame(std::chrono::steady_clock::now() - pending_since_);
+        const auto spinner = spinner_frame(std::chrono::steady_clock::now() - pending_since_);
         feedback = ftxui::text(std::string{spinner} + " " + feedback_->message) |
                    ftxui::color(GetTheme().dialog.hint);
       } break;
@@ -118,13 +121,6 @@ void UrlInput::Submit() {
 
   LOG("Submit URL=", std::quoted(input_.GetText()));
   SetResult(on_submit_(input_.GetText()));
-}
-
-/* ********************************************************************************************** */
-
-std::string_view UrlInput::GetSpinnerFrame(std::chrono::steady_clock::duration elapsed) {
-  const auto frame = static_cast<size_t>(elapsed / kSpinnerInterval) % kSpinnerFrames.size();
-  return kSpinnerFrames.at(frame);
 }
 
 /* ********************************************************************************************** */

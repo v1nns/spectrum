@@ -137,6 +137,7 @@ Key Playlist::RemoveSong = Key::Character('d');
 
 Key Playlist::ShowFiles = Key::Special("\x1BOP");    //! F1
 Key Playlist::ShowYoutube = Key::Special("\x1BOQ");  //! F2
+Key Playlist::ShowAllReleases = Key::Character('a');
 
 Key Playlist::PreviousPlaylist = Key::Character('[');
 Key Playlist::NextPlaylist = Key::Character(']');

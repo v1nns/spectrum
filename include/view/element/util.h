@@ -7,6 +7,8 @@
 #define INCLUDE_VIEW_ELEMENT_UTIL_H_
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/dom/node.hpp>
 #include <ftxui/screen/box.hpp>
@@ -25,6 +27,24 @@ namespace interface {
 template <class T>
 inline constexpr const T& clamp(const T& v, const T& lo, const T& hi) {
   return v < lo ? lo : hi < v ? hi : v;
+}
+
+/**
+ * @brief Get frame from spinner shown while something is running (owner must refresh UI to animate
+ * it)
+ * @param elapsed Time since it started running
+ * @return Frame to render
+ */
+inline std::string_view spinner_frame(std::chrono::steady_clock::duration elapsed) {
+  //! Frames from spinner
+  static constexpr std::array<std::string_view, 10> kFrames{"⠋", "⠙", "⠹", "⠸", "⠼",
+                                                            "⠴", "⠦", "⠧", "⠇", "⠏"};
+
+  //! Time that each frame stays visible
+  static constexpr std::chrono::milliseconds kInterval{80};
+
+  const auto frame = static_cast<size_t>(elapsed / kInterval) % kFrames.size();
+  return kFrames.at(frame);
 }
 
 //! Returns a decorator that sets the size of an element to the specified width and height.

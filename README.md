@@ -23,7 +23,7 @@ With an intuitive user interface and lightning-fast performance, this music play
 - Audio spectrum visualizer (bars, lines, radial and waterfall animations, with bar styles, color modes, peak caps and hue cycle);
 - Audio equalizer;
 - Fetch song lyrics;
-- Listening stats (time listened, songs played, data streamed, top artists and songs, listening hours by weekday and days in a row);
+- Listening stats (time listened, songs played, data streamed, top artists, songs and playlists with times played, songs skipped the most, listening hours by weekday and days in a row);
 - Playlists with local files and songs from YouTube (including whole YouTube playlists);
 - Repeat and shuffle modes;
 - Color themes (Tokyo Night, Catppuccin Mocha and Latte, Gruvbox Dark, Nord, Dracula, or the colors from your terminal);
@@ -51,6 +51,7 @@ To play songs from YouTube, [yt-dlp](https://github.com/yt-dlp/yt-dlp) must be i
 2. Add songs to it:
    - from local files: navigate in the files list and press <kbd>Space</kbd> on each song;
    - from YouTube: press <kbd>F2</kbd>, paste the URL of a video (or of a whole playlist, to import all its songs) and press <kbd>Return</kbd>;
+   - from an artist: press <kbd>F2</kbd>, type the artist name and press <kbd>Return</kbd>, pick the artist to list their albums, EPs and singles (each in its own group, newest first, with release year, from [MusicBrainz](https://musicbrainz.org)), then press <kbd>Space</kbd> on a whole album, on single songs from it or on a single, which are found on YouTube (<kbd>Return</kbd> or <kbd>l</kbd> opens an album or group, <kbd>a</kbd> also shows live albums, compilations and so on, <kbd>Esc</kbd> goes back). Songs not found on YouTube are marked with `[!]`. For artists unknown by MusicBrainz, choose "Search YouTube channels" to list albums from their channel, or "Search playlists" to look for albums uploaded by anyone;
 3. Press <kbd>r</kbd> to give it a name, and <kbd>s</kbd> to save;
 4. Back in the playlists list, press <kbd>Return</kbd> on a playlist (or on a song from it) to play.
 

@@ -28,5 +28,14 @@ SongMenu CreateSongMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
   return std::make_unique<internal::SongMenu>(dispatcher, force_refresh, on_click);
 }
 
+/* ********************************************************************************************** */
+
+YoutubeMenu CreateYoutubeMenu(const std::shared_ptr<EventDispatcher>& dispatcher,
+                              const TextAnimation::Callback& force_refresh,
+                              const internal::YoutubeMenu::Callback& on_click,
+                              const internal::YoutubeMenu::StateCallback& get_state) {
+  return std::make_unique<internal::YoutubeMenu>(dispatcher, force_refresh, on_click, get_state);
+}
+
 }  // namespace menu
 }  // namespace interface

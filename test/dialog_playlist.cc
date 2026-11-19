@@ -18,6 +18,7 @@
 #include "gmock/gmock.h"
 #include "mock/event_dispatcher_mock.h"
 #include "mock/file_handler_mock.h"
+#include "model/artist_search.h"
 #include "model/playlist.h"
 #include "model/playlist_operation.h"
 #include "model/question_data.h"
@@ -38,10 +39,12 @@ namespace {
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::DoAll;
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::HasSubstr;
 using ::testing::Invoke;
+using ::testing::IsEmpty;
 using ::testing::MockFunction;
 using ::testing::NiceMock;
 using ::testing::Not;
@@ -77,6 +80,58 @@ class PlaylistDialogTest : public ::DialogTest {
   std::string GetRenderedScreen() {
     std::string filtered = utils::FilterAnsiCommands(screen->ToString());
     return utils::FilterEmptySpaces(filtered);
+  }
+
+  //! Render dialog until it shows the given text: anything fetched in another thread is applied
+  //! when dialog receives the refresh event sent by it (received as an event from terminal)
+  std::string RenderUntil(const std::string& text) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    std::string rendered;
+
+    do {
+      dialog->OnEvent(ftxui::Event::Custom);
+
+      screen->Clear();
+      ftxui::Render(*screen, dialog->Render(size));
+      rendered = GetRenderedScreen();
+
+      if (rendered.find(text) != std::string::npos) break;
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    } while (std::chrono::steady_clock::now() < deadline);
+
+    return rendered;
+  }
+
+  //! Keep applying results from anything fetched in another thread for a while (e.g. something
+  //! fetched meanwhile, which is not shown)
+  void Settle() {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
+
+    while (std::chrono::steady_clock::now() < deadline) {
+      dialog->OnEvent(ftxui::Event::Custom);
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+  }
+
+  //! Render dialog once more (without waiting for anything)
+  std::string Render() {
+    screen->Clear();
+    ftxui::Render(*screen, dialog->Render(size));
+    return GetRenderedScreen();
+  }
+
+  //! Type text with one event for each character (even those with more than one byte)
+  void Type(const std::vector<std::string>& characters) {
+    for (const auto& character : characters) dialog->OnEvent(ftxui::Event::Character(character));
+  }
+
+  //! Create song streamed from YouTube, as listed from a playlist
+  static model::Song StreamSong(const std::string& title, const std::string& id,
+                                uint32_t duration = 0) {
+    return model::Song{
+        .title = title,
+        .duration = duration,
+        .stream_info = model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=" + id}};
   }
 
   //!< Screen dimension (already considering size restraints from dialog)
@@ -123,7 +178,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithCreate) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -181,7 +236,7 @@ TEST_F(PlaylistDialogTest, InitialRenderWithModify) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -251,7 +306,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -301,7 +356,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -363,7 +418,7 @@ TEST_F(PlaylistDialogTest, NavigateSearchAndCreatePlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -463,7 +518,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -526,7 +581,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndCreateNewPlaylistOnlyAfterValidName)
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -590,7 +645,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -662,7 +717,7 @@ TEST_F(PlaylistDialogTest, CancelRenamingAndRemoveOneSong) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -727,7 +782,7 @@ TEST_F(PlaylistDialogTest, AddThenRemoveSongFromExistentPlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -807,7 +862,7 @@ TEST_F(PlaylistDialogTest, SwitchMenusWithTab) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -1291,6 +1346,675 @@ TEST_F(PlaylistDialogTest, CannotImportPlaylistWithoutYtDlp) {
 
 /* ********************************************************************************************** */
 
+TEST_F(PlaylistDialogTest, SearchArtistAndAddReleasesOrTracks) {
+  // Tracks are listed by MusicBrainz, without any URL
+  auto track = [](const std::string& title, uint32_t duration) {
+    return model::Song{.title = title, .duration = duration};
+  };
+
+  std::vector<std::string> playlists;           // Playlists listed from YouTube
+  std::vector<std::vector<std::string>> found;  // Songs searched on YouTube
+
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [](const std::string& query, std::vector<model::Artist>& artists,
+             const std::atomic<bool>*) {
+            EXPECT_THAT(query, StrEq("sigur rós"));
+            artists = {
+                model::Artist{.id = "mb1", .name = "Sigur Rós", .type = "Group", .country = "IS"},
+                model::Artist{.id = "mb2", .name = "Sigur", .type = "Person", .country = "NO"},
+            };
+            return error::kSuccess;
+          },
+      .fetch_releases =
+          [](const std::string& artist_id, std::vector<model::ReleaseGroup>& releases,
+             const std::atomic<bool>*) {
+            EXPECT_THAT(artist_id, StrEq("mb1"));
+            releases = {
+                model::ReleaseGroup{.id = "rg1",
+                                    .title = "Ágætis byrjun",
+                                    .date = "1999-06-12",
+                                    .primary_type = "Album"},
+                model::ReleaseGroup{.id = "rg2",
+                                    .title = "Inni",
+                                    .date = "2011-11-07",
+                                    .primary_type = "Album",
+                                    .secondary_types = {"Live"}},
+                model::ReleaseGroup{
+                    .id = "rg3", .title = "Takk…", .date = "2005-09-12", .primary_type = "Album"},
+                model::ReleaseGroup{
+                    .id = "rg4", .title = "Blóðberg", .date = "2023", .primary_type = "Single"},
+            };
+            return error::kSuccess;
+          },
+      .fetch_tracks =
+          [&track](const std::string& id, std::vector<model::Song>& songs,
+                   const std::atomic<bool>*) {
+            songs = id == "rg1" ? std::vector{track("Svefn-g-englar", 604), track("Starálfur", 407)}
+                                : std::vector{track("Glósóli", 375), track("Hoppípolla", 268)};
+            return error::kSuccess;
+          },
+      .match_songs =
+          [&found](std::vector<model::Song>& songs, std::atomic<int>* progress,
+                   const std::atomic<bool>*) {
+            std::vector<std::string> titles;
+
+            // Only one of them is found on YouTube
+            for (auto& song : songs) {
+              EXPECT_THAT(song.artist, StrEq("Sigur Rós"));
+              titles.push_back(song.title);
+
+              if (song.title == "Glósóli") {
+                song.stream_info =
+                    model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=ccccccccccc"};
+              }
+
+              ++*progress;
+            }
+
+            found.push_back(titles);
+            return error::kSuccess;
+          },
+      .search_channels =
+          [](const std::string& query, std::vector<model::YoutubeChannel>& channels,
+             const std::atomic<bool>*) {
+            EXPECT_THAT(query, StrEq("Sigur Rós"));
+            channels = {
+                model::YoutubeChannel{.id = "UCfan", .name = "Sigur Rós Fans"},
+                model::YoutubeChannel{.id = "UCs1", .name = "Sigur Rós", .verified = true},
+            };
+            return error::kSuccess;
+          },
+      .fetch_channel_releases =
+          [](const std::string& channel_id, std::vector<model::YoutubeRelease>& releases,
+             const std::atomic<bool>*) {
+            EXPECT_THAT(channel_id, StrEq("UCs1"));
+            releases = {model::YoutubeRelease{.id = "OLAK1", .title = "Ágætis byrjun"}};
+            return error::kSuccess;
+          },
+  };
+
+  // Whole release from official channel of artist
+  auto fetch_playlist = [&playlists](const std::string& url, std::vector<model::Song>& songs,
+                                     const std::atomic<bool>*) {
+    playlists.push_back(url);
+    songs = {StreamSong("Sigur Rós - Svefn-g-englar", "aaaaaaaaaaa", 605),
+             StreamSong("Sigur Rós - Starálfur", "bbbbbbbbbbb", 407)};
+    return error::kSuccess;
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch_playlist,
+      search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  // Input takes a URL or the name of an artist
+  dialog->OnEvent(ftxui::Event::F2);
+
+  std::string rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("URL or artist name:"));
+  EXPECT_THAT(rendered, HasSubstr("Return: add/search"));
+
+  // Search for artist and list artists found (plus options to search YouTube instead)
+  Type({"s", "i", "g", "u", "r", " ", "r", "ó", "s"});
+  dialog->OnEvent(ftxui::Event::Return);
+
+  rendered = RenderUntil("Search YouTube channels");
+  EXPECT_THAT(rendered, HasSubstr("Artists for \"sigur rós\""));
+  EXPECT_THAT(rendered, HasSubstr("▶ Sigur Rós       Group · IS"));
+  EXPECT_THAT(rendered, HasSubstr("Sigur          Person · NO"));
+  EXPECT_THAT(rendered, HasSubstr("Search playlists for \"sig…"));
+
+  // Open artist to list its releases grouped by type, newest first (and only the main types)
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("Sigur Rós · 3 releases");
+  Settle();
+
+  EXPECT_THAT(rendered, HasSubstr("▶ ▾ Albums (2)"));
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Takk…         2005"));
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Ágætis byrjun 1999"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Singles (1)"));
+  EXPECT_THAT(rendered, HasSubstr("      [ ] Blóðberg      2023"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Inni")));
+  EXPECT_THAT(rendered, HasSubstr("a: all types"));
+  EXPECT_LT(rendered.find("Takk…"), rendered.find("Ágætis byrjun"));
+  EXPECT_LT(rendered.find("Ágætis byrjun"), rendered.find("Singles"));
+
+  // Show every type of release (in a group of its own), then only the main ones again
+  dialog->OnEvent(ftxui::Event::Character('a'));
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("Sigur Rós · 4 releases"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Other (1)"));
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Inni     Live 2011"));
+  EXPECT_THAT(rendered, HasSubstr("a: main types only"));
+
+  dialog->OnEvent(ftxui::Event::Character('a'));
+  EXPECT_THAT(Render(), Not(HasSubstr("Inni")));
+
+  // Add whole release, which is found on official channel of artist (no song is searched)
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+
+  rendered = RenderUntil("[x] Ágætis byrjun");
+  EXPECT_THAT(rendered, HasSubstr("Sigur Rós - Svefn-g-en…"));
+  EXPECT_THAT(rendered, HasSubstr("Sigur Rós - Starálfur"));
+  EXPECT_THAT(playlists, ElementsAre("https://www.youtube.com/playlist?list=OLAK1"));
+  EXPECT_THAT(found, IsEmpty());
+
+  // Open another release (tracks are listed by MusicBrainz) and add only one of its songs, which
+  // is searched on YouTube
+  dialog->OnEvent(ftxui::Event::Character('k'));
+  dialog->OnEvent(ftxui::Event::Character('l'));
+  RenderUntil("Hoppípolla");
+
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  RenderUntil("[x] Glósóli");
+
+  // Song not found on YouTube cannot be added
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  rendered = RenderUntil("[!] Hoppípolla");
+  EXPECT_THAT(rendered, HasSubstr("✗ Not found on YouTube"));
+
+  std::string expected = R"(
+╔═════════════════════════════════════════════════════════════════════════ X ╗
+║                                                                            ║
+║                              Create Playlist                               ║
+║                                                                            ║
+║      ╭ F1:files  F2:youtube ────────╮╭ <unnamed> ───────────────────╮      ║
+║      │                              ││▶ [yt] Sigur Rós - Svefn-g-en…│      ║
+║      │ Sigur Rós · 3 releases       ││  [yt] Sigur Rós - Starálfur  │      ║
+║      │                              ││  [yt] Sigur Rós - Glósóli    │      ║
+║      │   ▾ Albums (2)               ││                              │      ║
+║      │     ▾ [x] Takk…         2005 ││                              │      ║
+║      │         [x] Glósóli     6:15 ││                              │      ║
+║      │ ▶       [!] Hoppípolla  4:28 ││                              │      ║
+║      │     ▸ [x] Ágætis byrjun 1999 ││                              │      ║
+║      │   ▾ Singles (1)              ││                              │      ║
+║      │       [ ] Blóðberg      2023 ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │                              ││                              │      ║
+║      │ ✗ Not found on YouTube       ││                              │      ║
+║      │                              ││                              │      ║
+║      │ Space: add/remove            ││                              │      ║
+║      │ a: all types                 ││                              │      ║
+║      │ Return: open · Escape: back  ││                              │      ║
+║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
+║                            Name it to save (r)                             ║
+║                              ┌──────────────┐                              ║
+║                              │     Save     │                              ║
+║                              └──────────────┘                              ║
+╚════════════════════════════════════════════════════════════════════════════╝
+)";
+
+  EXPECT_THAT(rendered, StrEq(expected));
+  EXPECT_THAT(found, ElementsAre(ElementsAre("Glósóli"), ElementsAre("Hoppípolla")));
+
+  // Release with every song found in playlist is removed as a whole (closing it from one of its
+  // tracks), and added again without searching anything
+  dialog->OnEvent(ftxui::Event::Character('h'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶   ▸ [ ] Takk…"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Glósóli")));
+
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  EXPECT_THAT(Render(), HasSubstr("▶   ▸ [x] Takk…"));
+  EXPECT_THAT(found.size(), Eq(2));
+  EXPECT_THAT(playlists.size(), Eq(1));
+
+  // Go back to artists (with the same one selected), then to input
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_THAT(Render(), HasSubstr("▶ Sigur Rós       Group · IS"));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_THAT(Render(), HasSubstr("URL or artist name:"));
+
+  // Save playlist with songs added (in the same order)
+  EXPECT_CALL(*dispatcher,
+              SendEvent(Field(&interface::CustomEvent::id,
+                              interface::CustomEvent::Identifier::SavePlaylistsToFile)))
+      .WillOnce(Invoke([](const interface::CustomEvent event) {
+        auto content = event.GetContent<model::Playlist>();
+        ASSERT_THAT(content.songs.size(), Eq(3));
+        EXPECT_THAT(content.songs[0].title, StrEq("Svefn-g-englar"));
+        EXPECT_THAT(content.songs[0].artist, StrEq("Sigur Rós"));
+        EXPECT_THAT(content.songs[0].stream_info->base_url,
+                    StrEq("https://www.youtube.com/watch?v=aaaaaaaaaaa"));
+        EXPECT_THAT(content.songs[2].title, StrEq("Glósóli"));
+        EXPECT_THAT(content.songs[2].stream_info->base_url,
+                    StrEq("https://www.youtube.com/watch?v=ccccccccccc"));
+      }));
+
+  dialog->OnEvent(ftxui::Event::Tab);
+  utils::QueueCharacterEvents(*dialog, "rsr");
+  dialog->OnEvent(ftxui::Event::Return);
+  dialog->OnEvent(ftxui::Event::Character('s'));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, GroupReleasesAndAddSingleAsSong) {
+  std::vector<std::vector<std::string>> found;  // Songs searched on YouTube
+
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [](const std::string&, std::vector<model::Artist>& artists, const std::atomic<bool>*) {
+            artists = {model::Artist{.id = "mb1", .name = "Björk"}};
+            return error::kSuccess;
+          },
+      .fetch_releases =
+          [](const std::string&, std::vector<model::ReleaseGroup>& releases,
+             const std::atomic<bool>*) {
+            releases = {
+                model::ReleaseGroup{
+                    .id = "s1", .title = "Joga", .date = "1997-09-15", .primary_type = "Single"},
+                model::ReleaseGroup{
+                    .id = "e1", .title = "Cocoon", .date = "2002", .primary_type = "EP"},
+                model::ReleaseGroup{
+                    .id = "a1", .title = "Homogenic", .date = "1997", .primary_type = "Album"},
+                model::ReleaseGroup{.id = "s2",
+                                    .title = "Bachelorette",
+                                    .date = "1997-12-08",
+                                    .primary_type = "Single"},
+            };
+            return error::kSuccess;
+          },
+      .fetch_tracks =
+          [](const std::string& id, std::vector<model::Song>& songs, const std::atomic<bool>*) {
+            // Song from single is not always its first track
+            if (id == "s1") {
+              songs = {model::Song{.title = "Joga (Remix)"}, model::Song{.title = "Joga"}};
+            } else {
+              songs = {model::Song{.title = "Bachelorette"},
+                       model::Song{.title = "Bachelorette (Live)"}};
+            }
+            return error::kSuccess;
+          },
+      .match_songs =
+          [&found](std::vector<model::Song>& songs, std::atomic<int>*, const std::atomic<bool>*) {
+            std::vector<std::string> titles;
+
+            for (auto& song : songs) {
+              titles.push_back(song.title);
+              song.stream_info =
+                  model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=aaaaaaaaaaa"};
+            }
+
+            found.push_back(titles);
+            return error::kSuccess;
+          },
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, nullptr, search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "bjork");
+  dialog->OnEvent(ftxui::Event::Return);
+  RenderUntil("Search YouTube channels");
+
+  // Releases are grouped by type (albums, EPs, then singles), each group newest first
+  dialog->OnEvent(ftxui::Event::Return);
+  std::string rendered = RenderUntil("Björk · 4 releases");
+  Settle();
+
+  EXPECT_THAT(rendered, HasSubstr("▶ ▾ Albums (1)"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ EPs (1)"));
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Singles (2)"));
+  EXPECT_LT(rendered.find("Homogenic"), rendered.find("EPs"));
+  EXPECT_LT(rendered.find("Cocoon"), rendered.find("Singles"));
+  EXPECT_LT(rendered.find("Bachelorette"), rendered.find("Joga"));
+
+  // Single has no arrow, as it is added as a song
+  EXPECT_THAT(rendered, HasSubstr("    ▸ [ ] Homogenic"));
+  EXPECT_THAT(rendered, HasSubstr("      [ ] Joga"));
+
+  // Group has nothing to add, but it can be closed and opened again
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶ ▸ Albums (1)"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Homogenic")));
+
+  dialog->OnEvent(ftxui::Event::Character('l'));
+  EXPECT_THAT(Render(), HasSubstr("▶ ▾ Albums (1)"));
+
+  // Closing a release that is not open closes its group instead
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('h'));
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶ ▸ Albums (1)"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Homogenic")));
+
+  // Single is not opened, and only its song is added (with the same title as the single)
+  for (int i = 0; i < 5; i++) dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('l'));
+  EXPECT_THAT(Render(), HasSubstr("▶     [ ] Joga"));
+
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("[x] Joga");
+  EXPECT_THAT(rendered, HasSubstr("[yt] Björk - Joga"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Remix")));
+  EXPECT_THAT(found, ElementsAre(ElementsAre("Joga")));
+
+  // And removed again (without searching it)
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("▶     [ ] Joga"));
+  EXPECT_THAT(rendered, Not(HasSubstr("[yt] Björk - Joga")));
+  EXPECT_THAT(found.size(), Eq(1));
+
+  // Space also adds it (here, the song is the first track)
+  dialog->OnEvent(ftxui::Event::Character('k'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  rendered = RenderUntil("[x] Bachelorette");
+  EXPECT_THAT(rendered, Not(HasSubstr("Live")));
+  EXPECT_THAT(found, ElementsAre(ElementsAre("Joga"), ElementsAre("Bachelorette")));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ShowWhyReleaseCannotBeAdded) {
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [](const std::string&, std::vector<model::Artist>& artists, const std::atomic<bool>*) {
+            artists = {model::Artist{.id = "mb1", .name = "Cartola"}};
+            return error::kSuccess;
+          },
+      .fetch_releases =
+          [](const std::string&, std::vector<model::ReleaseGroup>& releases,
+             const std::atomic<bool>*) {
+            releases = {
+                model::ReleaseGroup{.id = "busy", .title = "Cartola", .primary_type = "Album"},
+                model::ReleaseGroup{.id = "rg2", .title = "Verde que te quero rosa"},
+            };
+            return error::kSuccess;
+          },
+      .fetch_tracks =
+          [](const std::string& id, std::vector<model::Song>& songs, const std::atomic<bool>*) {
+            if (id == "busy") return error::kUrlUnavailable;
+
+            songs = {model::Song{.title = "Autonomia"}, model::Song{.title = "Desfigurado"}};
+            return error::kSuccess;
+          },
+      .match_songs =
+          [](std::vector<model::Song>& songs, std::atomic<int>*, const std::atomic<bool>*) {
+            // First song is found, then YouTube refuses to search anything else
+            songs.front().stream_info =
+                model::StreamInfo{.base_url = "https://www.youtube.com/watch?v=aaaaaaaaaaa"};
+            return error::kStreamBlocked;
+          },
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, nullptr, search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "cartola");
+  dialog->OnEvent(ftxui::Event::Return);
+  RenderUntil("Search YouTube channels");
+
+  // Release without date or type (album, EP or single) is the last one, and only shown with all
+  dialog->OnEvent(ftxui::Event::Return);
+  std::string rendered = RenderUntil("Cartola · 1 release");
+  EXPECT_THAT(rendered, Not(HasSubstr("Verde")));
+
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  rendered = RenderUntil("✗ MusicBrainz is busy");
+  EXPECT_THAT(rendered, HasSubstr("▶   ▸ [ ] Cartola"));
+
+  // Songs found before YouTube refuses requests are still added
+  dialog->OnEvent(ftxui::Event::Character('a'));
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Character(' '));
+  rendered = RenderUntil("✗ Refused by YouTube");
+  EXPECT_THAT(rendered, HasSubstr("  ▾ Other (1)"));
+  EXPECT_THAT(rendered, HasSubstr("▶   ▸ [~] Verde que t… Other"));
+  EXPECT_THAT(rendered, HasSubstr("[yt] Cartola - Autonomia"));
+
+  // Song not searched is not taken as missing
+  dialog->OnEvent(ftxui::Event::Character('l'));
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("[x] Autonomia"));
+  EXPECT_THAT(rendered, HasSubstr("[ ] Desfigurado"));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, SearchYoutubeWhenArtistIsNotFound) {
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [](const std::string&, std::vector<model::Artist>& artists, const std::atomic<bool>*) {
+            artists.clear();
+            return error::kSuccess;
+          },
+      .search_channels =
+          [](const std::string&, std::vector<model::YoutubeChannel>& channels,
+             const std::atomic<bool>*) {
+            channels = {
+                model::YoutubeChannel{.id = "UCgame", .name = "Cartola", .verified = true},
+                model::YoutubeChannel{.id = "UCfail", .name = "Cartola Oficial"},
+            };
+            return error::kSuccess;
+          },
+      .fetch_channel_releases =
+          [](const std::string& channel_id, std::vector<model::YoutubeRelease>& releases,
+             const std::atomic<bool>*) {
+            releases.clear();
+            return channel_id == "UCfail" ? error::kStreamBlocked : error::kSuccess;
+          },
+      .search_playlists =
+          [](const std::string& query, std::vector<model::YoutubeRelease>& playlists,
+             const std::atomic<bool>*) {
+            EXPECT_THAT(query, StrEq("cartola"));
+            playlists = {
+                model::YoutubeRelease{.id = "PL1", .title = "Cartola 1976", .uploader = "Samba"},
+                model::YoutubeRelease{
+                    .id = "PL2", .title = "Best of", .uploader = "Someone with a long name"},
+            };
+            return error::kSuccess;
+          },
+  };
+
+  // Playlist created by anyone has songs from different artists
+  auto fetch_playlist = [](const std::string&, std::vector<model::Song>& songs,
+                           const std::atomic<bool>*) {
+    auto song = StreamSong("O Mundo É Um Moinho", "eeeeeeeeeee", 245);
+    song.artist = "Cartola";
+    songs = {song};
+    return error::kSuccess;
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, fetch_playlist,
+      search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  // Artist is not known by MusicBrainz, but YouTube may still be searched
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "  cartola ");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  std::string rendered = RenderUntil("✗ No artists found");
+  EXPECT_THAT(rendered, HasSubstr("▶ Search YouTube channels"));
+  EXPECT_THAT(rendered, HasSubstr("Search playlists for \"car…"));
+
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("Cartola Oficial");
+  EXPECT_THAT(rendered, HasSubstr("Channels for \"cartola\""));
+
+  // Channel without releases (or that cannot be fetched) keeps channels listed, to pick another
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("✗ No albums on this channel");
+  EXPECT_THAT(rendered, HasSubstr("Channels for \"cartola\""));
+
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("✗ Refused by YouTube");
+  EXPECT_THAT(rendered, HasSubstr("▶ Cartola Oficial"));
+
+  // Search playlists instead, which tell who created them
+  dialog->OnEvent(ftxui::Event::Character('j'));
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("Playlists for \"cartola\"");
+  EXPECT_THAT(rendered, HasSubstr("▶ ▸ [ ] Cartola 1976   Samba"));
+  EXPECT_THAT(rendered, HasSubstr("▸ [ ] Best of Someone wit…"));
+  EXPECT_THAT(rendered, Not(HasSubstr("✗")));
+
+  // Songs from playlist also show their artist
+  dialog->OnEvent(ftxui::Event::Return);
+  rendered = RenderUntil("Moinho");
+  EXPECT_THAT(rendered, HasSubstr("[ ] Cartola - O … 4:05"));
+
+  // Go back to channels (with option to search playlists still selected), then to artists (with
+  // option to search channels selected) and to input
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_THAT(Render(), HasSubstr("▶ Search playlists for \"car…"));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_THAT(Render(), HasSubstr("▶ Search YouTube channels"));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("URL or artist name:"));
+  EXPECT_THAT(rendered, HasSubstr("  cartola"));
+  EXPECT_TRUE(dialog->IsVisible());
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, ShowWhyArtistCannotBeSearched) {
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [](const std::string& query, std::vector<model::Artist>&, const std::atomic<bool>*) {
+            return query == "busy" ? error::kUrlUnavailable : error::kUnknownError;
+          },
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, nullptr, search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  // Without network, YouTube may still be searched (as it does not depend on MusicBrainz)
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "offline");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  std::string rendered = RenderUntil("✗ Cannot reach MusicBrainz");
+  EXPECT_THAT(rendered, HasSubstr("Artists for \"offline\""));
+  EXPECT_THAT(rendered, HasSubstr("▶ Search YouTube channels"));
+
+  dialog->OnEvent(ftxui::Event::Escape);
+  dialog->OnEvent(ftxui::Event::Escape);
+  utils::QueueCharacterEvents(*dialog, "busy");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  RenderUntil("✗ MusicBrainz is busy");
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, CancelArtistSearch) {
+  std::atomic<int> started = 0;
+  std::atomic<int> canceled = 0;
+
+  // Search runs until it gets canceled
+  interface::ArtistBrowser::FetchCallbacks search_cbs{
+      .search_artists =
+          [&](const std::string&, std::vector<model::Artist>&, const std::atomic<bool>* cancel) {
+            started++;
+            while (!*cancel) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+
+            canceled++;
+            return error::kUnknownError;
+          },
+  };
+
+  dialog = std::make_unique<interface::PlaylistDialog>(
+      dispatcher, contains_audio_cb.AsStdFunction(), LISTDIR_PATH, nullptr, nullptr, search_cbs);
+
+  EXPECT_CALL(*dispatcher, SendEvent(_)).Times(::testing::AnyNumber());
+
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "radiohead");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  std::string rendered = RenderUntil("Searching artists");
+  EXPECT_THAT(rendered, HasSubstr("Artists for \"radiohead\""));
+
+  // Going back cancels search (and waits for it), keeping the text typed
+  dialog->OnEvent(ftxui::Event::Escape);
+  EXPECT_THAT(started.load(), Eq(1));
+  EXPECT_THAT(canceled.load(), Eq(1));
+
+  rendered = Render();
+  EXPECT_THAT(rendered, HasSubstr("radiohead"));
+  EXPECT_THAT(rendered, Not(HasSubstr("Searching")));
+
+  // Closing dialog also cancels it
+  dialog->OnEvent(ftxui::Event::Return);
+  RenderUntil("Searching artists");
+
+  dialog->Close();
+  EXPECT_THAT(started.load(), Eq(2));
+  EXPECT_THAT(canceled.load(), Eq(2));
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(PlaylistDialogTest, TextIsNotSearchedWithoutArtistSearch) {
+  model::PlaylistOperation operation{.action = model::PlaylistOperation::Operation::Create};
+  GetPlaylistDialog()->Open(operation);
+
+  // Only URL can be added, so anything else is rejected
+  dialog->OnEvent(ftxui::Event::F2);
+  utils::QueueCharacterEvents(*dialog, "radiohead");
+  dialog->OnEvent(ftxui::Event::Return);
+
+  ftxui::Render(*screen, dialog->Render(size));
+  std::string rendered = GetRenderedScreen();
+  EXPECT_THAT(rendered, HasSubstr("Paste a YouTube URL:"));
+  EXPECT_THAT(rendered, HasSubstr("Return: add"));
+  EXPECT_THAT(rendered, HasSubstr("✗ Not a YouTube URL"));
+}
+
+/* ********************************************************************************************** */
+
 TEST_F(PlaylistDialogTest, RejectInvalidAndDuplicatedUrl) {
   model::PlaylistOperation operation{
       .action = model::PlaylistOperation::Operation::Modify,
@@ -1678,7 +2402,7 @@ TEST_F(PlaylistDialogTest, RenameExistentPlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -1748,7 +2472,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -1807,7 +2531,7 @@ TEST_F(PlaylistDialogTest, AttemptToCreateEmptyPlaylist) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -1880,7 +2604,7 @@ TEST_F(PlaylistDialogTest, RenameWithABiggerName) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -1937,7 +2661,7 @@ TEST_F(PlaylistDialogTest, SendNonEmptyPlaylistWithCreate) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -1988,7 +2712,7 @@ TEST_F(PlaylistDialogTest, SendEmptyPlaylistWithModify) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║
@@ -2077,7 +2801,7 @@ TEST_F(PlaylistDialogTest, RemoveLastSongAndSave) {
 ║      │  mock/                       ││                              │      ║
 ║      │  util_argparser.cc           ││                              │      ║
 ║      │  util_file_handler.cc        ││                              │      ║
-║      │                              ││                              │      ║
+║      │  web_musicbrainz.cc          ││                              │      ║
 ║      │                              ││                              │      ║
 ║      │                              ││                              │      ║
 ║      ╰──────────────────────────────╯╰──────────────────────────────╯      ║

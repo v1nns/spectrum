@@ -4004,9 +4004,12 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   // Song lyrics are also searched for each song
   EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
 
-  // Song from file played until its end
-  Process(interface::CustomEvent::UpdateSongInfo(model::Song{
-      .filepath = "/music/song.mp3", .artist = "Artist", .title = "Song", .duration = 120}));
+  // Song from file (and from a playlist) played until its end
+  Process(interface::CustomEvent::UpdateSongInfo(model::Song{.filepath = "/music/song.mp3",
+                                                             .artist = "Artist",
+                                                             .title = "Song",
+                                                             .playlist = "Chill",
+                                                             .duration = 120}));
   ListenToSong(0, 1000);
 
   // Seek and pause are not listened to
@@ -4043,6 +4046,14 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
     EXPECT_EQ(stats.local_ms, 1100);
     EXPECT_EQ(stats.stream_ms, 500);
     EXPECT_EQ(stats.stream_bytes, 4096);
+
+    // Song from URL was skipped right after starting (unlike the one from file)
+    EXPECT_EQ(stats.songs.at("https://www.youtube.com/watch?v=id").skips, 1);
+    EXPECT_EQ(stats.songs.at("/music/song.mp3").skips, 0);
+
+    // Song from URL is not from any playlist
+    EXPECT_EQ(stats.playlists, (std::map<std::string, model::ListeningStats::Counts>{
+                                   {"Chill", {.listened_ms = 1100, .plays = 1}}}));
   }
 
   EXPECT_EQ(stats_file, GetStats());
@@ -4063,12 +4074,16 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
     rendered = RenderScreen();
   }
 
-  EXPECT_THAT(rendered, HasSubstr("1. Artist"));
-  EXPECT_THAT(rendered, HasSubstr("1. Song · Artist"));
+  // Each entry shows times played and time listened
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Artist"), HasSubstr("1×        1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Song · Artist"), HasSubstr("1×        1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "2. Mix"), HasSubstr("0×        0 s"));
   EXPECT_THAT(rendered, Not(HasSubstr("all time")));
 
-  // Scrolled until last row from content, right above block border
-  EXPECT_THAT(rendered, HasSubstr(RenderedRowWith(rendered, "2. Mix") + "\n╰"));
+  // Scrolled until last row from content (playlists, below artists), right above block border
+  EXPECT_THAT(rendered, HasSubstr("Top playlists"));
+  EXPECT_THAT(rendered, HasSubstr(RenderedRowWith(rendered, "1. Chill") + "\n╰"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Chill"), HasSubstr("1×        1 s"));
 
   // And back to the top
   EXPECT_TRUE(block->OnEvent(ftxui::Event::ArrowUp));
@@ -4158,11 +4173,49 @@ TEST_F(MainContentTest, CountSongAsPlayedAfterListeningForAWhile) {
   EXPECT_EQ(GetStats().songs_played, 1);
   EXPECT_EQ(GetStats().songs.at("/music/long.mp3").plays, 1);
 
-  // And it may still be skipped afterwards
+  // And it may still be stopped afterwards (but it is not skipped for top lists, as it was
+  // listened to for a while)
   Process(interface::CustomEvent::ClearSongInfo());
   EXPECT_EQ(GetStats().songs_played, 1);
   EXPECT_EQ(GetStats().songs_skipped, 1);
   EXPECT_EQ(GetStats().songs_finished, 0);
+  EXPECT_EQ(GetStats().songs.at("/music/long.mp3").skips, 0);
+}
+
+/* ********************************************************************************************** */
+
+TEST_F(MainContentTest, ShowTopSkippedSongs) {
+  EXPECT_CALL(*GetFinder(), Search(_, _, _)).WillRepeatedly(Return(MakeSearchResult({})));
+
+  auto skip = [this](const std::string& title) {
+    const model::Song song{.filepath = "/music/" + title + ".mp3",
+                           .artist = "Artist",
+                           .title = title,
+                           .duration = 120};
+
+    Process(interface::CustomEvent::UpdateSongInfo(song));
+    ListenToSong(0, 500);
+    Process(interface::CustomEvent::ClearSongInfo());
+  };
+
+  // Song skipped only once is not shown yet
+  skip("Once");
+  skip("Often");
+
+  block->OnEvent(ftxui::Event::Character('9'));
+  std::string rendered = RenderScreen();
+  while (block->OnEvent(ftxui::Event::Character('j'))) rendered = RenderScreen();
+
+  EXPECT_THAT(rendered, HasSubstr("Top skipped"));
+  EXPECT_THAT(rendered, HasSubstr("No song skipped 2 times yet"));
+
+  skip("Often");
+  rendered = RenderScreen();
+
+  // Only the song skipped often enough is shown (below top songs, where both are listed)
+  EXPECT_THAT(RenderedRowWith(rendered, "2×    skipped"), HasSubstr("1. Often · Artist"));
+  EXPECT_THAT(rendered, Not(HasSubstr("1×    skipped")));
+  EXPECT_THAT(rendered, Not(HasSubstr("No song skipped")));
 }
 
 /* ********************************************************************************************** */
@@ -4260,9 +4313,16 @@ TEST_F(MainContentTest, ToggleListeningStatsScope) {
   std::string rendered = RenderScreen();
   EXPECT_THAT(rendered, HasSubstr("Time listened   2 h"));
 
-  // Saved before hours and streak were counted
+  // Saved before hours, streak and playlists were counted
   EXPECT_THAT(rendered, HasSubstr("Counted from now on"));
   EXPECT_THAT(rendered, Not(HasSubstr("Streak")));
+
+  while (block->OnEvent(ftxui::Event::Character('j'))) {
+    rendered = RenderScreen();
+  }
+
+  EXPECT_THAT(rendered, HasSubstr("No playlist counted yet"));
+  while (block->OnEvent(ftxui::Event::Character('k'))) RenderScreen();
 
   // Nothing was listened to in this session
   block->OnEvent(ftxui::Event::Character('a'));

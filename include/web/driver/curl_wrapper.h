@@ -43,6 +43,13 @@ class CURLWrapper : public web::UrlFetcher {
 
  public:
   /**
+   * @brief Construct a new CURLWrapper object
+   * @param user_agent User-Agent sent by every request (as default, the one from a browser)
+   */
+  explicit CURLWrapper(const std::string& user_agent = std::string{kUserAgent})
+      : user_agent_{user_agent} {}
+
+  /**
    * @brief Fetch content from the given URL
    * @param url Endpoint address
    * @param output Output from fetch (out)
@@ -71,6 +78,8 @@ class CURLWrapper : public web::UrlFetcher {
 
   //! Smart pointer to manage list of HTTP headers
   using CURLHeaderGuard = std::unique_ptr<curl_slist, decltype(&curl_slist_free_all)>;
+
+  std::string user_agent_;  //!< User-Agent sent by every request
 };
 
 }  // namespace driver
