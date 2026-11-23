@@ -44,7 +44,7 @@ class ListeningStatistics : public TabItem {
 
   static constexpr int kFieldColumns = 16;  //!< Columns for the name of each stat
   static constexpr int kPlaysColumns = 5;   //!< Columns for times played on top lists
-  static constexpr int kTimeColumns = 11;   //!< Columns for time listened on top lists
+  static constexpr int kTimeColumns = 12;   //!< Columns for time listened on top lists
   static constexpr int kColumnGap = 3;      //!< Columns between both top lists (and other columns)
   static constexpr int kHourLabelStep = 6;  //!< Hours between each label below hours listened
 

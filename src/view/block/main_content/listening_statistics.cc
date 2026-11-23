@@ -513,7 +513,7 @@ ftxui::Element ListeningStatistics::DrawTopLists(const model::ListeningStats& st
         ftxui::text(std::to_string(index + 1) + ". ") | ftxui::color(theme.field),
         ellipsized_text(name, 0) | ftxui::xflex | ftxui::color(theme.value),
         ftxui::text(std::to_string(times) + "×") | ftxui::align_right |
-            ftxui::size(WIDTH, EQUAL, kPlaysColumns) | ftxui::color(theme.field),
+            ftxui::size(WIDTH, EQUAL, kPlaysColumns) | ftxui::color(theme.artist),
         ftxui::text(after) | ftxui::align_right | ftxui::size(WIDTH, EQUAL, kTimeColumns) |
             ftxui::color(theme.field),
     });

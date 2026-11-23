@@ -4075,15 +4075,15 @@ TEST_F(MainContentTest, CountListeningStatsWhileOtherTabIsActive) {
   }
 
   // Each entry shows times played and time listened
-  EXPECT_THAT(RenderedRowWith(rendered, "1. Artist"), HasSubstr("1×        1 s"));
-  EXPECT_THAT(RenderedRowWith(rendered, "1. Song · Artist"), HasSubstr("1×        1 s"));
-  EXPECT_THAT(RenderedRowWith(rendered, "2. Mix"), HasSubstr("0×        0 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Artist"), HasSubstr("1×         1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Song · Artist"), HasSubstr("1×         1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "2. Mix"), HasSubstr("0×         0 s"));
   EXPECT_THAT(rendered, Not(HasSubstr("all time")));
 
   // Scrolled until last row from content (playlists, below artists), right above block border
   EXPECT_THAT(rendered, HasSubstr("Top playlists"));
   EXPECT_THAT(rendered, HasSubstr(RenderedRowWith(rendered, "1. Chill") + "\n╰"));
-  EXPECT_THAT(RenderedRowWith(rendered, "1. Chill"), HasSubstr("1×        1 s"));
+  EXPECT_THAT(RenderedRowWith(rendered, "1. Chill"), HasSubstr("1×         1 s"));
 
   // And back to the top
   EXPECT_TRUE(block->OnEvent(ftxui::Event::ArrowUp));
@@ -4213,8 +4213,8 @@ TEST_F(MainContentTest, ShowTopSkippedSongs) {
   rendered = RenderScreen();
 
   // Only the song skipped often enough is shown (below top songs, where both are listed)
-  EXPECT_THAT(RenderedRowWith(rendered, "2×    skipped"), HasSubstr("1. Often · Artist"));
-  EXPECT_THAT(rendered, Not(HasSubstr("1×    skipped")));
+  EXPECT_THAT(RenderedRowWith(rendered, "2×     skipped"), HasSubstr("1. Often · Artist"));
+  EXPECT_THAT(rendered, Not(HasSubstr("1×     skipped")));
   EXPECT_THAT(rendered, Not(HasSubstr("No song skipped")));
 }
 
